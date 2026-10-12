@@ -16,8 +16,8 @@ Active task: none
 
 ## Следующие шаги
 
-1. Зафиксировать готовый пакет штатным skill checkpoint.mjs и --push в origin/main с реальными planning checks и явными публичными путями. Не включать BRIEF/TESTING/runtime/.env. До вызова индекс пуст, writers закончили работу.
-2. Предъявить пользователю PLAN-HUMAN, технический PLAN, PROJECT/DESIGN и краткую структуру; ждать явного утверждения именно этого полного пакета.
+1. Готовый пакет опубликован штатным checkpoint: fb41e91ef7b0c4aed25e5f388b3ac09448ac0a01, push в origin/main успешен. BRIEF/TESTING/runtime/.env исключены. Уточнение этого курсора также фиксируется штатным checkpoint.
+2. Предъявить пользователю PLAN-HUMAN, технический PLAN, PROJECT/DESIGN и краткую структуру; ждать явного утверждения именно пакета fb41e91. Изменение только курсора STATE не меняет его продуктовый объём.
 3. На утверждение сохранить дословный ответ в локальном BRIEF, approved plan commit/fingerprint в STATE, Approval=approved. Прочитать flow/03-build, delegation и04-testing, назначить01.1. Все workers получают полный BRIEF и оригинальные relevant TESTING/comments, не короткий пересказ.
 4. Пока утверждения нет, не выполнять live AI, scaffold/implementation assignments или deploy продукта.
 
@@ -29,6 +29,7 @@ Active task: none
 - DESIGN contrast рассчитан, SVG Tirlik XML корректен. Реальный шрифт и UI ещё не реализованы/не проверены. Старый собственный Qorap sketch сохранён локально в runtime как superseded, не в публичной айдентике.
 - .env не читался/не печатался, tracked secrets отсутствуют. Ключ готов по сообщению пользователя; live API вызовов ещё не было.
 - 6ccc38f служебный исходный коммит (.gitignore/AGENTS.md) выполнен обычным Git до уточнения пользователя. История не переписывается; дальнейшие commits/pushes только штатным checkpoint.
+- fb41e91: docs: publish reviewed Tirlik plan awaiting approval. Штатный checkpoint выполнил check-plan, git diff --check и planning/privacy hygiene, все успешно; commit создан и push подтверждён. В нём22 публичных файла, нет runtime/BRIEF/TESTING/env. Это плановая поставка, не реализованный продукт.
 - Remote https://github.com/DarinaX2005X/digital-taraz-hackhathon.git, branch main, upstream config origin/refs/heads/main проверен. Plan checkpoint имеет реальный validation contract в ignored runtime: check-plan, git diff --check, privacy/secret-path/approval hygiene; application tests неприменимы до реализации.
 - Vercel CLI есть; account/service permissions, тарифные лимиты, Neon/Blob/Workflow/SMTP ещё не доказаны и вынесены в ранние задачи.
 - TESTING прочитан целиком, пользовательских findings пока нет. UI/browser verification не выполнялась, ею владеет пользователь.
