@@ -1,58 +1,53 @@
 # Состояние проекта
-Phase: awaiting-approval
+Phase: discovery
 Approval: pending
 Active stage: none
 Active task: none
 
 ## Сейчас
 
-2026-10-12, Asia/Qyzylorda. Полный план Tirlik v3 готов к предъявлению: PROJECT, DESIGN, PLAN, PLAN-HUMAN, REQUIREMENTS и 12 stage-файлов. Концепция согласована ранее, но отдельного утверждения полного пакета ещё нет. Разработка/scaffold/dependencies не начаты. Сообщения о ключе, модели, Git и слове «продолжай» относятся к текущему планированию и не отменяют установленную границу утверждения.
+2026-10-13, Asia/Qyzylorda. После существенного нового сообщения пользователя v3 снят с исполнения: ошибочно строился вокруг прихода покупателей на Tirlik и приёма заказов. Сообщение дословно сохранено в приватном BRIEF. Подготовлены PROJECT/DESIGN v4 и простое объяснение в PLAN-HUMAN: внутренняя AI-среда связанных расчётов, прогнозов, документов, креативов и операционных материалов с прямыми редакторами, undo/redo, версиями и экспортом. Это предложение, не утверждённая концепция.
 
-37 задач, 92 содержательных checkpoint, 89 accepted требований. Структурная проверка пройдена. Единственный независимый plan reviewer прочитал весь оригинальный BRIEF с поздними дословными поправками, спецификацию/дизайн и все задачи. Четыре существенных findings исправлены до предъявления:
-- P1: неподтверждённый контакт не резервирует ресурс; email proof, phone manual verification, TTL/rate/quantity/access recovery. PROJECT C5, задачи05.2/05.3.
-- P2: coordinator и фактический person-resource разделены; canonical membership mapping и atomic reservation exchange. C5,02.3,05.3.
-- P2: workspace event cursor/polling/catch-up/resetRequired отдельно от AgentRun; проверки независимых sessions. C6,01.1,07.2.
-- P2: единая node scripts/dev/start.mjs готовит install/Compose/migrations/demo и запускает сервис; clean/repeat proof. C2,01.1,10.2.
+Старые 12 stage-файлов удалены из текущего дерева; полный пакет v3 остаётся в Git fb41e91/d4dfe34. PLAN объясняет пересборку, не содержит готового нового назначения. Все прежние R01-R89 сохранены, добавлены требования последнего сообщения; новые task mappings появятся вместе с полным планом. Разработки/scaffold/dependencies/live AI/deploy нет.
 
 ## Следующие шаги
 
-1. Готовый пакет опубликован штатным checkpoint: fb41e91ef7b0c4aed25e5f388b3ac09448ac0a01, push в origin/main успешен. BRIEF/TESTING/runtime/.env исключены. Уточнение этого курсора также фиксируется штатным checkpoint.
-2. Предъявить пользователю PLAN-HUMAN, технический PLAN, PROJECT/DESIGN и краткую структуру; ждать явного утверждения именно пакета fb41e91. Изменение только курсора STATE не меняет его продуктовый объём.
-3. На утверждение сохранить дословный ответ в локальном BRIEF, approved plan commit/fingerprint в STATE, Approval=approved. Прочитать flow/03-build, delegation и04-testing, назначить01.1. Все workers получают полный BRIEF и оригинальные relevant TESTING/comments, не короткий пересказ.
-4. Пока утверждения нет, не выполнять live AI, scaffold/implementation assignments или deploy продукта.
+1. Проверить согласованность proposal-документов, сохранение источника/требований и приватность; зафиксировать scoped checkpoint через штатный helper с --push в проверенный origin/main.
+2. Предъявить пользователю новое содержательное ядро, особенно отсутствие клиентского flow, реальные редакторы, связанные изменения и повторную работу. Дождаться обсуждения/согласования концепции, не выдать текущий перечень направлений за готовый план.
+3. Затем подготовить новый полный PLAN/stages/PLAN-HUMAN с точными контрактами, зависимостями, путями, R-links, проверками и передачей исполнителям. Прочитать flow/02-plan и engineering planning references, вернуть обязательный check-plan, провести независимое чтение готового пакета.
+4. Отдельно получить явное утверждение нового полного плана. Только после него запускать делегированную реализацию и раннюю реальную проверку provider -> структурированный результат -> редактор -> сохранение/экспорт.
 
 ## Проверено
 
-- check-plan: 12 stages, 37 tasks, 92 checkpoints, 89 requirements, 0 errors и 0 warnings. Каждая задача есть в человеческом плане и имеет взаимные R-links.
-- Исходное вложение целиком сохранено в BRIEF: повторное точное сравнение подтвердило все28 621 символ после нормализации перевода строк/конечных пустых строк. Последующие сообщения добавлены дословно.
-- Полный независимый review выполнен один раз, его четыре findings внесены в конкретные контракты и проверки; повторный reviewer swarm не запускается.
-- DESIGN contrast рассчитан, SVG Tirlik XML корректен. Реальный шрифт и UI ещё не реализованы/не проверены. Старый собственный Qorap sketch сохранён локально в runtime как superseded, не в публичной айдентике.
-- .env не читался/не печатался, tracked secrets отсутствуют. Ключ готов по сообщению пользователя; live API вызовов ещё не было.
-- 6ccc38f служебный исходный коммит (.gitignore/AGENTS.md) выполнен обычным Git до уточнения пользователя. История не переписывается; дальнейшие commits/pushes только штатным checkpoint.
-- fb41e91: docs: publish reviewed Tirlik plan awaiting approval. Штатный checkpoint выполнил check-plan, git diff --check и planning/privacy hygiene, все успешно; commit создан и push подтверждён. В нём22 публичных файла, нет runtime/BRIEF/TESTING/env. Это плановая поставка, не реализованный продукт.
-- Remote https://github.com/DarinaX2005X/digital-taraz-hackhathon.git, branch main, upstream config origin/refs/heads/main проверен. Plan checkpoint имеет реальный validation contract в ignored runtime: check-plan, git diff --check, privacy/secret-path/approval hygiene; application tests неприменимы до реализации.
-- Vercel CLI есть; account/service permissions, тарифные лимиты, Neon/Blob/Workflow/SMTP ещё не доказаны и вынесены в ранние задачи.
-- TESTING прочитан целиком, пользовательских findings пока нет. UI/browser verification не выполнялась, ею владеет пользователь.
+- Основной Git: main, origin https://github.com/DarinaX2005X/digital-taraz-hackhathon.git, upstream origin/refs/heads/main. Перед текущим пересмотром был чистый sync.
+- Предыдущая поставка fb41e91ef7b0c4aed25e5f388b3ac09448ac0a01 и курсор d4dfe34 созданы/отправлены штатным checkpoint. Её 12 stages/37 tasks/92 checkpoints/89 requirements и независимый review относятся только к v3, не доказывают готовность v4.
+- Read-only изучены официальные Tiptap/Univer/Fabric docs; существенные ограничения лицензий/импорта/экспорта записаны в PROJECT. Библиотеки не установлены и не считаются реализованными редакторами.
+- Контраст проектных цветов рассчитан ранее, логознак XML корректен. Реальный шрифт, UI, форматы и first-session timing ещё не проверены.
+- TESTING прочитан целиком, пользовательских findings там пока нет. Последнее продуктовое возражение сохранено в BRIEF и требованиях.
+- Ключ env не читался/не печатался; actual API вызовов ещё нет. Vercel CLI есть, но доступы/тарифы/production services не подтверждены.
+- Discovery-check пройден: все 89 прежних требований сохранены без изменения содержания/источника/статуса/проверки, всего 104 требования; исходные 28 621 символ брифа и полное сообщение о пересмотре совпадают, поздняя поправка слогана сохранена. Новые task mappings явно pending. Privacy/approval hygiene и git diff --check также пройдены. Полный check-plan неприменим до создания нового плана и снова обязателен перед его предъявлением; продуктовых и визуальных проверок не было.
 
 ## Сервисы
 
 Дашборд VibeMachina: http://127.0.0.1:4177/
-Это loopback infrastructure planning, не продукт. Запущен штатным init.mjs в фоне, timezone Asia/Qyzylorda; последняя health identity совпала с workspace. Вкладки не открывались.
-Product/Demo/Local URL приложения отсутствуют. Deploy продукта не выполнен.
+Loopback planning infrastructure, не продукт. В этой сессии прежний процесс не отвечал; перезапущен штатным dashboard.mjs C:/Users/user/Desktop/digitaltaraz --detach --port 4177. /health подтвердил root текущего workspace, version 3, instance 4e103556-1661-4115-876c-e98a30f4f56e. Runtime identity/logs в .vibemachina/runtime, timezone Asia/Qyzylorda. Вкладки не открывались. Продуктового сервера/публичного приложения пока нет.
 
 ## Работники
 
-/root/plan_review завершён: read-only, исходный бриф и поздние remarks прочитаны полностью; findings перечислены выше и закрыты в плане. Implementation workers не назначены.
-MAIN отвечает за память, Git, интеграцию и предъявление плана. Только после approval реализация через bounded SUBAGENT с исключительными путями.
+Активных SUBAGENT нет, ownership всех planning-файлов у MAIN. Предыдущий /root/plan_review завершил review v3; его findings о заказах/резервах больше не являются доказательством новой концепции. На текущей фазе implementation workers не назначаются.
+
+После approval substantive реализация делегируется bounded SUBAGENT с исключительными путями. Каждому весь оригинальный BRIEF и все дословные поздние замечания, relevant original TESTING и references. Краткий dispatch не заменяет источник; новые замечания передавать полностью, особенно продукт/UI/UX/видео.
 
 ## Передача
 
-Последнее правило Git заменяет прежний полный ignore: в репозиторий можно PROJECT/DESIGN/PLAN/PLAN-HUMAN/REQUIREMENTS/STATE/stages/assets. Исключены .vibemachina/runtime/, BRIEF.md, TESTING.md и .env. Runtime checkpoint config локальный. Никогда force-add приватное. Пользователь явно просит частые содержательные commits/pushes штатной scripts/checkpoint.mjs навыка; не писать новую Git-обёртку и не коммитить руками.
+Новое предложение: Tirlik, слоган «Всё для вашего бизнеса». Последнее замечание пользователя о естественности формулировки сохранено дословно, искусственная пара императивов убрана из всех действующих документов. Пользователи внутри бизнеса; покупатель остаётся в его собственных каналах. Свободные задачи, знакомые редакторы, адресные AI-правки, сохранение ручной работы, реальные файлы и обновление сохранённого проекта. Обучение при первом входе обязательно реализуется с пропуском/возобновлением/повтором из настроек. Все подробности PROJECT/DESIGN, не прежняя модель ресурсы -> checkout.
 
-Tirlik: «Превращайте запасы и свободные часы в заказы». Полный цикл общих товаров/времени/мощности от свободной цели и агентных инструментов до публикации, заказа, исполнения и фактического результата. Разные отрасли, не только пекарни; не шаблонный набор ответов, не всемогущая абстракция. Рабочие данные приносит конечный пользователь, команда создаёт явно synthetic fixtures. Не повторять вопрос про доступ к местному бизнесу.
+Данных/контактов местного бизнеса нет и не будет. Рабочие данные приносит пользователь продукта; fixtures явно synthetic. Не повторять вопрос об их предоставлении и не выдавать пример за рынок/доходы. Широкие отрасли без фиксированного списка разрешённых задач.
 
-OpenRouter основная xiaomi/mimo-v2.5; пользователь разрешил самостоятельные недорогие замены по модальности/поддержке, но не GPT/OpenAI, Claude/Anthropic или дорогие модели. Проверять capabilities и actual цены, серверный allowlist и общий бюджет ключа. Секрет не выводить, в чат не запрашивать.
+OpenRouter основная xiaomi/mimo-v2.5; разрешены экономичные замены по поддержке/модальности, не GPT/OpenAI, Claude/Anthropic или дорогие fallback. Проверять реальные цены/capabilities, allowlist и общий бюджет. Секрет не печатать/не просить в чат.
 
-Есть примерно неделя без точного deadline. Vercel подключён по словам пользователя; постоянные PostgreSQL/private Blob/Workflows/SMTP проектируются без собственного сервера. Подписки/повышение расходов без разрешения не включать. Полный комплект: имя/описание/repo/live/README/презентация/видео. «Вайбпреза» читается только в11.1; видео после stable product+README, все три референса и подробные оригинальные remarks передать исполнителю.
+Git только штатным C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs, реальные проверки, явные --paths и --push; только MAIN. Разрешены planning docs/assets. Исключены .vibemachina/runtime/, BRIEF.md, TESTING.md и env; никогда force-add. Никаких manual add/commit/push или нового Git wrapper. Product check/launch впоследствии независимы от скилла.
 
-Все агенты обязаны читать полный BRIEF, relevant original TESTING и замечания целиком; короткий dispatch не замена. User-only browser/visual запрет сохраняется: без CUA/Playwright/headless/screenshot automation и обхода через renderer. Пользовательские findings сохранять, visual fixes = needs-user-check до его подтверждения.
+Комплект сдачи не сокращён: имя, описание, repo, Vercel live без своего сервера, README, презентация и видео после стабильного продукта/README. «Вайбпреза» пока не читать. Срок около недели со слов пользователя, точного deadline нет. Paid subscriptions без разрешения не подключать.
+
+Browser/visual только пользователь: без CUA, browser-control, Playwright, Selenium, Puppeteer, headless, screenshots и обходов через shell/renderer/worker. Статические/domain/unit/HTTP/API проверки разрешены. Визуальные изменения остаются needs-user-check до подтверждения.
