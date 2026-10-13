@@ -3,7 +3,7 @@
 import * as Ariakit from "@ariakit/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Languages, LogOut, Settings, UserRound } from "lucide-react";
+import { Languages, LogOut, Settings, UserRound, Users } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button, Dialog, DialogClose, IconButton } from "@/ui";
 import type { IdentityMutationResult } from "../contracts";
@@ -51,6 +51,7 @@ export function AccountMenu({ beforeSignOut, onSignedOut }: { beforeSignOut?: ()
         <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#profile" />}><UserRound aria-hidden="true" size={18} />{t("identity.navigation.profile")}</Ariakit.MenuItem>
         <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#security" />}><Settings aria-hidden="true" size={18} />{t("identity.navigation.security")}</Ariakit.MenuItem>
         <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#language" />}><Languages aria-hidden="true" size={18} />{t("identity.navigation.language")}</Ariakit.MenuItem>
+        <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings/team" />}><Users aria-hidden="true" size={18} />{t("identity.team.manage")}</Ariakit.MenuItem>
         <Ariakit.MenuSeparator />
         <Ariakit.MenuItem className={styles.menuItem} onClick={() => setSignOutOpen(true)}><LogOut aria-hidden="true" size={18} />{t("identity.navigation.signOut")}</Ariakit.MenuItem>
       </Ariakit.Menu>

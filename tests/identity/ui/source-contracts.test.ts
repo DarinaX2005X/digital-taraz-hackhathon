@@ -80,7 +80,7 @@ describe("identity source contracts, without browser or rendering", () => {
   });
 
   it("uses native forms, field associations and password-manager hints", () => {
-    for (const file of ["credentials.tsx", "recovery.tsx", "settings.tsx"]) {
+    for (const file of ["credentials.tsx", "recovery.tsx", "settings.tsx", "team-dialogs.tsx", "account-deletion.tsx"]) {
       const source = parse(file);
       expect(source.named("form").length).toBeGreaterThan(0);
       for (const form of source.named("form")) expect(attribute(form, "onSubmit")).toBe("submit");
@@ -119,6 +119,62 @@ describe("identity source contracts, without browser or rendering", () => {
     expect(read("account-menu.tsx")).toContain("beforeSignOut");
     expect(read("account-menu.tsx")).toContain("account.clear()");
     expect(read("account-menu.tsx")).toContain("asIdentityFailure(error).status === 401");
+    expect(items.some((item) => attribute(item, "render")?.includes("/settings/team"))).toBe(true);
+  });
+
+  it("keeps invitation acceptance behind a named explicit action and rejects an invalid token before authentication", () => {
+    const invitation = parse("invitation.tsx");
+    for (const effect of invitation.calls.filter((call) => call.expression.getText(invitation.tree) === "useEffect")) expect(effect.arguments[0]?.getText(invitation.tree)).not.toContain("acceptInvitation");
+    const accept = invitation.named("Button").find((node) => attribute(node, "onClick")?.includes("join()"));
+    expect(accept).toBeDefined();
+    expect(read("invitation.tsx")).toContain('if (!InvitationTokenSchema.safeParse(token).success) return <IdentityFrame');
+    expect(read("invitation.tsx")).not.toContain('t("identity.invitation.wrongAccount")');
+    expect(read("invitation.tsx")).toContain('const unavailable = !valid || preview.failure?.status === 404 || accept.failure?.status === 404');
+    expect(read("invitation.tsx")).not.toMatch(/targetEmail|recipientEmail|invitedEmail/);
+  });
+
+  it("retains an explicit team selection in guest and expired-session auth dialogs", () => {
+    const team = parse("team.tsx");
+    const dialogs = team.named("AuthDialog");
+    expect(dialogs).toHaveLength(2);
+    for (const dialog of dialogs) {
+      expect(attribute(dialog, "returnTo")).toContain("/settings/team?workspace=");
+      expect(attribute(dialog, "onAuthenticated")).not.toMatch(/createWorkspace|updateMember|revokeMember|createInvitation|acceptInvitation/);
+    }
+    expect(attribute(team.named("TeamContent")[0]!, "key")).toBe("viewer.user.id");
+    expect(attribute(team.named("TeamWorkspace")[0]!, "key")).toBe("selectedId");
+  });
+
+  it("uses server action inventories and clears denied cached team data instead of revealing it during retry", () => {
+    const team = read("team.tsx");
+    for (const action of ["update", "transfer", "revoke"]) expect(team).toContain(`member.allowedActions.${action}`);
+    expect(team).toContain("current.allowedActions.invite");
+    expect(team).toContain("[403, 404, 409].includes(status)) { setTeam(undefined); setAction(undefined); }");
+    const modal = read("team-dialogs.tsx");
+    expect(modal).toContain("expectedAuthzVersion: revision");
+    expect(modal).toContain("revision !== team.workspace.authzVersion || conflict");
+    expect(modal).toContain("setConflict(true)");
+    expect(modal).toContain("setConflict(false)");
+    expect(modal).not.toContain("actorMembership.authzVersion");
+  });
+
+  it("requires ownership review, a current password and consent before deletion, with an uncertain-outcome gate", () => {
+    const deletion = parse("account-deletion.tsx");
+    const source = read("account-deletion.tsx");
+    const password = deletion.named("PasswordField")[0]!;
+    expect(attribute(password, "autoComplete")).toBe("current-password");
+    expect(attribute(password, "error")).toContain("passwordVariables");
+    const confirmation = deletion.named("CheckboxField").find((node) => attribute(node, "name") === "confirmDeletion");
+    expect(confirmation).toBeDefined();
+    expect(attribute(confirmation!, "required")).toBe("true");
+    expect(source).toContain('if (stage === "choices") { setStage("confirm"); return; }');
+    expect(source).toContain('confirmation: "DELETE_ACCOUNT"');
+    expect(source).toContain("if (!preview || busy || stale || uncertain || sessionMissing) return;");
+    expect(source).toContain("if (!signal.aborted && failure.status === 0) setUncertain(true)");
+    expect(source).toContain("identity.deletion.sessionUnavailable");
+    for (const effect of deletion.calls.filter((call) => call.expression.getText(deletion.tree) === "useEffect")) expect(effect.arguments[0]?.getText(deletion.tree)).not.toContain("deleteAccount");
+    expect(attribute(deletion.named("Dialog")[0]!, "initialFocus")).toBe("cancelButton");
+    expect(read("settings.tsx")).toContain("setDeleted(result); setViewer(undefined); account.clear()");
   });
 
   it("keeps shell, future products and social sign-in out of the account entry", () => {

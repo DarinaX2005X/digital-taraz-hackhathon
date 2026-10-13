@@ -21,6 +21,15 @@ describe('identity navigation and input boundaries', () => {
     expect(ProfileUpdateSchema.safeParse({}).success).toBe(false);
     expect(ProfileUpdateSchema.safeParse({ emailVerified: true }).success).toBe(false);
   });
+  it('preserves one valid team workspace without widening the navigation allowlist', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    expect(safeReturnTo(`/settings/team?workspace=${id}&email=private`)).toBe(`/settings/team?workspace=${id}`);
+    expect(safeReturnTo(`/settings/team?workspace=${id}&workspace=${id}`)).toBe('/app');
+    expect(safeReturnTo('/settings/team?workspace=foreign-invalid-id')).toBe('/app');
+    expect(safeReturnTo(`/settings/profile?workspace=${id}`)).toBe('/settings/profile');
+    expect(authReturnTo(`/settings/team?workspace=${id}`, 'a'.repeat(64))).toBe(`/settings/team?workspace=${id}&intent=${'a'.repeat(64)}`);
+    expect(safeReturnTo(`/settings?intent=${'a'.repeat(64)}&intent=${'b'.repeat(64)}`)).toBe('/settings');
+  });
 });
 describe('default-deny scopes', () => {
   it('keeps confidential data and membership management restricted', () => {

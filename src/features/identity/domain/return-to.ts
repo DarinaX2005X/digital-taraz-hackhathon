@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 const allowedRoots = ['/app', '/settings', '/demo'];
 
 export function safeReturnTo(input: unknown): string {
@@ -6,8 +8,15 @@ export function safeReturnTo(input: unknown): string {
     const url = new URL(input, 'https://tirlik.invalid');
     if (url.origin !== 'https://tirlik.invalid' || !allowedRoots.some((root) => url.pathname === root || url.pathname.startsWith(`${root}/`))) return '/app';
     // Only explicitly supported opaque navigation state survives authentication.
-    const intent = url.searchParams.get('intent');
-    return `${url.pathname}${intent && /^[a-f0-9]{64}$/.test(intent) ? `?intent=${intent}` : ''}`;
+    const result = new URLSearchParams();
+    const intents = url.searchParams.getAll('intent');
+    if (intents.length === 1 && /^[a-f0-9]{64}$/.test(intents[0]!)) result.set('intent', intents[0]!);
+    if (url.pathname === '/settings/team' && url.searchParams.has('workspace')) {
+      const workspaces = url.searchParams.getAll('workspace');
+      if (workspaces.length !== 1 || !z.uuid().safeParse(workspaces[0]).success) return '/app';
+      result.set('workspace', workspaces[0]!);
+    }
+    return `${url.pathname}${result.size ? `?${result}` : ''}`;
   } catch { return '/app'; }
 }
 

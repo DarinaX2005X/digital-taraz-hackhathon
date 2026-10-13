@@ -14,6 +14,7 @@ export function validateName(value: string): IdentityMessageKey | undefined {
 
 export function validatePassword(value: string, isNew: boolean): IdentityMessageKey | undefined {
   if (!value) return "identity.validation.required";
+  if (!isNew && value.length > PASSWORD_MAX_LENGTH) return "identity.validation.currentPassword";
   return value.length < (isNew ? PASSWORD_MIN_LENGTH : 1) || value.length > PASSWORD_MAX_LENGTH ? "identity.validation.password" : undefined;
 }
 

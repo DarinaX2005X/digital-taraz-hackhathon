@@ -1,0 +1,170 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, LogIn, Mail, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, Trash2, UserMinus, Users } from "lucide-react";
+import { Button, Combobox, IconButton, InputField, LoadingState, LocaleSelect } from "@/ui";
+import { useLocale } from "@/i18n/provider";
+import { formatInstant, formatNumber } from "@/i18n/format";
+import type { IdentityViewer, TeamInvitation, TeamResult, WorkspaceMembership } from "../contracts";
+import type { IdentityMessageKey } from "../locales";
+import { OperationError, SuccessNotice } from "./common";
+import { AuthDialog } from "./credentials";
+import { useIdentityOperation, useIdentityTranslations } from "./hooks";
+import { useIdentityAccount } from "./identity-locale-provider";
+import { AccountMenu } from "./account-menu";
+import { asIdentityFailure, identityClient } from "./transport";
+import { roleLabels } from "./team-state";
+import { PersonIdentity, ScopeList, type IdentityAuthGuard } from "./team-controls";
+import { CreateWorkspaceDialog, TeamActionDialog, type TeamAction } from "./team-dialogs";
+import styles from "./identity.module.css";
+
+const deliveryKeys: Record<TeamInvitation["delivery"], IdentityMessageKey> = {
+  pending: "identity.invitation.deliveryPending", sending: "identity.invitation.deliverySending",
+  sent: "identity.invitation.deliverySent", uncertain: "identity.invitation.deliveryUnknown",
+};
+
+function TeamWorkspace({ workspaceId, userId, guard, authVersion, onMembershipChanged, onSignIn }: { workspaceId: string; userId: string; guard: IdentityAuthGuard; authVersion: number; onMembershipChanged: () => void; onSignIn: () => void }) {
+  const t = useIdentityTranslations();
+  const { locale } = useLocale();
+  const { refresh: refreshAccount } = useIdentityAccount();
+  const [team, setTeam] = useState<TeamResult>();
+  const [action, setAction] = useState<TeamAction>();
+  const [notice, setNotice] = useState<IdentityMessageKey>();
+  const [query, setQuery] = useState("");
+  const operation = useIdentityOperation<TeamResult>();
+  const { run, cancel } = operation;
+  const load = useCallback(() => {
+    cancel();
+    return run(async (signal) => {
+      try { return await identityClient.team(workspaceId, { signal, expectedUserId: userId }); }
+      catch (error) {
+        const status = asIdentityFailure(error).status;
+        if (!signal.aborted && [403, 404, 409].includes(status)) { setTeam(undefined); setAction(undefined); }
+        if (!signal.aborted && status === 409) void refreshAccount().catch(() => undefined);
+        throw error;
+      }
+    }).then((result) => {
+      if (result) setTeam(result);
+      return result;
+    });
+  }, [run, cancel, userId, workspaceId, refreshAccount]);
+  useEffect(() => {
+    void load();
+    const visible = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { cancel(); document.removeEventListener("visibilitychange", visible); };
+  }, [load, cancel, authVersion]);
+  const denied = operation.failure?.status === 403 || operation.failure?.status === 404;
+  const current = denied ? undefined : team;
+  const search = query.trim().normalize("NFKC").toLocaleLowerCase(locale);
+  const members = current?.members.filter((member) => `${member.name} ${member.email}`.normalize("NFKC").toLocaleLowerCase(locale).includes(search)) ?? [];
+  const owners = current?.members.filter((member) => member.role === "owner").length ?? 0;
+  async function refreshForDialog() {
+    const result = await load();
+    if (!result) onMembershipChanged();
+    return result;
+  }
+  function changed(message: IdentityMessageKey) {
+    setAction(undefined); setNotice(message);
+    void load(); onMembershipChanged();
+  }
+  return <div className={styles.stack}>
+    {operation.pending && !current && <LoadingState label={t("identity.team.loading")} />}
+    <OperationError failure={operation.failure} />
+    {operation.failure && (operation.failure.status === 401 ? <Button icon={LogIn} onClick={onSignIn}>{t("identity.navigation.signIn")}</Button> : <Button icon={RefreshCw} onClick={() => { void load(); }}>{t("identity.workspace.refresh")}</Button>)}
+    {denied && <p>{t("identity.team.noAccess")}</p>}
+    {notice && <SuccessNotice>{t(notice)}</SuccessNotice>}
+    {current && <>
+      <section className={styles.section} aria-labelledby="team-members-title" aria-busy={operation.pending || undefined}>
+        <div className={styles.sectionHeading}><h2 id="team-members-title">{t("identity.team.members")} <span className={styles.count}>{formatNumber(locale, current.members.length)}</span></h2><div className={styles.actions}><IconButton icon={RefreshCw} label={t("identity.workspace.refresh")} disabled={operation.pending} onClick={() => { void load(); }} />{current.allowedActions.invite && <Button icon={Plus} variant="primary" onClick={() => { setNotice(undefined); setAction({ kind: "invite" }); }}>{t("identity.team.invite")}</Button>}</div></div>
+        <InputField name="memberSearch" autoComplete="off" type="search" label={t("identity.team.search")} value={query} onChange={(event) => setQuery(event.target.value)} className={styles.memberSearch} />
+        <ul className={styles.teamList}>
+          {members.map((member) => <li key={member.userId} className={styles.memberRow}>
+            <PersonIdentity name={member.name} email={member.email}>{member.userId === userId && <span className={styles.meta}>{t("identity.access.self")}</span>}</PersonIdentity>
+            <div className={styles.memberAccess}><span className={styles.roleLabel}>{t(roleLabels[member.role])}</span>{member.role === "owner" && owners === 1 && <span className={styles.meta}>{t("identity.access.lastOwner")}</span>}<ScopeList scopes={member.scopes} /></div>
+            <div className={styles.rowActions}>
+              {member.allowedActions.update && <IconButton icon={SlidersHorizontal} label={`${t("identity.access.edit")}: ${member.name}`} onClick={() => setAction({ kind: "edit", userId: member.userId })} />}
+              {member.allowedActions.transfer && <IconButton icon={ShieldCheck} label={`${t("identity.team.transfer")}: ${member.name}`} onClick={() => setAction({ kind: "transfer", userId: member.userId })} />}
+              {member.allowedActions.revoke && <IconButton icon={UserMinus} label={`${t("identity.team.revoke")}: ${member.name}`} onClick={() => setAction({ kind: "revoke-member", userId: member.userId })} />}
+            </div>
+          </li>)}
+        </ul>
+        {!members.length && <p className={styles.muted}>{t("identity.team.noMatches")}</p>}
+        {current.members.length === 1 && !search && <p className={styles.muted}>{t("identity.team.empty")}</p>}
+      </section>
+      <section className={styles.section} aria-labelledby="team-invitations-title">
+        <div className={styles.sectionHeading}><h2 id="team-invitations-title">{t("identity.invitation.invitations")} <span className={styles.count}>{formatNumber(locale, current.invitations.length)}</span></h2></div>
+        <ul className={styles.teamList}>
+          {current.invitations.map((invitation) => <li key={invitation.id} className={styles.memberRow}>
+            <PersonIdentity email={invitation.email}><span className={styles.meta}>{t(invitation.status === "expired" ? "identity.invitation.expired" : "identity.invitation.pending")}</span><span className={styles.meta}>{t(deliveryKeys[invitation.delivery])}</span><span className={styles.meta}>{t("identity.invitation.expires")} <time dateTime={invitation.expiresAt}>{formatInstant(locale, invitation.expiresAt)}</time></span></PersonIdentity>
+            <div className={styles.memberAccess}><span className={styles.roleLabel}>{t(roleLabels[invitation.role])}</span><ScopeList scopes={invitation.scopes} /></div>
+            <div className={styles.rowActions}>{invitation.allowedActions.resend && <IconButton icon={Mail} label={`${t("identity.invitation.resend")}: ${invitation.email}`} onClick={() => setAction({ kind: "resend", invitationId: invitation.id })} />}{invitation.allowedActions.revoke && <IconButton icon={Trash2} label={`${t("identity.invitation.revoke")}: ${invitation.email}`} onClick={() => setAction({ kind: "revoke-invite", invitationId: invitation.id })} />}</div>
+          </li>)}
+        </ul>
+        {!current.invitations.length && <p className={styles.muted}>{t(current.allowedActions.invite ? "identity.invitation.empty" : "identity.invitation.noInvitationsAccess")}</p>}
+      </section>
+      {action && <TeamActionDialog key={JSON.stringify(action)} action={action} team={current} userId={userId} guard={guard} onClose={() => setAction(undefined)} onChanged={changed} onRefresh={refreshForDialog} />}
+    </>}
+  </div>;
+}
+
+function TeamContent({ viewer, initialWorkspaceId }: { viewer: IdentityViewer; initialWorkspaceId?: string }) {
+  const t = useIdentityTranslations();
+  const account = useIdentityAccount();
+  const [workspaces, setWorkspaces] = useState(viewer.workspaces);
+  const [selectedId, setSelectedId] = useState<string | null | undefined>(initialWorkspaceId ?? viewer.workspaces[0]?.workspaceId);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
+  const operation = useIdentityOperation<{ workspaces: WorkspaceMembership[] }>();
+  const { run, cancel } = operation;
+  const userId = viewer.user.id;
+  const reload = useCallback(() => {
+    cancel();
+    return run((signal) => identityClient.workspaces({ signal, expectedUserId: userId })).then((result) => {
+      if (result) { setWorkspaces(result.workspaces); setSelectedId((previous) => previous === undefined ? result.workspaces[0]?.workspaceId ?? null : previous); }
+    });
+  }, [cancel, run, userId]);
+  useEffect(() => { void reload(); return cancel; }, [reload, cancel]);
+  const options = useMemo(() => workspaces.map((workspace) => ({ id: workspace.workspaceId, label: workspace.name })), [workspaces]);
+  const selection = options.find((option) => option.id === selectedId) ?? null;
+  const guard: IdentityAuthGuard = async (signal, action) => {
+    try { return await action(); }
+    catch (error) {
+      if (!signal.aborted && asIdentityFailure(error).status === 401) setAuthOpen(true);
+      if (!signal.aborted && asIdentityFailure(error).status === 409) void account.refresh().catch(() => undefined);
+      throw error;
+    }
+  };
+  return <>
+    <div className={styles.workspaceBar}>
+      {!!options.length && <Combobox label={t("identity.workspace.choose")} options={options} value={selection} onChange={(option) => setSelectedId(option?.id ?? null)} />}
+      <Button icon={Plus} onClick={() => setCreateOpen(true)}>{t("identity.workspace.create")}</Button>
+    </div>
+    <OperationError failure={operation.failure} />
+    {operation.failure && <Button icon={RefreshCw} onClick={() => { void reload(); }}>{t("identity.workspace.refresh")}</Button>}
+    {((account.ready && !account.viewer) || operation.failure?.status === 401) && <div className={styles.sessionExpired}><p>{t("identity.profile.sessionExpired")}</p><Button icon={LogIn} onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button></div>}
+    {operation.pending && !workspaces.length ? <LoadingState label={t("identity.workspace.loading")} /> : !workspaces.length && !operation.failure ? <div className={styles.emptyTeam}><Users aria-hidden="true" size={32} /><p>{t("identity.workspace.empty")}</p></div> : selectedId ? <TeamWorkspace key={selectedId} workspaceId={selectedId} userId={userId} guard={guard} authVersion={authVersion} onSignIn={() => setAuthOpen(true)} onMembershipChanged={() => { void reload(); void account.refresh().catch(() => undefined); }} /> : null}
+    {createOpen && <CreateWorkspaceDialog userId={userId} guard={guard} onClose={() => setCreateOpen(false)} onCreated={(workspace) => { setWorkspaces((previous) => [...previous.filter((item) => item.workspaceId !== workspace.workspaceId), workspace]); setSelectedId(workspace.workspaceId); setCreateOpen(false); void account.refresh().catch(() => undefined); }} />}
+    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={selectedId ? `/settings/team?workspace=${selectedId}` : "/settings/team"} onAuthenticated={() => { setAuthOpen(false); setAuthVersion((previous) => previous + 1); void reload(); }} />
+  </>;
+}
+
+export function TeamSettingsPage({ initialWorkspaceId }: { initialWorkspaceId?: string }) {
+  const t = useIdentityTranslations();
+  const account = useIdentityAccount();
+  const [viewer, setViewer] = useState<IdentityViewer>();
+  const [authOpen, setAuthOpen] = useState(false);
+  if (account.viewer && account.viewer.user.id !== viewer?.user.id) setViewer(account.viewer);
+  return <div className={styles.page}>
+    <header className={styles.topbar}><Link href="/" className={styles.brand}><Image src="/brand/tirlik-mark.svg" width={40} height={40} alt="" /><span>Tirlik</span></Link><div className={styles.actions}><LocaleSelect className={styles.locale} /><AccountMenu /></div></header>
+    <main className={styles.settings}>
+      <Link href="/settings" className={styles.textLink}><ArrowLeft size={18} aria-hidden="true" />{t("identity.workspace.back")}</Link>
+      <div className={styles.heading}><h1>{t("identity.team.manage")}</h1></div>
+      {viewer ? <TeamContent key={viewer.user.id} viewer={viewer} initialWorkspaceId={initialWorkspaceId} /> : !account.ready ? <LoadingState label={t("identity.profile.loading")} /> : <Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button>}
+    </main>
+    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={initialWorkspaceId ? `/settings/team?workspace=${initialWorkspaceId}` : "/settings/team"} onAuthenticated={() => setAuthOpen(false)} />
+  </div>;
+}

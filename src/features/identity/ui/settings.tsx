@@ -7,12 +7,13 @@ import { KeyRound, LogIn, LogOut, Monitor, RefreshCw, Save, Smartphone } from "l
 import { Button, Dialog, DialogClose, InputField, LoadingState, LocaleSelect } from "@/ui";
 import { useLocale } from "@/i18n/provider";
 import { formatInstant } from "@/i18n/format";
-import type { IdentityMutationResult, IdentitySession, IdentityUser, IdentityViewer } from "../contracts";
+import type { AccountDeletionResult, IdentityMutationResult, IdentitySession, IdentityUser, IdentityViewer } from "../contracts";
 import { authHref, OperationError, PasswordField, SuccessNotice } from "./common";
 import { AuthDialog } from "./credentials";
 import { useIdentityOperation, useIdentityTranslations } from "./hooks";
 import { useIdentityAccount } from "./identity-locale-provider";
 import { SignOutDialog } from "./account-menu";
+import { AccountDeletedResult, AccountDeletionSection } from "./account-deletion";
 import { asIdentityFailure, identityClient } from "./transport";
 import { focusFirstError, hasErrors, passwordVariables, validateName, validatePassword, type FormErrors } from "./validation";
 import styles from "./identity.module.css";
@@ -119,7 +120,7 @@ function SessionsSection({ version, guard, onSignOut, onSignIn, userId }: { vers
   </section>;
 }
 
-function SettingsContent({ viewer }: { viewer: IdentityViewer }) {
+function SettingsContent({ viewer, onDeleted }: { viewer: IdentityViewer; onDeleted: (result: AccountDeletionResult) => void }) {
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
   const [authOpen, setAuthOpen] = useState(false);
@@ -135,13 +136,14 @@ function SettingsContent({ viewer }: { viewer: IdentityViewer }) {
   };
   return <>
     <div className={styles.settingsGrid}>
-      <nav className={styles.settingsNav} aria-label={t("identity.navigation.settings")}><a href="#profile">{t("identity.navigation.profile")}</a><a href="#language">{t("identity.navigation.language")}</a><a href="#security">{t("identity.navigation.security")}</a></nav>
+      <nav className={styles.settingsNav} aria-label={t("identity.navigation.settings")}><a href="#profile">{t("identity.navigation.profile")}</a><a href="#language">{t("identity.navigation.language")}</a><a href="#security">{t("identity.navigation.security")}</a><Link href="/settings/team">{t("identity.team.manage")}</Link></nav>
       <div className={styles.settingsBody}>
         {account.ready && !account.viewer && <div className={styles.stack}><p>{t("identity.profile.sessionExpired")}</p><Button icon={LogIn} onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button></div>}
         <section className={styles.section} id="profile" aria-labelledby="profile-title"><h2 id="profile-title">{t("identity.navigation.profile")}</h2><ProfileForm user={account.viewer?.user.id === viewer.user.id ? account.viewer.user : viewer.user} guard={guard} /></section>
         <section className={styles.section} id="language" aria-labelledby="language-title"><h2 id="language-title">{t("identity.profile.languageTitle")}</h2><p className={styles.muted}>{t("identity.profile.languageDescription")}</p><LocaleSelect className={styles.locale} /></section>
         <section className={styles.section} id="security" aria-labelledby="security-title"><h2 id="security-title">{t("identity.password.title")}</h2><p className={styles.muted}>{t("identity.password.description")}</p><ChangePasswordForm guard={guard} userId={viewer.user.id} onChanged={() => setSessionsVersion((value) => value + 1)} /></section>
         <SessionsSection version={sessionsVersion} guard={guard} userId={viewer.user.id} onSignIn={() => setAuthOpen(true)} onSignOut={() => setSignOutOpen(true)} />
+        <AccountDeletionSection userId={viewer.user.id} guard={guard} authVersion={sessionsVersion} onDeleted={onDeleted} />
       </div>
     </div>
     <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo="/settings" onAuthenticated={() => { setAuthOpen(false); setSessionsVersion((value) => value + 1); }} />
@@ -153,12 +155,14 @@ export function SettingsPage({ initialViewer }: { initialViewer?: IdentityViewer
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
   const [viewer, setViewer] = useState(initialViewer);
+  const [deleted, setDeleted] = useState<AccountDeletionResult>();
   const operation = useIdentityOperation<IdentityViewer | null>();
   if (account.viewer && account.viewer.user.id !== viewer?.user.id) setViewer(account.viewer);
+  if (deleted) return <AccountDeletedResult result={deleted} />;
   return <div className={styles.page}>
     <header className={styles.topbar}><Link href="/" className={styles.brand}><Image src="/brand/tirlik-mark.svg" width={40} height={40} alt="" /><span>Tirlik</span></Link><Link className={styles.textLink} href="/">{t("identity.navigation.home")}</Link></header>
     <main className={styles.settings}><div className={styles.heading}><h1>{t("identity.profile.title")}</h1></div>
-      {viewer ? <SettingsContent key={viewer.user.id} viewer={viewer} /> : !account.ready || operation.pending ? <LoadingState label={t("identity.profile.loading")} /> : <div className={styles.stack}>
+      {viewer ? <SettingsContent key={viewer.user.id} viewer={viewer} onDeleted={(result) => { setDeleted(result); setViewer(undefined); account.clear(); }} /> : !account.ready || operation.pending ? <LoadingState label={t("identity.profile.loading")} /> : <div className={styles.stack}>
         <OperationError failure={operation.failure} />
         <Link href={authHref("/sign-in", { returnTo: "/settings" })} className={styles.textLink}>{t("identity.navigation.signIn")}</Link>
         <Button icon={RefreshCw} onClick={() => { void operation.run(() => account.refresh()); }}>{t("identity.profile.reload")}</Button>

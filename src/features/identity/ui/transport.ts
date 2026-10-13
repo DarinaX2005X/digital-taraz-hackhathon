@@ -5,6 +5,11 @@ import {
   ProfileResultSchema, ProfileUpdateSchema, RequestMailSchema, ResetPasswordSchema,
   RestoreIntentSchema, RevokeSessionResultSchema, SaveIntentSchema, SessionsResultSchema,
   SignInSchema, SignUpSchema, VerifyEmailSchema,
+  AcceptInvitationSchema, AccountDeletionPreviewSchema, AccountDeletionResultSchema,
+  CreateInvitationSchema, CreateWorkspaceSchema, DeleteAccountSchema, InvitationMutationSchema,
+  InvitationMutationResultSchema, InvitationPreviewSchema, InvitationTokenSchema,
+  RevokeMemberSchema, TeamMutationResultSchema, TeamResultSchema, TransferOwnershipSchema,
+  UpdateMemberSchema, WorkspaceResultSchema, WorkspacesResultSchema,
 } from "../contracts";
 import { ru } from "../locales/ru";
 import type { IdentityMessageKey } from "../locales";
@@ -112,6 +117,19 @@ export function createIdentityClient(options: ClientOptions = {}) {
     revokeSession: (id: string, opts?: RequestOptions) => request(`/api/identity/sessions/${validate(z.uuid(), id)}`, "DELETE", RevokeSessionResultSchema, {}, opts),
     saveIntent: (input: z.input<typeof SaveIntentSchema>, idempotencyKey: string, opts?: RequestOptions) => request("/api/identity/intents", "POST", IntentSavedSchema, validate(SaveIntentSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), idempotencyKey) }),
     restoreIntent: (input: z.input<typeof RestoreIntentSchema>, opts?: RequestOptions) => request("/api/identity/intents/restore", "POST", IntentRestoredSchema, validate(RestoreIntentSchema, input), opts),
+    workspaces: (opts?: RequestOptions) => request("/api/identity/workspaces", "GET", WorkspacesResultSchema, undefined, opts),
+    createWorkspace: (input: z.input<typeof CreateWorkspaceSchema>, key: string, opts?: RequestOptions) => request("/api/identity/workspaces", "POST", WorkspaceResultSchema, validate(CreateWorkspaceSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    team: (workspaceId: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/team`, "GET", TeamResultSchema, undefined, opts),
+    updateMember: (workspaceId: string, userId: string, input: z.input<typeof UpdateMemberSchema>, key: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/members/${validate(z.uuid(), userId)}`, "PATCH", TeamMutationResultSchema, validate(UpdateMemberSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    revokeMember: (workspaceId: string, userId: string, input: z.input<typeof RevokeMemberSchema>, key: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/members/${validate(z.uuid(), userId)}`, "DELETE", TeamMutationResultSchema, validate(RevokeMemberSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    transferOwnership: (workspaceId: string, input: z.input<typeof TransferOwnershipSchema>, key: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/transfer`, "POST", TeamMutationResultSchema, validate(TransferOwnershipSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    createInvitation: (workspaceId: string, input: z.input<typeof CreateInvitationSchema>, key: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/invitations`, "POST", InvitationMutationResultSchema, validate(CreateInvitationSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    resendInvitation: (workspaceId: string, invitationId: string, input: z.input<typeof InvitationMutationSchema>, key: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/invitations/${validate(z.uuid(), invitationId)}/resend`, "POST", InvitationMutationResultSchema, validate(InvitationMutationSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    revokeInvitation: (workspaceId: string, invitationId: string, input: z.input<typeof InvitationMutationSchema>, key: string, opts?: RequestOptions) => request(`/api/identity/workspaces/${validate(z.uuid(), workspaceId)}/invitations/${validate(z.uuid(), invitationId)}`, "DELETE", TeamMutationResultSchema, validate(InvitationMutationSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    invitation: (token: string, opts?: RequestOptions) => request(`/api/identity/invitations/${validate(InvitationTokenSchema, token)}`, "GET", InvitationPreviewSchema, undefined, opts),
+    acceptInvitation: (token: string, key: string, opts?: RequestOptions) => request(`/api/identity/invitations/${validate(InvitationTokenSchema, token)}/accept`, "POST", WorkspaceResultSchema, validate(AcceptInvitationSchema, {}), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
+    deletionPreview: (opts?: RequestOptions) => request("/api/identity/account/deletion", "GET", AccountDeletionPreviewSchema, undefined, opts),
+    deleteAccount: (input: z.input<typeof DeleteAccountSchema>, key: string, opts?: RequestOptions) => request("/api/identity/account/deletion", "POST", AccountDeletionResultSchema, validate(DeleteAccountSchema, input), { ...opts, idempotencyKey: validate(z.uuid(), key) }),
   };
 }
 

@@ -3,6 +3,8 @@ export { IdentityEntryPage } from "./entry";
 export { SignInPage, SignUpPage, AuthDialog } from "./credentials";
 export { VerifyEmailPage, ResetPasswordPage } from "./recovery";
 export { SettingsPage } from "./settings";
+export { TeamSettingsPage } from "./team";
+export { InvitePage } from "./invitation";
 export { AccountMenu, SignOutDialog } from "./account-menu";
 export { identityClient, createIdentityClient, IdentityTransportError } from "./transport";
 export type { IdentityClient, IdentityFailure, RequestOptions } from "./transport";

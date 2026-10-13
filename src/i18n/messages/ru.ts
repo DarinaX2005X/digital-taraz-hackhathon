@@ -1,6 +1,7 @@
 export const ru = {
   common: {
     brand: { name: "Tirlik", tagline: "Всё для вашего бизнеса" },
+    pages: { notFoundTitle: "Страница не найдена", notFoundDescription: "Проверьте адрес или вернитесь на главную.", invalidWorkspaceTitle: "Не удалось открыть пространство", invalidWorkspaceDescription: "В ссылке указан неверный адрес пространства. Выберите его из своего списка.", chooseWorkspace: "Выбрать пространство" },
     navigation: { work: "Работа", materials: "Материалы", business: "Бизнес", settings: "Настройки", help: "Помощь", profile: "Профиль", language: "Язык", back: "Назад", home: "На главную", skipToContent: "Перейти к содержимому" },
     actions: { create: "Создать", newTask: "Новая задача", open: "Открыть", edit: "Редактировать", save: "Сохранить", cancel: "Отмена", close: "Закрыть", confirm: "Подтвердить", retry: "Повторить", remove: "Удалить", archive: "В архив", restore: "Восстановить", search: "Поиск", clear: "Очистить", choose: "Выбрать", download: "Скачать", upload: "Загрузить", export: "Экспорт", undo: "Отменить действие", redo: "Повторить действие", versions: "Версии", duplicate: "Создать копию", more: "Другие действия", signIn: "Войти", signOut: "Выйти", continue: "Продолжить" },
     fields: { required: "Обязательное поле", optional: "Необязательно", invalid: "Проверьте значение", chooseOption: "Выберите вариант из списка", noMatches: "Ничего не найдено", noOptions: "Доступных вариантов пока нет", searching: "Поиск", unit: "Единица измерения" },

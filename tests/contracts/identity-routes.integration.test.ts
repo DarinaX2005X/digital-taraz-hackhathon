@@ -17,13 +17,14 @@ afterAll(async () => { await pool?.end(); });
 describe('mounted identity routes over HTTP', () => {
   it('serves public account pages without creating personal records', async () => {
     const before = (await pool.query('SELECT count(*)::int AS count FROM identity_users')).rows[0].count;
-    for (const path of ['/', '/sign-in', '/sign-up', '/auth/verify', '/auth/reset', '/settings']) {
+    const invitePath = `/settings/invitations/${'a'.repeat(64)}`;
+    for (const path of ['/', '/sign-in', '/sign-up', '/auth/verify', '/auth/reset', '/settings', '/settings/team', invitePath]) {
       const response = await fetch(`${origin}${path}`, { headers: { 'Accept-Language': 'kk' }, redirect: 'manual' });
       expect(response.status, path).toBe(200);
       expect(response.headers.get('content-type')).toContain('text/html');
       const html = await response.text();
       expect(html, path).toContain('lang="kk"');
-      if (path.startsWith('/auth/')) expect(html).toContain('name="referrer" content="no-referrer"');
+      if (path.startsWith('/auth/') || path === invitePath) expect(html).toContain('name="referrer" content="no-referrer"');
     }
     expect((await pool.query('SELECT count(*)::int AS count FROM identity_users')).rows[0].count).toBe(before);
   }, 90_000);
@@ -41,5 +42,17 @@ describe('mounted identity routes over HTTP', () => {
     const response = await fetch(`${origin}/app?intent=${intent}&goal=private`, { redirect: 'manual' });
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(`/settings?intent=${intent}`);
+  });
+
+  it('returns a localized navigable 404 for an unknown route and a recovery state for invalid filters', async () => {
+    for (const [path, status] of [['/missing-synthetic-page', 404], ['/settings/team?workspace=invalid', 200], ['/settings/team?workspace=a&workspace=b', 200]] as const) {
+      const response = await fetch(`${origin}${path}`, { headers: { 'Accept-Language': 'en' }, redirect: 'manual' });
+      expect(response.status, path).toBe(status);
+      const html = await response.text();
+      expect(html, path).toContain(status === 404 ? 'Page not found' : 'Workspace could not be opened');
+      expect(html, path).toContain(status === 404 ? 'href="/"' : 'href="/settings/team"');
+      expect(html, path).toContain('lang="en"');
+      expect(html, path).not.toContain('id="__next_error__"');
+    }
   });
 });

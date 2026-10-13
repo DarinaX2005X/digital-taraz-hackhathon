@@ -4,7 +4,9 @@ import { serializeLocaleCookie } from '../../../i18n/cookie';
 import { ChangePasswordSchema, IdentityUserSchema, ProfileUpdateSchema, RequestMailSchema, ResetPasswordSchema, RestoreIntentSchema, SaveIntentSchema, SignInSchema, SignUpSchema, VerifyEmailSchema, type IdentitySession, type IdentityUser } from '../contracts';
 import { authReturnTo, safeReturnTo } from '../domain/return-to';
 import { createIdentityAuth, type IdentityOptions } from './auth';
+import { identityTransaction, lockIdentityActor, type SessionPrincipal } from './access';
 import { assertOrigin, cookie, digest, errorResponse, IdentityError, json, limit, readJson, validate } from './http';
+import { createTeamHandlers } from './team-handlers';
 
 export interface IdentityActor { user: IdentityUser; session: { id: string; expiresAt: Date; createdAt: Date } }
 const browserCookie = 'tirlik.intent-browser';
@@ -18,11 +20,13 @@ type AuthPath = keyof typeof authSchemas;
 export function createIdentityHandlers(options: IdentityOptions) {
   const { pool, origin, secret, mailer } = options;
   const auth = createIdentityAuth(options);
+  const teams = createTeamHandlers(options);
   const secure = origin.startsWith('https:');
   const browserAttributes = `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
   async function getActor(headers: Headers): Promise<IdentityActor> {
     const session = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
     if (!session || !session.user.emailVerified) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.unauthenticated');
+    if (!(await pool.query('SELECT id FROM identity_users WHERE id=$1 AND deletion_requested_at IS NULL', [session.user.id])).rowCount) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.unauthenticated');
     return { user: IdentityUserSchema.parse({ id: session.user.id, name: session.user.name, email: session.user.email, emailVerified: session.user.emailVerified, locale: session.user.locale }), session: { id: session.session.id, expiresAt: session.session.expiresAt, createdAt: session.session.createdAt } };
   }
   function assertExpectedActor(request: Request, actor: IdentityActor) {
@@ -106,10 +110,23 @@ export function createIdentityHandlers(options: IdentityOptions) {
       }
       const actor = await getActor(request.headers);
       assertExpectedActor(request, actor);
-      if (request.method === 'GET' && path === '/me') return json({ user: actor.user, session: { id: actor.session.id, expiresAt: actor.session.expiresAt.toISOString() }, workspaces: [] });
+      const principal: SessionPrincipal = { kind: 'session', userId: actor.user.id, sessionId: actor.session.id };
+      const teamResponse = await teams.handle(request, path, principal);
+      if (teamResponse) {
+        if (path === '/account/deletion' && request.method === 'POST' && teamResponse.ok) {
+          const context = await auth.$context;
+          for (const value of Object.values(context.authCookies)) teamResponse.headers.append('Set-Cookie', `${value.name}=; Max-Age=0; ${browserAttributes}`);
+          teamResponse.headers.append('Set-Cookie', `${browserCookie}=; Max-Age=0; ${browserAttributes}`);
+        }
+        return teamResponse;
+      }
+      if (request.method === 'GET' && path === '/me') return json({ user: actor.user, session: { id: actor.session.id, expiresAt: actor.session.expiresAt.toISOString() }, ...await teams.listWorkspaces(principal) });
       if (request.method === 'PATCH' && path === '/profile') {
         const body = validate(ProfileUpdateSchema, await readJson(request));
-        await pool.query('UPDATE identity_users SET name=COALESCE($2,name),locale=COALESCE($3,locale),updated_at=now() WHERE id=$1', [actor.user.id, body.name, body.locale]);
+        await identityTransaction(pool, async (transaction) => {
+          await lockIdentityActor(transaction, principal, true);
+          await transaction.query('UPDATE identity_users SET name=COALESCE($2,name),locale=COALESCE($3,locale),updated_at=now() WHERE id=$1', [actor.user.id, body.name, body.locale]);
+        });
         const user = { ...actor.user, ...body };
         return json({ user }, 200, body.locale ? { 'Set-Cookie': serializeLocaleCookie(body.locale, secure) } : undefined);
       }

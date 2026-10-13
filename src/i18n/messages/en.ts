@@ -4,6 +4,7 @@ import type { MessageShape } from "./types";
 export const en = {
   common: {
     brand: { name: "Tirlik", tagline: "Everything for your business" },
+    pages: { notFoundTitle: "Page not found", notFoundDescription: "Check the address or return to the home page.", invalidWorkspaceTitle: "Workspace could not be opened", invalidWorkspaceDescription: "The link contains an invalid workspace address. Choose a workspace from your list.", chooseWorkspace: "Choose a workspace" },
     navigation: { work: "Work", materials: "Materials", business: "Business", settings: "Settings", help: "Help", profile: "Profile", language: "Language", back: "Back", home: "Home", skipToContent: "Skip to content" },
     actions: { create: "Create", newTask: "New task", open: "Open", edit: "Edit", save: "Save", cancel: "Cancel", close: "Close", confirm: "Confirm", retry: "Retry", remove: "Delete", archive: "Archive", restore: "Restore", search: "Search", clear: "Clear", choose: "Choose", download: "Download", upload: "Upload", export: "Export", undo: "Undo", redo: "Redo", versions: "Versions", duplicate: "Make a copy", more: "More actions", signIn: "Sign in", signOut: "Sign out", continue: "Continue" },
     fields: { required: "Required", optional: "Optional", invalid: "Check this value", chooseOption: "Choose an option from the list", noMatches: "No matches", noOptions: "No options available", searching: "Searching", unit: "Unit" },

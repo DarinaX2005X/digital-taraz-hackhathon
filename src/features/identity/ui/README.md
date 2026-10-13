@@ -1,6 +1,7 @@
 # Identity UI Integration
 
-This feature contains real account forms for task 02.1.1, not the business shell.
+This feature contains real account, team and ownership-safe deletion flows for
+tasks 02.1.1 and 02.1.2, not the business shell or final public landing page.
 Routes, root layout, server session lookup and metadata belong to MAIN.
 
 ## Root And Routes
@@ -19,6 +20,8 @@ Import from `@/features/identity/ui`:
 | `VerifyEmailPage` | `/auth/verify`; optional opaque `token`, `returnTo`, `intentToken` |
 | `ResetPasswordPage` | `/auth/reset`; optional opaque `token`, `returnTo`, `intentToken` |
 | `SettingsPage` | `/settings`; optional safe `initialViewer` DTO, never auth tokens |
+| `TeamSettingsPage` | `/settings/team`; optional `initialWorkspaceId`, a single validated UUID query value |
+| `InvitePage` | `/settings/invitations/[token]`; opaque 64-character lowercase hex `token` |
 | `AccountMenu` | Existing signed-in navigation; optional `beforeSignOut`, `onSignedOut` |
 
 Set document `referrer: "no-referrer"` on email-token routes. API request policy is
@@ -75,6 +78,42 @@ navigates to sign-in. Future module caches
 must be cleared by their owner via `onSignedOut`; this feature cannot claim they
 have been cleared before those modules exist.
 
+## Team And Deletion
+
+The team route creates/selects actual workspaces and edits real memberships.
+Reject malformed or duplicate `workspace` route query values instead of choosing
+the first workspace. Guest and expired-session sign-in use an in-page AuthDialog;
+the shared return allowlist preserves only a valid workspace UUID on the exact
+team route. Do not key these forms by locale. A new account ID replaces the tree.
+
+Render role, permission and per-record actions from the server's `allowedActions`.
+The pure domain role presets initialize selections but do not grant authorization.
+Membership writes use the workspace security revision captured for review, not a
+member's revision. A conflict requires an explicit refresh and another review;
+403/404/409 reads clear inaccessible cached team details. All new writes include
+an expected account ID and a payload-bound UUID idempotency key held only in RAM.
+An identical retry reuses its key; a changed actor, target or payload does not.
+
+Invitations have the fixed server TTL, explicit creation/resend/revocation, and
+truthful sent/pending/sending/uncertain delivery states. Resending a still-valid
+invitation preserves its link and expiry; an expired invitation is renewed.
+Set no-referrer metadata on the invitation route. Invalid tokens render a generic
+unavailable state before prompting sign-in; wrong-account/expired/revoked links
+do not reveal the recipient or workspace. A GET only previews a matching verified
+account's invitation. Joining always requires the explicit acceptance button.
+
+Account deletion is the final section of SettingsPage. Its preview requires a
+decision for every owned workspace: leave only when allowed, transfer to a
+concrete eligible member, or delete with its exact name. The final step reviews
+these decisions and requires the current password plus explicit consent. A stale
+security revision blocks deletion until an explicit refresh and clears password/consent.
+Successful acknowledgement clears account state and the entire private settings
+tree, then shows the actual cleanup date. A timeout/network failure blocks another
+submission until an explicit account-status check. A missing session is not proof
+that deletion succeeded. Copy distinguishes immediate loss of access, scheduled
+cleanup and separately retained backups; it does not claim a production backup
+exists or that every historical copy disappears immediately.
+
 ## Verification Boundary
 
 Tests exercise transport, validation, cancellation, duplicate/stale requests,
@@ -83,7 +122,7 @@ formatting. TypeScript AST/CSS checks cover source contracts and client boundari
 No test here renders a browser or proves appearance, focus behavior or keyboard
 interaction. The user still checks desktop/mobile layout, 200% zoom, password
 visibility/autofill, focus/error order, dialog return focus, language changes with
-drafts, recovery links, sessions and Kazakh wording on integrated routes.
-
-Team membership, invitations and ownership-safe deletion belong to checkpoint
-02.1.2. They are not exposed as disabled placeholder controls in this checkpoint.
+drafts, recovery links, sessions, team selection/action dialogs, invitation
+acceptance, deletion choices and Kazakh wording on integrated routes. Network
+transport tests use fake fetch responses; real HTTP/database/mail coverage belongs
+to the server and route integration checks. No visual finding is closed here.

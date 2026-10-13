@@ -1,7 +1,14 @@
 import { OpaqueTokenSchema } from '@/features/identity/contracts';
 import { authReturnTo } from '@/features/identity/domain/return-to';
+import { IdSchema } from '@/contracts/primitives';
 
 export type IdentitySearchParams = Record<string, string | string[] | undefined>;
+
+export function readWorkspaceSelection(query: IdentitySearchParams): { valid: true; workspaceId?: string } | { valid: false } {
+  if (query.workspace === undefined) return { valid: true };
+  const parsed = IdSchema.safeParse(query.workspace);
+  return parsed.success ? { valid: true, workspaceId: parsed.data } : { valid: false };
+}
 
 export function readIdentityNavigation(query: IdentitySearchParams) {
   const intent = query.intentToken;

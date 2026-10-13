@@ -158,6 +158,14 @@ describe("CSS source constraints", () => {
     expect(block(".tl-checkbox-field__target")).toContain("block-size: var(--size-touch)");
   });
 
+  it("keeps link hover colors out of button variants", () => {
+    const foundation = read("foundation.css");
+    expect(foundation).toContain("a:not(.tl-button):hover");
+    expect(foundation).not.toMatch(/(?:^|\n)\s*a:hover\s*\{/);
+    expect(block(".tl-button--primary")).toContain("color: var(--color-on-action)");
+    expect(block('.tl-button--primary:not(:disabled, [aria-disabled="true"]):hover')).toContain("background: var(--color-action-hover)");
+  });
+
   it("bounds overlays and intrinsic wide tables, preserves hidden panels, and disables motion", () => {
     expect(block(".tl-dialog")).toContain("100dvh");
     expect(block(".tl-dialog__body")).toContain("overflow: auto");

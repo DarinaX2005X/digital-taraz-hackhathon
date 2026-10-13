@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { authHref } from "@/features/identity/ui/navigation";
-import { hasErrors, validateCredentials, validateEmail, validateName, validatePassword } from "@/features/identity/ui/validation";
+import { hasErrors, passwordVariables, validateCredentials, validateEmail, validateName, validatePassword } from "@/features/identity/ui/validation";
+import { identityTranslator } from "@/features/identity/locales";
 
 describe("account form validation", () => {
   it("checks required fields, names, Unicode names and trimmed email input", () => {
@@ -18,6 +19,8 @@ describe("account form validation", () => {
     expect(validatePassword("x".repeat(12), true)).toBeUndefined();
     expect(validatePassword("x".repeat(128), true)).toBeUndefined();
     expect(validatePassword("x".repeat(129), true)).toBe("identity.validation.password");
+    expect(validatePassword("x".repeat(129), false)).toBe("identity.validation.currentPassword");
+    for (const locale of ["ru", "kk", "en"] as const) expect(identityTranslator(locale)(validatePassword("x".repeat(129), false)!, passwordVariables)).toContain("128");
   });
 
   it("does not require sign-up-only fields for sign-in", () => {
@@ -45,5 +48,15 @@ describe("auth navigation state", () => {
   it("uses the shared server redirect allowlist and rejects arbitrary navigation state", () => {
     expect(authHref("/sign-up", { returnTo: "https://attacker.test", intentToken: "freeform-goal" })).toBe("/sign-up?returnTo=%2Fapp");
     expect(authHref("/auth/reset")).toBe("/auth/reset");
+  });
+
+  it("preserves a specific team destination through authentication without carrying private query values", () => {
+    const workspaceId = "d57f5c5b-591e-4fbb-be11-4b9671b33b88";
+    const href = authHref("/sign-in", { returnTo: `/settings/team?workspace=${workspaceId}&email=private@example.test`, intentToken: "a".repeat(64) });
+    const query = new URL(href, "https://tirlik.invalid").searchParams;
+    expect(query.get("returnTo")).toBe(`/settings/team?workspace=${workspaceId}`);
+    expect(query.get("intentToken")).toBe("a".repeat(64));
+    expect(href).not.toContain("private");
+    expect(new URL(authHref("/sign-in", { returnTo: `/settings/team?workspace=${workspaceId}&workspace=${workspaceId}` }), "https://tirlik.invalid").searchParams.get("returnTo")).toBe("/app");
   });
 });

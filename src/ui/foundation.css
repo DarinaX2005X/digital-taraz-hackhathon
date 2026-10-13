@@ -62,7 +62,7 @@ a {
 }
 
 @media (hover: hover) {
-  a:hover {
+  a:not(.tl-button):hover {
     color: var(--color-action-hover);
   }
 }

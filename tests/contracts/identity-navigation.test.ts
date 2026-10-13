@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { readIdentityNavigation } from '../../src/server/identity-navigation';
+import { readIdentityNavigation, readWorkspaceSelection } from '../../src/server/identity-navigation';
 
 describe('identity route inputs', () => {
+  it('distinguishes a missing workspace from invalid or ambiguous selection', () => {
+    const workspaceId = '12345678-1234-4234-9234-123456789012';
+    expect(readWorkspaceSelection({})).toEqual({ valid: true });
+    expect(readWorkspaceSelection({ workspace: workspaceId })).toEqual({ valid: true, workspaceId });
+    for (const workspace of ['', 'not-an-id', [workspaceId], [workspaceId, workspaceId]]) {
+      expect(readWorkspaceSelection({ workspace })).toEqual({ valid: false });
+    }
+  });
   it('retains an allowlisted destination and opaque intent', () => {
     const intentToken = 'a'.repeat(64);
     expect(readIdentityNavigation({ returnTo: '/app/projects/example?secret=hidden', intentToken })).toEqual({

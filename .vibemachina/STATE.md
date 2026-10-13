@@ -6,9 +6,9 @@ Active task: 02.1
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f. Продолжается полный объём 15 этапов / 43 задачи / 86 checkpoints, не только foundation или первый slice.
+2026-10-14, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f. Продолжается полный объём 15 этапов / 43 задачи / 86 checkpoints, не только foundation или первый slice.
 
-01.1, 01.2, 01.3 приняты. Последний checkpoint 9d98ac9fc99a12d530311a95ac6625d6c36450f6 pushed origin/main, все 7 configured checks PASS: полный account02.1.1. Предыдущий67b2dbf сохраняет fixtures01.3.2, hosting server/CLI/direct proofs и shared dependencies/config/isolation. 01.4.1 capability gate принят с явными ограничениями; 01.4.2 remote Workflow proof пока не выполнен.
+01.1, 01.2, 01.3 приняты. Последний checkpoint3307ae5b5c4a17d03bba5aa84ef9e694d0ded890 pushed origin/main, все 7 configured checks PASS: additive workspace0004/schema/contracts и5 новых contract/DB tests, без unfinished handlers/UI. Account02.1.1 ранее принят9d98ac9f. Предыдущий67b2dbf сохраняет fixtures01.3.2, hosting server/CLI/direct proofs и shared dependencies/config/isolation. 01.4.1 capability gate принят с явными ограничениями; 01.4.2 remote Workflow proof отложен по указанию пользователя.
 
 02.1.1 принят и pushed 9d98ac9fc99a12d530311a95ac6625d6c36450f6, все 7 configured checks PASS. Server: 10 focused unit tests; UI: 59 tests / 6 files. Общая сборка и настоящий HTTP/DB/Mailpit прогон с mounted pages/SSR locale успешны. Главная теперь даёт доступ к реальным account routes, migration0003 применена локально. Полноценного рабочего раздела03.2 и landing10.1 ещё нет. Начинается02.1.2, F001 ожидает пользовательской проверки доступных страниц.
 
@@ -18,7 +18,7 @@ Active task: 02.1
 
 ## Следующие шаги
 
-1. Оба пакета02.1.2 продолжаются. Ранние готовые0004/schema/contracts +5 новых contract/DB tests переданы MAIN;0004 применена локально штатным restart, данные сохранены. Сейчас оба writers STOP для промежуточного checkpoint; после него release на полные handlers/UI. Миграции0003/0004 immutable; незавершённые access/operations и UI исключены из commit scope.
+1. Оба пакета02.1.2 переданы MAIN, writers STOP. Server: полный isolated integration PASS и16 focused tests; UI:107 tests/10files PASS; type/lint PASS. Team/invitation pages и localized route recovery подключены. Следующий шаг: штатный общий checkpoint с build/integration, затем приёмка02.1 и dispatch03.1/02.2. Миграции0003/0004 immutable.
 2. После02.1 acceptance начать независимый03.1. Сохранять крупные самостоятельные задачи worker, не ждать всего этапа02.
 3. Для локального исполнения02.2 требуется интегрированный02.1 и уже принятый capability gate01.4.1. Remote01.4.2 отложен по ответу пользователя и остаётся обязательным перед cloud acceptance11.2/13.2. Start/redeploy/resume ранее отклонён средой до процесса (`blocked by policy`); Workflow не запускался, journal отсутствует. Не обходить отказ транспортом/агентом/командой. Локальная разработка не доказывает cloud durability.
 4. После03.1 возможен shell03.2. Sources02.3 ждут02.2, mapping02.4 ждёт sources; первый полный provider/edit/save/export путь04.2. Читать реальные Depends on, не менять план ради заглушки.
@@ -29,7 +29,7 @@ Active task: 02.1
 - Commits: 01.1 84bc4af; 01.2.1 590789a; 01.3.1/01.4.1 8a7580f; 01.2.2 566291f; 01.3.2 и hosting package 67b2dbf; account02.1.1 9d98ac9f. Все pushed.
 - Identity server: настоящее signup/verify/login/reset/change password/logout, replay/expiry/session revoke, CSRF, stale actor, чужие session/intent и rate limit проверены на изолированных PostgreSQL/Mailpit/Next. UI/browser и настоящая Brevo delivery не проверены.
 - SMTP STARTTLS authentication PASS, From указан пользователем и задан в private env. Используется canonical SMTP_PASSWORD; лишние BREVO_API_KEY/BREVO_SMTP_KEY удалены по поручению пользователя. Локальный запуск/автотесты только Mailpit и очищенные external credentials.
-- MAIN navigation parser: 3 tests PASS для allowlist/opaque intent/ambiguous query/token bounds. Local restart сохранил базу/файлы и порт, /api/health200 database ready.
+- MAIN navigation parser и route recovery: 4 tests PASS для allowlist/opaque intent/ambiguous query/token bounds; ещё33 locale/control/token tests PASS. Local HTTP health200, private identity/me/workspaces/deletion дают guest401 и no-store. Неверный workspace filter не открывает другой workspace; unknown URL имеет полноценный локализованный404.
 - Fixtures и preflight proofs подробно в stage01. Live AI ledger partial: confirmed $0.0400707, unresolved reservation $0.480832, attempted ceilings $0.81472 <= $1. Не повторять ambiguous paid call. Mimo metadata expiration2026-10-21 обработать до02.2.
 - Dependencies pinned; remaining audit: 3 moderate production entries (Mammoth CLI sprintf-js/argparse chain) и 5 high dev Next ESLint/braces, без доступного совместимого patch. Не выполнять audit fix --force и не заявлять исправленными.
 
@@ -51,10 +51,10 @@ Hobby noncommercial restriction, Kazakhstan personal-data/backup region gate и 
 
 ## Работники
 
-- /root/foundation: 02.1.2 ACTIVE. Exclusive src/features/identity/server/, domain/, contracts.ts,index.ts; tests/identity/server/,domain/; loan src/server/db/identity-schema.ts и NEW migrations/0004_identity_workspaces.sql. 0003 не изменять. MAIN добавил SSR locale assertion в существующий lifecycle.integration.test.ts перед прошлым checkpoint, путь снова передан worker.
-- /root/ui_foundation: 02.1.2 ACTIVE. Exclusive src/features/identity/ui/, locales/, tests/identity/ui/. Team/invite/role/revoke и ownership-safe account deletion, ru/kk/en; shared src/ui и src/i18n остаются MAIN.
+- /root/foundation: 02.1.2 SERVER DONE/STOP. Все server/domain/tests paths переданы MAIN, активных exec sessions нет. Guards/team/invite/deletion прошли полный isolated integration. Нужна совместная UI приёмка, весь task пока active. Миграции0003/0004 приняты immutable.
+- /root/ui_foundation: 02.1.2 UI DONE/STOP, активных команд нет. Все src/features/identity/ui/, locales/, tests/identity/ui/ переданы MAIN. Team/invite/role/revoke/delete и ru/kk/en прошли107 focused tests. Browser/visual QA не выполнялся.
 - /root/preflight: read-only follow-up01.4 DONE/STOP, файлов/env/платных вызовов не менял. Кандидат xiaomi/mimo-v2.6-flash, endpoint deepinfra/fp8, прежняя цена $0.14/$0.28 за1M, ZDR listing, tools/vision/JSON metadata; реальный loop не доказан. MAIN сохраняет основания в PROJECT C14 для02.2. Hosting только после изменения текущего указания пользователя; сейчас локально.
-- /root/business_fixtures: 01.3.2 DONE/STOP, пути переданы и committed.
+- /root/business_fixtures: 01.3.2 DONE; подготовительное чтение03.1, Paths:none. Читает полный BRIEF/TESTING и контракты существующей истории/identity, возвращает конкретные интеграционные требования без записи. Реализация03.1 не начинается до принятия02.1 и отдельного release MAIN.
 - Старые plan_reader_v4/plan_review больше не пишут.
 
 MAIN единолично владеет памятью/Git, package/lock/config, app routes/layout, shared contracts/schema/migrations кроме явно выданных loans. Сейчас MAIN добавил identity route composition/navigation tests/schema re-export, worker files не переписывает. Каждый новый worker читает полный оригинальный BRIEF, все последующие дословные remarks, relevant TESTING и skill domain/design references. Краткий dispatch не заменяет исходники.
