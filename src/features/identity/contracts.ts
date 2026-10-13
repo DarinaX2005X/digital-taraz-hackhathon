@@ -39,3 +39,48 @@ export const SessionsResultSchema = z.strictObject({ sessions: z.array(IdentityS
 export const RevokeSessionResultSchema = z.strictObject({ revoked: z.literal(true) });
 export const IntentSavedSchema = z.strictObject({ intentToken: z.string().regex(/^[a-f0-9]{64}$/), expiresAt: z.iso.datetime() });
 export const IntentRestoredSchema = z.strictObject({ goal: z.string(), returnTo: z.string() });
+
+export const INVITATION_TTL_SECONDS = 7 * 24 * 60 * 60;
+export const DELETION_RETENTION_DAYS = 30;
+export const WorkspaceNameSchema = z.string().trim().min(1).max(100);
+export const AuthzVersionSchema = z.number().int().positive().max(2147483647);
+export const ScopeListSchema = z.array(AccessScopeSchema).min(1).max(6).refine((scopes) => scopes.includes('read') && new Set(scopes).size === scopes.length);
+export const InvitationTokenSchema = z.string().regex(/^[a-f0-9]{64}$/);
+const grantFields = { role: MembershipRoleSchema, scopes: ScopeListSchema.optional() };
+const expectedVersion = { expectedAuthzVersion: AuthzVersionSchema };
+export const CreateWorkspaceSchema = z.strictObject({ name: WorkspaceNameSchema });
+export const UpdateMemberSchema = z.strictObject({ ...grantFields, ...expectedVersion });
+export const RevokeMemberSchema = z.strictObject(expectedVersion);
+export const TransferOwnershipSchema = z.strictObject({ targetUserId: z.uuid(), ...expectedVersion });
+export const CreateInvitationSchema = z.strictObject({ email: EmailSchema, ...grantFields, locale: IdentityLocaleSchema, ...expectedVersion });
+export const InvitationMutationSchema = z.strictObject(expectedVersion);
+export const AcceptInvitationSchema = z.strictObject({});
+export const WorkspaceSchema = z.strictObject({ id: z.uuid(), name: WorkspaceNameSchema, authzVersion: AuthzVersionSchema, createdAt: z.iso.datetime() });
+export type Workspace = z.infer<typeof WorkspaceSchema>;
+export const MemberActionsSchema = z.strictObject({ update: z.boolean(), revoke: z.boolean(), transfer: z.boolean(), roles: z.array(MembershipRoleSchema), scopes: z.array(AccessScopeSchema) });
+export type MemberActions = z.infer<typeof MemberActionsSchema>;
+export const TeamMemberSchema = z.strictObject({ userId: z.uuid(), name: z.string(), email: EmailSchema, role: MembershipRoleSchema, scopes: ScopeListSchema, joinedAt: z.iso.datetime(), allowedActions: MemberActionsSchema });
+export type TeamMember = z.infer<typeof TeamMemberSchema>;
+export const InvitationDeliverySchema = z.enum(['pending', 'sending', 'sent', 'uncertain']);
+export const TeamInvitationSchema = z.strictObject({ id: z.uuid(), email: EmailSchema, role: MembershipRoleSchema, scopes: ScopeListSchema, locale: IdentityLocaleSchema, expiresAt: z.iso.datetime(), status: z.enum(['pending', 'expired']), delivery: InvitationDeliverySchema, allowedActions: z.strictObject({ resend: z.boolean(), revoke: z.boolean() }) });
+export type TeamInvitation = z.infer<typeof TeamInvitationSchema>;
+export const TeamResultSchema = z.strictObject({ workspace: WorkspaceSchema, actorMembership: WorkspaceMembershipSchema, members: z.array(TeamMemberSchema), invitations: z.array(TeamInvitationSchema), allowedActions: z.strictObject({ invite: z.boolean(), deleteWorkspace: z.boolean(), roles: z.array(MembershipRoleSchema), scopes: z.array(AccessScopeSchema), invitationTtlSeconds: z.literal(INVITATION_TTL_SECONDS) }) });
+export type TeamResult = z.infer<typeof TeamResultSchema>;
+export const WorkspacesResultSchema = z.strictObject({ workspaces: z.array(WorkspaceMembershipSchema) });
+export const WorkspaceResultSchema = z.strictObject({ workspace: WorkspaceMembershipSchema });
+export const TeamMutationResultSchema = z.strictObject({ workspaceId: z.uuid(), authzVersion: AuthzVersionSchema });
+export const InvitationMutationResultSchema = TeamMutationResultSchema.extend({ invitationId: z.uuid(), delivery: InvitationDeliverySchema });
+export const InvitationPreviewSchema = z.strictObject({ status: z.literal('pending'), workspaceName: WorkspaceNameSchema, role: MembershipRoleSchema, scopes: ScopeListSchema, expiresAt: z.iso.datetime() });
+export type InvitationPreview = z.infer<typeof InvitationPreviewSchema>;
+export const DeletionWorkspaceSchema = z.strictObject({ workspaceId: z.uuid(), name: WorkspaceNameSchema, authzVersion: AuthzVersionSchema, memberCount: z.number().int().positive(), canLeave: z.boolean(), transferCandidates: z.array(z.strictObject({ userId: z.uuid(), name: z.string(), email: EmailSchema })) });
+export const AccountDeletionPreviewSchema = z.strictObject({ ownedWorkspaces: z.array(DeletionWorkspaceSchema), otherWorkspaceCount: z.number().int().nonnegative(), retentionDays: z.literal(DELETION_RETENTION_DAYS) });
+export type AccountDeletionPreview = z.infer<typeof AccountDeletionPreviewSchema>;
+export const WorkspaceDeletionChoiceSchema = z.discriminatedUnion('action', [
+  z.strictObject({ workspaceId: z.uuid(), ...expectedVersion, action: z.literal('leave') }),
+  z.strictObject({ workspaceId: z.uuid(), ...expectedVersion, action: z.literal('transfer'), targetUserId: z.uuid() }),
+  z.strictObject({ workspaceId: z.uuid(), ...expectedVersion, action: z.literal('delete'), confirmationName: WorkspaceNameSchema }),
+]);
+export const DeleteAccountSchema = z.strictObject({ password: z.string().min(1).max(128), confirmation: z.literal('DELETE_ACCOUNT'), workspaces: z.array(WorkspaceDeletionChoiceSchema).max(100) }).refine((value) => new Set(value.workspaces.map((workspace) => workspace.workspaceId)).size === value.workspaces.length);
+export type DeleteAccount = z.infer<typeof DeleteAccountSchema>;
+export const AccountDeletionResultSchema = z.strictObject({ status: z.literal('deletion-requested'), requestId: z.uuid(), requestedAt: z.iso.datetime(), cleanupAfter: z.iso.datetime() });
+export type AccountDeletionResult = z.infer<typeof AccountDeletionResultSchema>;

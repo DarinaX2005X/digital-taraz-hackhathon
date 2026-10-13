@@ -50,9 +50,11 @@ Tool creates workbook and annotated report, direct edits/export and fresh GET ma
 ## 05.3 Строить прогноз только с исторической проверкой
 Status: todo
 Requirements: R12, R13, R14, R15, R91, R104
-Depends on: 05.2, 01.3, 01.4
+Depends on: 05.2, 01.3
 Owner: SUBAGENT to assign
 Paths: src/features/forecast/, tests/forecast/, evals/forecast/
+
+Локальная реализация использует принятый CTSA/licence proof01.4.1. Отложенный remote01.4.2 не блокирует локальную domain-проверку, но не считается выполненным; cloud execution limits остаются acceptance11.2/13.2.
 
 **Контракт и результат.** C9 полностью. ForecastRequest target/date/value/aggregation/horizon/calendar/sourceVersion/exclusions. Validate regularity/missing periods/zeros/outliers, eligibility thresholds C9; no leakage through holdout. Fixed economical arima CTSA candidates + naive/seasonal baseline, rolling-origin >=2 folds, MAE/WAPE zero case, choose candidate only if beats comparable baseline. Prediction intervals method+level+calibration coverage, no Gaussian-looking decoration from LLM. Persist train range, selected params, folds, residuals, raw/adjusted predictions and new actual comparison; cancel/resume versioned job.
 

@@ -29,7 +29,7 @@ Isolated checkout npm/compose/migration/start->HTTP real smallworkflow->stop/sta
 ## 13.2 Выпустить проверенную ревизию на Vercel
 Status: todo
 Requirements: R17, R25, R74, R78, R79, R85, R86
-Depends on: 13.1, 11.2
+Depends on: 13.1, 11.2, 01.4
 Owner: SUBAGENT to assign
 Paths: scripts/release/, tests/deployed/
 

@@ -19,6 +19,8 @@ Paths: src/features/public-site/, public/site/, tests/public-site/
 ### 10.1.1 Содержательная публичная часть
 Status: todo
 
+Исходное F002 и полное последующее замечание в BRIEF обязательны исполнителю: нынешняя account-entry страница не заменяет лендинг. Сделать самостоятельную публичную подачу с отдельным входом и собственной предметной композицией, не расширять стандартную форму до якобы готового сайта. Внешний вид утверждает пользователь.
+
 Content and route inventory verified HTTP statuses/destinations, factual claims traced to implemented functions, complete locales/no tariffs. Asset license/hash/dimensions checked, not visual approval.
 
 ### 10.1.2 Первое действие и возврат

@@ -71,9 +71,11 @@ Command adapters tested direct edits/format/find/replace/locks undo through DB r
 ## 03.4 Выгрузить документ и зафиксировать состав пакета
 Status: todo
 Requirements: R13, R16, R25, R42, R43, R95
-Depends on: 03.3, 01.4
+Depends on: 03.3
 Owner: SUBAGENT to assign
 Paths: src/features/exports/, tests/exports/
+
+Локальный допуск опирается на принятый format proof01.4.1; remote01.4.2 отложен по указанию пользователя. Реальные локальные DOCX/PDF и их содержимое проверяются здесь; пригодность cloud execution/storage отдельно обязательна11.2/13.2.
 
 **Контракт и результат.** C3-C4, C7. Export service extensible by artifact kind: initial DOCX/PDF via docx/PDFKit, same typed model, local embedded fonts ru/kk/en, table/pagebreak/images. Fixed revision IDs/layout/locale/private policy hash persisted before render, immutable ExportBundleManifest files/hashes/sourceVersions. Queued/rendering/partial/ready/failed; never mix revisions on retry. Download rechecks current rights; revoke removes access even historic link. Draft unresolved critical binding blocks ordinary approved bundle; explicit historic draft export labelled.
 

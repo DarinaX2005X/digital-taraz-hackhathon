@@ -10,7 +10,7 @@ Status: active
 Requirements: R11, R22, R23, R24, R25, R34, R39, R41, R43, R44, R45, R90
 Depends on: 01.1, 01.2
 Owner: /root/foundation (server), /root/ui_foundation (UI)
-Paths: src/features/identity/, tests/identity/, src/server/db/identity-schema.ts, migrations/0003_identity.sql
+Paths: src/features/identity/, tests/identity/, src/server/db/identity-schema.ts, migrations/0003_identity.sql, migrations/0004_identity_workspaces.sql
 
 **Контракт и результат.** C3-C4, C12. Better Auth signup/email verification/login/reset/expiry/logout, Workspace+Membership owner/editor/reviewer, invites single-use TTL, profile/session revocation. Default-deny scopes include approve/export/readconfidential; actor из сессии. returnTo local allowlist, сохранение goal draft как opaque intent, не содержимое в URL. Реальный SMTP и Mailpit local. Ошибки не перечисляют существующие аккаунты. MAIN owns auth route/schema, worker передаёт integration contract.
 
@@ -21,7 +21,7 @@ Paths: src/features/identity/, tests/identity/, src/server/db/identity-schema.ts
 Dispatch02.1: server worker владеет src/features/identity/server/, domain/, contracts.ts, index.ts, tests/identity/server/, tests/identity/domain/ и исключительным loan src/server/db/identity-schema.ts + migrations/0003_identity.sql. UI worker владеет src/features/identity/ui/, locales/, tests/identity/ui/. MAIN владеет app routes/config/package/root schema re-export. Workers согласуют typed transport через contracts.ts; основной auth endpoint Better Auth /api/auth/*, прикладной identity endpoint /api/identity/*. Никаких дублирующих permission models. Параллельное исполнение внутри утверждённой задачи, зависимости следующих задач не снимаются.
 
 ### 02.1.1 Аккаунт и возврат в работу
-Status: active
+Status: done
 
 HTTP cookie/session lifecycle, verification/reset через Mailpit API, invalid/expired/replayed token rejection; reload same owner. Local flag не даёт полномочий.
 
@@ -29,19 +29,27 @@ HTTP cookie/session lifecycle, verification/reset через Mailpit API, invali
 
 UI handover: 59 focused tests / 6 files, TypeScript и scoped ESLint PASS. Реальные forms/modal/verify/reset/profile/password/sessions/logout, account menu, typed transport, locale persistence и stale/abort guards. Guest entry ссылки доступны сразу в SSR, settings не содержит перехода в несуществующую работу. MAIN подключил все pages, no-referrer metadata email links и дополнительные HTTP проверки границ. Оба workers STOP для интегрированного checkpoint; task02.1 ещё требует приглашения/права/удаление из02.1.2. Внешний вид, focus, touch и фактическое поведение UI проверяет пользователь.
 
+Принято: штатный checkpoint 9d98ac9fc99a12d530311a95ac6625d6c36450f6, все 7 checks PASS, pushed origin/main. Сборка и общие type/lint/unit/domain/locale checks успешны; изолированный HTTP/DB/Mailpit прогон включает mounted pages, отсутствие создания аккаунта при GET, no-referrer token pages и server account locale на другом устройстве. Source/core identity handover завершён; визуальная проверка пользователя остаётся отдельной.
+
 ### 02.1.2 Приглашение и отзыв прав
-Status: todo
+Status: active
 
 Invite/role change/revoke increments authzVersion и blocks jobs/downloads. Guessed IDs/CSRF denied, last owner не оставляет workspace без владельца. User проверяет modal/focus/return.
 
 Account deletion по C6: перенос роли владельца или явное удаление его workspace; остальные участники не теряют данные молча. Backend блокирует эффекты и доступ немедленно, cleanup/backup tombstones проверяются11.2, не обещается мгновенное стирание уже существующей резервной копии.
 
+Release после9d98ac9f: foundation продолжает server/domain/contracts/tests и identity-schema, новый exclusive loan migrations/0004_identity_workspaces.sql. Migration0003 immutable. UI worker продолжает свои UI/locales/tests; typed transport согласует с foundation. MAIN app routes, root schema registry и migrations execution. Пакет включает полный workspace/membership/invite/ownership/delete lifecycle с transactional authorization helper для следующих модулей; не имитировать ещё не существующие jobs/downloads, но дать им проверяемый общий guard и authzVersion.
+
+Ранний законченный handover: additive migration0004, Drizzle schema, typed team/delete contracts и отдельные domain/DB constraints tests. Добавлены шесть таблиц и deletion timestamp пользователя; active workspace требует owner, project grants требуют membership, удаление хранит tombstones, приглашения имеют single-use/TTL/delivery fencing поля. TypeScript/scoped ESLint и5 новых contract/DB tests плюс изолированный общий integration PASS. Эти пять файлов переданы MAIN immutable; незавершённые access/operations и UI не входят в промежуточный checkpoint. Полный02.1.2 остаётся active, mounted account handlers пока не используют новые таблицы.
+
 ## 02.2 Управлять длительными задачами, ценой и отказами моделей
 Status: todo
 Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105
-Depends on: 01.4, 02.1
+Depends on: 02.1
 Owner: SUBAGENT to assign
 Paths: src/features/runs/, tests/runs/
+
+Локальный допуск: capability gate01.4.1 принят с ограничениями C14; отложенный по указанию пользователя remote01.4.2 не блокирует локальную реализацию. Облачную durability не объявлять доказанной. Старый Mimo истекает2026-10-21, metadata кандидата не заменяет реальный proof; live calls только с действующим явным budget/разрешением, ambiguous ledger не повторять.
 
 **Контракт и результат.** C3-C4, C8, C11-C12. Run/Receipt/Usage используют общие схемы01.1 и identity02.1, не требуют готового редактора03.1. Платный импорт первым подключает этот runtime; artifact adapters включаются позже с тем же idempotent effect protocol. Durable Run/Step/ToolReceipt/Usage ledger with Workflow adapter and DB authority. Claim lease+epoch fencing, idempotent tool receipt by run/step/call/inputhash, cancel/resume terminal rules. Atomic estimated worst-case reservation before provider call, priceTTL/max_tokens and daily workspace/deployment caps C8. Allowlisted economical text/vision/image model endpoints, no forbidden provider fallback. Ambiguous paid timeout retains reservation until reconcile, not blind retry; bounded safe retry. Concurrency fairness limits across tenants, restore pending work after process death/redeploy.
 
@@ -61,9 +69,11 @@ Live bounded call then simulated network/process interruption, replay receipts w
 ## 02.3 Сохранить оригиналы файлов и извлечь проверяемые источники
 Status: todo
 Requirements: R10, R14, R16, R25, R39, R42, R43, R76, R105
-Depends on: 02.1, 01.4, 02.2
+Depends on: 02.1, 02.2
 Owner: SUBAGENT to assign
 Paths: src/features/sources/, tests/sources/
+
+Локальная реализация использует принятые format/capability limits01.4.1; remote storage/hosting acceptance01.4.2 остаётся обязательной перед cloud release, но отложена по указанию пользователя. OCR не обходит runtime budget или live-proof ограничения02.2.
 
 **Контракт и результат.** C3-C5, C8, C12. Private uploads init/finalize, immutable final key после bytes/magic/size/hash; staging PUT не меняет finalized content. CSV/TSV/XLSX/DOCX/text PDF/PNG/JPEG/WebP/paste по C5; scan PDF page vision с review flags. Любой платный vision/OCR использует Run/Usage reservation02.2, отдельного неограниченного parser key path нет. Пустой text PDF не вызывает все100 страниц модели без расчёта бюджета. Fragments file/page/row/cell, версии/diagnostics. Bounded stream/zip/images, safe HTML/XML, macros/external formulas disabled; download rechecks ACL. Interrupted upload retry без двойного ready source; удаление учитывает dependencies/retention.
 

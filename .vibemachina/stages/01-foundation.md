@@ -103,7 +103,9 @@ Roundtrip файлы, Unicode text extraction, formulas vs golden, schema/tool/v
 Live ledger намеренно `partial`, не замаскирован green: Mimo tool call выполнен/проверен; vision JSON object + strict local Zod PASS; Seedream4.5 JPEG2048x2048 PASS. Xiaomi endpoint НЕ поддержал provider-enforced JSON Schema, поэтому downstream использует JSON object + обязательную локальную проверку. Seedream minimum2K подтверждён реальным вызовом, несмотря на ошибочную1K metadata. Отдельный JSON output call получил ambiguous timeout: НЕ повторялся, резерв остаётся. Confirmed actual$0.0400707, unresolved reserved$0.480832, cumulative attempted ceilings$0.81472 <= original$1. Все обычные checks offline, live runner требует явных execute/cap и запрещает повтор ledger. Непрерывный tool-message loop ещё не доказан, его acceptance остаётся04.2; durable uncertain receipt/reconciliation02.2. Mimo expiration metadata2026-10-21 обязательно обработать до runtime02.2, readiness=false не прячется. Эти выявленные границы, а не поддержка всех запрошенных параметров, являются результатом ранней проверки.
 
 ### 01.4.2 Хостинг и региональные условия проверены
-Status: active
+Status: blocked
+
+Текущая граница: пользователь ответил «Пока продолжать только локально» на вопрос о конкретном remote proof. Новые hosting probes/deploy не запускать. Уже полученные direct proofs сохранены, но не заменяют Workflow start/redeploy/resume. Для локальных задач принят01.4.1; cloud gate остаётся обязательным11.2/13.2. Нельзя обходить прежний инструментальный policy denial другим транспортом.
 
 Preview HTTP/API + workflow resume после redeploy; storage permissions и лимиты. Privacy gate отдельно для аккаунтов, бизнес-данных, backups и AI subprocessors; неподтверждённую локализацию не считать production-ready.
 
