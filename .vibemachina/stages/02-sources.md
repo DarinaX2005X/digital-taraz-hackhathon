@@ -26,44 +26,68 @@ Status: todo
 
 Invite/role change/revoke increments authzVersion и blocks jobs/downloads. Guessed IDs/CSRF denied, last owner не оставляет workspace без владельца. User проверяет modal/focus/return.
 
-## 02.2 Сохранить оригиналы файлов и извлечь проверяемые источники
+Account deletion по C6: перенос роли владельца или явное удаление его workspace; остальные участники не теряют данные молча. Backend блокирует эффекты и доступ немедленно, cleanup/backup tombstones проверяются11.2, не обещается мгновенное стирание уже существующей резервной копии.
+
+## 02.2 Управлять длительными задачами, ценой и отказами моделей
+Status: todo
+Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105
+Depends on: 01.4, 02.1
+Owner: SUBAGENT to assign
+Paths: src/features/runs/, tests/runs/
+
+**Контракт и результат.** C3-C4, C8, C11-C12. Run/Receipt/Usage используют общие схемы01.1 и identity02.1, не требуют готового редактора03.1. Платный импорт первым подключает этот runtime; artifact adapters включаются позже с тем же idempotent effect protocol. Durable Run/Step/ToolReceipt/Usage ledger with Workflow adapter and DB authority. Claim lease+epoch fencing, idempotent tool receipt by run/step/call/inputhash, cancel/resume terminal rules. Atomic estimated worst-case reservation before provider call, priceTTL/max_tokens and daily workspace/deployment caps C8. Allowlisted economical text/vision/image model endpoints, no forbidden provider fallback. Ambiguous paid timeout retains reservation until reconcile, not blind retry; bounded safe retry. Concurrency fairness limits across tenants, restore pending work after process death/redeploy.
+
+**Вход в работу и состояния.** Task progress names actual stages/tools and produced results, never pretend internal thoughts. Stop, retry failed step, resume from saved partial; cost/limit explanation localized. No key/provider failure leaves manual editors usable and result drafts intact. Run SSE reconnect cursor is progress, not job persistence.
+
+### 02.2.1 Durable state и бюджет
+Status: todo
+
+Concurrency tests overspend race, duplicate tool, lease expiry/stale worker, cancelled job cannot write, forbidden models denied and unknown price blocked. Usage totals independently reconciled.
+
+### 02.2.2 Реальные сбои и восстановление
+Status: todo
+
+Live bounded call then simulated network/process interruption, replay receipts without duplicate persisted effects. HTTP events reconnect and permissions revoke; missing key honestly unavailable. На этой foundation-задаче effect fixture использует Run/Receipt; артефактный adapter подключается04.1 и проверяется04.2, когда уже готов03.1.
+
+
+## 02.3 Сохранить оригиналы файлов и извлечь проверяемые источники
 Status: todo
 Requirements: R10, R14, R16, R25, R39, R42, R43, R76, R105
-Depends on: 02.1, 01.4
+Depends on: 02.1, 01.4, 02.2
 Owner: SUBAGENT to assign
 Paths: src/features/sources/, tests/sources/
 
-**Контракт и результат.** C3-C5, C12. Private uploads init/finalize, immutable final key после bytes/magic/size/hash; staging PUT не меняет finalized content. CSV/TSV/XLSX/DOCX/text PDF/PNG/JPEG/WebP/paste по C5; scan PDF page vision с review flags. Fragments file/page/row/cell, версии/diagnostics. Bounded stream/zip/images, safe HTML/XML, macros/external formulas disabled; download rechecks ACL. Interrupted upload retry без двойного ready source; удаление учитывает dependencies/retention.
+**Контракт и результат.** C3-C5, C8, C12. Private uploads init/finalize, immutable final key после bytes/magic/size/hash; staging PUT не меняет finalized content. CSV/TSV/XLSX/DOCX/text PDF/PNG/JPEG/WebP/paste по C5; scan PDF page vision с review flags. Любой платный vision/OCR использует Run/Usage reservation02.2, отдельного неограниченного parser key path нет. Пустой text PDF не вызывает все100 страниц модели без расчёта бюджета. Fragments file/page/row/cell, версии/diagnostics. Bounded stream/zip/images, safe HTML/XML, macros/external formulas disabled; download rechecks ACL. Interrupted upload retry без двойного ready source; удаление учитывает dependencies/retention.
 
 **Вход в работу и состояния.** Материалы -> «Добавить»: drop/picker/paste, per-file progress/cancel и точные diagnostics. Unsupported/encrypted/oversized сохраняют текст задачи, не объявляют partial import complete. Raw fragment рядом с извлечённым значением; phone sequential pane.
 
-### 02.2.1 Защищённые оригиналы
+### 02.3.1 Защищённые оригиналы
 Status: todo
 
 Storage prove finalize/reused token attack denied, ACL/hash mismatch/interruption/oversize/cleanup. sourceId/versionId и job progress, не base64 в БД.
 
-### 02.2.2 Разбор с источниками и потерями
+### 02.3.2 Разбор с источниками и потерями
 Status: todo
 
 Golden все форматы, русский/казахский, multiple sheets, scan/malicious archive. Факты цитируют fragments, спорные числа needs-review. Download original hash equal.
 
-## 02.3 Согласовать колонки, справочники и качество данных
+## 02.4 Согласовать колонки, справочники и качество данных
 Status: todo
 Requirements: R14, R16, R32, R34, R35, R36, R37, R39, R44, R45, R76, R92, R99, R103
-Depends on: 02.2, 01.2, 01.3
+Depends on: 02.3, 01.2, 01.3
 Owner: SUBAGENT to assign
 Paths: src/features/materials/, tests/materials/
 
 **Контракт и результат.** C3-C5, C9. Mapping к stable column IDs: date/decimal/unit/currency, duplicate candidates/conflicts. Versioned MappingRule подтверждает человек; schema drift queues unmatched columns; unknown != zero, returns != sales. Paginated validated search/query, debounce отменяет stale request; totals с coverage/exclusions. Тип catalog/prices/history/brand/general optional, не ограничение отрасли. Корректировка Fact отдельно от immutable original.
 
-**Вход в работу и состояния.** Материалы: dataset table, photos thumbnails, search/type/date. Import sample rows с mapping/exceptions; «Применить сопоставление» показывает affected counts. Selected bulk resolution с preview/undo; phone сохраняет row/column names. Можно использовать валидную часть без разметки всех колонок.
+**Вход в работу и состояния.** Материалы: dataset table, photos thumbnails, search/type/date. Import sample rows с mapping/exceptions; «Применить сопоставление» показывает affected counts. Явно выбрать SourceCollection, режим replace-snapshot/append/upsert и recordKeySpec по C5. Preview показывает added/changed/unchanged/missing/ambiguous до записи. Selected bulk resolution с preview/undo; phone сохраняет row/column names. Можно использовать валидную часть без разметки всех колонок; неразрешённые записи не обновляют связанные материалы.
 
-### 02.3.1 Сопоставление и неизвестное
+### 02.4.1 Сопоставление и неизвестное
 Status: todo
 
-Golden decimal comma, KZT, units, plausible duplicates/conflicting prices без silent merge. Mapping reapplies только при совместимой схеме.
+Golden decimal comma, KZT, units, plausible duplicates/conflicting prices без silent merge. Mapping reapplies только при совместимой схеме. RecordIdentity/ResolutionVersion сохраняют stable recordId и fieldId между файлами независимо от порядка строк. Проверить перестановку без изменений, тот же файл, пересекающиеся периоды, одну новую цену, переименование без ключа и удалённую позицию. Replace missing только для полного подтверждённого snapshot; append overlap не удваивает продажи; upsert absence ничего не удаляет. Старые raw fragments и версии доступны.
 
-### 02.3.2 Библиотека и повторный импорт
+### 02.4.2 Библиотека и повторный импорт
 Status: todo
 
 Actual paging/search API/ACL и 100k CSV не целиком в память; retry retains selections. Reimport new version/diff, прошлые outputs неизменны. User checks mobile/scanning.

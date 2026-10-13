@@ -8,7 +8,7 @@ Status: todo
 ## 05.1 Дать полноценную таблицу и анализ собственных данных
 Status: todo
 Requirements: R12, R13, R14, R35, R36, R40, R44, R45, R91, R92, R93, R94, R95, R105
-Depends on: 03.1, 02.3, 01.2
+Depends on: 03.1, 02.4, 01.2
 Owner: SUBAGENT to assign
 Paths: src/features/sheets/, tests/sheets/
 
@@ -29,7 +29,7 @@ Persistence/undo/insert stable refs, data-only export recalc and reimport golden
 ## 05.2 Сравнивать денежные сценарии и календарь обязательств
 Status: todo
 Requirements: R01, R12, R13, R14, R16, R91, R92, R99
-Depends on: 05.1, 04.2
+Depends on: 05.1, 04.1
 Owner: SUBAGENT to assign
 Paths: src/features/finance/, tests/finance/, evals/finance/
 

@@ -8,7 +8,7 @@ Status: todo
 ## 07.1 Подготовить предложение, смету и согласованные условия
 Status: todo
 Requirements: R01, R04, R10, R12, R15, R16, R82, R90, R91, R96, R99
-Depends on: 04.3, 05.1
+Depends on: 04.2, 05.1
 Owner: SUBAGENT to assign
 Paths: src/features/commercial/, tests/commercial/, evals/commercial/
 
@@ -29,7 +29,7 @@ Edit terms and quantity, compare chosen variant, export DOCX/PDF/XLSX with same 
 ## 07.2 Подготовить связанную кампанию для своих каналов
 Status: todo
 Requirements: R01, R07, R15, R16, R30, R82, R90, R91, R96, R99
-Depends on: 06.3, 04.2, 05.2
+Depends on: 06.3, 04.1, 05.2, 07.4
 Owner: SUBAGENT to assign
 Paths: src/features/campaigns/, tests/campaigns/, evals/campaigns/
 
@@ -50,7 +50,7 @@ Text editable, layers editable, calendar entries reusable by08/09; source price 
 ## 07.3 Сравнить закупку по полной стоимости и срокам
 Status: todo
 Requirements: R01, R12, R13, R14, R16, R35, R82, R91, R99
-Depends on: 05.2, 02.3, 04.2
+Depends on: 05.2, 02.4, 04.1
 Owner: SUBAGENT to assign
 Paths: src/features/procurement/, tests/procurement/, evals/procurement/
 
@@ -71,18 +71,18 @@ Real import -> query -> comparison -> manual override -> reopen -> XLSX/DOCX exp
 ## 07.4 Организовать работу команды в редактируемом плане
 Status: todo
 Requirements: R01, R11, R14, R16, R34, R35, R40, R91, R92, R93, R94, R95
-Depends on: 03.1, 04.2, 01.2
+Depends on: 03.1, 04.1, 01.2
 Owner: SUBAGENT to assign
 Paths: src/features/operations/, tests/operations/, evals/operations/
 
-**Контракт и результат.** C1 J4, C7, C9. Plan entries stable IDs/title/description/localdate or UTCrange/assignee/dependencies/status/sourceRefs. List/calendar/checklist views, edit/move/duplicate/bulk changes, person selection only permitted members, capacity/date/dependency conflict detection. AI derives steps from own instructions and desired outcome; missing duration/assignee remains unassigned assumption, not fake schedule optimization. Plans are internal work artifacts, not authoritative external booking/inventory. ICS export stableUID/timezone/sequence, XLSX/PDF via export registration.
+**Контракт и результат.** C1 J4, C7, C9. Plan entries stable IDs/title/description/localdate or UTCrange/resource assignment/dependencies/status/sourceRefs. List/calendar/checklist views, edit/move/duplicate/bulk changes. WorkResource имеет необязательный membershipId: сотрудник без аккаунта тоже включается в рабочий план, доступ к Tirlik при этом не создаётся. AvailabilityVersion хранит интервалы/исключения/effective dates/source; effort отдельно от duration. Проверить доступные часы, отсутствие, суммарную трудоёмкость и пересечения; неизвестная доступность явно unknown, не40 часов по умолчанию. AI derives steps from own instructions and desired outcome; missing duration/assignee remains unassigned assumption, not fake optimization. Plans internal, not authoritative external booking/inventory. ICS stableUID/timezone/sequence, XLSX/PDF via export registration.
 
-**Вход в работу и состояния.** Project -> plan, «Добавить задачу», direct date/owner/status controls and dependencies detail. Calendar drag has keyboard/date input equivalent; phone list primary. Show date conflicts at affected entry, proposed alternatives not silent movement. Return to linked document/creative from plan item; unauthorized assignee denied server-side.
+**Вход в работу и состояния.** Project -> plan, «Добавить задачу», direct date/owner/status controls and dependencies detail. Выбор ресурса поиском по разрешённым WorkResource; «Доступность» открывает обычные поля рабочих интервалов/исключений с единицами. Invite отдельное действие, не требование назначения. Calendar drag has keyboard/date input equivalent; phone list primary. Show conflicts at affected entry, proposed alternatives not silent movement. Return to linked document/creative; unauthorized resource rejected server-side, scope проверки явно ограничен доступными данными.
 
 ### 07.4.1 Модель плана и выполнимость
 Status: todo
 
-Domain dependencycycle/overlap/weekday/timezone/missingduration, undo and stableID reorder; calendar dates not shifted by UTC conversion. No false optimality claim.
+Domain dependencycycle/overlap/weekday/timezone/missingduration, undo and stableID reorder; calendar dates not shifted by UTC conversion. Fixtures: недоступный день, превышение доступных часов, неизвестная доступность, сотрудник без аккаунта,1 час duration с2 человеко-часами effort. Изменение availability version показывает последствия, не переносит задания молча. No false optimality claim.
 
 ### 07.4.2 Рабочий план и календарные файлы
 Status: todo

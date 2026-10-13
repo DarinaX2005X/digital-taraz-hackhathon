@@ -14,7 +14,7 @@ Paths: src/features/artifacts/, tests/artifacts/
 
 **Контракт и результат.** C3-C4, C6. Artifact service create/read/rename/duplicate/move/archive/restore/delete dependency checks. Atomic Command validator: actor+ACL/authzVersion, baseRevision, stable targetIds, beforeHash, locked fields, expected sources, schema; one transaction revision+inverse+receipt+event. Retry commandId exactly-once, payload mismatch rejected. Last100 confirmed groups persisted; typing group700ms/drag-end/paste/AI package unified history adapter. Conditional inverse cannot undo чужое изменение; restore creates new revision, branch has parent. IndexedDB pending queue user/workspace isolated, no cross-account draft leakage.
 
-**Вход в работу и состояния.** Общий editor header save status, undo/redo arrows, version menu. Conflict preserves local and server values; user picks version/merge, not forced overwrite. Offline draft visible as not saved; logout warns and clears private local cache. Same state/labels across ru/kk/en; phone controls remain available.
+**Вход в работу и состояния.** Общий editor header save status, undo/redo arrows, version menu. Conflict preserves local and server values; user picks version/merge, not forced overwrite. Offline draft visible as not saved; logout warns and clears private local cache. Same state/labels across ru/kk/en; phone controls remain available. Реализовать SourceFreshness для прямых sourceRefs уже здесь; полные транзитивные предложения08.1 позже. Content chunks используют immutable structural sharing по C3, lifecycle/archive/trash/purge/tombstones по C6, не неопределённое хранение «пока нужно».
 
 ### 03.1.1 Команды и неизменяемая история
 Status: todo
@@ -50,7 +50,7 @@ Reducer/event tests stale response, pagination reset, reconnect cursor, role rev
 ## 03.3 Редактировать документы напрямую и сохранять структуру
 Status: todo
 Requirements: R10, R16, R34, R39, R40, R44, R45, R92, R93, R94, R95
-Depends on: 03.2, 02.3
+Depends on: 03.2, 02.4
 Owner: SUBAGENT to assign
 Paths: src/features/documents/, tests/documents/
 

@@ -1,58 +1,56 @@
 # Состояние проекта
-Phase: planning
+Phase: awaiting-approval
 Approval: pending
 Active stage: none
 Active task: none
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Пользователь разрешил подробное планирование нового ядра Tirlik и отдельно усилил требования глубины, реальной полезности и масштабируемости. Полное сообщение сохранено в BRIEF. MAIN формирует новые технические контракты, задачи и человеческий план. Концепция принята для планирования; полного plan approval ещё нет. Разработку не начинать.
+2026-10-13, Asia/Qyzylorda. Подробное планирование Tirlik v4 завершено: PROJECT C1-C14, DESIGN, полный PLAN, 15 stages/43 задачи/86 checkpoints, PLAN-HUMAN с объяснением каждой задачи, двустороннее покрытие105 требований. Концепция принята для планирования; отдельного утверждения этого полного пакета ещё нет. Код/scaffold/dependencies/live AI/deploy не начинались.
 
-Полный новый пакет подготовлен: PROJECT C1-C14, уточнённый DESIGN, PLAN, 15 stage-файлов/43 задачи/86 checkpoints, человеческое объяснение каждой задачи и двустороннее покрытие всех105 требований. Штатный check-plan: ok, errors=[], warnings=[]. Сохранность оригинального BRIEF и прежних89 требований отдельно проверена. Следующее действие: один независимый читатель готового плана и исправление конкретных замечаний, затем предъявление пакета для approval. Разработки/scaffold/dependencies/live AI/deploy нет.
+Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
-1. Концептуальный пакет зафиксирован штатным checkpoint: 75c0cb9c665304a12abff3dadb8d792fbf395f6d, все три configured checks успешны, push в origin/main подтверждён. Запись результата в этом курсоре фиксируется отдельным scoped checkpoint; состав предложения не меняется.
-2. Концепция принята для планирования последним дословным ответом пользователя. Текущий вход: PROJECT, контракты реальной работы и масштабируемости; targeted official feasibility research редакторов/экспорта/forecast/hosting. Не возвращаться к согласованию уже принятого направления.
-3. Провести одно независимое чтение полного нового пакета по flow/02-plan. Читателю весь оригинальный BRIEF/замечания и canonical docs, read-only без Git/браузера. Исправить доказанные пробелы; повторить check-plan и privacy/source checks. Текущий полный draft фиксируется отдельным scoped checkpoint перед review.
-4. Отдельно получить явное утверждение нового полного плана. Только после него запускать делегированную реализацию и раннюю реальную проверку provider -> структурированный результат -> редактор -> сохранение/экспорт.
+1. Предъявить готовый пакет: в первую очередь PLAN-HUMAN, затем PROJECT/PLAN/DESIGN. Дождаться явного approval всего плана, не спрашивать заново уже принятое направление.
+2. После approval сохранить дословное содержательное решение и fingerprint/commit пакета; только тогда Phase build, Approval approved и bounded workers с исключительными путями.
+3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
+4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
 ## Проверено
 
-- b04a360: docs: define business workflows and scalable product contracts, штатный checkpoint и push в origin/main успешны; перед текущей записью branch был чистым и синхронным.
-- Новый полный пакет: 15 stages, 43 tasks, 86 checkpoints, 105 requirements; check-plan errors/warnings пусты. Все89 прежних строк сохраняют содержание/источник/статус/проверку, менялись только связи с новыми задачами. Исходные28621 символ брифа и полное сообщение о смене концепции совпадают. Эти проверки не являются продуктовой или UI-верификацией.
-
-- Основной Git: main, origin https://github.com/DarinaX2005X/digital-taraz-hackhathon.git, upstream origin/refs/heads/main. Перед текущим пересмотром был чистый sync.
-- Предыдущая поставка fb41e91ef7b0c4aed25e5f388b3ac09448ac0a01 и курсор d4dfe34 созданы/отправлены штатным checkpoint. Её 12 stages/37 tasks/92 checkpoints/89 requirements и независимый review относятся только к v3, не доказывают готовность v4.
-- Read-only изучены официальные Tiptap/Univer/Fabric docs; существенные ограничения лицензий/импорта/экспорта записаны в PROJECT. Библиотеки не установлены и не считаются реализованными редакторами.
-- Контраст проектных цветов рассчитан ранее, логознак XML корректен. Реальный шрифт, UI, форматы и first-session timing ещё не проверены.
-- TESTING прочитан целиком, пользовательских findings там пока нет. Последнее продуктовое возражение сохранено в BRIEF и требованиях.
-- Ключ env не читался/не печатался; actual API вызовов ещё нет. Vercel CLI есть, но доступы/тарифы/production services не подтверждены.
-- Discovery-check пройден: все 89 прежних требований сохранены без изменения содержания/источника/статуса/проверки, всего 104 требования; исходные 28 621 символ брифа и полное сообщение о пересмотре совпадают, поздняя поправка слогана сохранена. Новые task mappings явно pending. Privacy/approval hygiene и git diff --check также пройдены. Полный check-plan неприменим до создания нового плана и снова обязателен перед его предъявлением; продуктовых и визуальных проверок не было.
-- 75c0cb9: docs: reshape Tirlik around editable business work. Коммит/пуш через штатный helper, только шесть канонических документов и удаление старых stage-файлов. Приватные BRIEF/TESTING/runtime/env не включены. Dashboard /api/snapshot: discovery, pending, 0 действующих stages, warnings=[]; это HTTP-проверка, не визуальная.
-- Read-only публичный OpenRouter /models подтвердил tools/structured_outputs у xiaomi/mimo-v2.5, вход image/audio/video/text и выход text; image output требует отдельного provider. Ключ не использован. Официальные источники для редакторов, экспорта, workflow, forecasting и региональных данных записаны в C14. Реальные capabilities/запуск/качество ещё проверяются после approval.
+- Штатный check-plan:15 stages,43tasks,86checkpoints,105requirements, errors=[],warnings=[] после перестановки runtime и campaign dependency.
+- Source preservation: все89 прежних строк сохраняют содержание/источник/статус/проверку; исходные28621 символ BRIEF сохранены, полное продуктовое сообщение о pivot и поздняя поправка слогана/разрешение планирования присутствуют. Менялись только task mappings.
+- Privacy check: runtime/BRIEF/TESTING/env ignored, секрет не читался/не печатался; новых product files нет. TESTING прочитан целиком, пользовательских findings пока нет.
+- b04a360: контракты деловых работ; 5e4891f8a06e22e5d447f3563d0b532688be27cb: полный первый draft плана. Оба checkpoint/push в origin/main успешны. Итоговые исправления review фиксируются следующим scoped checkpoint; эти SHA не обозначают approval.
+- PF1: SourceCollection/importMode/recordKeySpec/RecordIdentity/ResolutionVersion, reorder/retry/overlap/price/deletion cases. PF2: CommandGroup+revision vector и атомарный общий inverse без partial undo при чужой правке. PF3: WorkResource без обязательного аккаунта, availability/исключения/effort vs duration. PF4: campaign зависит от календарного engine07.4.
+- Дополнительно: общий договор PLAN восстановлен, введена проверка обязательных разделов; budget/runtime перенесён в02.2 до платного OCR; structural sharing больших версий, lifecycle/tombstones/backup policy, проверенность ручных финансовых формул и лицензии font embedding определены.
+- Read-only основания editor/format/forecast/workflow/model указаны в PROJECT C14; публичный metadata OpenRouter прочитан без ключа. Реальные вызовы, цены на момент запуска, форматы и hosting account ещё проверяются после approval.
+- Dashboard HTTP /health подтвердил root C:/Users/user/Desktop/digitaltaraz,version3,instance f95719f7-e0fd-439f-91a1-753637c8acd4; /api/snapshot warnings=[] до финального переключения фазы. Никаких UI/browser checks.
 
 ## Сервисы
 
-Дашборд VibeMachina: http://127.0.0.1:4177/
-Loopback planning infrastructure, не продукт. В этой сессии прежний процесс не отвечал; перезапущен штатным dashboard.mjs C:/Users/user/Desktop/digitaltaraz --detach --port 4177. /health подтвердил root текущего workspace, version 3, instance 4e103556-1661-4115-876c-e98a30f4f56e. Runtime identity/logs в .vibemachina/runtime, timezone Asia/Qyzylorda. Вкладки не открывались. Продуктового сервера/публичного приложения пока нет.
+Дашборд планирования: http://127.0.0.1:4177/
+Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina/runtime; перезапуск штатным dashboard.mjs с явным root, --detach --port4177. Не завершать неизвестные процессы. Продуктового сервера/публичного приложения нет; вкладки не открывались.
 
 ## Работники
 
-Активных SUBAGENT нет, ownership всех planning-файлов у MAIN. Предыдущий /root/plan_review завершил review v3; его findings о заказах/резервах больше не являются доказательством новой концепции. На текущей фазе implementation workers не назначаются.
+/root/plan_reader_v4 завершил единственное независимое read-only чтение нового плана. Findings интегрированы MAIN, повторный полный review не назначался. Активных writers нет. Все43 implementation tasks остаются todo. Старый review v3 не является доказательством v4.
 
-После approval substantive реализация делегируется bounded SUBAGENT с исключительными путями. Каждому весь оригинальный BRIEF и все дословные поздние замечания, relevant original TESTING и references. Краткий dispatch не заменяет источник; новые замечания передавать полностью, особенно продукт/UI/UX/видео.
+После approval каждый worker получает полный BRIEF и все содержательные дословные замечания, relevant original TESTING и domain/shared design references. MAIN владеет каноническими docs/Git/shared schemas/routes/package; loans только явно и исключительно. Краткий dispatch не заменяет исходник. Новые продуктовые/UI/UX/video замечания передаются полностью.
 
 ## Передача
 
-Новое предложение: Tirlik, слоган «Всё для вашего бизнеса». Последнее замечание пользователя о естественности формулировки сохранено дословно, искусственная пара императивов убрана из всех действующих документов. Пользователи внутри бизнеса; покупатель остаётся в его собственных каналах. Свободные задачи, знакомые редакторы, адресные AI-правки, сохранение ручной работы, реальные файлы и обновление сохранённого проекта. Обучение при первом входе обязательно реализуется с пропуском/возобновлением/повтором из настроек. Все подробности PROJECT/DESIGN, не прежняя модель ресурсы -> checkout.
+Tirlik. «Всё для вашего бизнеса». Внутренняя работа бизнеса, покупатели остаются в его каналах. Самостоятельно полезные расчёты/прогнозы/предложения/креативы/закупка/планы и повторные процедуры на общих данных. Знакомые прямые редакторы, undo/redo/версии, защищённые адресные AI-правки, реальные файлы и сохранение ручной работы. Обучение на первом входе с skip/resume и повтором Настройки -> Обучение. Не возвращать checkout/резервы/роль клиента или отвергнутый искусственный слоган.
 
-Данных/контактов местного бизнеса нет и не будет. Рабочие данные приносит пользователь продукта; fixtures явно synthetic. Не повторять вопрос об их предоставлении и не выдавать пример за рынок/доходы. Широкие отрасли без фиксированного списка разрешённых задач.
+Данных/контактов бизнеса от команды нет и не будет. Учебные fixtures явно synthetic, собственный пользовательский ввод теми же services. Не выдумывать интервью, рост выручки, дедлайн или критерии жюри. До сдачи около недели со слов пользователя, точной даты нет.
 
-OpenRouter основная xiaomi/mimo-v2.5; разрешены экономичные замены по поддержке/модальности, не GPT/OpenAI, Claude/Anthropic или дорогие fallback. Проверять реальные цены/capabilities, allowlist и общий бюджет. Секрет не печатать/не просить в чат.
+OpenRouter env key не трогать; primary xiaomi/mimo-v2.5. Разрешены экономичные modality replacements, не GPT/OpenAI/Claude/Anthropic/дорогой fallback. Цена/capabilities/бюджеты всех вызовов проверяются, включая OCR/image. Наличие text model не означает image output.
 
-Git только штатным C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs, реальные проверки, явные --paths и --push; только MAIN. Разрешены planning docs/assets. Исключены .vibemachina/runtime/, BRIEF.md, TESTING.md и env; никогда force-add. Никаких manual add/commit/push или нового Git wrapper. Product check/launch впоследствии независимы от скилла.
+Git только C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs с реальными configured checks, явными --paths и --push в проверенный origin/main. Никаких manual add/commit/push и новых wrappers. Разрешены плановые документы, исключены runtime/BRIEF/TESTING/env, никогда force-add. Частые coherent checkpoints после передачи путей, не ждать stage end.
 
-Комплект сдачи не сокращён: имя, описание, repo, Vercel live без своего сервера, README, презентация и видео после стабильного продукта/README. «Вайбпреза» пока не читать. Срок около недели со слов пользователя, точного deadline нет. Paid subscriptions без разрешения не подключать.
+BRIEF содержит долговременные требования и полезные исходные замечания. По последнему указанию пользователя не добавлять туда служебные «продолжай», восстановление лимита и координацию. Ранее добавленная такая запись удалена; правило закреплено в AGENTS/PLAN. Это не удаление продуктовых требований.
 
-Browser/visual только пользователь: без CUA, browser-control, Playwright, Selenium, Puppeteer, headless, screenshots и обходов через shell/renderer/worker. Статические/domain/unit/HTTP/API проверки разрешены. Визуальные изменения остаются needs-user-check до подтверждения.
+Полный комплект: рабочий публичный продукт Vercel без своего сервера, repo, название/русское описание, проверенный README/clean launch, презентация «вайбпреза» и видео после стабильного продукта/README, затем встраивание. Региональный privacy gate охватывает аккаунты/данные/backup/provider, не считается закрытым synthetic файлами.
+
+Весь browser/visual QA только пользователь. Ни CUA/browser-control/Playwright/Selenium/Puppeteer/headless/screenshots, ни обход через shell/worker/renderer. Статика/domain/unit/HTTP/API и структура файлов допустимы. Не называть непроверенный UI интуитивным/визуально принятым.

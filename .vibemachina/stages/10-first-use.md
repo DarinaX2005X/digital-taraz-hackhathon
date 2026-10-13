@@ -8,7 +8,7 @@ Status: todo
 ## 10.1 Показать продукт и привести к настоящей работе
 Status: todo
 Requirements: R02, R07, R08, R09, R19, R21, R28, R29, R30, R31, R38, R40, R41, R44, R45, R46, R47, R48, R49, R64, R101
-Depends on: 04.3, 06.3, 07.2, 01.2
+Depends on: 04.2, 06.3, 07.2, 01.2
 Owner: SUBAGENT to assign
 Paths: src/features/public-site/, public/site/, tests/public-site/
 

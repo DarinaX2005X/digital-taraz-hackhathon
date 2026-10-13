@@ -40,7 +40,7 @@ Paths: tests/resilience/, scripts/ops/, docs/operations/
 ### 11.2.1 Нагрузка и отказоустойчивость
 Status: todo
 
-Bounded parallel API load without UI, stale worker fencing, duplicate external receipt and DBrestart; compare metrics before/after targeted fixes. Backup restored records/hashes and ACL checked.
+Bounded parallel API load without UI, stale worker fencing, duplicate external receipt and DBrestart; compare metrics before/after targeted fixes. Backup restored records/hashes and ACL checked. Добавить1000 локальных правок большого workbook: storage не растёт как1000 полных копий, reopen и export дают тот же snapshotHash/значения. Проверить30-day trash/backup policy, immediate purge, reference-count-safe chunks и tombstones после восстановления; активные jobs не воскрешают удалённое.
 
 ### 11.2.2 Защита и разрешённый режим публикации
 Status: todo

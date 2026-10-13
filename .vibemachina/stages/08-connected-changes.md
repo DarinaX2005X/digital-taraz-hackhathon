@@ -14,7 +14,7 @@ Paths: src/features/dependencies/, tests/dependencies/
 
 **Контракт и результат.** C3, C6, C8. Versioned FieldBinding/DependencyEdge DAG links source fact/calculated cell/docfield/designlayer/planentry, allowed updatePolicy formula-auto/propose/manual. Detect cycles; reachable-only propagation, stable IDs survive sorted/inserted rows; removed source yields unresolved not rebind by position. Deterministic calculations create next draft, semantic text/layout modifications proposed patch only. Track local override and AI-lock separately, source revision input snapshot. Invalidations include scenario/approval/export staleness, not destructive regeneration. Cross-project dependency reads enforce rights transitively.
 
-**Вход в работу и состояния.** «Изменился источник» badge with source/revision/count and contextual impact list. No mandatory graph view. User may open source, keep local override with rationale or request patch. New source with schema drift returns to02.3; unrelated material remains current.
+**Вход в работу и состояния.** «Изменился источник» badge with source/revision/count and contextual impact list. No mandatory graph view. User may open source, keep local override with rationale or request patch. New source with schema drift returns to02.4; unrelated material remains current.
 
 ### 08.1.1 Граф и адресная инвалидация
 Status: todo
@@ -40,7 +40,7 @@ Paths: src/features/change-review/, tests/change-review/
 ### 08.2.1 Выбор без несогласованных итогов
 Status: todo
 
-Tests causal groups, locked target, stale revision/source, ACL loss, partial accept and branch merge. Applying same changeset twice yields receipt, not second edit.
+Tests causal groups, locked target, stale revision/source, ACL loss, partial accept and branch merge. Applying same changeset twice yields receipt, not second edit. Multi-artifact CommandGroup по C6: один apply/inverse с revision vector, row locks в порядке ID и общей транзакцией. Приёмка: table+document+design apply -> другой actor меняет document -> undo возвращает409, сохраняет чужую правку и не откатывает table/design частично. После явного разрешения новая согласованная группа откатывается/повторяется одним действием и одинаково видна во всех историях.
 
 ### 08.2.2 Сравнение и восстановление в редакторе
 Status: todo

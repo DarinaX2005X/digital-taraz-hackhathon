@@ -8,7 +8,7 @@ Status: todo
 ## 06.1 Редактировать послойные макеты и материалы бренда
 Status: todo
 Requirements: R37, R40, R44, R45, R46, R48, R49, R91, R92, R93, R94
-Depends on: 03.1, 02.3, 01.2
+Depends on: 03.1, 02.4, 01.2
 Owner: SUBAGENT to assign
 Paths: src/features/designs/, tests/designs/
 
@@ -29,7 +29,7 @@ Persist/reopen/edit page and direct text, group transform undo, missing-font rec
 ## 06.2 Создавать изображения и варианты с сохранением правок
 Status: todo
 Requirements: R14, R15, R16, R17, R43, R86, R91, R96, R102
-Depends on: 06.1, 04.1, 04.2
+Depends on: 06.1, 02.2, 04.1
 Owner: SUBAGENT to assign
 Paths: src/features/creative-ai/, tests/creative-ai/, evals/creative-ai/
 

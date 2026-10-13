@@ -6,6 +6,8 @@ The user performs visual and browser testing. All agents, including delegated ag
 
 ## Project Entry
 
+Keep BRIEF focused on durable user requirements, product decisions and useful source remarks. Do not append routine messages such as "continue", usage-limit restoration or execution coordination. Record transient recovery status in STATE only when it affects the next action.
+
 Read `.vibemachina/STATE.md`, then the referenced canonical project documents before continuing. The original user brief is `.vibemachina/BRIEF.md`; requirement traceability is in `.vibemachina/REQUIREMENTS.md`.
 
 Use the explicitly requested VibeMachina skill at `C:/Users/user/.codex/skills/vibemachina/SKILL.md`. Read the phase and role references it calls for. MAIN owns project memory, Git and integration. Implementation workers must read the references assigned for their domain, including shared design guidance for UI work.
