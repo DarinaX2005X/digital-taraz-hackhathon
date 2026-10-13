@@ -1,0 +1,425 @@
+{
+  "recordedAt": "2026-10-13T16:45:51.661Z",
+  "formulas": {
+    "engine": "@univerjs/engine-formula",
+    "results": [
+      {
+        "name": "sum",
+        "formula": "=SUM(A1:A4)",
+        "expected": 35,
+        "actual": 35
+      },
+      {
+        "name": "average",
+        "formula": "=AVERAGE(A1:A4)",
+        "expected": 8.75,
+        "actual": 8.75
+      },
+      {
+        "name": "minimum",
+        "formula": "=MIN(A1:A4)",
+        "expected": -5,
+        "actual": -5
+      },
+      {
+        "name": "maximum",
+        "formula": "=MAX(A1:A4)",
+        "expected": 20,
+        "actual": 20
+      },
+      {
+        "name": "round",
+        "formula": "=ROUND(10.126,2)",
+        "expected": 10.13,
+        "actual": 10.13
+      },
+      {
+        "name": "if",
+        "formula": "=IF(A1>5,\"yes\",\"no\")",
+        "expected": "yes",
+        "actual": "yes"
+      },
+      {
+        "name": "iferror",
+        "formula": "=IFERROR(1/0,\"invalid\")",
+        "expected": "invalid",
+        "actual": "invalid"
+      },
+      {
+        "name": "count",
+        "formula": "=COUNT(A1:B4)",
+        "expected": 4,
+        "actual": 4
+      },
+      {
+        "name": "counta",
+        "formula": "=COUNTA(A1:B4)",
+        "expected": 8,
+        "actual": 8
+      },
+      {
+        "name": "countif",
+        "formula": "=COUNTIF(B1:B4,\"retail\")",
+        "expected": 2,
+        "actual": 2
+      },
+      {
+        "name": "sumif",
+        "formula": "=SUMIF(B1:B4,\"retail\",A1:A4)",
+        "expected": 30,
+        "actual": 30
+      },
+      {
+        "name": "sumifs",
+        "formula": "=SUMIFS(A1:A4,B1:B4,\"retail\",A1:A4,\">10\")",
+        "expected": 20,
+        "actual": 20
+      },
+      {
+        "name": "arithmetic",
+        "formula": "=(A1+A2)*2-A3/5",
+        "expected": 61,
+        "actual": 61
+      },
+      {
+        "name": "cross-sheet",
+        "formula": "='Rates'!A1*A1",
+        "expected": 12.5,
+        "actual": 12.5
+      },
+      {
+        "name": "absolute-reference",
+        "formula": "=$A$2*2",
+        "expected": 40,
+        "actual": 40
+      }
+    ],
+    "changed": {
+      "sum": 55,
+      "crossSheet": 37.5
+    },
+    "snapshotHasFormulas": true,
+    "browserUsed": false
+  },
+  "office": {
+    "xlsx": {
+      "bytes": 7887,
+      "sha256": "dd53b3c0477ebae8e887c6e5b35d2f8623dda3d7b7dafdb52f2dad0850b27794",
+      "formulas": [
+        {
+          "name": "sum",
+          "formula": "SUM(A1:A4)",
+          "cachedResult": 35
+        },
+        {
+          "name": "average",
+          "formula": "AVERAGE(A1:A4)",
+          "cachedResult": 8.75
+        },
+        {
+          "name": "minimum",
+          "formula": "MIN(A1:A4)",
+          "cachedResult": -5
+        },
+        {
+          "name": "maximum",
+          "formula": "MAX(A1:A4)",
+          "cachedResult": 20
+        },
+        {
+          "name": "round",
+          "formula": "ROUND(10.126,2)",
+          "cachedResult": 10.13
+        },
+        {
+          "name": "if",
+          "formula": "IF(A1>5,\"yes\",\"no\")",
+          "cachedResult": "yes"
+        },
+        {
+          "name": "iferror",
+          "formula": "IFERROR(1/0,\"invalid\")",
+          "cachedResult": "invalid"
+        },
+        {
+          "name": "count",
+          "formula": "COUNT(A1:B4)",
+          "cachedResult": 4
+        },
+        {
+          "name": "counta",
+          "formula": "COUNTA(A1:B4)",
+          "cachedResult": 8
+        },
+        {
+          "name": "countif",
+          "formula": "COUNTIF(B1:B4,\"retail\")",
+          "cachedResult": 2
+        },
+        {
+          "name": "sumif",
+          "formula": "SUMIF(B1:B4,\"retail\",A1:A4)",
+          "cachedResult": 30
+        },
+        {
+          "name": "sumifs",
+          "formula": "SUMIFS(A1:A4,B1:B4,\"retail\",A1:A4,\">10\")",
+          "cachedResult": 20
+        },
+        {
+          "name": "arithmetic",
+          "formula": "(A1+A2)*2-A3/5",
+          "cachedResult": 61
+        },
+        {
+          "name": "cross-sheet",
+          "formula": "'Rates'!A1*A1",
+          "cachedResult": 12.5
+        },
+        {
+          "name": "absolute-reference",
+          "formula": "$A$2*2",
+          "cachedResult": 40
+        }
+      ],
+      "mergedCells": true,
+      "numberFormat": true,
+      "dateValue": true,
+      "x14IconSetRoundtrip": true
+    },
+    "docx": {
+      "bytes": 10717,
+      "sha256": "0df34aa0a1027cf20b567723310feda17631743f43041e995aa2219d7b73186e",
+      "extractedText": "Коммерческое предложение: сумма 12500 тенге\n\nҚазақша: Ә Ғ Қ Ң Ө Ұ Ү Һ І ә ғ қ ң ө ұ ү һ і\n\nEnglish: price 12500 KZT, valid until 2026-11-01\n\nTOTAL\n\n12500 KZT",
+      "table": true,
+      "mediaCount": 1,
+      "warnings": 0
+    },
+    "pdf": {
+      "bytes": 12012,
+      "sha256": "029c2b7179f645894920747daea8112e6497785d18e4a39880bdbad0e018be8d",
+      "pages": 2,
+      "extractedText": [
+        "Коммерческое предложение: сумма 12500 тенге Қазақша: Ә Ғ Қ Ң Ө Ұ Ү Һ І ә ғ қ ң ө ұ ү һ і English: price 12500 KZT, valid until 2026-11-01 TOTAL 12500 KZT",
+        "Second page: retained continuation"
+      ],
+      "embeddedFont": "Noto Sans Regular / OFL-1.1"
+    },
+    "uiOrPixelLayoutVerified": false,
+    "supportedSubset": "Editable text, simple tables, embedded PNG, basic XLSX formulas/cached values, styles, merges and dates; full Office fidelity is not claimed."
+  },
+  "fabric": {
+    "objects": 2,
+    "nestedObjects": 1,
+    "roundtrip": true,
+    "unicodeTextRetained": true,
+    "stableIdsRetained": true,
+    "manualTextEdit": true,
+    "bindingRetained": true,
+    "renderSurfaceCreated": false,
+    "browserUsed": false,
+    "fontMetricsVerified": false
+  },
+  "forecast": {
+    "engine": "arima/CTSA WASM",
+    "synthetic": true,
+    "observations": 112,
+    "parameters": {
+      "p": 2,
+      "d": 1,
+      "q": 0,
+      "auto": false,
+      "verbose": false
+    },
+    "folds": [
+      {
+        "origin": 98,
+        "horizon": 7,
+        "mae": 1.1888754374092798,
+        "baselineMae": 1.2721973980929218
+      },
+      {
+        "origin": 105,
+        "horizon": 7,
+        "mae": 4.1772184463851785,
+        "baselineMae": 4.943686245179497
+      }
+    ],
+    "modelMae": 2.683046941897229,
+    "baselineMae": 3.107941821636209,
+    "selected": "ARIMA(2,1,0)",
+    "forecast": {
+      "points": [
+        156.0178101770876,
+        156.68828798983182,
+        157.5811020911601,
+        158.36648047740454,
+        158.81772598016346,
+        158.86157577903458,
+        158.5693462202583
+      ],
+      "modelMeanSquareErrors": [
+        0.25995070025884404,
+        1.850423053662195,
+        5.711617406467357,
+        11.510213945479583,
+        17.781479374020467,
+        23.051646978864675,
+        26.70840595366747
+      ]
+    },
+    "shortSeriesRejected": true,
+    "calibratedIntervalClaimed": false,
+    "futureStageNeeded": "Eligibility, candidate bounds, calibrated ranges and broader business backtests remain stage05.3 work."
+  },
+  "licenses": {
+    "packages": [
+      {
+        "name": "@univerjs/core",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/core/1.0.4"
+      },
+      {
+        "name": "@univerjs/engine-formula",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/engine-formula/1.0.4"
+      },
+      {
+        "name": "@univerjs/sheets",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/sheets/1.0.4"
+      },
+      {
+        "name": "@univerjs/sheets-formula",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/sheets-formula/1.0.4"
+      },
+      {
+        "name": "@univerjs/docs",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/docs/1.0.4"
+      },
+      {
+        "name": "@univerjs/engine-render",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/engine-render/1.0.4"
+      },
+      {
+        "name": "@univerjs/sheets-numfmt",
+        "version": "1.0.4",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/@univerjs/sheets-numfmt/1.0.4"
+      },
+      {
+        "name": "fabric",
+        "version": "7.4.0",
+        "declaredLicense": "MIT",
+        "source": "https://registry.npmjs.org/fabric/7.4.0"
+      },
+      {
+        "name": "exceljs",
+        "version": "4.4.0",
+        "declaredLicense": "MIT",
+        "source": "https://registry.npmjs.org/exceljs/4.4.0"
+      },
+      {
+        "name": "docx",
+        "version": "9.10.0",
+        "declaredLicense": "MIT",
+        "source": "https://registry.npmjs.org/docx/9.10.0"
+      },
+      {
+        "name": "pdfkit",
+        "version": "0.20.2",
+        "declaredLicense": "MIT",
+        "source": "https://registry.npmjs.org/pdfkit/0.20.2"
+      },
+      {
+        "name": "mammoth",
+        "version": "1.13.0",
+        "declaredLicense": "BSD-2-Clause",
+        "source": "https://registry.npmjs.org/mammoth/1.13.0"
+      },
+      {
+        "name": "pdfjs-dist",
+        "version": "6.4.299",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/pdfjs-dist/6.4.299"
+      },
+      {
+        "name": "sharp",
+        "version": "0.35.5",
+        "declaredLicense": "Apache-2.0",
+        "source": "https://registry.npmjs.org/sharp/0.35.5"
+      },
+      {
+        "name": "jszip",
+        "version": "3.10.2",
+        "declaredLicense": "(MIT OR GPL-3.0-or-later)",
+        "source": "https://registry.npmjs.org/jszip/3.10.2"
+      },
+      {
+        "name": "arima",
+        "version": "0.2.8",
+        "declaredLicense": "MIT",
+        "source": "https://registry.npmjs.org/arima/0.2.8"
+      },
+      {
+        "name": "simple-statistics",
+        "version": "7.12.1",
+        "declaredLicense": "ISC",
+        "source": "https://registry.npmjs.org/simple-statistics/7.12.1"
+      }
+    ],
+    "boundaries": [
+      {
+        "capability": "Univer data-only formulas",
+        "source": "https://docs.univer.ai/guides/sheets/getting-started/node",
+        "result": "OSS Apache-2.0 plugins calculate in Node without creating a UI surface."
+      },
+      {
+        "capability": "Office conversion",
+        "source": "https://docs.univer.ai/guides/sheets/features/import-export",
+        "result": "Univer exchange APIs require conversion backend and @univerjs-pro plugins. Proof uses ExcelJS with cached results supplied by the OSS formula engine. No Pro service installed or purchased."
+      },
+      {
+        "capability": "Fabric editable objects",
+        "source": "https://www.fabricjs.com/docs/using-custom-properties/",
+        "result": "Object serialization preserves stable IDs and bindings. Rendering objects are not the authoritative business database; SVG fidelity and UI composition are not established."
+      },
+      {
+        "capability": "Forecast wrapper",
+        "source": "https://github.com/zemlyansky/arima",
+        "result": "MIT arima wrapper embeds CTSA; fixed ARIMA parameters, WASM memory destroyed after use. AutoARIMA avoided due upstream limitations."
+      },
+      {
+        "capability": "Underlying CTSA notice",
+        "source": "https://github.com/rafat/ctsa/blob/master/COPYRIGHT",
+        "result": "Underlying CTSA uses BSD-3-Clause. Its notice is absent from the installed arima tarball; deployment/distribution must retain CTSA copyright, conditions and disclaimer in third-party notices. Wrapper MIT alone is not the whole license inventory."
+      },
+      {
+        "capability": "Font embedding",
+        "source": "https://github.com/notofonts/noto-fonts/blob/ffebf8c1ee449e544955a7e813c54f9b73848eac/LICENSE",
+        "result": "Noto Sans OFL-1.1 in public/fonts/noto-sans/OFL.txt; font manifest pins revision and hashes. No commercial font copied."
+      },
+      {
+        "capability": "XLSX authoring",
+        "source": "https://github.com/exceljs/exceljs",
+        "result": "ExcelJS writes formula strings and supplied cached values; it does not compute formulas. x14 conditional formatting UUID v4 path verified with scoped uuid11.1.1 override."
+      }
+    ],
+    "unverified": [
+      "Full Office layout fidelity",
+      "Browser editor interaction",
+      "Fabric font metrics and visual composition",
+      "Forecast accuracy on real business data",
+      "All transitive distribution notices outside these direct libraries"
+    ]
+  }
+}

@@ -1,0 +1,719 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "businessId": "services",
+  "seed": 20261013,
+  "history": {
+    "method": "Parse emitted CSV with csv-parse; group exact event keys; quarantine all conflicting candidates; round rational BigInt minor units (tiyn) half away from zero. No Decimal or generator sum reused.",
+    "rawRows": 954,
+    "uniqueEventKeys": 952,
+    "acceptedRows": 948,
+    "reductionRows": 52,
+    "duplicateCopiesRemoved": 1,
+    "exclusions": [
+      {
+        "key": "SERVICES-000009|01",
+        "reason": "conflicting-event-key",
+        "sourceRecordNumbers": [
+          9,
+          954
+        ]
+      },
+      {
+        "key": "SERVICES-000014|01",
+        "reason": "missing-fields",
+        "fields": [
+          "Валюта"
+        ],
+        "sourceRecordNumbers": [
+          14
+        ]
+      },
+      {
+        "key": "SERVICES-000027|01",
+        "reason": "missing-fields",
+        "fields": [
+          "Артикул"
+        ],
+        "sourceRecordNumbers": [
+          28
+        ]
+      },
+      {
+        "key": "SERVICES-000040|01",
+        "reason": "missing-fields",
+        "fields": [
+          "Дата"
+        ],
+        "sourceRecordNumbers": [
+          42
+        ]
+      }
+    ],
+    "duplicates": [
+      {
+        "key": "SERVICES-000004|01",
+        "ignoredCopies": 1
+      }
+    ],
+    "grossSalesKzt": "52388972.20",
+    "reductionsKzt": "717515.50",
+    "netRevenueKzt": "51671456.70",
+    "netCostKzt": "30808781.25",
+    "marginKzt": "20862675.45",
+    "monthly": [
+      {
+        "month": "2021-01",
+        "netRevenueKzt": "559136.26",
+        "netCostKzt": "330068.75",
+        "acceptedRows": 13,
+        "reductionRows": 0
+      },
+      {
+        "month": "2021-02",
+        "netRevenueKzt": "535553.88",
+        "netCostKzt": "319587.50",
+        "acceptedRows": 15,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-03",
+        "netRevenueKzt": "833903.01",
+        "netCostKzt": "493703.75",
+        "acceptedRows": 15,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-04",
+        "netRevenueKzt": "1002582.13",
+        "netCostKzt": "593201.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-05",
+        "netRevenueKzt": "758446.76",
+        "netCostKzt": "451823.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-06",
+        "netRevenueKzt": "689797.88",
+        "netCostKzt": "415736.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-07",
+        "netRevenueKzt": "637719.01",
+        "netCostKzt": "382588.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-08",
+        "netRevenueKzt": "749133.13",
+        "netCostKzt": "446011.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-09",
+        "netRevenueKzt": "897669.76",
+        "netCostKzt": "528628.75",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      },
+      {
+        "month": "2021-10",
+        "netRevenueKzt": "888154.38",
+        "netCostKzt": "531196.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-11",
+        "netRevenueKzt": "756208.51",
+        "netCostKzt": "450943.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2021-12",
+        "netRevenueKzt": "902617.13",
+        "netCostKzt": "537496.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-01",
+        "netRevenueKzt": "671962.76",
+        "netCostKzt": "399603.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-02",
+        "netRevenueKzt": "654569.38",
+        "netCostKzt": "390221.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-03",
+        "netRevenueKzt": "915079.01",
+        "netCostKzt": "548153.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-04",
+        "netRevenueKzt": "1094160.13",
+        "netCostKzt": "651426.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-05",
+        "netRevenueKzt": "825119.26",
+        "netCostKzt": "491393.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-06",
+        "netRevenueKzt": "856683.63",
+        "netCostKzt": "506580.00",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      },
+      {
+        "month": "2022-07",
+        "netRevenueKzt": "677764.51",
+        "netCostKzt": "406908.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-08",
+        "netRevenueKzt": "801493.13",
+        "netCostKzt": "476041.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-09",
+        "netRevenueKzt": "959980.26",
+        "netCostKzt": "571823.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-10",
+        "netRevenueKzt": "869824.88",
+        "netCostKzt": "520106.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-11",
+        "netRevenueKzt": "817586.01",
+        "netCostKzt": "494213.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2022-12",
+        "netRevenueKzt": "916901.13",
+        "netCostKzt": "549811.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-01",
+        "netRevenueKzt": "642590.26",
+        "netCostKzt": "383658.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-02",
+        "netRevenueKzt": "662877.88",
+        "netCostKzt": "389646.25",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      },
+      {
+        "month": "2023-03",
+        "netRevenueKzt": "963718.01",
+        "netCostKzt": "575563.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-04",
+        "netRevenueKzt": "1097989.63",
+        "netCostKzt": "656361.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-05",
+        "netRevenueKzt": "874471.26",
+        "netCostKzt": "518523.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-06",
+        "netRevenueKzt": "767461.38",
+        "netCostKzt": "458216.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-07",
+        "netRevenueKzt": "710415.01",
+        "netCostKzt": "425478.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-08",
+        "netRevenueKzt": "793464.13",
+        "netCostKzt": "478921.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-09",
+        "netRevenueKzt": "1063866.26",
+        "netCostKzt": "634253.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-10",
+        "netRevenueKzt": "917755.88",
+        "netCostKzt": "548191.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2023-11",
+        "netRevenueKzt": "860079.51",
+        "netCostKzt": "505488.75",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      },
+      {
+        "month": "2023-12",
+        "netRevenueKzt": "964571.63",
+        "netCostKzt": "574701.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-01",
+        "netRevenueKzt": "723531.26",
+        "netCostKzt": "430258.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-02",
+        "netRevenueKzt": "720105.38",
+        "netCostKzt": "428576.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-03",
+        "netRevenueKzt": "1016953.51",
+        "netCostKzt": "607123.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-04",
+        "netRevenueKzt": "1119276.63",
+        "netCostKzt": "672761.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-05",
+        "netRevenueKzt": "881398.76",
+        "netCostKzt": "529223.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-06",
+        "netRevenueKzt": "730403.38",
+        "netCostKzt": "435331.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-07",
+        "netRevenueKzt": "749360.01",
+        "netCostKzt": "441353.75",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      },
+      {
+        "month": "2024-08",
+        "netRevenueKzt": "1026261.88",
+        "netCostKzt": "617722.50",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-09",
+        "netRevenueKzt": "1069491.26",
+        "netCostKzt": "639553.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-10",
+        "netRevenueKzt": "927294.38",
+        "netCostKzt": "551331.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-11",
+        "netRevenueKzt": "886548.51",
+        "netCostKzt": "527763.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2024-12",
+        "netRevenueKzt": "1015803.13",
+        "netCostKzt": "602146.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-01",
+        "netRevenueKzt": "726208.76",
+        "netCostKzt": "439438.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-02",
+        "netRevenueKzt": "718026.38",
+        "netCostKzt": "428661.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-03",
+        "netRevenueKzt": "1139194.01",
+        "netCostKzt": "681003.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-04",
+        "netRevenueKzt": "1212142.13",
+        "netCostKzt": "713151.25",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      },
+      {
+        "month": "2025-05",
+        "netRevenueKzt": "955286.26",
+        "netCostKzt": "572153.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-06",
+        "netRevenueKzt": "833716.38",
+        "netCostKzt": "494536.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-07",
+        "netRevenueKzt": "781273.51",
+        "netCostKzt": "464433.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-08",
+        "netRevenueKzt": "908825.13",
+        "netCostKzt": "543561.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-09",
+        "netRevenueKzt": "1056076.76",
+        "netCostKzt": "637923.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-10",
+        "netRevenueKzt": "975690.88",
+        "netCostKzt": "587556.25",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-11",
+        "netRevenueKzt": "868589.51",
+        "netCostKzt": "516413.75",
+        "acceptedRows": 16,
+        "reductionRows": 1
+      },
+      {
+        "month": "2025-12",
+        "netRevenueKzt": "1038692.13",
+        "netCostKzt": "610526.25",
+        "acceptedRows": 15,
+        "reductionRows": 0
+      }
+    ]
+  },
+  "quote": {
+    "subtotalKzt": "128400.00",
+    "discountKzt": "0.00",
+    "deliveryKzt": "3500.00",
+    "knownTotalKzt": "131900.00",
+    "finalTotalKzt": null,
+    "unresolvedCosts": [
+      "tax-status",
+      "optional-packaging-or-scope"
+    ]
+  },
+  "procurement": {
+    "target": {
+      "sku": "010206",
+      "needed": "18.5",
+      "unit": "liter"
+    },
+    "priceMeaning": "Entered gross prices and entered delivery only; no statutory tax rate is assumed.",
+    "candidates": [
+      {
+        "supplierId": "SV-A",
+        "eligibleForCompleteCostRanking": true,
+        "packs": 4,
+        "deliveredQuantity": "20",
+        "totalKzt": "27400.00",
+        "leadDays": 3
+      },
+      {
+        "supplierId": "SV-B",
+        "eligibleForCompleteCostRanking": true,
+        "packs": 24,
+        "deliveredQuantity": "24",
+        "totalKzt": "29040.00",
+        "leadDays": 7
+      },
+      {
+        "supplierId": "SV-C",
+        "eligibleForCompleteCostRanking": false,
+        "missing": [
+          "packQuantity",
+          "deliveryKzt"
+        ],
+        "expired": true,
+        "totalKzt": null
+      }
+    ]
+  },
+  "missing": [
+    {
+      "type": "missing-currency",
+      "operationId": "SERVICES-000014",
+      "lineId": "01",
+      "field": "currency",
+      "expectedAction": "exclude-until-reviewed",
+      "sourceRecordNumber": 14
+    },
+    {
+      "type": "missing-sku",
+      "operationId": "SERVICES-000027",
+      "lineId": "01",
+      "field": "sku",
+      "expectedAction": "exclude-until-reviewed",
+      "sourceRecordNumber": 28
+    },
+    {
+      "type": "missing-date",
+      "operationId": "SERVICES-000040",
+      "lineId": "01",
+      "field": "date",
+      "expectedAction": "exclude-until-reviewed",
+      "sourceRecordNumber": 42
+    }
+  ],
+  "issues": [
+    {
+      "type": "missing-currency",
+      "operationId": "SERVICES-000014",
+      "lineId": "01",
+      "field": "currency",
+      "expectedAction": "exclude-until-reviewed",
+      "sourceRecordNumber": 14
+    },
+    {
+      "type": "missing-sku",
+      "operationId": "SERVICES-000027",
+      "lineId": "01",
+      "field": "sku",
+      "expectedAction": "exclude-until-reviewed",
+      "sourceRecordNumber": 28
+    },
+    {
+      "type": "missing-date",
+      "operationId": "SERVICES-000040",
+      "lineId": "01",
+      "field": "date",
+      "expectedAction": "exclude-until-reviewed",
+      "sourceRecordNumber": 42
+    },
+    {
+      "type": "exact-duplicate",
+      "operationId": "SERVICES-000004",
+      "lineId": "01",
+      "sourceRecordNumbers": [
+        4,
+        953
+      ],
+      "expectedAction": "deduplicate-by-confirmed-event-key"
+    },
+    {
+      "type": "conflicting-event-key",
+      "operationId": "SERVICES-000009",
+      "lineId": "01",
+      "field": "netAmount",
+      "sourceRecordNumbers": [
+        9,
+        954
+      ],
+      "expectedAction": "quarantine-both-candidates-until-reviewed"
+    }
+  ],
+  "outliers": [
+    {
+      "operationId": "SERVICES-000257",
+      "month": "2022-06",
+      "reason": "Synthetic exceptional batch: four times the seeded regular quantity; not a business effect claim."
+    },
+    {
+      "operationId": "SERVICES-000647",
+      "month": "2024-08",
+      "reason": "Synthetic exceptional batch: four times the seeded regular quantity; not a business effect claim."
+    }
+  ],
+  "revisions": {
+    "sources": 1,
+    "mapping": 1,
+    "rawRecordKey": [
+      "operationId",
+      "lineId"
+    ],
+    "catalogRecordKey": [
+      "sku"
+    ],
+    "supplierRecordKey": [
+      "supplierId",
+      "sku"
+    ]
+  },
+  "forecast": {
+    "target": "monthly-enquiries-in-existing-channels",
+    "unit": "enquiry",
+    "frequency": "month",
+    "sampleCount": 60,
+    "sourceRelationship": "Independent synthetic count of enquiries; not inferred sales, historical revenue or measured customer data. No personal identifiers.",
+    "annualSeasonality": true,
+    "patternSource": "Authored synthetic month-of-year factors; not regional statistics.",
+    "train": {
+      "file": "forecast/train.csv",
+      "from": "2021-01-01",
+      "to": "2023-12-01",
+      "count": 36
+    },
+    "validation": {
+      "file": "forecast/validation.csv",
+      "from": "2024-01-01",
+      "to": "2024-12-01",
+      "count": 12
+    },
+    "holdout": {
+      "file": "forecast/holdout.csv",
+      "from": "2025-01-01",
+      "to": "2025-12-01",
+      "count": 12,
+      "usage": "Final assessment only, never fit or select models on this file."
+    },
+    "rollingOrigins": [
+      {
+        "trainEnd": "2023-12-01",
+        "testFrom": "2024-01-01",
+        "testTo": "2024-06-01"
+      },
+      {
+        "trainEnd": "2024-06-01",
+        "testFrom": "2024-07-01",
+        "testTo": "2024-12-01"
+      }
+    ],
+    "outliers": [
+      {
+        "month": "2022-07-01",
+        "value": 228
+      },
+      {
+        "month": "2024-05-01",
+        "value": 303
+      }
+    ],
+    "generationHasFutureValues": true,
+    "initialModelFitAllowedFiles": [
+      "forecast/train.csv"
+    ],
+    "modelSelectionAllowedFiles": [
+      "forecast/validation.csv"
+    ],
+    "rollingFitMayUseEarlierValidation": "Only observations on or before the current rolling-origin training cutoff; never later observations in that fold.",
+    "finalRefitAllowedFiles": [
+      "forecast/train.csv",
+      "forecast/validation.csv"
+    ],
+    "forecastsGenerated": false,
+    "accuracyClaimed": false,
+    "businessEffectClaimed": false,
+    "independentlyParsedSplits": {
+      "train": {
+        "count": 36,
+        "totalEnquiries": "3367",
+        "from": "2021-01-01",
+        "to": "2023-12-01"
+      },
+      "validation": {
+        "count": 12,
+        "totalEnquiries": "1357",
+        "from": "2024-01-01",
+        "to": "2024-12-01"
+      },
+      "holdout": {
+        "count": 12,
+        "totalEnquiries": "1193",
+        "from": "2025-01-01",
+        "to": "2025-12-01"
+      }
+    }
+  }
+}

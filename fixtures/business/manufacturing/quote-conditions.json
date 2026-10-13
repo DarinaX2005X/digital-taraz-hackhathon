@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "requestId": "MF-Q-001",
+  "asOf": "2026-01-01",
+  "currency": "KZT",
+  "discountPercent": "3.00",
+  "enteredDeliveryKzt": "8000.00",
+  "requestedDate": "2026-01-24",
+  "eventDate": "2026-01-23",
+  "taxStatus": "unconfirmed",
+  "unresolvedFields": [
+    "personalizationArtwork",
+    "packagingChoice",
+    "taxStatus",
+    "shippingDateConflict"
+  ],
+  "terms": [
+    "Учебная скидка 3% применяется к указанной партии, включая подготовку.",
+    "Персонализация возможна только после получения и проверки макета.",
+    "Размеры и пригодность материала должны подтверждаться реальным производителем.",
+    "Сушка: 24 календарных часа; трудозатраты учитываются отдельно.",
+    "Налоговый статус, упаковка и дата отгрузки требуют подтверждения."
+  ],
+  "calculation": "Round each line to 2 decimal places half-up; discount on the sum of lines; add entered delivery; no inferred tax or packaging."
+}

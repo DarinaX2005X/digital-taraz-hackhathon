@@ -1,0 +1,1101 @@
+{
+  "schemaVersion": 1,
+  "generatorVersion": "1.0.0",
+  "checkpoint": "01.3.1",
+  "seed": 20261013,
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "synthetic": true,
+  "notice": "Учебные синтетические данные. Организации, операции, цены и условия вымышлены; это не сведения о реальном бизнесе и не обещание дохода.",
+  "locales": [
+    "ru",
+    "kk",
+    "en"
+  ],
+  "sourceLanguage": "ru",
+  "businesses": [
+    {
+      "id": "homegoods",
+      "sector": "retail",
+      "name": "Учебный магазин товаров для дома",
+      "description": "Небольшой магазин готовит корпоративный набор, сравнивает пополнение и сверяет продажи с возвратами. Продажи остаются в собственных каналах магазина.",
+      "freeformExampleGoal": "Подготовить предложение для оснащения переговорной, сравнить варианты комплектации и следующую закупку. Не менять ранее согласованные условия; проверить доставку и сроки.",
+      "synthetic": true,
+      "asOf": "2026-01-01",
+      "timezone": "Asia/Qyzylorda",
+      "currency": "KZT",
+      "sourceLocale": "ru",
+      "seed": 20261013,
+      "quickStart": {
+        "archive": "homegoods/quick-start.zip",
+        "entries": [
+          "homegoods/catalog.csv",
+          "homegoods/request.docx",
+          "homegoods/terms.pdf",
+          "homegoods/brand-kit.json",
+          "homegoods/brand-logo.svg",
+          "homegoods/product-photo.jpg",
+          "homegoods/photo-licence.json",
+          "homegoods/FONT-LICENSE.txt",
+          "homegoods/quote-conditions.json"
+        ],
+        "purpose": "Small initial request, price list, conditions and brand inputs. History is not required to draft a useful proposal."
+      },
+      "workingInputs": {
+        "archive": "homegoods/working-inputs.zip",
+        "purpose": "The same standalone inputs intended for normal import services; excludes test goldens and future evaluation splits."
+      },
+      "forecastEvaluationOnly": [
+        "homegoods/forecast/validation.csv",
+        "homegoods/forecast/holdout.csv"
+      ],
+      "golden": "homegoods/golden.json",
+      "inputs": [
+        {
+          "file": "homegoods/catalog.csv",
+          "role": "catalog",
+          "collection": "homegoods-catalog",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "homegoods/supplier-offers.csv",
+          "role": "supplier-offers",
+          "collection": "homegoods-supplier-offers",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "supplierId",
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "homegoods/history.csv",
+          "role": "operation-history",
+          "collection": "homegoods-history",
+          "suggestedImportMode": "append",
+          "recordKeySpec": [
+            "Операция",
+            "Строка"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "homegoods/stock.csv",
+          "role": "stock-snapshot",
+          "collection": "homegoods-stock",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "homegoods/cash-commitments.csv",
+          "role": "cash-commitments",
+          "collection": "homegoods-commitments",
+          "suggestedImportMode": "upsert",
+          "recordKeySpec": [
+            "commitmentId"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        }
+      ],
+      "expectedIssues": {
+        "history": [
+          {
+            "type": "missing-currency",
+            "operationId": "HOMEGOODS-000014",
+            "lineId": "01",
+            "field": "currency",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 14
+          },
+          {
+            "type": "missing-sku",
+            "operationId": "HOMEGOODS-000027",
+            "lineId": "01",
+            "field": "sku",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 28
+          },
+          {
+            "type": "missing-date",
+            "operationId": "HOMEGOODS-000040",
+            "lineId": "01",
+            "field": "date",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 42
+          },
+          {
+            "type": "exact-duplicate",
+            "operationId": "HOMEGOODS-000004",
+            "lineId": "01",
+            "sourceRecordNumbers": [
+              4,
+              1525
+            ],
+            "expectedAction": "deduplicate-by-confirmed-event-key"
+          },
+          {
+            "type": "conflicting-event-key",
+            "operationId": "HOMEGOODS-000009",
+            "lineId": "01",
+            "field": "netAmount",
+            "sourceRecordNumbers": [
+              9,
+              1526
+            ],
+            "expectedAction": "quarantine-both-candidates-until-reviewed"
+          }
+        ],
+        "quote": [
+          "deliveryAddress",
+          "packagingChoice",
+          "taxStatus",
+          "deliveryDateConflict"
+        ],
+        "suppliers": [
+          {
+            "supplierId": "HG-C",
+            "eligibleForCompleteCostRanking": false,
+            "missing": [
+              "deliveryKzt",
+              "leadDays"
+            ],
+            "expired": false,
+            "totalKzt": null
+          }
+        ]
+      },
+      "knownQuoteTotalKzt": "141870.00",
+      "finalQuoteTotalKzt": null
+    },
+    {
+      "id": "services",
+      "sector": "service",
+      "name": "Учебная сервисная компания",
+      "description": "Команда уборки готовит смету объекта, график бригад и расход материалов. Площадь, доступ к окнам и длительность работ требуют уточнения; сотрудники представлены ресурсами без личных данных.",
+      "freeformExampleGoal": "Собрать смету и план уборки перед открытием небольшого помещения. Сопоставить подтверждённую площадь, окна и доступность бригад; отдельно перечислить работы, которые ещё нельзя оценить.",
+      "synthetic": true,
+      "asOf": "2026-01-01",
+      "timezone": "Asia/Qyzylorda",
+      "currency": "KZT",
+      "sourceLocale": "ru",
+      "seed": 20261013,
+      "quickStart": {
+        "archive": "services/quick-start.zip",
+        "entries": [
+          "services/catalog.csv",
+          "services/request.docx",
+          "services/terms.pdf",
+          "services/brand-kit.json",
+          "services/brand-logo.svg",
+          "services/product-photo.jpg",
+          "services/photo-licence.json",
+          "services/FONT-LICENSE.txt",
+          "services/quote-conditions.json"
+        ],
+        "purpose": "Small initial request, price list, conditions and brand inputs. History is not required to draft a useful proposal."
+      },
+      "workingInputs": {
+        "archive": "services/working-inputs.zip",
+        "purpose": "The same standalone inputs intended for normal import services; excludes test goldens and future evaluation splits."
+      },
+      "forecastEvaluationOnly": [
+        "services/forecast/validation.csv",
+        "services/forecast/holdout.csv"
+      ],
+      "golden": "services/golden.json",
+      "inputs": [
+        {
+          "file": "services/catalog.csv",
+          "role": "catalog",
+          "collection": "services-catalog",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "services/supplier-offers.csv",
+          "role": "supplier-offers",
+          "collection": "services-supplier-offers",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "supplierId",
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "services/history.csv",
+          "role": "operation-history",
+          "collection": "services-history",
+          "suggestedImportMode": "append",
+          "recordKeySpec": [
+            "Операция",
+            "Строка"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "services/stock.csv",
+          "role": "stock-snapshot",
+          "collection": "services-stock",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "services/cash-commitments.csv",
+          "role": "cash-commitments",
+          "collection": "services-commitments",
+          "suggestedImportMode": "upsert",
+          "recordKeySpec": [
+            "commitmentId"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        }
+      ],
+      "expectedIssues": {
+        "history": [
+          {
+            "type": "missing-currency",
+            "operationId": "SERVICES-000014",
+            "lineId": "01",
+            "field": "currency",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 14
+          },
+          {
+            "type": "missing-sku",
+            "operationId": "SERVICES-000027",
+            "lineId": "01",
+            "field": "sku",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 28
+          },
+          {
+            "type": "missing-date",
+            "operationId": "SERVICES-000040",
+            "lineId": "01",
+            "field": "date",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 42
+          },
+          {
+            "type": "exact-duplicate",
+            "operationId": "SERVICES-000004",
+            "lineId": "01",
+            "sourceRecordNumbers": [
+              4,
+              953
+            ],
+            "expectedAction": "deduplicate-by-confirmed-event-key"
+          },
+          {
+            "type": "conflicting-event-key",
+            "operationId": "SERVICES-000009",
+            "lineId": "01",
+            "field": "netAmount",
+            "sourceRecordNumbers": [
+              9,
+              954
+            ],
+            "expectedAction": "quarantine-both-candidates-until-reviewed"
+          }
+        ],
+        "quote": [
+          "areaConflict",
+          "externalWindowAccess",
+          "dilutionRatio",
+          "taxStatus",
+          "serviceDateConflict"
+        ],
+        "suppliers": [
+          {
+            "supplierId": "SV-C",
+            "eligibleForCompleteCostRanking": false,
+            "missing": [
+              "packQuantity",
+              "deliveryKzt"
+            ],
+            "expired": true,
+            "totalKzt": null
+          }
+        ]
+      },
+      "knownQuoteTotalKzt": "131900.00",
+      "finalQuoteTotalKzt": null
+    },
+    {
+      "id": "manufacturing",
+      "sector": "manufacturing",
+      "name": "Учебная столярная мастерская",
+      "description": "Небольшая мастерская сравнивает партии материалов, считает изделия с отходами и сушкой, готовит предложение и загрузку. Фото показывает категорию, а не изготовленное компанией изделие.",
+      "freeformExampleGoal": "Подготовить предложение на подарочную партию и ведомость материалов. Сравнить поставщиков по полной цене и сроку; оставить время на сушку и не менять уже утверждённые изделия.",
+      "synthetic": true,
+      "asOf": "2026-01-01",
+      "timezone": "Asia/Qyzylorda",
+      "currency": "KZT",
+      "sourceLocale": "ru",
+      "seed": 20261013,
+      "quickStart": {
+        "archive": "manufacturing/quick-start.zip",
+        "entries": [
+          "manufacturing/catalog.csv",
+          "manufacturing/request.docx",
+          "manufacturing/terms.pdf",
+          "manufacturing/brand-kit.json",
+          "manufacturing/brand-logo.svg",
+          "manufacturing/product-photo.jpg",
+          "manufacturing/photo-licence.json",
+          "manufacturing/FONT-LICENSE.txt",
+          "manufacturing/quote-conditions.json"
+        ],
+        "purpose": "Small initial request, price list, conditions and brand inputs. History is not required to draft a useful proposal."
+      },
+      "workingInputs": {
+        "archive": "manufacturing/working-inputs.zip",
+        "purpose": "The same standalone inputs intended for normal import services; excludes test goldens and future evaluation splits."
+      },
+      "forecastEvaluationOnly": [
+        "manufacturing/forecast/validation.csv",
+        "manufacturing/forecast/holdout.csv"
+      ],
+      "golden": "manufacturing/golden.json",
+      "inputs": [
+        {
+          "file": "manufacturing/catalog.csv",
+          "role": "catalog",
+          "collection": "manufacturing-catalog",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "manufacturing/supplier-offers.csv",
+          "role": "supplier-offers",
+          "collection": "manufacturing-supplier-offers",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "supplierId",
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "manufacturing/history.csv",
+          "role": "operation-history",
+          "collection": "manufacturing-history",
+          "suggestedImportMode": "append",
+          "recordKeySpec": [
+            "Операция",
+            "Строка"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "manufacturing/stock.csv",
+          "role": "stock-snapshot",
+          "collection": "manufacturing-stock",
+          "suggestedImportMode": "replace-snapshot",
+          "recordKeySpec": [
+            "sku"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        },
+        {
+          "file": "manufacturing/cash-commitments.csv",
+          "role": "cash-commitments",
+          "collection": "manufacturing-commitments",
+          "suggestedImportMode": "upsert",
+          "recordKeySpec": [
+            "commitmentId"
+          ],
+          "confirmationRequired": true,
+          "revision": 1
+        }
+      ],
+      "expectedIssues": {
+        "history": [
+          {
+            "type": "missing-currency",
+            "operationId": "MANUFACTURING-000014",
+            "lineId": "01",
+            "field": "currency",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 14
+          },
+          {
+            "type": "missing-sku",
+            "operationId": "MANUFACTURING-000027",
+            "lineId": "01",
+            "field": "sku",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 28
+          },
+          {
+            "type": "missing-date",
+            "operationId": "MANUFACTURING-000040",
+            "lineId": "01",
+            "field": "date",
+            "expectedAction": "exclude-until-reviewed",
+            "sourceRecordNumber": 42
+          },
+          {
+            "type": "exact-duplicate",
+            "operationId": "MANUFACTURING-000004",
+            "lineId": "01",
+            "sourceRecordNumbers": [
+              4,
+              763
+            ],
+            "expectedAction": "deduplicate-by-confirmed-event-key"
+          },
+          {
+            "type": "conflicting-event-key",
+            "operationId": "MANUFACTURING-000009",
+            "lineId": "01",
+            "field": "netAmount",
+            "sourceRecordNumbers": [
+              9,
+              764
+            ],
+            "expectedAction": "quarantine-both-candidates-until-reviewed"
+          }
+        ],
+        "quote": [
+          "personalizationArtwork",
+          "packagingChoice",
+          "taxStatus",
+          "shippingDateConflict"
+        ],
+        "suppliers": [
+          {
+            "supplierId": "MF-C",
+            "eligibleForCompleteCostRanking": false,
+            "missing": [
+              "deliveryKzt"
+            ],
+            "expired": false,
+            "totalKzt": null
+          }
+        ]
+      },
+      "knownQuoteTotalKzt": "563325.00",
+      "finalQuoteTotalKzt": null
+    }
+  ],
+  "commands": {
+    "generate": "node scripts/fixtures/generate.mjs",
+    "verify": "node scripts/fixtures/verify.mjs",
+    "regenerateAssets": "node scripts/fixtures/fetch-assets.mjs"
+  },
+  "reproducibility": {
+    "fixedOfficeTimestamps": true,
+    "orderedZipEntries": true,
+    "explicitDrawingIds": true,
+    "runtime": "Node22.13+",
+    "dependencies": "Pinned package-lock.json",
+    "normalGenerationUsesNetwork": false
+  },
+  "interpretation": {
+    "acceptedHistory": "Exact duplicates collapse only by a confirmed event key. All differing candidates for one event key are quarantined; rows missing date/SKU/currency are excluded until reviewed. Goldens describe this policy, not a silent production import decision.",
+    "noBusinessClaims": true,
+    "noRealCustomersOrStaff": true,
+    "noInterviewsOrPartners": true,
+    "originalAuthorAttributionIsPublicLicenceMetadata": true,
+    "forecastEvaluationIsNotTraining": true,
+    "formulaResultsAreCachedKnownAnswersNotCalculatedByExcelJS": true,
+    "UIOrOfficeVisualVerification": "Not performed; file structures, extracted text, exact amounts and reproducibility are checked without a browser or renderer.",
+    "followupCheckpoint": "01.3.2 adds controlled changes, schema drift, insufficient series and a separate100000-row stress input after checkpoint release."
+  },
+  "generatedContentLicence": {
+    "identifier": "CC0-1.0",
+    "scope": "Authored synthetic records, prose and sample vector logos; third-party photographs and fonts retain their separately recorded licences."
+  },
+  "fontLicence": {
+    "family": "Noto Sans",
+    "license": "OFL-1.1",
+    "source": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "licenseSha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+    "licenceFiles": [
+      "homegoods/FONT-LICENSE.txt",
+      "services/FONT-LICENSE.txt",
+      "manufacturing/FONT-LICENSE.txt"
+    ],
+    "vendorFontsCopied": false
+  },
+  "files": [
+    {
+      "file": "assets/microfiber-mop.jpg",
+      "mediaType": "image/jpeg",
+      "bytes": 213968,
+      "sha256": "0f9e3c5c02180b70e63c82a0c588aedc5ee50992a72eec4b71e7faeacf118c13",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "assets/provenance.json",
+      "mediaType": "application/json",
+      "bytes": 5142,
+      "sha256": "442efc62d6e0accdbdb7ce74114e0ab89433afda0a71f2768ff0996a51f58be7",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "assets/white-cup.jpg",
+      "mediaType": "image/jpeg",
+      "bytes": 416885,
+      "sha256": "231ee15d6f0d18d2ccafd030025e2999dfcf9e5929fa2b21ed93ad23a8ed1185",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "assets/wooden-board.jpg",
+      "mediaType": "image/jpeg",
+      "bytes": 335594,
+      "sha256": "2324d9d52de7309f0a50fba4bc67c94b819cee8c5b307d2bec2097ee8a3029e9",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "homegoods/brand-kit.json",
+      "mediaType": "application/json",
+      "bytes": 2797,
+      "sha256": "0deff011a0b75717120f5863fe134d841c52537429a6e2821a323973a0f2bbe2",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/brand-logo.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 532,
+      "sha256": "5e641e6e0f0bd51cc0f6801c4775c194e601b14f168852f54764d57e4b572fd3",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/business-materials.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 113510,
+      "sha256": "6a75a434a03210bfa560bf292a32583cda1f4ff5aa36f215e591abcc60aa9d0a",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/cash-commitments.csv",
+      "mediaType": "text/csv",
+      "bytes": 3344,
+      "sha256": "89c27a6958cd0a085181be934f0f6a1ac5f16b85c2fb7eb5ebfc28de3600c43f",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/catalog.csv",
+      "mediaType": "text/csv",
+      "bytes": 955,
+      "sha256": "0fdf5c922a64fd50c8717e863fefc41af6cfca6e19db95591608ce28cd8b8d66",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/FONT-LICENSE.txt",
+      "mediaType": "text/plain",
+      "bytes": 4377,
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+      "provenance": "public/fonts/noto-sans/manifest.json"
+    },
+    {
+      "file": "homegoods/forecast/holdout.csv",
+      "mediaType": "text/csv",
+      "bytes": 1778,
+      "sha256": "ff4bbb9addffca8ccdda333aad210489f90dc585471ee571ad92d2b4123c86c6",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/forecast/train.csv",
+      "mediaType": "text/csv",
+      "bytes": 5296,
+      "sha256": "d688e28e56de13fb4105457fa8abec27e377916bf661485cdaffc7e768d7871c",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/forecast/validation.csv",
+      "mediaType": "text/csv",
+      "bytes": 1816,
+      "sha256": "102d309c0097c4f71344bca4b02f8195ab35973343a69cf45c1672c9cb553359",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/golden.json",
+      "mediaType": "application/json",
+      "bytes": 17888,
+      "sha256": "6efcbf28a52adc8c39fd12e74872f80cee40978c71c908efb7366fa263e25144",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/history.csv",
+      "mediaType": "text/csv",
+      "bytes": 290139,
+      "sha256": "61229cef11146e495d31befe990b58ba4d82507216ed8dbeb4d15c2d562e2e13",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/photo-licence.json",
+      "mediaType": "application/json",
+      "bytes": 1581,
+      "sha256": "e7289f3a66bcb315190e71b12c38bba7ab603b455fc3d93949ca6bca734af136",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/product-photo.jpg",
+      "mediaType": "image/jpeg",
+      "bytes": 416885,
+      "sha256": "231ee15d6f0d18d2ccafd030025e2999dfcf9e5929fa2b21ed93ad23a8ed1185",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "homegoods/quick-start.zip",
+      "mediaType": "application/zip",
+      "bytes": 1284687,
+      "sha256": "ad7c38ff922728e61cfcc65fe8c6cfe08c9d35a4ab34403f7dc05f8f754700ad",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/quote-conditions.json",
+      "mediaType": "application/json",
+      "bytes": 1170,
+      "sha256": "fadd9eec40e92c0f78be0ff954b2f1e71d5c3d74d69bb8874926de45fa5e0af9",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/quote-lines.csv",
+      "mediaType": "text/csv",
+      "bytes": 362,
+      "sha256": "51e191767e3cabfdf522d1770b63077aae123e613bbc9cfa677bf8010a5e9781",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/request.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes": 426146,
+      "sha256": "a61e70930ca1d040005b4ceb13baa571d1d870fc401fda714b1db05b1f972ddd",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/request.txt",
+      "mediaType": "text/plain",
+      "bytes": 1871,
+      "sha256": "4d6d354727b83744f087496c4a0550a74e6f217a6f4a76789310ea2e1bfde805",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/stock.csv",
+      "mediaType": "text/csv",
+      "bytes": 793,
+      "sha256": "403dd22bd798ce3042fde0bb6af73163aca22241bec8fb87ef1deeee478acc8c",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/supplier-offers.csv",
+      "mediaType": "text/csv",
+      "bytes": 930,
+      "sha256": "80615ec600b666e40a71e1a9d2f478910510407954c9f5a9fb4da87360dcec58",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/terms.pdf",
+      "mediaType": "application/pdf",
+      "bytes": 442960,
+      "sha256": "cbb0bd8e781ff458d23507c03fa83b863bd0d9bfeebc56f8559a25e96c7336eb",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/work-plan.csv",
+      "mediaType": "text/csv",
+      "bytes": 442,
+      "sha256": "c1e97685c4d2833fdbf27d7721b4969d63917411502974651f55b87535db4e61",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/work-resources.csv",
+      "mediaType": "text/csv",
+      "bytes": 289,
+      "sha256": "23bf40612cd5daf15581fa5643f432afece36ec6455b938020d83b49695be9c9",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "homegoods/working-inputs.zip",
+      "mediaType": "application/zip",
+      "bytes": 1411676,
+      "sha256": "fa8ce10ddeef580162199f9b095b25d0e753607c0b8557076473b32f18470b09",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/bill-of-materials.csv",
+      "mediaType": "text/csv",
+      "bytes": 886,
+      "sha256": "4d501cad1be9b4710e2a83a9bfc6c72dfecf6e39cb1db9bab7d33b48627c31b5",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/brand-kit.json",
+      "mediaType": "application/json",
+      "bytes": 2776,
+      "sha256": "1847b79d81c0ca7c284a83d950189d4645620a910d0df8c2f54573717de120be",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/brand-logo.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 540,
+      "sha256": "216bd00db5682e365c79f917ada945da99c1c639ddd0309bd34bdf7595631d79",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/business-materials.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 66979,
+      "sha256": "120ec654d4bc0183b718ccd7a6de1faa44bf7e301ba928c8644c443ccccc862b",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/cash-commitments.csv",
+      "mediaType": "text/csv",
+      "bytes": 3397,
+      "sha256": "e666cd497bde767c53c0d5bba3701834b9054f4300506de205d268cad67f35ac",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/catalog.csv",
+      "mediaType": "text/csv",
+      "bytes": 1003,
+      "sha256": "415935fdc3ff3df806e5f5f267e2cc46c82eb3186762efac86821ae85a3da12f",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/FONT-LICENSE.txt",
+      "mediaType": "text/plain",
+      "bytes": 4377,
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+      "provenance": "public/fonts/noto-sans/manifest.json"
+    },
+    {
+      "file": "manufacturing/forecast/holdout.csv",
+      "mediaType": "text/csv",
+      "bytes": 1766,
+      "sha256": "4351f52c9babc5d0cd284eab0d167121a1eac7ca2402a063cef69d89d8ff78fe",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/forecast/train.csv",
+      "mediaType": "text/csv",
+      "bytes": 5261,
+      "sha256": "f2a9123efb69c645aa1ced2977dd71bdc4ed8ee89d03cfa17a33ecebedd79ac5",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/forecast/validation.csv",
+      "mediaType": "text/csv",
+      "bytes": 1805,
+      "sha256": "baf34679a9b95951facd7b59823f18093261c719140777cbb99502c3ac3e8a65",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/golden.json",
+      "mediaType": "application/json",
+      "bytes": 17961,
+      "sha256": "bed3b24cd6d883557da7dc32e7c7f1f116219e1d04d475f35db886a4d8e42731",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/history.csv",
+      "mediaType": "text/csv",
+      "bytes": 163186,
+      "sha256": "02b3673306793bf4d5e2881439bbd349c96dcd7dfc460ec5b58ee9344801fd59",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/photo-licence.json",
+      "mediaType": "application/json",
+      "bytes": 1491,
+      "sha256": "6b990161c970ffbd1f553ee5041802fba06cd8f629f700c4afd6d9940c7d3df9",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/product-photo.jpg",
+      "mediaType": "image/jpeg",
+      "bytes": 335594,
+      "sha256": "2324d9d52de7309f0a50fba4bc67c94b819cee8c5b307d2bec2097ee8a3029e9",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "manufacturing/quick-start.zip",
+      "mediaType": "application/zip",
+      "bytes": 1045978,
+      "sha256": "85835c9fe85f87742965c7d3b73312e0fc243dc3074cd6ebf49e3c4f34de14bd",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/quote-conditions.json",
+      "mediaType": "application/json",
+      "bytes": 1212,
+      "sha256": "86440ba2f2c8686e69cc2f4a5e0773c834f24fe171dfce6569a648de0ab5b191",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/quote-lines.csv",
+      "mediaType": "text/csv",
+      "bytes": 419,
+      "sha256": "3045b86a42d1673e43a1f571eb91fd21478b35bedc17e911bd5924a071b9493d",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/request.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes": 346841,
+      "sha256": "02434bcc2fd525bc2e08e112dfa3a93c072d2007b66930446b9ea49a5d299bd1",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/request.txt",
+      "mediaType": "text/plain",
+      "bytes": 1912,
+      "sha256": "a1c416fea65128d6e2787548878189fb709e97eec93f9cef9c732aa5ce870f44",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/stock.csv",
+      "mediaType": "text/csv",
+      "bytes": 804,
+      "sha256": "e56f3cb9d573dbbe379293bfb4116a10ad763dc3deb1e15148fe8f5b30a45de3",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/supplier-offers.csv",
+      "mediaType": "text/csv",
+      "bytes": 943,
+      "sha256": "edb52a81d4fa2af1e2a1691c5f06b252de186d2d54ffe10e769c35b5d87a1288",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/terms.pdf",
+      "mediaType": "application/pdf",
+      "bytes": 361007,
+      "sha256": "5e675ecdabc539698d565b05021149fb7526624bb966e5e493684b8a2cadbfb8",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/work-plan.csv",
+      "mediaType": "text/csv",
+      "bytes": 422,
+      "sha256": "629c0b176a553429209bae09418b2f8c2375b80f0be2581dd61a6ead1b60ed21",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/work-resources.csv",
+      "mediaType": "text/csv",
+      "bytes": 316,
+      "sha256": "dcbd330ae3db76e07f03b6b91b66cc538ead074e98d4dff89bf36407384ae179",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "manufacturing/working-inputs.zip",
+      "mediaType": "application/zip",
+      "bytes": 1117476,
+      "sha256": "11ea6bb2d0b3138452e074e58dee2b3471a69f5b94672463a26c72d3002de444",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/bill-of-materials.csv",
+      "mediaType": "text/csv",
+      "bytes": 466,
+      "sha256": "1f2938b764b0e7fa91c81167f637558572691aa755e453cef63eac3f17cc092e",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/brand-kit.json",
+      "mediaType": "application/json",
+      "bytes": 2961,
+      "sha256": "0ff15b7f91b7aa08c215fbdd8a71b04f308ef15c9df417bb1503a53d37f59945",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/brand-logo.svg",
+      "mediaType": "image/svg+xml",
+      "bytes": 540,
+      "sha256": "c94cc73b3b66e07ad9918449291e6ae12d52361d47588f5fb2da5bb36db2c1b1",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/business-materials.xlsx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "bytes": 83778,
+      "sha256": "365594b49117557dd8337d7cca853be1e28b248f77b16c03e42f8eac705f2b5d",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/cash-commitments.csv",
+      "mediaType": "text/csv",
+      "bytes": 3331,
+      "sha256": "d0549f9f4441a4ef202ee8091135ee434539012c5ff8fc8479b7ecff6a5cfcaf",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/catalog.csv",
+      "mediaType": "text/csv",
+      "bytes": 1009,
+      "sha256": "a05f45d5e0cf5290c27cb02d21b91eb35ed9825fda325cd82797340bd6454f66",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/FONT-LICENSE.txt",
+      "mediaType": "text/plain",
+      "bytes": 4377,
+      "sha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+      "provenance": "public/fonts/noto-sans/manifest.json"
+    },
+    {
+      "file": "services/forecast/holdout.csv",
+      "mediaType": "text/csv",
+      "bytes": 1771,
+      "sha256": "97695749a77105762abc61133a530cdeae90c117e7ae4140d372862695ec060e",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/forecast/train.csv",
+      "mediaType": "text/csv",
+      "bytes": 5274,
+      "sha256": "728a7321b560fcf64c732fa16635804d145ce37ff2b2e874176ab6778854c71c",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/forecast/validation.csv",
+      "mediaType": "text/csv",
+      "bytes": 1810,
+      "sha256": "a4389bcbf897d8b5b60277d0752c30f9c2616880f7887dc70b927437450f7313",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/golden.json",
+      "mediaType": "application/json",
+      "bytes": 17881,
+      "sha256": "ad4f3d69924cd622298b117629cfc626761732de4da1640da697060133506f6b",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/history.csv",
+      "mediaType": "text/csv",
+      "bytes": 187139,
+      "sha256": "0a1d27ab96baeeff7e6e0fda9e3dac7cc877ab3a8d78904083ea2b53fb3750ab",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/photo-licence.json",
+      "mediaType": "application/json",
+      "bytes": 1695,
+      "sha256": "ce70e7b9beee2075d2b910f2d0e910590c5e74abbd49d07205e5ae6010309461",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/product-photo.jpg",
+      "mediaType": "image/jpeg",
+      "bytes": 213968,
+      "sha256": "0f9e3c5c02180b70e63c82a0c588aedc5ee50992a72eec4b71e7faeacf118c13",
+      "provenance": "assets/provenance.json"
+    },
+    {
+      "file": "services/quick-start.zip",
+      "mediaType": "application/zip",
+      "bytes": 682943,
+      "sha256": "569963a541f615a01a70b282d6090120dfd43100f3147339c5b34e4babc01a39",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/quote-conditions.json",
+      "mediaType": "application/json",
+      "bytes": 1263,
+      "sha256": "ac00d1161f0137b47fceab2efb5c9b83fc5fa7bfd598e49792353776e63cc0ce",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/quote-lines.csv",
+      "mediaType": "text/csv",
+      "bytes": 402,
+      "sha256": "000070684f179ec405125fd3833a8229898d5b2d81a146ab46430e6fa4e18037",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/request.docx",
+      "mediaType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "bytes": 225566,
+      "sha256": "ac5477e6c1c84d8a1cb4999cb4331aff131328bacc0d682c79dbbfeb41becf54",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/request.txt",
+      "mediaType": "text/plain",
+      "bytes": 2076,
+      "sha256": "695435de2e1146eb7bf643b27cd24fbf0f9664c2b3349e016656343b47f65eba",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/stock.csv",
+      "mediaType": "text/csv",
+      "bytes": 802,
+      "sha256": "a196a77d253cd065663fe3cde3e83be84c8723066f4299adbfc0753f910aa0cf",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/supplier-offers.csv",
+      "mediaType": "text/csv",
+      "bytes": 1028,
+      "sha256": "570b82ac26cd8fa7f25e2069a3fdf1727687613d82c46292ed062f3085972a53",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/terms.pdf",
+      "mediaType": "application/pdf",
+      "bytes": 240143,
+      "sha256": "246ac329cd24a7bfb624fa7cfe68a4b4bcbb96626c136b312f957fb310a433f4",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/work-plan.csv",
+      "mediaType": "text/csv",
+      "bytes": 402,
+      "sha256": "21158bf525892621af3c4a8b7b46bf19279c7a36027a6835508c8606b4cf753c",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/work-resources.csv",
+      "mediaType": "text/csv",
+      "bytes": 346,
+      "sha256": "5e500e31a4db33c516e7f42243e7f77cfd4bf4e58ba0378d008ca662cc14e416",
+      "provenance": "seeded-synthetic-generator"
+    },
+    {
+      "file": "services/working-inputs.zip",
+      "mediaType": "application/zip",
+      "bytes": 781303,
+      "sha256": "f58740f3ae44c3ad2c180f0c934e35f6d67d6e933066d6880830b0bd904a4d9c",
+      "provenance": "seeded-synthetic-generator"
+    }
+  ]
+}

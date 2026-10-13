@@ -1,0 +1,3 @@
+"id","label","capacityHours","availableDays","from","to","exceptionDate","exceptionHours"
+"MF-CUT","Учебный участок раскроя","6","MO,TU,WE,TH,FR","09:00","16:00","2026-01-20","2"
+"MF-FINISH","Учебный участок отделки","6","MO,TU,WE,TH,FR","09:00","16:00","2026-01-22","4"

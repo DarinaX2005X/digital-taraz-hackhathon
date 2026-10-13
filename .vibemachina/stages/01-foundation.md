@@ -51,7 +51,7 @@ Contrast calculation, наличие glyphs, parity ключей, fallback polic
 Принято 2026-10-13: semantic token/CSS parity и contrast, официальный pinned Noto Sans400/500/600/700 с OFL/hash/cmap/embedding checks, сохранённый T-знак/favicon/monochrome. Полные typed shared ru/kk/en catalogs и Intl без float loss для денег; pure locale store сохраняет identity и сериализует account preference writes. Worker27focused tests/type/lint PASS. MAIN подключил root font/CSS/server locale/provider и добавил regression fractional signDisplay (28UI unit tests), общий check.mjs PASS. Настоящие HTTP checks всех3 cookie locales/invalid cookie -> Accept-Language/local icon+font и прежние DB cases PASS (12integration tests). Account API ещё02.1, реальные controls01.2.2; mounted editor/focus/locale language quality и внешний вид пользователь ещё не проверял.
 
 ### 01.2.2 Рабочие состояния контролов
-Status: todo
+Status: active
 
 Unit reducer tests dialog/combobox/debounce/cancel и сохранение значения при locale switch. Типы и CSS constraints проходят check.mjs; пользователю список состояний для визуальной проверки.
 
@@ -67,9 +67,11 @@ Paths: fixtures/business/, scripts/fixtures/, tests/fixtures/
 **Вход в работу и состояния.** Позднее доступны явно как «Учебный пример». Файлы скачиваемы и загружаются тем же импортом, что материалы пользователя. Малый quick-start и большой stress набор разделены; пример не ограничивает свободную задачу.
 
 ### 01.3.1 Рабочие материалы и контрольные ответы
-Status: active
+Status: done
 
 Генератор с seed, CSV/XLSX/DOCX/PDF/изображения, права на assets и manifest. Независимо вычислить golden totals, пропуски, дубли, revisions.
+
+Принято 2026-10-13:79 файлов (seed20261013) для synthetic розницы, услуг и производства. CSV/XLSX/DOCX/PDF, brand assets и3 фото с лицензиями PD/CC0, закреплёнными provenance/hash/EXIF checks; quick/full working ZIP исключают golden и будущие evaluation observations. Истории1526/954/764 строк, возвраты/credit notes, MOQ/упаковки/доставка/актуальность, неизвестные налоги и противоречивые сроки. Независимый csv-parse/BigInt oracle подтверждает net revenue34244571.00/51671456.70/58875825.00 KZT и известную часть предложений141870/131900/563325 KZT; finalTotal=null при неизвестных условиях. По одному exact duplicate удаляется, обе конфликтующие строки одного ключа карантинируются,3 строки с пропусками исключаются. Прогноз60 месяцев:36train/12validation/12holdout и2rolling folds, без утечки в рабочий архив. `vitest tests/fixtures`:6PASS; scoped lint PASS; verify воспроизводит все79 файлов побайтово и разбирает реальные OOXML/PDF,2страницы ru/kk/en каждого PDF. Внешний вид не проверялся. Stress/reimport changes остаются01.3.2.
 
 ### 01.3.2 Проверочные изменения и большие наборы
 Status: todo
@@ -88,9 +90,13 @@ Paths: scripts/preflight/, tests/preflight/
 **Вход в работу и состояния.** Readiness gate, не публичная кнопка «всё работает». Показать разрешённые модели/цены, недоступную модальность и ограничения форматов. Если библиотека требует Pro, найти проверенную OSS реализацию контракта, не убрать функцию.
 
 ### 01.4.1 Форматы и стоимость подтверждены
-Status: active
+Status: done
 
 Roundtrip файлы, Unicode text extraction, formulas vs golden, schema/tool/vision result и usage без секретов. Live budget <= $1 batch; неоднозначный платный timeout не повторять вслепую.
+
+Принят ранний capability gate 2026-10-13 с явно выявленными ограничениями. Offline13focused tests/lint PASS:15Univer OSS formulas+recalculation, actual XLSX cached results/styles/date/merge/x14 roundtrip, editable DOCX и2page PDF с ru/kk/en extraction, Fabric object/ID/binding serialization без canvas surface,112point CTSA series/two holdouts. Evidence bytes/hashes/licence sources в tests/preflight/evidence, CTSA BSD notice добавлен отдельно. Full Office fidelity, browser editors и calibrated forecast не заявлены.
+
+Live ledger намеренно `partial`, не замаскирован green: Mimo tool call выполнен/проверен; vision JSON object + strict local Zod PASS; Seedream4.5 JPEG2048x2048 PASS. Xiaomi endpoint НЕ поддержал provider-enforced JSON Schema, поэтому downstream использует JSON object + обязательную локальную проверку. Seedream minimum2K подтверждён реальным вызовом, несмотря на ошибочную1K metadata. Отдельный JSON output call получил ambiguous timeout: НЕ повторялся, резерв остаётся. Confirmed actual$0.0400707, unresolved reserved$0.480832, cumulative attempted ceilings$0.81472 <= original$1. Все обычные checks offline, live runner требует явных execute/cap и запрещает повтор ledger. Непрерывный tool-message loop ещё не доказан, его acceptance остаётся04.2; durable uncertain receipt/reconciliation02.2. Mimo expiration metadata2026-10-21 обязательно обработать до runtime02.2, readiness=false не прячется. Эти выявленные границы, а не поддержка всех запрошенных параметров, являются результатом ранней проверки.
 
 ### 01.4.2 Хостинг и региональные условия проверены
 Status: todo

@@ -1,0 +1,5 @@
+"supplierId","supplierName","sku","description","packQuantity","unit","packPriceKzt","minPacks","deliveryKzt","leadDays","validThrough","taxBasis"
+"SV-A","Учебный поставщик расходников А","010206","Концентрат, канистра 5 л","5","liter","6400.00","1","1800.00","3","2026-01-31","entered-gross-price-no-tax-inference"
+"SV-B","Учебный поставщик расходников Б","010206","Средство концентрированное, 1 л","1","liter","1210.00","24","0.00","7","2026-01-31","entered-gross-price-no-tax-inference"
+"SV-C","Учебный поставщик расходников В","010206","Средство для пола, канистра","","liter","4900.00","2","","2","2025-12-20","entered-gross-price-no-tax-inference"
+"SV-A","Учебный поставщик расходников А","010207","Салфетка, упаковка 10 шт.","10","piece","3300.00","1","1800.00","3","2026-01-31","entered-gross-price-no-tax-inference"

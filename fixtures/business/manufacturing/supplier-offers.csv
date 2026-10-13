@@ -1,0 +1,5 @@
+"supplierId","supplierName","sku","description","packQuantity","unit","packPriceKzt","minPacks","deliveryKzt","leadDays","validThrough","taxBasis"
+"MF-A","Учебный поставщик панелей А","020305","Панель 2,88 м²","2.88","square_meter","23500.00","4","8000.00","5","2026-01-31","entered-gross-price-no-tax-inference"
+"MF-B","Учебный поставщик панелей Б","020305","Панель 1,44 м²","1.44","square_meter","13000.00","8","6000.00","2","2026-01-31","entered-gross-price-no-tax-inference"
+"MF-C","Учебный поставщик панелей В","020305","Древесный щит, м²","1","square_meter","6900.00","10","","4","2026-01-12","entered-gross-price-no-tax-inference"
+"MF-A","Учебный поставщик панелей А","020306","Масло, банка 0,75 л","0.75","liter","6300.00","2","8000.00","5","2026-01-31","entered-gross-price-no-tax-inference"

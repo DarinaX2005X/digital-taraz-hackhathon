@@ -1,0 +1,25 @@
+{
+  "synthetic": true,
+  "requestId": "HG-Q-001",
+  "asOf": "2026-01-01",
+  "currency": "KZT",
+  "discountPercent": "5.00",
+  "enteredDeliveryKzt": "4500.00",
+  "requestedDate": "2026-01-22",
+  "eventDate": "2026-01-21",
+  "taxStatus": "unconfirmed",
+  "unresolvedFields": [
+    "deliveryAddress",
+    "packagingChoice",
+    "taxStatus",
+    "deliveryDateConflict"
+  ],
+  "terms": [
+    "Учебная скидка 5% согласована только для указанного состава.",
+    "Срок подтверждается после проверки остатка и доставки.",
+    "Хрупкие изделия упаковываются отдельно; упаковка пока не включена в расчёт.",
+    "Фотография иллюстрирует категорию, а не точную модель SKU.",
+    "Налоговый статус не задан: известная сумма не является окончательным счётом."
+  ],
+  "calculation": "Round each line to 2 decimal places half-up; discount on the sum of lines; add entered delivery; no inferred tax or packaging."
+}

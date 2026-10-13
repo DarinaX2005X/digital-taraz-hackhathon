@@ -6,14 +6,14 @@ Active task: 01.2
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Approval pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят/pushed84bc4af. Независимые01.2/01.3/01.4 работают;01.2.1 worker передан, MAIN подключил layout/cookie/lang/font и исправил fractional signDisplay edge. Общий check.mjs types/lint/unit PASS, интеграция HTTP выполняется. Все writers временно STOP для scoped UI/dependency checkpoint; fixture/preflight unfinished paths не включаются.
+2026-10-13, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, approval pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят/pushed84bc4af;01.2.1 принят/pushed590789a. Приняты01.3.1 fixtures и01.4.1 capability gate с честными live limitations; MAIN готовит их scoped checkpoint. Все workers остановили запись; незавершённые controls01.2.2 не включаются. Локальный Next dev59676 работает с автоматическим обновлением исходников; необходимые dependency/config restarts выполняет MAIN.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
 1. Runtime01.1.2 зафиксирован84bc4af98995fbcb96cb584c66045b2de43f8852 и pushed origin/main, все7 configured checks PASS.01.1 done; generated Next AGENTS block сохранён вместе с runtime.
-2.01.2.1 принят:28UI unit tests и12общих integration tests PASS, включая реальный HTTP locale/font/icon. Выполнить scoped UI/dependency checkpoint; затем release01.2.2,01.3.1 и corrected live01.4.1. Каждый прочёл полный BRIEF/references; package/lock/routes/layout остаются MAIN. После каждого checkpoint worker останавливает запись до release.
+2. Зафиксировать01.3.1 и01.4.1 вместе с лицензиями/памятью/fixture commands; затем release01.2.2 и01.3.2. Hosting01.4.2: MAIN управляет только отдельным Tirlik project/free resources, worker проверяет API/evidence; никаких платных услуг или чужих проектов. После controls01.2 готов02.1 account. Каждый worker читает полный BRIEF/references; package/lock/routes/layout остаются MAIN.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -34,15 +34,15 @@ Active task: 01.2
 Дашборд планирования: http://127.0.0.1:4177/
 Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina/runtime; перезапуск штатным dashboard.mjs с явным root, --detach --port4177. Не завершать неизвестные процессы.
 
-Локальный Next: http://127.0.0.1:59676/ ; health200 database=ready подтверждён MAIN. Пока техническая страница, не полезный продуктовый UI. Supervisor PID137960, Next CLI PID137612, instance1daa2f94-233a-4a06-8c22-38799875f0a8. Logs .local-data/dev/app-<instance>.log и supervisor-<instance>.log; runtime token приватен. Start: node scripts/dev/start.mjs; stop: node scripts/dev/stop.mjs. PostgreSQL54329, Mailpit http://127.0.0.1:8029/ продолжают работать после stop. Вкладки не открывались.
+Локальный Next dev: http://127.0.0.1:59676/ ; health200 database=ready подтверждён MAIN. Пока техническая страница, не полезный продуктовый UI. Supervisor PID137760, Next CLI PID151776, instance148682de-4946-45ec-b1ac-472ccc6f2d81. Logs .local-data/dev/app-<instance>.log и supervisor-<instance>.log; runtime token приватен. Start: node scripts/dev/start.mjs; stop: node scripts/dev/stop.mjs. PostgreSQL54329, Mailpit http://127.0.0.1:8029/ продолжают работать после stop. Next dev --webpack следит за source changes, Fast Refresh встроен; браузерное получение обновлений пользователем ещё не проверено. MAIN перезапускает после dependency/config changes, сохраняет порт/данные. Вкладки не открывались.
 
 ## Работники
 
 /root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation завершил01.1.2, передал пути и остановил запись.
 
-- /root/ui_foundation:01.2.1 handover/STOP; loan src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/. MAIN подключил layout и добавил HTTP locale/asset test. После checkpoint release01.2.2, Ariakit уже установлен.
-- /root/business_fixtures:01.3.1; fixtures/business/, scripts/fixtures/, tests/fixtures/. STOP для checkpoint, файлы parse/lint-safe, три licence-verified representative photos с hashes, definitions/data/oracle/formats; in-memory XLSX/DOCX/PDF smoke PASS. После release generator/manifest/tests и deterministic DOCX image ID. Не включать в UI commit.
-- /root/preflight:01.4.1; scripts/preflight/, tests/preflight/. STOP, offline formats PASS, first live tool PASS actual$0.00003388. Schema/vision strict response и Seedream1K получили explicit4xx; cumulative reserved0.480832. Исправленные JSON-object+local validation и2K image cases разрешены в том же <=$1: cumulative worst0.81472, ещё НЕ отправлены. После release продолжить без повтора ambiguous paid call. Не включать в UI commit.
+- /root/ui_foundation:01.2.2 partial, STOP до release; loan src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/. Type/lint-safe controls в рабочем дереве НЕ входят в текущий commit. Остались CSS/tests/integration handover.
+- /root/business_fixtures:01.3.1 принят, STOP; fixtures/business/, scripts/fixtures/, tests/fixtures/.79 deterministic files,6focused tests/lint PASS. Следующий01.3.2 только после release.
+- /root/preflight:01.4.1 принят как ранний gate с ограничениями, STOP; scripts/preflight/, tests/preflight/.13offline tests PASS; live tool/vision/image PASS, provider JSON Schema unsupported, separate JSON call ambiguous timeout. Confirmed actual$0.0400707, unresolved reserved$0.480832, total attempted ceilings$0.81472 <=$1. Ledger partial не повторять. CTSA BSD notice добавлен MAIN.01.4.2 не начат.
 
 MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database и всю проектную память/Git. Ни worker не меняет чужие пути/локали. Запросы shared dependencies сначала MAIN; установки только последовательно.
 

@@ -1,0 +1,26 @@
+{
+  "synthetic": true,
+  "requestId": "SV-Q-001",
+  "asOf": "2026-01-01",
+  "currency": "KZT",
+  "discountPercent": "0.00",
+  "enteredDeliveryKzt": "3500.00",
+  "requestedDate": "2026-01-17",
+  "eventDate": "2026-01-16",
+  "taxStatus": "unconfirmed",
+  "unresolvedFields": [
+    "areaConflict",
+    "externalWindowAccess",
+    "dilutionRatio",
+    "taxStatus",
+    "serviceDateConflict"
+  ],
+  "terms": [
+    "Смета использует подтверждённую площадь 180 м².",
+    "Мойка снаружи и работы на высоте исключены до обследования и отдельного согласования.",
+    "8 человеко-часов двух специалистов не равны 8 часам календарной длительности.",
+    "Расход концентрата не равен объёму готового раствора; коэффициент разведения пока не задан.",
+    "Налоговый статус и окончательная дата требуют подтверждения."
+  ],
+  "calculation": "Round each line to 2 decimal places half-up; discount on the sum of lines; add entered delivery; no inferred tax or packaging."
+}

@@ -1,0 +1,580 @@
+{
+  "version": 1,
+  "batchId": "01.4.1-synthetic-provider-proof",
+  "startedAt": "2026-10-13T06:48:52.362Z",
+  "maxUsd": 1,
+  "plannedMaximumUsd": 0.480832,
+  "keyPresent": true,
+  "configuredModel": "xiaomi/mimo-v2.5",
+  "pricing": {
+    "fetchedAt": "2026-10-13T06:48:52.359Z",
+    "sources": [
+      "https://openrouter.ai/api/v1/models",
+      "https://openrouter.ai/api/v1/models/xiaomi/mimo-v2.5/endpoints",
+      "https://openrouter.ai/api/v1/images/models",
+      "https://openrouter.ai/api/v1/images/models/bytedance-seed/seedream-4.5/endpoints"
+    ],
+    "text": {
+      "id": "xiaomi/mimo-v2.5",
+      "canonical_slug": "xiaomi/mimo-v2.5-20260422",
+      "architecture": {
+        "modality": "text+image+audio+video->text",
+        "input_modalities": [
+          "text",
+          "audio",
+          "image",
+          "video"
+        ],
+        "output_modalities": [
+          "text"
+        ],
+        "tokenizer": "Other",
+        "instruct_type": null
+      },
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "pricing": {
+        "prompt": "0.00000014",
+        "completion": "0.00000028",
+        "input_cache_read": "0.0000000028"
+      },
+      "expiration_date": "2026-10-21"
+    },
+    "textEndpoint": {
+      "tag": "xiaomi/fp8",
+      "provider_name": "Xiaomi",
+      "supported_parameters": [
+        "reasoning",
+        "include_reasoning",
+        "max_tokens",
+        "temperature",
+        "top_p",
+        "stop",
+        "response_format",
+        "tools",
+        "tool_choice",
+        "frequency_penalty",
+        "presence_penalty"
+      ],
+      "pricing": {
+        "prompt": "0.00000014",
+        "completion": "0.00000028",
+        "input_cache_read": "0.0000000028",
+        "discount": 0
+      },
+      "context_length": 1048576,
+      "max_completion_tokens": 131072
+    },
+    "image": {
+      "id": "bytedance-seed/seedream-4.5",
+      "architecture": {
+        "input_modalities": [
+          "image",
+          "text"
+        ],
+        "output_modalities": [
+          "image"
+        ]
+      },
+      "supported_parameters": {
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "1:1",
+            "1:2",
+            "2:1",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:3",
+            "4:5",
+            "5:4",
+            "9:16",
+            "16:9",
+            "9:19.5",
+            "19.5:9",
+            "9:20",
+            "20:9",
+            "9:21",
+            "21:9",
+            "auto"
+          ]
+        },
+        "n": {
+          "type": "range",
+          "min": 1,
+          "max": 10
+        },
+        "input_references": {
+          "type": "range",
+          "min": 0,
+          "max": 14
+        },
+        "seed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "imageEndpoint": {
+      "provider_name": "Seed",
+      "provider_slug": "seed",
+      "provider_tag": "seed",
+      "supported_parameters": {
+        "resolution": {
+          "type": "enum",
+          "values": [
+            "1K",
+            "2K",
+            "4K"
+          ]
+        },
+        "aspect_ratio": {
+          "type": "enum",
+          "values": [
+            "1:1",
+            "1:2",
+            "2:1",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:3",
+            "4:5",
+            "5:4",
+            "9:16",
+            "16:9",
+            "9:19.5",
+            "19.5:9",
+            "9:20",
+            "20:9",
+            "9:21",
+            "21:9",
+            "auto"
+          ]
+        },
+        "n": {
+          "type": "range",
+          "min": 1,
+          "max": 10
+        },
+        "input_references": {
+          "type": "range",
+          "min": 0,
+          "max": 14
+        },
+        "seed": {
+          "type": "boolean"
+        }
+      },
+      "allowed_passthrough_parameters": [],
+      "supports_streaming": false,
+      "pricing": [
+        {
+          "billable": "output_image",
+          "unit": "image",
+          "cost_usd": 0.04
+        },
+        {
+          "billable": "input_image",
+          "unit": "image",
+          "cost_usd": 0
+        }
+      ]
+    },
+    "readiness": {
+      "model": "xiaomi/mimo-v2.5",
+      "expirationDate": "2026-10-21",
+      "daysRemaining": 8,
+      "lifecycle": "replacement-needed-soon",
+      "productionReady": false
+    }
+  },
+  "calls": [
+    {
+      "caseId": "tool-call",
+      "model": "xiaomi/mimo-v2.5",
+      "reservedUsd": 0.146944,
+      "status": "passed",
+      "actualCostUsd": 0.00003388,
+      "inputSha256": "0bd197898629fa489c1e2e68c7178b6b9d08715cadf9c582eb4743d943f83912",
+      "startedAt": "2026-10-13T06:48:52.365Z",
+      "httpStatus": 200,
+      "providerRequestId": "gen-1791874131-b0nFbsc3S9ATg37hgRYT",
+      "usage": {
+        "prompt_tokens": 180,
+        "completion_tokens": 31,
+        "total_tokens": 211
+      },
+      "receivedAt": "2026-10-13T06:48:59.459Z",
+      "reportedModel": "xiaomi/mimo-v2.5",
+      "validatedResult": {
+        "tool": "calculate_quote",
+        "args": {
+          "quantity": 3,
+          "unitPrice": 1250
+        },
+        "actualToolResult": {
+          "total": 3750,
+          "currency": "KZT",
+          "source": "tool"
+        }
+      }
+    },
+    {
+      "caseId": "structured-tool-result",
+      "model": "xiaomi/mimo-v2.5",
+      "reservedUsd": 0.146944,
+      "status": "http-error-cost-unresolved",
+      "actualCostUsd": null,
+      "inputSha256": "3fa34f60fc577483a156c9ff174ebfa79271c1a30bcb2f63df0fcb6c32296526",
+      "startedAt": "2026-10-13T06:48:59.464Z",
+      "httpStatus": 404,
+      "failureCode": "PROVIDER_HTTP_ERROR"
+    },
+    {
+      "caseId": "vision-extraction",
+      "model": "xiaomi/mimo-v2.5",
+      "reservedUsd": 0.146944,
+      "status": "http-error-cost-unresolved",
+      "actualCostUsd": null,
+      "inputSha256": "93639e914ce2d6b970fb790bd4670fa6a6aa32c1db71f67221edd40c4b300b6c",
+      "startedAt": "2026-10-13T06:48:59.614Z",
+      "httpStatus": 404,
+      "failureCode": "PROVIDER_HTTP_ERROR"
+    },
+    {
+      "caseId": "image-generation",
+      "model": "bytedance-seed/seedream-4.5",
+      "reservedUsd": 0.04,
+      "status": "http-error-cost-unresolved",
+      "actualCostUsd": null,
+      "inputSha256": "9fe2b13ebd8495a57071d8fc4b6fd9fe7eecfc2cdf1a668579ee0ad460bf4e22",
+      "startedAt": "2026-10-13T06:48:59.709Z",
+      "httpStatus": 400,
+      "failureCode": "PROVIDER_HTTP_ERROR"
+    },
+    {
+      "caseId": "corrected-json-object",
+      "model": "xiaomi/mimo-v2.5",
+      "reservedUsd": 0.146944,
+      "status": "ambiguous-cost-reserved-no-retry",
+      "actualCostUsd": null,
+      "inputSha256": "deec87fa4411441c150690325c4d818ee9b593ffae79abacca13ae428c0d3ee9",
+      "startedAt": "2026-10-13T16:43:57.768Z",
+      "failureCode": "TRANSPORT_OR_RESPONSE_FAILED"
+    },
+    {
+      "caseId": "corrected-vision-extraction",
+      "model": "xiaomi/mimo-v2.5",
+      "reservedUsd": 0.146944,
+      "status": "passed",
+      "actualCostUsd": 0.00003682,
+      "inputSha256": "ff706b007158bdad3c3c90484eb69fd063441b2b53d09517ccc6fd37fb4c7f4f",
+      "startedAt": "2026-10-13T16:44:42.906Z",
+      "httpStatus": 200,
+      "providerRequestId": "gen-1791909882-hw0FZRpmSJAu5o26ubub",
+      "usage": {
+        "prompt_tokens": 213,
+        "completion_tokens": 25,
+        "total_tokens": 238
+      },
+      "receivedAt": "2026-10-13T16:45:19.288Z",
+      "reportedModel": "xiaomi/mimo-v2.5",
+      "validatedResult": {
+        "item": "LAMP",
+        "quantity": 3,
+        "unitPrice": 1250,
+        "currency": "KZT"
+      },
+      "inputImageSha256": "3029ae808af35b1ecc678f4bc67dca5ebbc1aca9b3b665e8970d448a6282bc6d"
+    },
+    {
+      "caseId": "corrected-image-generation-2k",
+      "model": "bytedance-seed/seedream-4.5",
+      "reservedUsd": 0.04,
+      "status": "passed",
+      "actualCostUsd": 0.04,
+      "inputSha256": "2d7087c184d4955dc5dc49dcaabb374a8b502771fa7680a4b346ce1af9f6328f",
+      "startedAt": "2026-10-13T16:45:19.299Z",
+      "httpStatus": 200,
+      "usage": {
+        "prompt_tokens": 30,
+        "completion_tokens": 16384,
+        "total_tokens": 16414
+      },
+      "receivedAt": "2026-10-13T16:45:26.541Z",
+      "reportedModel": null,
+      "validatedResult": {
+        "bytes": 438576,
+        "sha256": "9cb6cdc31d2cbf97bc605f0d9cb57c87fa8ccda4196b100febef32637483890e",
+        "format": "jpeg",
+        "width": 2048,
+        "height": 2048,
+        "visualQualityVerified": false,
+        "synthetic": true
+      }
+    }
+  ],
+  "finishedAt": "2026-10-13T16:45:26.549Z",
+  "failures": [
+    {
+      "case": "corrected-json-object",
+      "code": "TRANSPORT_OR_RESPONSE_FAILED"
+    }
+  ],
+  "actualCostUsd": 0.0400707,
+  "unresolvedReservedUsd": 0.4808319999999999,
+  "status": "partial",
+  "correction": {
+    "startedAt": "2026-10-13T16:43:57.763Z",
+    "originalFailures": [
+      {
+        "case": "tool-and-schema",
+        "code": "PROVIDER_HTTP_ERROR"
+      },
+      {
+        "case": "vision",
+        "code": "PROVIDER_HTTP_ERROR"
+      },
+      {
+        "case": "image-generation",
+        "code": "PROVIDER_HTTP_ERROR"
+      }
+    ],
+    "metadata": {
+      "fetchedAt": "2026-10-13T16:43:57.760Z",
+      "sources": [
+        "https://openrouter.ai/api/v1/models",
+        "https://openrouter.ai/api/v1/models/xiaomi/mimo-v2.5/endpoints",
+        "https://openrouter.ai/api/v1/images/models",
+        "https://openrouter.ai/api/v1/images/models/bytedance-seed/seedream-4.5/endpoints"
+      ],
+      "text": {
+        "id": "xiaomi/mimo-v2.5",
+        "canonical_slug": "xiaomi/mimo-v2.5-20260422",
+        "architecture": {
+          "modality": "text+image+audio+video->text",
+          "input_modalities": [
+            "text",
+            "audio",
+            "image",
+            "video"
+          ],
+          "output_modalities": [
+            "text"
+          ],
+          "tokenizer": "Other",
+          "instruct_type": null
+        },
+        "supported_parameters": [
+          "frequency_penalty",
+          "include_reasoning",
+          "max_tokens",
+          "presence_penalty",
+          "reasoning",
+          "repetition_penalty",
+          "response_format",
+          "seed",
+          "stop",
+          "structured_outputs",
+          "temperature",
+          "tool_choice",
+          "tools",
+          "top_k",
+          "top_p"
+        ],
+        "pricing": {
+          "prompt": "0.00000014",
+          "completion": "0.00000028",
+          "input_cache_read": "0.0000000028"
+        },
+        "expiration_date": "2026-10-21"
+      },
+      "textEndpoint": {
+        "tag": "xiaomi/fp8",
+        "provider_name": "Xiaomi",
+        "supported_parameters": [
+          "reasoning",
+          "include_reasoning",
+          "max_tokens",
+          "temperature",
+          "top_p",
+          "stop",
+          "response_format",
+          "tools",
+          "tool_choice",
+          "frequency_penalty",
+          "presence_penalty"
+        ],
+        "pricing": {
+          "prompt": "0.00000014",
+          "completion": "0.00000028",
+          "input_cache_read": "0.0000000028",
+          "discount": 0
+        },
+        "context_length": 1048576,
+        "max_completion_tokens": 131072
+      },
+      "image": {
+        "id": "bytedance-seed/seedream-4.5",
+        "architecture": {
+          "input_modalities": [
+            "image",
+            "text"
+          ],
+          "output_modalities": [
+            "image"
+          ]
+        },
+        "supported_parameters": {
+          "resolution": {
+            "type": "enum",
+            "values": [
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "enum",
+            "values": [
+              "1:1",
+              "1:2",
+              "2:1",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:3",
+              "4:5",
+              "5:4",
+              "9:16",
+              "16:9",
+              "9:19.5",
+              "19.5:9",
+              "9:20",
+              "20:9",
+              "9:21",
+              "21:9",
+              "auto"
+            ]
+          },
+          "n": {
+            "type": "range",
+            "min": 1,
+            "max": 10
+          },
+          "input_references": {
+            "type": "range",
+            "min": 0,
+            "max": 14
+          },
+          "seed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "imageEndpoint": {
+        "provider_name": "Seed",
+        "provider_slug": "seed",
+        "provider_tag": "seed",
+        "supported_parameters": {
+          "resolution": {
+            "type": "enum",
+            "values": [
+              "1K",
+              "2K",
+              "4K"
+            ]
+          },
+          "aspect_ratio": {
+            "type": "enum",
+            "values": [
+              "1:1",
+              "1:2",
+              "2:1",
+              "2:3",
+              "3:2",
+              "3:4",
+              "4:3",
+              "4:5",
+              "5:4",
+              "9:16",
+              "16:9",
+              "9:19.5",
+              "19.5:9",
+              "9:20",
+              "20:9",
+              "9:21",
+              "21:9",
+              "auto"
+            ]
+          },
+          "n": {
+            "type": "range",
+            "min": 1,
+            "max": 10
+          },
+          "input_references": {
+            "type": "range",
+            "min": 0,
+            "max": 14
+          },
+          "seed": {
+            "type": "boolean"
+          }
+        },
+        "allowed_passthrough_parameters": [],
+        "supports_streaming": false,
+        "pricing": [
+          {
+            "billable": "output_image",
+            "unit": "image",
+            "cost_usd": 0.04
+          },
+          {
+            "billable": "input_image",
+            "unit": "image",
+            "cost_usd": 0
+          }
+        ]
+      },
+      "readiness": {
+        "model": "xiaomi/mimo-v2.5",
+        "expirationDate": "2026-10-21",
+        "daysRemaining": 8,
+        "lifecycle": "replacement-needed-soon",
+        "productionReady": false
+      }
+    },
+    "cumulativeMaximumUsd": 0.81472,
+    "reason": "Xiaomi endpoint supports JSON object mode, not provider-enforced JSON Schema; Seedream4.5 minimum resolution is2K despite OpenRouter advertising1K.",
+    "sources": [
+      "https://mimo.mi.com/docs/en-US/quick-start/usage-guide/text-generation/structured-output",
+      "https://docs.byteplus.com/en/docs/modelark/image-generation-api"
+    ],
+    "schemaEnforcement": "local-zod-after-json-object",
+    "continuousToolMessageLoopProven": false
+  }
+}

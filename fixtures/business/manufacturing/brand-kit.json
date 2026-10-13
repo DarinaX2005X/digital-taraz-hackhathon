@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "displayName": "Форма: учебная мастерская",
+  "colors": [
+    "#364C48",
+    "#BA4262",
+    "#FFFFFF"
+  ],
+  "tone": "Предметно и точно; размеры, состав и сроки важнее неподтверждённых свойств материала.",
+  "photoId": "wooden-board",
+  "locale": "ru",
+  "availableUiLocales": [
+    "ru",
+    "kk",
+    "en"
+  ],
+  "contentLanguageChangesOnlyByExplicitRequest": true,
+  "logo": {
+    "file": "brand-logo.svg",
+    "origin": "Authored educational vector wordmark, not the identity of a real business.",
+    "license": "CC0-1.0"
+  },
+  "fonts": {
+    "family": "Noto Sans",
+    "source": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "license": "OFL-1.1",
+    "applicationPath": "public/fonts/noto-sans",
+    "embedding": "PDF embeds checked local fonts; DOCX names the font; no proprietary font fallback promised."
+  },
+  "images": [
+    {
+      "id": "wooden-board",
+      "businessId": "manufacturing",
+      "title": "Wooden cutting board 2017.jpg",
+      "author": "Fructibus",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/9/9e/Wooden_cutting_board_2017.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Wooden_cutting_board_2017.jpg",
+      "pageRevision": 1132586525,
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sha1": "fc634df54d40962218d23ef83cd7a93d3d14fbfc",
+      "sourceBytes": 5137480,
+      "evidence": "Commons file description identifies own work by Fructibus and the CC0 1.0 dedication.",
+      "alt": "Фотография деревянной доски. Учебная иллюстрация категории, не изделие вымышленной мастерской.",
+      "file": "product-photo.jpg",
+      "mediaType": "image/jpeg",
+      "width": 1600,
+      "height": 1200,
+      "bytes": 335594,
+      "originalSha256": "d55ff32a9195e3509f4f9b5fed7c9db4ad924144282101071b7e9a8df24daed5",
+      "sha256": "2324d9d52de7309f0a50fba4bc67c94b819cee8c5b307d2bec2097ee8a3029e9",
+      "licenceCheckedOn": "2026-10-13",
+      "metadataRemoved": true,
+      "changes": "Auto-orientation; resized within 1600x1600 without enlargement; JPEG quality86 4:4:4; EXIF/IPTC/XMP removed. No generated object or brand added.",
+      "relationship": "Real third-party photograph used only as a representative educational category image; no business ownership, exact SKU match, partnership or endorsement claimed."
+    }
+  ],
+  "claims": {
+    "knownProductPropertiesOnly": true,
+    "fabricateTestimonials": false,
+    "impliedBusinessOwnershipOfPhoto": false
+  }
+}

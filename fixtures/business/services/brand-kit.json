@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "displayName": "Чисто: учебная служба",
+  "colors": [
+    "#235C82",
+    "#3D9165",
+    "#FFFFFF"
+  ],
+  "tone": "Деловой, понятный; без обещания стерильности или гарантированного результата.",
+  "photoId": "microfiber-mop",
+  "locale": "ru",
+  "availableUiLocales": [
+    "ru",
+    "kk",
+    "en"
+  ],
+  "contentLanguageChangesOnlyByExplicitRequest": true,
+  "logo": {
+    "file": "brand-logo.svg",
+    "origin": "Authored educational vector wordmark, not the identity of a real business.",
+    "license": "CC0-1.0"
+  },
+  "fonts": {
+    "family": "Noto Sans",
+    "source": "https://github.com/notofonts/noto-fonts",
+    "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+    "license": "OFL-1.1",
+    "applicationPath": "public/fonts/noto-sans",
+    "embedding": "PDF embeds checked local fonts; DOCX names the font; no proprietary font fallback promised."
+  },
+  "images": [
+    {
+      "id": "microfiber-mop",
+      "businessId": "services",
+      "title": "Mop for wet use, looped microfiber, velcro back, 60 cm.jpg",
+      "author": "Bjornwireen",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/f/f3/Mop_for_wet_use%2C_looped_microfiber%2C_velcro_back%2C_60_cm.jpg",
+      "page": "https://commons.wikimedia.org/wiki/File:Mop_for_wet_use,_looped_microfiber,_velcro_back,_60_cm.jpg",
+      "pageRevision": 1178028145,
+      "license": "LicenseRef-Public-Domain-Self",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-self",
+      "sha1": "1fea93e84d58c56c06340d34528edc7653cb9884",
+      "sourceBytes": 263746,
+      "evidence": "Commons file description records uploader's worldwide public-domain release with unconditional permission fallback where dedication is not possible.",
+      "alt": "Фотография насадки для влажной уборки с мерной линейкой. Учебная иллюстрация инвентаря, не имущество компании.",
+      "file": "product-photo.jpg",
+      "mediaType": "image/jpeg",
+      "width": 546,
+      "height": 1491,
+      "bytes": 213968,
+      "originalSha256": "4356e6e477697617ecbcc6528c2c9bad41524422b90615da2db1a75688f649f4",
+      "sha256": "0f9e3c5c02180b70e63c82a0c588aedc5ee50992a72eec4b71e7faeacf118c13",
+      "licenceCheckedOn": "2026-10-13",
+      "metadataRemoved": true,
+      "changes": "Auto-orientation; resized within 1600x1600 without enlargement; JPEG quality86 4:4:4; EXIF/IPTC/XMP removed. No generated object or brand added.",
+      "relationship": "Real third-party photograph used only as a representative educational category image; no business ownership, exact SKU match, partnership or endorsement claimed."
+    }
+  ],
+  "claims": {
+    "knownProductPropertiesOnly": true,
+    "fabricateTestimonials": false,
+    "impliedBusinessOwnershipOfPhoto": false
+  }
+}
