@@ -22,11 +22,11 @@ Active task: none
 - Штатный check-plan:15 stages,43tasks,86checkpoints,105requirements, errors=[],warnings=[] после перестановки runtime и campaign dependency.
 - Source preservation: все89 прежних строк сохраняют содержание/источник/статус/проверку; исходные28621 символ BRIEF сохранены, полное продуктовое сообщение о pivot и поздняя поправка слогана/разрешение планирования присутствуют. Менялись только task mappings.
 - Privacy check: runtime/BRIEF/TESTING/env ignored, секрет не читался/не печатался; новых product files нет. TESTING прочитан целиком, пользовательских findings пока нет.
-- b04a360: контракты деловых работ; 5e4891f8a06e22e5d447f3563d0b532688be27cb: полный первый draft плана. Оба checkpoint/push в origin/main успешны. Итоговые исправления review фиксируются следующим scoped checkpoint; эти SHA не обозначают approval.
+- b04a360: контракты деловых работ; 5e4891f8a06e22e5d447f3563d0b532688be27cb: первый полный draft. Итоговый пакет после review: f5f1da6230454c3d04aef02f6142bf40e37e3d8f, все4 configured checks успешны, commit/push в origin/main подтверждены. Это версия для approval, не факт его получения. Последующая запись результата в STATE не меняет предметный пакет.
 - PF1: SourceCollection/importMode/recordKeySpec/RecordIdentity/ResolutionVersion, reorder/retry/overlap/price/deletion cases. PF2: CommandGroup+revision vector и атомарный общий inverse без partial undo при чужой правке. PF3: WorkResource без обязательного аккаунта, availability/исключения/effort vs duration. PF4: campaign зависит от календарного engine07.4.
 - Дополнительно: общий договор PLAN восстановлен, введена проверка обязательных разделов; budget/runtime перенесён в02.2 до платного OCR; structural sharing больших версий, lifecycle/tombstones/backup policy, проверенность ручных финансовых формул и лицензии font embedding определены.
 - Read-only основания editor/format/forecast/workflow/model указаны в PROJECT C14; публичный metadata OpenRouter прочитан без ключа. Реальные вызовы, цены на момент запуска, форматы и hosting account ещё проверяются после approval.
-- Dashboard HTTP /health подтвердил root C:/Users/user/Desktop/digitaltaraz,version3,instance f95719f7-e0fd-439f-91a1-753637c8acd4; /api/snapshot warnings=[] до финального переключения фазы. Никаких UI/browser checks.
+- Dashboard HTTP /health подтвердил root C:/Users/user/Desktop/digitaltaraz,version3,instance f95719f7-e0fd-439f-91a1-753637c8acd4; /api/snapshot: awaiting-approval,pending,15 stages,86 todo checkpoints,warnings=[]. Никаких UI/browser checks.
 
 ## Сервисы
 
