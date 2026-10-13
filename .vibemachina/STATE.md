@@ -6,14 +6,14 @@ Active task: 01.1
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Approval зафиксирован и pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1.1 принят: schema/contracts/checks и5 real PostgreSQL tests PASS. Перед supervisor runtime01.1.2 фиксируется DB increment; это техническая основа, не пользовательский путь.
+2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Approval зафиксирован и pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят: контракты/DB и безопасный повторяемый runtime,64unit+7integration+ручной lifecycle PASS. Worker передал пути и остановил запись. MAIN фиксирует checkpoint перед независимыми01.2/01.3/01.4. Это техническая основа, не пользовательский путь.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
-1. Foundation increment ac6e5a69c53b3a74626b5271b905cacb0230e738 committed/pushed origin/main, все6 configured checks PASS. Следующий scoped checkpoint включает ранее пропущенный migrations/SQL, DB integration wrapper, bounded pool recovery и удаление неиспользуемого drizzle-kit. Worker дополняет только isolated SMTP/auth/Blob testenv, затем STOP перед commit.
-2. После commit release /root/foundation на supervisor/start/stop/HTTP/restart01.1.2 в тех же paths. Проверить start/stop/restart UUID+значение, idempotent seed и безопасные порты. После готовности01.1 назначить независимые01.2/01.3/01.4.
+1. Выполнить штатный scoped checkpoint01.1.2 с7 configured checks и push. Предыдущий DB checkpoint e466058f2ada71c5ea33a397048bad83c9f863e5 уже pushed origin/main. Все writers остановлены; generated Next AGENTS block сохраняется вместе с runtime.
+2. После checkpoint записать ownership и назначить независимые01.2 UI/локали,01.3 fixtures и01.4 format/provider/hosting preflight. Каждый читает полный BRIEF и соответствующие references; общий package/lock/routes/layout остаются MAIN.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -32,11 +32,13 @@ Active task: 01.1
 ## Сервисы
 
 Дашборд планирования: http://127.0.0.1:4177/
-Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina/runtime; перезапуск штатным dashboard.mjs с явным root, --detach --port4177. Не завершать неизвестные процессы. Продуктового сервера/публичного приложения нет; вкладки не открывались.
+Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina/runtime; перезапуск штатным dashboard.mjs с явным root, --detach --port4177. Не завершать неизвестные процессы.
+
+Локальный Next: http://127.0.0.1:59676/ ; health200 database=ready подтверждён MAIN. Пока техническая страница, не полезный продуктовый UI. Supervisor PID137960, Next CLI PID137612, instance1daa2f94-233a-4a06-8c22-38799875f0a8. Logs .local-data/dev/app-<instance>.log и supervisor-<instance>.log; runtime token приватен. Start: node scripts/dev/start.mjs; stop: node scripts/dev/stop.mjs. PostgreSQL54329, Mailpit http://127.0.0.1:8029/ продолжают работать после stop. Вкладки не открывались.
 
 ## Работники
 
-/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation DB wrapper handover01.1.1; разрешён только bounded test-context env fix, затем STOP до commit/release supervisor01.1.2. Exclusive scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/check-build.mjs, tests/foundation/. MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database. Worker прочитал весь BRIEF/references. Других writers нет; старый review v3 не считается доказательством v4.
+/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation завершил01.1.2, передал scripts/dev/, scripts/check-integration.mjs, tests/foundation/ и остановил запись. MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database. Активных writers нет; старый review v3 не считается доказательством v4.
 
 После approval каждый worker получает полный BRIEF и все содержательные дословные замечания, relevant original TESTING и domain/shared design references. MAIN владеет каноническими docs/Git/shared schemas/routes/package; loans только явно и исключительно. Краткий dispatch не заменяет исходник. Новые продуктовые/UI/UX/video замечания передаются полностью.
 

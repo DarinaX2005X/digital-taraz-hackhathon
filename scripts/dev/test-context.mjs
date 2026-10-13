@@ -26,6 +26,7 @@ export async function createTestContext(root, inherited = process.env) {
       TIRLIK_DATA_DIR: path.join(directory, "files"),
       NEXT_DIST_DIR: path.relative(identity.root, path.join(directory, "next")).split(path.sep).join("/"),
       TIRLIK_TEST_NAMESPACE: runId,
+      TIRLIK_TEST_COMPOSE_PROJECT: composeProject,
       TIRLIK_TEST_APP_PORT: String(ports.app),
       OPENROUTER_API_KEY: "",
       BLOB_READ_WRITE_TOKEN: "",

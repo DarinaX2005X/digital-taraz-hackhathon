@@ -19,3 +19,13 @@ Commit frequently at coherent, verified checkpoints, including intermediate chec
 Use the skill's built-in `C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs` for commits and pushes, with real configured checks, explicit scoped `--paths` and `--push` to the verified upstream. Do not replace it with manual add/commit/push or a newly invented Git wrapper. Product check and launch scripts must still work without the skill; private checkpoint configuration remains ignored.
 
 The user requested concept approval first, followed by the full technical and human-readable plan, followed by explicit plan approval. No product implementation or scaffold before those approvals. This restriction does not prevent read-only feasibility work, planning documents or an identity proposal.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

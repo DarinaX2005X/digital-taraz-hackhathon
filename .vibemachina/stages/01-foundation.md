@@ -6,7 +6,7 @@ Status: active
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 01.1 Зафиксировать контракты и воспроизводимый запуск
-Status: active
+Status: done
 Requirements: R18, R50, R51, R52, R53, R54, R55, R58, R59, R74, R77, R81, R87, R88, R89, R105
 Depends on: none
 Owner: /root/foundation
@@ -24,11 +24,13 @@ MAIN принимает schemas и минимальный scaffold; worker пр�
 Принято 2026-10-13: Zod contracts Money/Quantity/locale/ArtifactEnvelope/SourceRef/Command/group/capability; минимальный Next16.4/React19.3/TS5.9, Drizzle schema и SQL migration journal с hash/advisory lock; явный synthetic catalog seed без аккаунтов. `node scripts/check.mjs`: types/lint/unit PASS; `node scripts/check-build.mjs`: Webpack production build PASS. Turbopack на Windows дал junction error87, штатный Webpack подтверждён. `node scripts/check-integration.mjs`: настоящие PostgreSQL+Mailpit, migrate/seed,5 tests PASS (повтор без потери UUID/правки, concurrent lock, history hash mismatch, transaction rollback/recovery, synthetic constraint). Label-verified cleanup удаляет только отдельные test containers/volume. Locale test пока проверяет коды; parity словарей относится к01.2. Runtime/start/restart ещё не реализованы. Первый increment ac6e5a6 pushed; SQL файл на диске был пропущен в explicit commit scope, включается в текущий проверенный checkpoint вместе с DB wrapper.
 
 ### 01.1.2 Повторяемый запуск без потери работы
-Status: active
+Status: done
 
 start -> запись -> stop/start -> тот же UUID/значение; второй start не дублирует seed, занятый порт не захватывается. MAIN отдельно проверяет ignored secrets и штатный scoped checkpoint.
 
-Release /root/foundation 2026-10-13 после commit/push ac6e5a69c53b3a74626b5271b905cacb0230e738. Изолированный DB wrapper принят в01.1.1; перед supervisor/HTTP промежуточный handover и commit. Далее worker реализует runtime/restart proof.
+Release /root/foundation 2026-10-13 после commit/push e466058f2ada71c5ea33a397048bad83c9f863e5 (7configured checks PASS, включая real DB). Изолированный DB wrapper и SQL приняты в01.1.1. Далее worker реализует supervisor/runtime/HTTP/restart proof.
+
+Принято 2026-10-13: check.mjs types/lint/64tests PASS; check-integration.mjs 7tests PASS, включая настоящий Next HTTP:200 -> PostgreSQL stop -> типизированный503 без credentials -> PostgreSQL start ->200. Next закрыт по живому owned child handle, test containers/volume удалены после проверки labels. `node tests/foundation/lifecycle.acceptance.mjs` на Windows подтвердил start -> запись -> stop/start: UUID63210895-4f44-45ec-896c-40e1406dcca3, значение и файл сохранены, seed UUID прежний/count1. Повторный start возвращает текущий instance/PID; явный занятый порт отклоняется, автоматический выбирает свободный, чужой сервер остаётся жив. Tokenless/wrong-token/foreign-Origin stop получают403, посторонний supervisor не меняет runtime. Отказ записи runtime не мешает остановке собственного child; незавершённый control socket ограничен deadline. POSIX process-group ветка покрыта unit, но не исполнялась на реальной POSIX ОС. Ручной lifecycle harness не входит в обычный checkpoint, поскольку перезапускает dev app. MAIN HTTP health200 database=ready подтверждён. UI не проверялся; это foundation, не готовый пользовательский путь.
 
 ## 01.2 Собрать общие элементы понятного интерфейса
 Status: todo

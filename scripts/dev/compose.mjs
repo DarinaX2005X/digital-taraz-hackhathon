@@ -43,6 +43,44 @@ export async function startCompose(root, project, options) {
   await waitForMailpit(Number(options.env.TIRLIK_MAIL_UI_PORT));
 }
 
+export async function inspectOwnedServices(root, project, options) {
+  const listing = await runCommand("docker", ["ps", "--all", "--filter", `label=com.docker.compose.project=${project}`, "--format", "{{.ID}}"], { ...options, label: "Local service ownership" });
+  const ids = listing.output.trim().split(/\r?\n/).filter(Boolean);
+  if (!ids.length) return {};
+  if (ids.some((id) => !/^[a-f0-9]{12,64}$/.test(id))) throw new CliError("COMPOSE_IDENTITY_MISMATCH", "Unexpected local container identity.", "Inspect the local Docker project before retrying.");
+  const result = await runCommand("docker", ["inspect", ...ids], { ...options, label: "Local service labels" });
+  const normalize = (value) => process.platform === "win32" ? value.replaceAll("\\", "/").toLowerCase() : value;
+  const services = {};
+  for (const container of JSON.parse(result.output)) {
+    const labels = container.Config?.Labels;
+    const service = labels?.["com.docker.compose.service"];
+    if (labels?.["com.docker.compose.project"] !== project || normalize(labels?.["com.docker.compose.project.working_dir"] ?? "") !== normalize(root)
+      || !["postgres", "mailpit"].includes(service) || services[service]) {
+      throw new CliError("COMPOSE_IDENTITY_MISMATCH", "A local container does not match this checkout's service identity.", "Inspect the local Docker project; no container has been stopped.");
+    }
+    const ports = {};
+    for (const [internal, bindings] of Object.entries(container.HostConfig?.PortBindings ?? {})) {
+      for (const binding of bindings ?? []) {
+        if (binding.HostIp !== "127.0.0.1") throw new CliError("COMPOSE_BINDING_UNSAFE", "A local service is not restricted to the loopback address.", "Check compose.yaml and the owned service configuration.");
+        ports[internal] = Number(binding.HostPort);
+      }
+    }
+    services[service] = { running: container.State?.Running === true, ports };
+  }
+  return services;
+}
+
+export async function assertDevVolumeOwnership(project, options) {
+  const name = `${project}_postgres-data`;
+  const listing = await runCommand("docker", ["volume", "ls", "--filter", `name=^${name}$`, "--format", "{{.Name}}"], { ...options, label: "Local volume ownership" });
+  if (!listing.output.trim()) return;
+  const inspection = await runCommand("docker", ["volume", "inspect", name], { ...options, label: "Local volume labels" });
+  const [volume] = JSON.parse(inspection.output);
+  if (volume?.Name !== name || volume?.Labels?.["com.docker.compose.project"] !== project || volume?.Labels?.["com.docker.compose.volume"] !== "postgres-data") {
+    throw new CliError("COMPOSE_VOLUME_MISMATCH", "The existing database volume does not match this checkout.", "Inspect the volume ownership; it has been preserved.");
+  }
+}
+
 export async function cleanupTestCompose(root, context, expectedSpecHash, options) {
   const identity = await projectIdentity(root);
   const expected = `tirlik-test-${identity.id}-${context.runId}`;
