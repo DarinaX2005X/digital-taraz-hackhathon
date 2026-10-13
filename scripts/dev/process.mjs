@@ -25,7 +25,7 @@ export async function resolveNpmCli(env = process.env) {
 export function runCommand(executable, args, { cwd, env = process.env, label = "Command", timeoutMs = 120_000, maxOutputBytes = 8 * 1024 * 1024, logFile } = {}) {
   const redact = createRedactor(env);
   return new Promise((resolve, reject) => {
-    const child = spawn(executable, args, { cwd, env, shell: false, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(executable, args, { cwd, env, shell: false, windowsHide: true, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
     const chunks = [];
     let bytes = 0;
     let timedOut = false;
@@ -33,6 +33,7 @@ export function runCommand(executable, args, { cwd, env = process.env, label = "
     let spawnedError;
     const startedAt = Date.now();
     let termination;
+    let forceTimer;
 
     const terminate = () => {
       if (termination || child.exitCode !== null || child.signalCode !== null || !child.pid) return;
@@ -44,7 +45,10 @@ export function runCommand(executable, args, { cwd, env = process.env, label = "
           killer.once("close", done);
         });
       } else {
-        child.kill("SIGTERM");
+        try { process.kill(-child.pid, "SIGTERM"); } catch (error) { if (error.code !== "ESRCH") child.kill("SIGTERM"); }
+        forceTimer = setTimeout(() => {
+          try { process.kill(-child.pid, "SIGKILL"); } catch (error) { if (error.code !== "ESRCH") child.kill("SIGKILL"); }
+        }, 1_000);
         termination = Promise.resolve();
       }
     };
@@ -59,6 +63,7 @@ export function runCommand(executable, args, { cwd, env = process.env, label = "
     child.once("error", (error) => { spawnedError = error; });
     child.once("close", async (code) => {
       clearTimeout(timer);
+      clearTimeout(forceTimer);
       if (termination) await termination;
       const output = outputExceeded ? "[Diagnostic output omitted because it exceeded the limit.]\n" : redact(Buffer.concat(chunks).toString("utf8"));
       try {

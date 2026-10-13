@@ -17,16 +17,18 @@ Paths: scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/c
 **Вход в работу и состояния.** Пока нет продуктового экрана: оператор получает адрес, причину недоступного Docker/порта и точную команду восстановления. Локальный запуск и проверки не зависят от VibeMachina; приватный checkpoint вызывает их снаружи.
 
 ### 01.1.1 Контракты, миграции и независимые проверки
-Status: active
+Status: done
 
 MAIN принимает schemas и минимальный scaffold; worker проверяет CLI/env, отдельные test namespaces и типизированный error envelope. node scripts/check.mjs действительно исполняет type/lint/unit/locales/contracts, а не заглушку.
 
-Промежуточная интеграция 2026-10-13: Zod contracts Money/Quantity/locale/ArtifactEnvelope/SourceRef/Command/group/capability; минимальный Next16.4/React19.3/TS5.9, Drizzle schema и SQL migration journal с hash/advisory lock; явный synthetic catalog seed без аккаунтов. Worker передал CLI/env/ports/process/test namespace helpers и остановил запись. `node scripts/check.mjs`: types/lint/48 tests PASS; `node scripts/check-build.mjs`: Webpack production build PASS. Turbopack на Windows дал junction error87, штатный Webpack подтверждён. DB migration tests написаны, но ещё не запускались против PostgreSQL; 01.1.1 остаётся active до этого доказательства. Locale test пока проверяет коды; parity словарей относится к01.2. Runtime/start/restart ещё не реализованы.
+Принято 2026-10-13: Zod contracts Money/Quantity/locale/ArtifactEnvelope/SourceRef/Command/group/capability; минимальный Next16.4/React19.3/TS5.9, Drizzle schema и SQL migration journal с hash/advisory lock; явный synthetic catalog seed без аккаунтов. `node scripts/check.mjs`: types/lint/unit PASS; `node scripts/check-build.mjs`: Webpack production build PASS. Turbopack на Windows дал junction error87, штатный Webpack подтверждён. `node scripts/check-integration.mjs`: настоящие PostgreSQL+Mailpit, migrate/seed,5 tests PASS (повтор без потери UUID/правки, concurrent lock, history hash mismatch, transaction rollback/recovery, synthetic constraint). Label-verified cleanup удаляет только отдельные test containers/volume. Locale test пока проверяет коды; parity словарей относится к01.2. Runtime/start/restart ещё не реализованы. Первый increment ac6e5a6 pushed; SQL файл на диске был пропущен в explicit commit scope, включается в текущий проверенный checkpoint вместе с DB wrapper.
 
 ### 01.1.2 Повторяемый запуск без потери работы
-Status: todo
+Status: active
 
 start -> запись -> stop/start -> тот же UUID/значение; второй start не дублирует seed, занятый порт не захватывается. MAIN отдельно проверяет ignored secrets и штатный scoped checkpoint.
+
+Release /root/foundation 2026-10-13 после commit/push ac6e5a69c53b3a74626b5271b905cacb0230e738. Изолированный DB wrapper принят в01.1.1; перед supervisor/HTTP промежуточный handover и commit. Далее worker реализует runtime/restart proof.
 
 ## 01.2 Собрать общие элементы понятного интерфейса
 Status: todo
