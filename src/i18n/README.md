@@ -31,6 +31,13 @@ and displaying that error belong to the account feature. When the authenticated
 account changes, replace the callback; unauthenticated callers omit it.
 `writeRequestLocale` is available for server actions and handlers only.
 
+`LocaleSelect` from `@/ui` presents all three language choices and preference
+pending/failure/session-only states. It calls the same stable store and does not
+navigate. Mount `ToastProvider` under this locale provider; localized notification
+text uses `(locale) => translator(locale)(key)` resolvers so an already-open notice
+updates without replacing the editor. Plain notification strings are reserved for
+user content that must not be translated automatically.
+
 ## Messages and Formats
 
 Common messages use `getTranslations(locale)` or `useTranslations()`, with typed

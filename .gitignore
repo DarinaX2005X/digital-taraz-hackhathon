@@ -13,3 +13,4 @@ next-env.d.ts
 .vibemachina/runtime/
 .vibemachina/BRIEF.md
 .vibemachina/TESTING.md
+/.swc

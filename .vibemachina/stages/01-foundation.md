@@ -33,7 +33,7 @@ Release /root/foundation 2026-10-13 после commit/push e466058f2ada71c5ea33a
 Принято 2026-10-13: check.mjs types/lint/64tests PASS; check-integration.mjs 7tests PASS, включая настоящий Next HTTP:200 -> PostgreSQL stop -> типизированный503 без credentials -> PostgreSQL start ->200. Next закрыт по живому owned child handle, test containers/volume удалены после проверки labels. `node tests/foundation/lifecycle.acceptance.mjs` на Windows подтвердил start -> запись -> stop/start: UUID63210895-4f44-45ec-896c-40e1406dcca3, значение и файл сохранены, seed UUID прежний/count1. Повторный start возвращает текущий instance/PID; явный занятый порт отклоняется, автоматический выбирает свободный, чужой сервер остаётся жив. Tokenless/wrong-token/foreign-Origin stop получают403, посторонний supervisor не меняет runtime. Отказ записи runtime не мешает остановке собственного child; незавершённый control socket ограничен deadline. POSIX process-group ветка покрыта unit, но не исполнялась на реальной POSIX ОС. Ручной lifecycle harness не входит в обычный checkpoint, поскольку перезапускает dev app. MAIN HTTP health200 database=ready подтверждён. UI не проверялся; это foundation, не готовый пользовательский путь.
 
 ## 01.2 Собрать общие элементы понятного интерфейса
-Status: active
+Status: done
 Requirements: R09, R31, R32, R33, R34, R38, R39, R40, R44, R45, R46, R47, R48, R49, R60, R101
 Depends on: 01.1
 Owner: /root/ui_foundation
@@ -51,9 +51,11 @@ Contrast calculation, наличие glyphs, parity ключей, fallback polic
 Принято 2026-10-13: semantic token/CSS parity и contrast, официальный pinned Noto Sans400/500/600/700 с OFL/hash/cmap/embedding checks, сохранённый T-знак/favicon/monochrome. Полные typed shared ru/kk/en catalogs и Intl без float loss для денег; pure locale store сохраняет identity и сериализует account preference writes. Worker27focused tests/type/lint PASS. MAIN подключил root font/CSS/server locale/provider и добавил regression fractional signDisplay (28UI unit tests), общий check.mjs PASS. Настоящие HTTP checks всех3 cookie locales/invalid cookie -> Accept-Language/local icon+font и прежние DB cases PASS (12integration tests). Account API ещё02.1, реальные controls01.2.2; mounted editor/focus/locale language quality и внешний вид пользователь ещё не проверял.
 
 ### 01.2.2 Рабочие состояния контролов
-Status: active
+Status: done
 
 Unit reducer tests dialog/combobox/debounce/cancel и сохранение значения при locale switch. Типы и CSS constraints проходят check.mjs; пользователю список состояний для визуальной проверки.
+
+Принято 2026-10-13: Ariakit controls, Lucide buttons/tooltips, label/unit/error fields, strict-ID combobox с debounce250/AbortController/epoch/retry, dirty dialog с mounted draft и explicit discard, tabs с сохранением panels, table frame/toolbar/save/empty/error/skeleton/toasts/LocaleSelect.55focused tests PASS (27новых state/AST/CSS contracts), typecheck/scoped lint PASS. MAIN подключил единый ToastProvider внутри стабильного LocaleProvider. Системные toast strings используют locale resolver; error/action notifications persistent, info>=6s и pause hover/focus. Native validity запрещает произвольный текст вместо ID; серверный caller обязан проверить право на выбранный ID. Source review не заменяет реальный focus/tab/touch/locale-retention: матрица src/ui/README.md ждёт пользователя на продуктовых routes. Публичная gallery не создавалась.
 
 ## 01.3 Подготовить неоднородные материалы трёх бизнес-моделей
 Status: active
@@ -74,7 +76,7 @@ Status: done
 Принято 2026-10-13:79 файлов (seed20261013) для synthetic розницы, услуг и производства. CSV/XLSX/DOCX/PDF, brand assets и3 фото с лицензиями PD/CC0, закреплёнными provenance/hash/EXIF checks; quick/full working ZIP исключают golden и будущие evaluation observations. Истории1526/954/764 строк, возвраты/credit notes, MOQ/упаковки/доставка/актуальность, неизвестные налоги и противоречивые сроки. Независимый csv-parse/BigInt oracle подтверждает net revenue34244571.00/51671456.70/58875825.00 KZT и известную часть предложений141870/131900/563325 KZT; finalTotal=null при неизвестных условиях. По одному exact duplicate удаляется, обе конфликтующие строки одного ключа карантинируются,3 строки с пропусками исключаются. Прогноз60 месяцев:36train/12validation/12holdout и2rolling folds, без утечки в рабочий архив. `vitest tests/fixtures`:6PASS; scoped lint PASS; verify воспроизводит все79 файлов побайтово и разбирает реальные OOXML/PDF,2страницы ru/kk/en каждого PDF. Внешний вид не проверялся. Stress/reimport changes остаются01.3.2.
 
 ### 01.3.2 Проверочные изменения и большие наборы
-Status: todo
+Status: active
 
 Новая цена, ручная формулировка, изменённая схема CSV, недостаточный ряд и 100k-row input. Воспроизводимые хеши и отсутствие настоящих PII; возможность скачать/перенести свой вариант.
 
@@ -83,7 +85,7 @@ Status: active
 Requirements: R17, R56, R79, R85, R86, R105
 Depends on: 01.1
 Owner: /root/preflight
-Paths: scripts/preflight/, tests/preflight/
+Paths: scripts/preflight/, tests/preflight/, src/server/preflight/
 
 **Контракт и результат.** C2, C7-C9, C12, C14. После approval ограниченные probes OpenRouter: schema/tool call, vision extraction, отдельная economical image generation с известной полной ценой; запрет OpenAI/Anthropic/дорогого fallback. Проверить лицензии и реальную поставку Univer data-only formulas, Fabric serialisation, DOCX/PDF/Unicode export, arima CTSA. MAIN управляет dependencies/env/deploy; worker только scripts/evidence. Vercel account/project/tier/regions, pooled PostgreSQL, private Blob и Workflow resume проверяются API на synthetic содержимом. Сервисы и платные опции без разрешения не покупать.
 
@@ -99,7 +101,9 @@ Roundtrip файлы, Unicode text extraction, formulas vs golden, schema/tool/v
 Live ledger намеренно `partial`, не замаскирован green: Mimo tool call выполнен/проверен; vision JSON object + strict local Zod PASS; Seedream4.5 JPEG2048x2048 PASS. Xiaomi endpoint НЕ поддержал provider-enforced JSON Schema, поэтому downstream использует JSON object + обязательную локальную проверку. Seedream minimum2K подтверждён реальным вызовом, несмотря на ошибочную1K metadata. Отдельный JSON output call получил ambiguous timeout: НЕ повторялся, резерв остаётся. Confirmed actual$0.0400707, unresolved reserved$0.480832, cumulative attempted ceilings$0.81472 <= original$1. Все обычные checks offline, live runner требует явных execute/cap и запрещает повтор ledger. Непрерывный tool-message loop ещё не доказан, его acceptance остаётся04.2; durable uncertain receipt/reconciliation02.2. Mimo expiration metadata2026-10-21 обязательно обработать до runtime02.2, readiness=false не прячется. Эти выявленные границы, а не поддержка всех запрошенных параметров, являются результатом ранней проверки.
 
 ### 01.4.2 Хостинг и региональные условия проверены
-Status: todo
+Status: active
 
 Preview HTTP/API + workflow resume после redeploy; storage permissions и лимиты. Privacy gate отдельно для аккаунтов, бизнес-данных, backups и AI subprocessors; неподтверждённую локализацию не считать production-ready.
+
+Release01.4.2: MAIN создал отдельный tirlik, Neon free_v3/fra1 и private Blob/fra1 толькоpreview. Worker получил exclusive loan src/server/preflight/ для token-gated synthetic Workflow probe, MAIN монтирует thin routes/config и marker SQL/schema. Probe по умолчанию disabled404, не содержит бизнес-данных; state вDB, private bytes/hash, hook/resume после redeploy. Preview secrets толькоignored env/providerenv. Отдельно проверяются limits/regions/Hobby/privacy, без покупки или принятия новых условий.
 

@@ -5,5 +5,5 @@ import nextTypescript from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTypescript,
-  globalIgnores([".next/**", "out/**", "coverage/**", "next-env.d.ts", ".local-data/**", ".vibemachina/**"]),
+  globalIgnores([".next/**", "out/**", "coverage/**", "next-env.d.ts", ".local-data/**", ".vibemachina/**", "src/app/.well-known/workflow/**"]),
 ]);

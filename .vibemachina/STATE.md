@@ -2,18 +2,18 @@
 Phase: build
 Approval: approved
 Active stage: 01
-Active task: 01.2
+Active task: 01.4
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, approval pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят/pushed84bc4af;01.2.1 принят/pushed590789a. Приняты01.3.1 fixtures и01.4.1 capability gate с честными live limitations; MAIN готовит их scoped checkpoint. Все workers остановили запись; незавершённые controls01.2.2 не включаются. Локальный Next dev59676 работает с автоматическим обновлением исходников; необходимые dependency/config restarts выполняет MAIN.
+2026-10-13, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, approval pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят/pushed84bc4af;01.2.1 принят/pushed590789a. Fixtures01.3.1 и capability gate01.4.1 приняты/pushed8a7580fb9886782c6c35e9e597026b1c59823928,7checks PASS.01.2.2 принят с55focused tests, MAIN подключил ToastProvider и готовит отдельный UI checkpoint. Все writersSTOP; незавершённые01.3.2/01.4.2 и MAINhosting остаются за его scope. После commit готов02.1. Локальный Nextdev59676 жив; пользователь предоставил BREVO_API_KEY черезenv, значения не выводились, delivery ещёнепроверена.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
 1. Runtime01.1.2 зафиксирован84bc4af98995fbcb96cb584c66045b2de43f8852 и pushed origin/main, все7 configured checks PASS.01.1 done; generated Next AGENTS block сохранён вместе с runtime.
-2. Зафиксировать01.3.1 и01.4.1 вместе с лицензиями/памятью/fixture commands; затем release01.2.2 и01.3.2. Hosting01.4.2: MAIN управляет только отдельным Tirlik project/free resources, worker проверяет API/evidence; никаких платных услуг или чужих проектов. После controls01.2 готов02.1 account. Каждый worker читает полный BRIEF/references; package/lock/routes/layout остаются MAIN.
+2. UI checkpoint сsrc/ui/src/i18n/tests/ui-contracts/layout, затем release01.3.2/01.4.2 и dispatch02.1 account. MAINhosting partial: Workflow5.2.1/privateBlob2.8.1 deps, scoped security fixesdevalue5.9.4/nanoid5.1.16, disabled tokenroutes, schema/migration0002, testenv isolation, fra1 config. Не включать этот partial в UIcommit. Remote migrations0001+0002 примененынаdirectNeon, probecontrolsecretpreview установлен, никакогоdeploy ещё. Каждый worker читает полный BRIEF/references; package/lock/routes/layout остаются MAIN.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -40,13 +40,13 @@ Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina
 
 /root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation завершил01.1.2, передал пути и остановил запись.
 
-- /root/ui_foundation:01.2.2 partial, STOP до release; loan src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/. Type/lint-safe controls в рабочем дереве НЕ входят в текущий commit. Остались CSS/tests/integration handover.
-- /root/business_fixtures:01.3.1 принят, STOP; fixtures/business/, scripts/fixtures/, tests/fixtures/.79 deterministic files,6focused tests/lint PASS. Следующий01.3.2 только после release.
-- /root/preflight:01.4.1 принят как ранний gate с ограничениями, STOP; scripts/preflight/, tests/preflight/.13offline tests PASS; live tool/vision/image PASS, provider JSON Schema unsupported, separate JSON call ambiguous timeout. Confirmed actual$0.0400707, unresolved reserved$0.480832, total attempted ceilings$0.81472 <=$1. Ledger partial не повторять. CTSA BSD notice добавлен MAIN.01.4.2 не начат.
+- /root/ui_foundation:01.2.2 принят,STOP;55focused tests/type/lint PASS. Loan src/ui/,src/i18n/,public/brand/,public/fonts/,tests/ui-contracts/ возвращён MAIN. Полный handover/интеграцияToastProvider, visualstatesнепроверены.
+- /root/business_fixtures:01.3.2 partial,STOP наUIcheckpoint; fixtures/business/,scripts/fixtures/,tests/fixtures/.65additive files/4scripts/8tests PASS/lintPASS; остаётся генераторная интеграция/regression.01.3.1 bytes сохранены. Stress100k CSV10MB/ZIP444k; не productionimport proof.
+- /root/preflight:01.4.2 active; scripts/preflight/, tests/preflight/, loan src/server/preflight/. Synthetic DB/privateBlob/Workflow module+scripts/tests; MAIN deps/thin routes/config/schema/migration/provisioning. Module token-gated/disabled default, no productdata.01.4.1 принят с ограничениями:13offline tests PASS, live tool/vision/image PASS, provider JSON Schema unsupported, separate JSON call ambiguous timeout. Confirmed actual$0.0400707, unresolved reserved$0.480832, total ceilings$0.81472 <=$1. Ledger не повторять, новых paid calls нет. CTSA BSD notice добавлен MAIN.
 
 MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database и всю проектную память/Git. Ни worker не меняет чужие пути/локали. Запросы shared dependencies сначала MAIN; установки только последовательно.
 
-Hosting read-only: глобальный Vercel shim сломан, pinned `npm exec --yes --package=vercel@63.1.2 -- vercel ...` работает, account darinax2005x/default team Hobby. Tirlik project ещё нет; существующие чужие проекты не трогать. Blob stores нет; Neon installation существует без project links, список Neon resources недоступен user API403. Хакатонный noncommercial preview и реальная business production различаются; Hobby/region/privacy constraints ещё01.4.2. Никаких login/browser/deploy/покупок выполнено не было.
+Hosting01.4.2: pinned `npm exec --yes --package=vercel@63.1.2 --call 'vercel ...'` работает, account darinax2005x/team darinax2005xs-projects Hobby. MAIN создал/связал отдельный project tirlik. Neon tirlik-preview-db free_v3/fra1/auth=false, store_coYWFxizzHDgzIT3; private Blob tirlik-preview-files/fra1, store_IPdPAdDcaamtgX2J. Оба только preview. Env pull в ignored .vibemachina/runtime/hosting-preview.env, не в рабочий local DATABASE_URL. .env.local содержит лишь CLI development/OIDC; значения не печатались. Новые условия/оплата не запрашивались, чужие проекты не тронуты, браузер не открывался. Deploy/Workflow/DB/private-file probes ещё впереди. Hobby noncommercial и Kazakhstan privacy gate остаются открытыми; free preview не означает разрешение business production. CLI-added broad .env* восстановлен к прежним точным ignore rules с разрешённым .env.example.
 
 После approval каждый worker получает полный BRIEF и все содержательные дословные замечания, relevant original TESTING и domain/shared design references. MAIN владеет каноническими docs/Git/shared schemas/routes/package; loans только явно и исключительно. Краткий dispatch не заменяет исходник. Новые продуктовые/UI/UX/video замечания передаются полностью.
 

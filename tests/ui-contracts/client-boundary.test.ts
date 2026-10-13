@@ -6,7 +6,7 @@ import { expect, it } from "vitest";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-it("keeps server modules and environment access out of the locale client graph", () => {
+it("keeps server modules and environment access out of the locale and control client graphs", () => {
   const visited = new Set<string>();
   const visit = (path: string) => {
     if (visited.has(path)) return;
@@ -35,6 +35,7 @@ it("keeps server modules and environment access out of the locale client graph",
   };
   visit(resolve(root, "src/i18n/provider.tsx"));
   visit(resolve(root, "src/i18n/index.ts"));
+  visit(resolve(root, "src/ui/index.ts"));
   expect(visited.size).toBeGreaterThan(5);
 });
 
