@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm';
 import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
+export * from './identity-schema';
+
 export const demoTemplates = pgTable('demo_templates', {
   id: uuid('id').defaultRandom().primaryKey(),
   key: text('key').notNull().unique('demo_templates_key_key'),

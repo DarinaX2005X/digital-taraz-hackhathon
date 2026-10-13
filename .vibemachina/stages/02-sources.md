@@ -25,6 +25,10 @@ Status: active
 
 HTTP cookie/session lifecycle, verification/reset через Mailpit API, invalid/expired/replayed token rejection; reload same owner. Local flag не даёт полномочий.
 
+Промежуточный handover server/domain: Better Auth и 7 identity tables, verified-email gate, single-use verification receipt, reset/change password, session expiry/revoke/logout, profile locale, origin/body guards, persistent rate limits и opaque 24h browser-bound intent. Optional X-Tirlik-User-Id отклоняет stale-account запрос до эффекта. TypeScript/scoped ESLint, 10 focused unit tests и 18 real HTTP/PostgreSQL/Mailpit integration tests PASS. MAIN применил финальную migration0003 к локальной базе без потери данных, подключил thin API и auth/settings routes, общий provider и server account locale. UI handover и общая проверка ещё ожидаются; поэтому checkpoint active. Brevo delivery и visual QA не подтверждены. Временный /app ведёт в доступные /settings с сохранением opaque intent; настоящий /app/work появится03.2, это не имитация рабочего раздела.
+
+UI handover: 59 focused tests / 6 files, TypeScript и scoped ESLint PASS. Реальные forms/modal/verify/reset/profile/password/sessions/logout, account menu, typed transport, locale persistence и stale/abort guards. Guest entry ссылки доступны сразу в SSR, settings не содержит перехода в несуществующую работу. MAIN подключил все pages, no-referrer metadata email links и дополнительные HTTP проверки границ. Оба workers STOP для интегрированного checkpoint; task02.1 ещё требует приглашения/права/удаление из02.1.2. Внешний вид, focus, touch и фактическое поведение UI проверяет пользователь.
+
 ### 02.1.2 Приглашение и отзыв прав
 Status: todo
 
