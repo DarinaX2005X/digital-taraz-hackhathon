@@ -1,0 +1,36 @@
+{
+  "synthetic": true,
+  "priorMappingRevision": 1,
+  "proposedMappingRevision": 2,
+  "requiresConfirmation": true,
+  "delimiter": ";",
+  "encoding": "UTF-8 with BOM",
+  "decimalSeparator": ",",
+  "columnMapping": {
+    "На дату": "asOf",
+    "Код позиции": "sku",
+    "Позиция": "name",
+    "Цена, тг": "priceKzt",
+    "Валюта": "currency",
+    "Ед. измерения": "unit",
+    "Себестоимость, тг": "costKzt"
+  },
+  "requiredMissingPriorColumns": [
+    "sku",
+    "name",
+    "unit",
+    "priceKzt",
+    "costKzt",
+    "currency",
+    "asOf"
+  ],
+  "recordKeySpec": {
+    "fields": [
+      "sku"
+    ],
+    "type": "string",
+    "preserveLeadingZeros": true
+  },
+  "priorMappingResult": "schema-drift-blocked-no-binding-updates",
+  "afterConfirmedMapping": "same-record-identities-and-values"
+}

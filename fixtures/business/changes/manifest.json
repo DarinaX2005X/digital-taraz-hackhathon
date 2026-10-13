@@ -1,0 +1,568 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "01.3.2",
+  "generatorVersion": "1.0.0",
+  "synthetic": true,
+  "seed": 20261013,
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "notice": "Учебные синтетические данные. Организации, операции, цены и условия вымышлены; это не сведения о реальном бизнесе и не обещание дохода.",
+  "baseline": {
+    "file": "manifest.json",
+    "checkpoint": "01.3.1",
+    "sha256": "1009f2e2a963d51b6637cee0c620fbc473a6c0e40a460db55f8516d6951bf416",
+    "unchanged": true
+  },
+  "businesses": [
+    {
+      "id": "homegoods",
+      "baseline": "homegoods/catalog.csv",
+      "inputs": "changes/homegoods/change-inputs.zip",
+      "expected": "changes/homegoods/expected.json",
+      "manualEdit": "changes/homegoods/manual-edit.json",
+      "scenarioIds": [
+        "reorder",
+        "same-file",
+        "upsert-new-price",
+        "upsert-partial",
+        "missing-full-snapshot",
+        "missing-unconfirmed-snapshot",
+        "duplicate-record-key",
+        "rename-no-key"
+      ]
+    },
+    {
+      "id": "services",
+      "baseline": "services/catalog.csv",
+      "inputs": "changes/services/change-inputs.zip",
+      "expected": "changes/services/expected.json",
+      "manualEdit": "changes/services/manual-edit.json",
+      "scenarioIds": [
+        "reorder",
+        "same-file",
+        "upsert-new-price",
+        "upsert-partial",
+        "missing-full-snapshot",
+        "missing-unconfirmed-snapshot",
+        "duplicate-record-key",
+        "rename-no-key"
+      ]
+    },
+    {
+      "id": "manufacturing",
+      "baseline": "manufacturing/catalog.csv",
+      "inputs": "changes/manufacturing/change-inputs.zip",
+      "expected": "changes/manufacturing/expected.json",
+      "manualEdit": "changes/manufacturing/manual-edit.json",
+      "scenarioIds": [
+        "reorder",
+        "same-file",
+        "upsert-new-price",
+        "upsert-partial",
+        "missing-full-snapshot",
+        "missing-unconfirmed-snapshot",
+        "duplicate-record-key",
+        "rename-no-key"
+      ]
+    }
+  ],
+  "commands": {
+    "generateAll": "npm run fixtures:generate",
+    "verifyAll": "npm run fixtures:verify",
+    "generateChangesOnly": "node scripts/fixtures/generate-changes.mjs",
+    "verifyChangesOnly": "node scripts/fixtures/verify-changes.mjs"
+  },
+  "reproducibility": {
+    "networkRequired": false,
+    "dependencies": "Pinned package-lock.json",
+    "fixedZipTimestamp": "2026-01-01T00:00:00.000Z",
+    "stressGenerationBatchRows": 250,
+    "stressVerification": "Streaming csv-parse + rational BigInt sums; retain one previous row and small SKU/month aggregates, never the full decompressed CSV."
+  },
+  "stress": {
+    "archive": "stress/history-100000.csv.zip",
+    "businessId": "homegoods",
+    "collection": "synthetic-stress-history",
+    "suggestedImportMode": "append",
+    "recordKeySpec": [
+      "operationId",
+      "lineId"
+    ],
+    "scope": "Separate synthetic volume test, not a larger version of the normal business history; never concatenate it with baseline business history.",
+    "use": "Extract the single CSV locally and send that CSV through the ordinary import path. ZIP import support is not assumed.",
+    "initialImportLimitBytes": 20000000,
+    "csv": {
+      "file": "history-100000.csv",
+      "bytes": 10103061,
+      "sha256": "e4a8e61e6d5ac1cdfe6859b514eef34f41e348a95dd10fd12f6810fd7e1b4783",
+      "dataRows": 100000,
+      "columns": 12,
+      "uniqueEventKeys": 100000,
+      "reductionRows": 5000,
+      "netRevenueKzt": "1209650960.00",
+      "netCostKzt": "734598070.00",
+      "marginKzt": "475052890.00",
+      "bySku": [
+        {
+          "key": "000101",
+          "rows": 12500,
+          "netRevenueKzt": "141583200.00",
+          "netCostKzt": "81410340.00"
+        },
+        {
+          "key": "000102",
+          "rows": 12500,
+          "netRevenueKzt": "211892400.00",
+          "netCostKzt": "132432750.00"
+        },
+        {
+          "key": "000103",
+          "rows": 12500,
+          "netRevenueKzt": "108657900.00",
+          "netCostKzt": "57559320.00"
+        },
+        {
+          "key": "000104",
+          "rows": 12500,
+          "netRevenueKzt": "173678300.00",
+          "netCostKzt": "109505640.00"
+        },
+        {
+          "key": "000105",
+          "rows": 12500,
+          "netRevenueKzt": "341069000.00",
+          "netCostKzt": "214638250.00"
+        },
+        {
+          "key": "000106",
+          "rows": 12500,
+          "netRevenueKzt": "182583800.00",
+          "netCostKzt": "114262120.00"
+        },
+        {
+          "key": "000107",
+          "rows": 12500,
+          "netRevenueKzt": "39562400.00",
+          "netCostKzt": "20363000.00"
+        },
+        {
+          "key": "000108",
+          "rows": 12500,
+          "netRevenueKzt": "10623960.00",
+          "netCostKzt": "4426650.00"
+        }
+      ],
+      "byMonth": [
+        {
+          "key": "2025-01",
+          "rows": 8494,
+          "netRevenueKzt": "104058450.00",
+          "netCostKzt": "63207300.00"
+        },
+        {
+          "key": "2025-02",
+          "rows": 7672,
+          "netRevenueKzt": "92573810.00",
+          "netCostKzt": "56240255.00"
+        },
+        {
+          "key": "2025-03",
+          "rows": 8494,
+          "netRevenueKzt": "103407740.00",
+          "netCostKzt": "62780560.00"
+        },
+        {
+          "key": "2025-04",
+          "rows": 8220,
+          "netRevenueKzt": "99298320.00",
+          "netCostKzt": "60297765.00"
+        },
+        {
+          "key": "2025-05",
+          "rows": 8494,
+          "netRevenueKzt": "103557040.00",
+          "netCostKzt": "62897795.00"
+        },
+        {
+          "key": "2025-06",
+          "rows": 8220,
+          "netRevenueKzt": "98664630.00",
+          "netCostKzt": "59889390.00"
+        },
+        {
+          "key": "2025-07",
+          "rows": 8494,
+          "netRevenueKzt": "101988350.00",
+          "netCostKzt": "61914235.00"
+        },
+        {
+          "key": "2025-08",
+          "rows": 8494,
+          "netRevenueKzt": "102363820.00",
+          "netCostKzt": "62171415.00"
+        },
+        {
+          "key": "2025-09",
+          "rows": 8220,
+          "netRevenueKzt": "100011030.00",
+          "netCostKzt": "60743700.00"
+        },
+        {
+          "key": "2025-10",
+          "rows": 8494,
+          "netRevenueKzt": "102376600.00",
+          "netCostKzt": "62179465.00"
+        },
+        {
+          "key": "2025-11",
+          "rows": 8220,
+          "netRevenueKzt": "98693860.00",
+          "netCostKzt": "59923650.00"
+        },
+        {
+          "key": "2025-12",
+          "rows": 8484,
+          "netRevenueKzt": "102657310.00",
+          "netCostKzt": "62352540.00"
+        }
+      ]
+    },
+    "exclusionsFromNormalImports": [
+      "quick-start.zip",
+      "working-inputs.zip",
+      "change-inputs.zip"
+    ],
+    "importerThroughputOrMemoryClaimed": false
+  },
+  "interpretation": {
+    "specificationOnly": true,
+    "productionImporterImplemented": false,
+    "forecastAccuracyClaimed": false,
+    "businessEffectClaimed": false,
+    "noRealPII": true,
+    "noRealPartnersOrStaff": true,
+    "visualVerification": "Not performed. Data, archive structure, exact sums and file hashes only."
+  },
+  "generatedContentLicence": "CC0-1.0; authored synthetic records and text only, no new third-party assets.",
+  "files": [
+    {
+      "file": "changes/homegoods/catalog-duplicate-key.csv",
+      "bytes": 1119,
+      "sha256": "198bcc55d1cf85f8ad6078ecca6fef91e642f9d57c3adf6229a8192164ff0546"
+    },
+    {
+      "file": "changes/homegoods/catalog-missing-row.csv",
+      "bytes": 853,
+      "sha256": "5408361df9481e4f07bd9b74132b77de22f1b74e622df54ccc6b784bd07dcf27"
+    },
+    {
+      "file": "changes/homegoods/catalog-new-price.csv",
+      "bytes": 955,
+      "sha256": "3715d8bb8e74d26e71c3df2939a6c22b51bcd5f838ef4542342b104ceb324fd2"
+    },
+    {
+      "file": "changes/homegoods/catalog-no-key-before.csv",
+      "bytes": 359,
+      "sha256": "fb24bd795924459dd04f65a4bd3a9ca206228f9fe3d35594dfbe9c8b6e81cebb"
+    },
+    {
+      "file": "changes/homegoods/catalog-no-key-renamed.csv",
+      "bytes": 388,
+      "sha256": "7e508960be92033e399f299b5ef7825974c78390eafed5396893919428dbfa4a"
+    },
+    {
+      "file": "changes/homegoods/catalog-reordered.csv",
+      "bytes": 955,
+      "sha256": "de8afe4057ac5a87ab7e4e546c414fda01eacb0916bd0df1721f192bd745f702"
+    },
+    {
+      "file": "changes/homegoods/catalog-schema-drift.csv",
+      "bytes": 1050,
+      "sha256": "266c6c514093cf8442c45a8c1c988a67efc82c25e3c05a6e3a791a7a9ce14c67"
+    },
+    {
+      "file": "changes/homegoods/catalog-upsert-partial.csv",
+      "bytes": 324,
+      "sha256": "edffd807b70affd38190a31bcafc0c8526f283d3fd7b7967816525609db7b222"
+    },
+    {
+      "file": "changes/homegoods/change-inputs.zip",
+      "bytes": 8126,
+      "sha256": "baa613f0b0d81edb9be349895d11955e9c114693f4ae58762f2a8a065c4dcb9d"
+    },
+    {
+      "file": "changes/homegoods/expected.json",
+      "bytes": 23051,
+      "sha256": "a0b067ffad057f3154429b12783b0113f77a2331ae74517a9befc1db55035a97"
+    },
+    {
+      "file": "changes/homegoods/forecast/annual-season-short.csv",
+      "bytes": 2063,
+      "sha256": "b65048458c23231f27a05d699b4295cdfd9a70e3ae0a81b4ba86fb1c2ef87d05"
+    },
+    {
+      "file": "changes/homegoods/forecast/daily-short.csv",
+      "bytes": 3223,
+      "sha256": "3e22003843a9ff1a251d91dba30e2c08eb2eec80f649ff97021773d440720b31"
+    },
+    {
+      "file": "changes/homegoods/forecast/monthly-gap.csv",
+      "bytes": 1483,
+      "sha256": "b2e967300f9ca639a6c8410e88d900b30e0527962bd58776f9ac15f185ee2f9f"
+    },
+    {
+      "file": "changes/homegoods/forecast/monthly-short.csv",
+      "bytes": 1367,
+      "sha256": "bd1f3a70d8a6ab18f5a71b6ccb0f45430b4ecb3da8c8656aa66272eea15d53f2"
+    },
+    {
+      "file": "changes/homegoods/forecast/weekly-short.csv",
+      "bytes": 1483,
+      "sha256": "8d5812177b4ffc81f497bdd487363623ba6f0af4ca5437bf3c323db10aeb4ab8"
+    },
+    {
+      "file": "changes/homegoods/history-overlap-before.csv",
+      "bytes": 1430,
+      "sha256": "8f484bea18edea0708715cbfb063b4f053ebdca5ace24306db581536e43a056f"
+    },
+    {
+      "file": "changes/homegoods/history-overlap-incoming.csv",
+      "bytes": 1241,
+      "sha256": "511e9ce2ba88f8ede9d59974d4d5b6edb748fb264fd3a8d35f82601465ef387a"
+    },
+    {
+      "file": "changes/homegoods/instructions.txt",
+      "bytes": 1600,
+      "sha256": "a6aba0fef63444b71d3b89189dd81abb4a3819c785436cb82f21a2a8cc70f263"
+    },
+    {
+      "file": "changes/homegoods/manual-edit.json",
+      "bytes": 1585,
+      "sha256": "31fbff5b08b53c55ed2b465ea33e263e3cd6b4efaf078fa703c24bdf6f1d3958"
+    },
+    {
+      "file": "changes/homegoods/quote-new-price.csv",
+      "bytes": 362,
+      "sha256": "524756c899152c4192d69ffeab8e9822eec27241762ea300f736cccb036c8f6f"
+    },
+    {
+      "file": "changes/homegoods/schema-mapping.json",
+      "bytes": 853,
+      "sha256": "dee50f78dd7b15dfed7a9f85db3720c9145aab0df030bd01857bdbf99707b6d8"
+    },
+    {
+      "file": "changes/manufacturing/catalog-duplicate-key.csv",
+      "bytes": 1167,
+      "sha256": "9c37b8f6573fef97c90dfeb106df75e1c26c138a3c220b6f974b38deb31ec31b"
+    },
+    {
+      "file": "changes/manufacturing/catalog-missing-row.csv",
+      "bytes": 916,
+      "sha256": "74bd0133ca194bf9f764b944d502c0cb4c536901cfc6eb84bec655395396c73d"
+    },
+    {
+      "file": "changes/manufacturing/catalog-new-price.csv",
+      "bytes": 1003,
+      "sha256": "b3d455370d88c281e01605bf007c44e94dc535fab7a4eb10395244f0aaabf0a8"
+    },
+    {
+      "file": "changes/manufacturing/catalog-no-key-before.csv",
+      "bytes": 435,
+      "sha256": "c8d7f41dcc78aaedfc56d439662e81715cd838c3e0330f3e41e208e01800c4fb"
+    },
+    {
+      "file": "changes/manufacturing/catalog-no-key-renamed.csv",
+      "bytes": 464,
+      "sha256": "8dc3ebcc419f9f2966d4c832286476b972cf9a7706c806401ff1ba890be82c55"
+    },
+    {
+      "file": "changes/manufacturing/catalog-reordered.csv",
+      "bytes": 1003,
+      "sha256": "ac364b03ceb18e4b0736e5a2d43993f69f03835aa7f5774b4bbd5bcbabcb362a"
+    },
+    {
+      "file": "changes/manufacturing/catalog-schema-drift.csv",
+      "bytes": 1098,
+      "sha256": "0ded8a6a56d6b93da55bf1ef7c82b6d25f6df8f4be5488af1a2dd0dc004f4fdd"
+    },
+    {
+      "file": "changes/manufacturing/catalog-upsert-partial.csv",
+      "bytes": 345,
+      "sha256": "ab64b68c06c7790382425f191a32bb14e05096d3c4128484a0cd338fa45560d1"
+    },
+    {
+      "file": "changes/manufacturing/change-inputs.zip",
+      "bytes": 8158,
+      "sha256": "582799df218ce95d85dd817cbf413022f38c016eba669b72966bf66058a0155c"
+    },
+    {
+      "file": "changes/manufacturing/expected.json",
+      "bytes": 23665,
+      "sha256": "994dd4d94ee04e52b4c7364d24cfccbf96cb79fcf6dc2d6a091c1553009fdab3"
+    },
+    {
+      "file": "changes/manufacturing/forecast/annual-season-short.csv",
+      "bytes": 2029,
+      "sha256": "4e709bd392355c80e52187c9cd9b0bb16ad00fd2a0e15bca3a18ac58d2e25892"
+    },
+    {
+      "file": "changes/manufacturing/forecast/daily-short.csv",
+      "bytes": 3170,
+      "sha256": "19a348ac0992fabb94f6696be48790a5cb9365bdeda7a96072eb656cb0327b76"
+    },
+    {
+      "file": "changes/manufacturing/forecast/monthly-gap.csv",
+      "bytes": 1459,
+      "sha256": "967cd3d35fa17c3f9e0e8d92b09d0515d943c7a89328fde9aa5be3a27616903a"
+    },
+    {
+      "file": "changes/manufacturing/forecast/monthly-short.csv",
+      "bytes": 1345,
+      "sha256": "702726f3c0116984782eafe98d3f116e8354f7302889b2b778859bc74164e5e6"
+    },
+    {
+      "file": "changes/manufacturing/forecast/weekly-short.csv",
+      "bytes": 1459,
+      "sha256": "4b6938b74d3cc4b44c6a5a5d2a3ebf4884d68d83bdd595773dcba5d4d3f56c38"
+    },
+    {
+      "file": "changes/manufacturing/history-overlap-before.csv",
+      "bytes": 1582,
+      "sha256": "14984c760ea728de0d4cddfb9e1baacc4402bb249c1530f11371ca5f56991dcb"
+    },
+    {
+      "file": "changes/manufacturing/history-overlap-incoming.csv",
+      "bytes": 1368,
+      "sha256": "a368d208a8480ab3b198dd41a71e1c18f101380b8424be689c9cdc4ae993396b"
+    },
+    {
+      "file": "changes/manufacturing/instructions.txt",
+      "bytes": 1598,
+      "sha256": "095daff1f53930157c169a86f58420257837bd19cb241e74433804533a01bb47"
+    },
+    {
+      "file": "changes/manufacturing/manual-edit.json",
+      "bytes": 1629,
+      "sha256": "7a87e24c62059a235b5aec826c0db468a6ba63fb2963a11734332efeff197386"
+    },
+    {
+      "file": "changes/manufacturing/quote-new-price.csv",
+      "bytes": 419,
+      "sha256": "cae776c7f01831b92801879a86dd6064e427a9dddd415a6a01f733acd99cf71b"
+    },
+    {
+      "file": "changes/manufacturing/schema-mapping.json",
+      "bytes": 853,
+      "sha256": "dee50f78dd7b15dfed7a9f85db3720c9145aab0df030bd01857bdbf99707b6d8"
+    },
+    {
+      "file": "changes/services/catalog-duplicate-key.csv",
+      "bytes": 1178,
+      "sha256": "f34f81fb4161c535672053d479e73830c07bd0ca75ade0c8dc056f0893ec533c"
+    },
+    {
+      "file": "changes/services/catalog-missing-row.csv",
+      "bytes": 906,
+      "sha256": "9a860564ba1d5b70234a67d886931abc15e1cd041db56c195699a4350d36079c"
+    },
+    {
+      "file": "changes/services/catalog-new-price.csv",
+      "bytes": 1009,
+      "sha256": "3a3b9b0d4868da24d51cf44cc720a9c6b39b2f9543dd58074b0f14b3fa6ac3ad"
+    },
+    {
+      "file": "changes/services/catalog-no-key-before.csv",
+      "bytes": 397,
+      "sha256": "f93453496c6900deff2a114054168309d049fcf2d6859f14e8b14a40e8af59ff"
+    },
+    {
+      "file": "changes/services/catalog-no-key-renamed.csv",
+      "bytes": 426,
+      "sha256": "9ca677037b45e25c32e0f46b4e1554b2034a0a3a08ec57efb86a4a7989d14c43"
+    },
+    {
+      "file": "changes/services/catalog-reordered.csv",
+      "bytes": 1009,
+      "sha256": "9759e4798f6eb1142eae7b282ad50de9f5a01724d63efe0a9360580b98a55c81"
+    },
+    {
+      "file": "changes/services/catalog-schema-drift.csv",
+      "bytes": 1104,
+      "sha256": "9ebac8a12849142a73a8aea5cd1951b3aaa3221dd13b74c6c7cd408c9154054c"
+    },
+    {
+      "file": "changes/services/catalog-upsert-partial.csv",
+      "bytes": 336,
+      "sha256": "23b5bad9b7da2058c4332ee16db1481e143e5a2537b9543fdbf8278aa0bb0b27"
+    },
+    {
+      "file": "changes/services/change-inputs.zip",
+      "bytes": 8505,
+      "sha256": "918b8cda53afa4afd1ae09a8108dc97ddd2b005948422b35690058aea8947a06"
+    },
+    {
+      "file": "changes/services/expected.json",
+      "bytes": 22939,
+      "sha256": "e8647645135cd81dd404a654c195266d722f19266ad36d1f20f475a5e358d51c"
+    },
+    {
+      "file": "changes/services/forecast/annual-season-short.csv",
+      "bytes": 2041,
+      "sha256": "d8ba87c50be8cea4dffde382d2c32940818e1f384d2b901b61e0d2acc6a19cde"
+    },
+    {
+      "file": "changes/services/forecast/daily-short.csv",
+      "bytes": 3190,
+      "sha256": "936db2d1526317ba4ff24fe973c58a6a527bc9abe36dfdb63a69ab2a99483814"
+    },
+    {
+      "file": "changes/services/forecast/monthly-gap.csv",
+      "bytes": 1467,
+      "sha256": "a52d24c64c1ecfa64b2aae2696bd1c6bc7db33d7e2f065b98140c6e5c6f79d81"
+    },
+    {
+      "file": "changes/services/forecast/monthly-short.csv",
+      "bytes": 1353,
+      "sha256": "7432a431862ad12ca1eeae306538c240a2835694fa562bc0d239fe0c10350579"
+    },
+    {
+      "file": "changes/services/forecast/weekly-short.csv",
+      "bytes": 1467,
+      "sha256": "84280e349cabd8af4cd78ec2fb29f7eab704808cbb7a3e5f9fd1f85de997f602"
+    },
+    {
+      "file": "changes/services/history-overlap-before.csv",
+      "bytes": 1519,
+      "sha256": "984716a6f2bd0a6c0dbf4f6e1233619cdb3315933f719ab57cc3def22efce6f2"
+    },
+    {
+      "file": "changes/services/history-overlap-incoming.csv",
+      "bytes": 1312,
+      "sha256": "34be2ebf743382ba64bacf25516fc444c404c3cd64e79f2b95900d48b70c3cee"
+    },
+    {
+      "file": "changes/services/instructions.txt",
+      "bytes": 1589,
+      "sha256": "02b6537862ed923a8fed40153ceae1464818572db787f21af94fa5310efe607f"
+    },
+    {
+      "file": "changes/services/manual-edit.json",
+      "bytes": 1625,
+      "sha256": "7dfb8f0def137ef8e3373d4918e701ec95734e75b7a2d30a9932b4a3a9f802cb"
+    },
+    {
+      "file": "changes/services/quote-new-price.csv",
+      "bytes": 402,
+      "sha256": "ca726bf00be8c93aff36344f5f9302698bf192a4d78561219cf770b983ed9967"
+    },
+    {
+      "file": "changes/services/schema-mapping.json",
+      "bytes": 853,
+      "sha256": "dee50f78dd7b15dfed7a9f85db3720c9145aab0df030bd01857bdbf99707b6d8"
+    },
+    {
+      "file": "stress/history-100000.csv.zip",
+      "bytes": 443806,
+      "sha256": "2233cb94550992d230f2c537ae531b37d01df9ec2a3cbf7d9b8aef7ff59b94b7"
+    }
+  ]
+}

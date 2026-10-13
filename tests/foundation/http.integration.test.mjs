@@ -22,6 +22,16 @@ describe("real HTTP and PostgreSQL availability", () => {
     expect(await response.json()).toEqual({ status: "ok", service: "tirlik", database: "ready" });
   });
 
+  it("keeps hosting probes disabled in the ordinary local application", async () => {
+    const { port } = context();
+    for (const [pathname, method] of [["hosting", "GET"], ["hosting/resume", "POST"], ["hosting/file", "GET"]]) {
+      const response = await fetch(`http://127.0.0.1:${port}/api/preflight/${pathname}`, { method, signal: AbortSignal.timeout(30_000) });
+      expect(response.status).toBe(404);
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(ErrorEnvelopeSchema.parse(await response.json()).code).toBe("NOT_FOUND");
+    }
+  }, 60_000);
+
   it("returns a typed 503 during a real database outage and recovers afterward", async () => {
     const { project, port, options } = context();
     await inspectOwnedServices(process.cwd(), project, options);

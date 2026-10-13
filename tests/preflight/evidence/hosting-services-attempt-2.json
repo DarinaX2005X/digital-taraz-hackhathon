@@ -1,0 +1,20 @@
+{
+  "checkedAt": "2026-10-13T17:43:43.632Z",
+  "probeId": "2d0cc2f2-7997-4324-8564-2a3cd22acf58",
+  "syntheticOnly": true,
+  "status": "passed",
+  "checks": {
+    "databaseClientTlsVerified": true,
+    "databaseBackendReportsSsl": false,
+    "databaseReconnectPersistence": true,
+    "databaseUniqueConstraint": true,
+    "privateBlobWrittenBytes": 141,
+    "privateBlobReadSha256": "9d5f296b858aaf3fb67410e46aaaf116328f2536bede9a4a5c5242b184431183",
+    "anonymousBlobHttpStatus": 403,
+    "privateBlobOverwriteRejected": true
+  },
+  "cleanup": {
+    "database": true,
+    "blob": true
+  }
+}

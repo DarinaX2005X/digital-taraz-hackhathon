@@ -1,0 +1,13 @@
+.git/
+.vibemachina/
+.local-data/
+.swc/
+.next/
+node_modules/
+coverage/
+.env
+.env.*
+*.log
+*.tsbuildinfo
+tests/
+src/app/.well-known/workflow/

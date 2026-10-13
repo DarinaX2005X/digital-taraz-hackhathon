@@ -32,6 +32,7 @@ export async function resolveLocalConfig(root, inherited, previous, services, re
       TIRLIK_DB_PORT: String(ports.database), TIRLIK_SMTP_PORT: String(ports.smtp), TIRLIK_MAIL_UI_PORT: String(ports.mail), TIRLIK_APP_PORT: String(ports.app),
       TIRLIK_DATA_DIR: dataDir, NEXT_DIST_DIR: ".next", NODE_ENV: "development",
       SMTP_HOST: "127.0.0.1", SMTP_PORT: String(ports.smtp), SMTP_USER: "", SMTP_PASSWORD: "", SMTP_FROM: "Tirlik local <no-reply@tirlik.invalid>",
+      SMTP_REQUIRE_TLS: "false", BREVO_API_KEY: "", BREVO_SMTP_KEY: "",
       BETTER_AUTH_URL: `http://127.0.0.1:${ports.app}`,
     },
   };

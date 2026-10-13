@@ -1,23 +1,27 @@
 # 02 Свои материалы и защищённое рабочее пространство
-Status: todo
+Status: active
 
 Бизнес начинает с того, что у него уже есть. Вход и загрузка не требуют переносить клиентов; система показывает, что поняла в файлах и где нужна проверка.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 02.1 Дать владельцу и приглашённому коллеге надёжный вход
-Status: todo
+Status: active
 Requirements: R11, R22, R23, R24, R25, R34, R39, R41, R43, R44, R45, R90
 Depends on: 01.1, 01.2
-Owner: SUBAGENT to assign
-Paths: src/features/identity/, tests/identity/
+Owner: /root/foundation (server), /root/ui_foundation (UI)
+Paths: src/features/identity/, tests/identity/, src/server/db/identity-schema.ts, migrations/0003_identity.sql
 
 **Контракт и результат.** C3-C4, C12. Better Auth signup/email verification/login/reset/expiry/logout, Workspace+Membership owner/editor/reviewer, invites single-use TTL, profile/session revocation. Default-deny scopes include approve/export/readconfidential; actor из сессии. returnTo local allowlist, сохранение goal draft как opaque intent, не содержимое в URL. Реальный SMTP и Mailpit local. Ошибки не перечисляют существующие аккаунты. MAIN owns auth route/schema, worker передаёт integration contract.
 
 **Вход в работу и состояния.** «Войти» из public/demo/goal: dismissible dialog где уместно; emails через dedicated routes. Возврат к намерению без автоматического копирования demo. Profile menu language/profile/settings/sign out. Mobile forms stack; ru/kk/en ошибки сохраняют безопасный ввод, не пароль в storage.
 
+Уточнение почтового adapter: последнее сообщение пользователя предоставляет BREVO_SMTP_KEY и поручает заполнить SMTP-настройки. Public transactional mail использует Brevo SMTP smtp-relay.brevo.com:587 с обязательным STARTTLS и подтверждённым sender; API-key не является SMTP-key. Local/test Mailpit SMTP сохраняется, оба external keys вtests очищаются. Verified sender, authentication иdelivery отдельные факты; никаких настоящихписем отoffline/unit/integrationchecks.
+
+Dispatch02.1: server worker владеет src/features/identity/server/, domain/, contracts.ts, index.ts, tests/identity/server/, tests/identity/domain/ и исключительным loan src/server/db/identity-schema.ts + migrations/0003_identity.sql. UI worker владеет src/features/identity/ui/, locales/, tests/identity/ui/. MAIN владеет app routes/config/package/root schema re-export. Workers согласуют typed transport через contracts.ts; основной auth endpoint Better Auth /api/auth/*, прикладной identity endpoint /api/identity/*. Никаких дублирующих permission models. Параллельное исполнение внутри утверждённой задачи, зависимости следующих задач не снимаются.
+
 ### 02.1.1 Аккаунт и возврат в работу
-Status: todo
+Status: active
 
 HTTP cookie/session lifecycle, verification/reset через Mailpit API, invalid/expired/replayed token rejection; reload same owner. Local flag не даёт полномочий.
 

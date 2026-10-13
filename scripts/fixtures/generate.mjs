@@ -7,6 +7,7 @@ import { createBusinessData, csvBuffer, historyCsv } from "./data.mjs";
 import { businessWorkbook, requestDocument, stableZip, termsPdf } from "./formats.mjs";
 import { DEFAULT_SEED, FIXED_TIMESTAMP, LOCALE_SAMPLE, PHOTO_SOURCES, SYNTHETIC_NOTICE } from "./definitions.mjs";
 import { forecastOracle, historyOracle, procurementOracle, quoteOracle } from "./oracle.mjs";
+import { writeChangeFixtureFiles } from "./generate-changes.mjs";
 
 const repository = fileURLToPath(new URL("../../", import.meta.url));
 export const FIXTURE_ROOT = path.join(repository, "fixtures", "business");
@@ -195,6 +196,10 @@ export async function writeFixtureFiles({ outputDirectory = FIXTURE_ROOT, seed =
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const { values } = parseArgs({ options: { seed: { type: "string" }, out: { type: "string" } } });
-  const manifest = await writeFixtureFiles({ seed: values.seed === undefined ? DEFAULT_SEED : Number(values.seed), outputDirectory: values.out === undefined ? FIXTURE_ROOT : path.resolve(values.out) });
+  const seed = values.seed === undefined ? DEFAULT_SEED : Number(values.seed);
+  const outputDirectory = values.out === undefined ? FIXTURE_ROOT : path.resolve(values.out);
+  const manifest = await writeFixtureFiles({ seed, outputDirectory });
   console.log(`Generated ${manifest.businesses.length} synthetic businesses, ${manifest.files.length + 1} files, seed ${manifest.seed}.`);
+  const changes = await writeChangeFixtureFiles({ root: outputDirectory, seed });
+  console.log(`Generated ${changes.files.length + 1} additive change/stress files, ${changes.stress.csv.dataRows} stress rows.`);
 }

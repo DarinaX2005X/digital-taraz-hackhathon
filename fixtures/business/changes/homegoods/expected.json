@@ -1,0 +1,745 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "01.3.2",
+  "synthetic": true,
+  "seed": 20261013,
+  "businessId": "homegoods",
+  "scope": "Fixture contract expectations only, not evidence that a production importer/editor/forecast engine is implemented.",
+  "catalogCases": [
+    {
+      "id": "reorder",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-reordered.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Row order changes only raw lineage, never stable identity or field value.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:reorder",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:homegoods-catalog:000101",
+          "fixture:homegoods-catalog:000102",
+          "fixture:homegoods-catalog:000103",
+          "fixture:homegoods-catalog:000104",
+          "fixture:homegoods-catalog:000105",
+          "fixture:homegoods-catalog:000106",
+          "fixture:homegoods-catalog:000107",
+          "fixture:homegoods-catalog:000108"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:homegoods-catalog:000108"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:homegoods-catalog:000107"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:homegoods-catalog:000106"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:homegoods-catalog:000105"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:homegoods-catalog:000104"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:homegoods-catalog:000103"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:homegoods-catalog:000102"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:homegoods-catalog:000101"
+          }
+        ]
+      }
+    },
+    {
+      "id": "same-file",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-reordered.csv",
+      "repeatOf": "reorder",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Retry the accepted reorder with the same bytes and operation key; zero new records, effects or revisions.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 2,
+      "operationKey": "fixture:homegoods:reorder",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "acceptedContentSha256": "de8afe4057ac5a87ab7e4e546c414fda01eacb0916bd0df1721f192bd745f702",
+        "sameOperationAs": "reorder",
+        "reusesAcceptedSourceVersion": true,
+        "acceptedSourceVersion": 2,
+        "newRecords": 0,
+        "changedFactRevisions": 0,
+        "changedArtifactRevisions": 0,
+        "newResolutionVersions": 0,
+        "sideEffects": 0
+      }
+    },
+    {
+      "id": "upsert-new-price",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-new-price.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Confirmed SKU keeps recordId; only price fact revision and dependent proposals change.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:upsert-new-price",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:homegoods-catalog:000101",
+          "fixture:homegoods-catalog:000102",
+          "fixture:homegoods-catalog:000103",
+          "fixture:homegoods-catalog:000104",
+          "fixture:homegoods-catalog:000105",
+          "fixture:homegoods-catalog:000106",
+          "fixture:homegoods-catalog:000107",
+          "fixture:homegoods-catalog:000108"
+        ],
+        "updated": [
+          {
+            "recordId": "fixture:homegoods-catalog:000101",
+            "fields": [
+              {
+                "fieldId": "priceKzt",
+                "before": "2400.00",
+                "after": "2675.50"
+              }
+            ]
+          }
+        ],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:homegoods-catalog:000101"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:homegoods-catalog:000102"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:homegoods-catalog:000103"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:homegoods-catalog:000104"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:homegoods-catalog:000105"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:homegoods-catalog:000106"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:homegoods-catalog:000107"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:homegoods-catalog:000108"
+          }
+        ]
+      }
+    },
+    {
+      "id": "upsert-partial",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-upsert-partial.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Add one explicit new key and update one price; absent records are retained.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:upsert-partial",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:homegoods-catalog:000101"
+        ],
+        "updated": [
+          {
+            "recordId": "fixture:homegoods-catalog:000101",
+            "fields": [
+              {
+                "fieldId": "priceKzt",
+                "before": "2400.00",
+                "after": "2675.50"
+              }
+            ]
+          }
+        ],
+        "createdRecordIds": [
+          "fixture:homegoods-catalog:009901"
+        ],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [
+          "fixture:homegoods-catalog:000102",
+          "fixture:homegoods-catalog:000103",
+          "fixture:homegoods-catalog:000104",
+          "fixture:homegoods-catalog:000105",
+          "fixture:homegoods-catalog:000106",
+          "fixture:homegoods-catalog:000107",
+          "fixture:homegoods-catalog:000108"
+        ],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:homegoods-catalog:000101"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:homegoods-catalog:009901"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-full-snapshot",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-missing-row.csv",
+      "mode": "replace-snapshot",
+      "complete": true,
+      "purpose": "Only explicit confirmed complete snapshot permits a tombstone; old bindings stay missing, never move to a different row.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:missing-full-snapshot",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:homegoods-catalog:000101",
+          "fixture:homegoods-catalog:000102",
+          "fixture:homegoods-catalog:000103",
+          "fixture:homegoods-catalog:000104",
+          "fixture:homegoods-catalog:000105",
+          "fixture:homegoods-catalog:000106",
+          "fixture:homegoods-catalog:000107"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [
+          "fixture:homegoods-catalog:000108"
+        ],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:homegoods-catalog:000101"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:homegoods-catalog:000102"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:homegoods-catalog:000103"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:homegoods-catalog:000104"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:homegoods-catalog:000105"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:homegoods-catalog:000106"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:homegoods-catalog:000107"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-unconfirmed-snapshot",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-missing-row.csv",
+      "mode": "replace-snapshot",
+      "complete": false,
+      "purpose": "Unconfirmed completeness or partial parsing cannot prove a deletion.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:missing-unconfirmed-snapshot",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:homegoods-catalog:000101",
+          "fixture:homegoods-catalog:000102",
+          "fixture:homegoods-catalog:000103",
+          "fixture:homegoods-catalog:000104",
+          "fixture:homegoods-catalog:000105",
+          "fixture:homegoods-catalog:000106",
+          "fixture:homegoods-catalog:000107"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [
+          "fixture:homegoods-catalog:000108"
+        ],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:homegoods-catalog:000101"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:homegoods-catalog:000102"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:homegoods-catalog:000103"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:homegoods-catalog:000104"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:homegoods-catalog:000105"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:homegoods-catalog:000106"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:homegoods-catalog:000107"
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate-record-key",
+      "baseline": "homegoods/catalog.csv",
+      "incoming": "catalog-duplicate-key.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Non-unique key candidates are unresolved before any update of their bindings.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:duplicate-record-key",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:homegoods-catalog:000102",
+          "fixture:homegoods-catalog:000103",
+          "fixture:homegoods-catalog:000104",
+          "fixture:homegoods-catalog:000105",
+          "fixture:homegoods-catalog:000106",
+          "fixture:homegoods-catalog:000107",
+          "fixture:homegoods-catalog:000108"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [
+          {
+            "key": "000101",
+            "sourceRecordNumbers": [
+              1,
+              9
+            ],
+            "reason": "non-unique-record-key",
+            "existingRecordId": "fixture:homegoods-catalog:000101"
+          }
+        ],
+        "lineage": [
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:homegoods-catalog:000102"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:homegoods-catalog:000103"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:homegoods-catalog:000104"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:homegoods-catalog:000105"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:homegoods-catalog:000106"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:homegoods-catalog:000107"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:homegoods-catalog:000108"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rename-no-key",
+      "baseline": "changes/homegoods/catalog-no-key-before.csv",
+      "incoming": "catalog-no-key-renamed.csv",
+      "mode": "upsert",
+      "hasKey": false,
+      "purpose": "Neither a similar name nor a changed price proves identity; unchanged fingerprints are confirmation candidates only.",
+      "collection": "homegoods-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:homegoods:rename-no-key",
+      "recordKeySpec": null,
+      "expected": {
+        "preservedRecordIds": [],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [
+          {
+            "sourceRecordNumber": 1,
+            "reason": "no-confirmed-business-key",
+            "automaticIdentity": null
+          }
+        ],
+        "lineage": [
+          {
+            "sourceRecordNumber": 2,
+            "matchedBaselineRecordNumber": 2,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "matchedBaselineRecordNumber": 3,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "matchedBaselineRecordNumber": 4,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          }
+        ]
+      }
+    }
+  ],
+  "missingRecord": {
+    "sku": "000108",
+    "recordId": "fixture:homegoods-catalog:000108",
+    "oldBindingAfterConfirmedRemoval": "missing-tombstoned-record-not-rebound-to-row-position"
+  },
+  "overlap": {
+    "baseline": "history-overlap-before.csv",
+    "incoming": "history-overlap-incoming.csv",
+    "collection": "homegoods-history",
+    "mode": "append",
+    "recordKeySpec": [
+      "Операция",
+      "Строка"
+    ],
+    "expected": {
+      "repeatedEventKeys": [
+        "HOMEGOODS-000005|01",
+        "HOMEGOODS-000006|01"
+      ],
+      "addedEventKeys": [
+        "HOMEGOODS-NEXT-001|01",
+        "HOMEGOODS-NEXT-002|01"
+      ],
+      "conflicts": [
+        {
+          "eventKey": "HOMEGOODS-000003|01",
+          "existingRecordId": "fixture:homegoods-history:HOMEGOODS-000003|01",
+          "incomingSourceRecordNumber": 4,
+          "action": "keep-existing-accepted-revision-and-review-incoming",
+          "automaticallyAddedRows": 0
+        }
+      ],
+      "stableRecordIds": [
+        "fixture:homegoods-history:HOMEGOODS-000005|01",
+        "fixture:homegoods-history:HOMEGOODS-000006|01",
+        "fixture:homegoods-history:HOMEGOODS-000003|01"
+      ],
+      "acceptedRowsAfter": 8,
+      "netRevenueKztAfter": "157500.00"
+    }
+  },
+  "schemaDrift": {
+    "file": "catalog-schema-drift.csv",
+    "mapping": "schema-mapping.json",
+    "beforeConfirmation": {
+      "status": "schema-drift",
+      "bindingUpdates": 0
+    },
+    "afterExplicitConfirmation": {
+      "preservedRecordIds": [
+        "fixture:homegoods-catalog:000101",
+        "fixture:homegoods-catalog:000102",
+        "fixture:homegoods-catalog:000103",
+        "fixture:homegoods-catalog:000104",
+        "fixture:homegoods-catalog:000105",
+        "fixture:homegoods-catalog:000106",
+        "fixture:homegoods-catalog:000107",
+        "fixture:homegoods-catalog:000108"
+      ],
+      "updated": [],
+      "createdRecordIds": [],
+      "tombstonedRecordIds": [],
+      "retainedAbsentRecordIds": [],
+      "unresolved": [],
+      "lineage": [
+        {
+          "sourceRecordNumber": 1,
+          "recordId": "fixture:homegoods-catalog:000101"
+        },
+        {
+          "sourceRecordNumber": 2,
+          "recordId": "fixture:homegoods-catalog:000102"
+        },
+        {
+          "sourceRecordNumber": 3,
+          "recordId": "fixture:homegoods-catalog:000103"
+        },
+        {
+          "sourceRecordNumber": 4,
+          "recordId": "fixture:homegoods-catalog:000104"
+        },
+        {
+          "sourceRecordNumber": 5,
+          "recordId": "fixture:homegoods-catalog:000105"
+        },
+        {
+          "sourceRecordNumber": 6,
+          "recordId": "fixture:homegoods-catalog:000106"
+        },
+        {
+          "sourceRecordNumber": 7,
+          "recordId": "fixture:homegoods-catalog:000107"
+        },
+        {
+          "sourceRecordNumber": 8,
+          "recordId": "fixture:homegoods-catalog:000108"
+        }
+      ]
+    }
+  },
+  "priceChange": {
+    "sku": "000101",
+    "beforeKzt": "2400.00",
+    "afterKzt": "2675.50",
+    "deltaKzt": "275.50",
+    "quoteBeforeKzt": "141870.00",
+    "quoteAfter": {
+      "subtotalKzt": "151212.00",
+      "discountKzt": "7560.60",
+      "deliveryKzt": "4500.00",
+      "knownTotalKzt": "148151.40",
+      "finalTotalKzt": null,
+      "unresolvedCosts": [
+        "tax-status",
+        "optional-packaging-or-scope"
+      ]
+    }
+  },
+  "manualEdit": {
+    "file": "manual-edit.json",
+    "expected": {
+      "staleProposal": {
+        "status": "conflict",
+        "appliedOperations": 0,
+        "expectedRevision": 1,
+        "actualRevision": 2
+      },
+      "sourceOnlyRefresh": {
+        "status": "proposal-awaiting-human-acceptance",
+        "manualFieldId": "offer-introduction",
+        "preservedText": "Кружки только 300 мл. Упаковку и дату согласуем отдельно; замену на 450 мл не принимать без подтверждения.",
+        "preservedTextSha256": "3a5ac7cf58734cef7dbd9726158e479e71d78fbb153acc166662da271e45949f",
+        "updatedKnownTotalKzt": "148151.40",
+        "finalTotalKzt": null,
+        "automaticOverwriteOfManualText": false,
+        "quoteUnknownsRemainUnresolved": true
+      }
+    }
+  },
+  "forecastCases": [
+    {
+      "file": "forecast/daily-short.csv",
+      "id": "daily-short",
+      "frequency": "daily",
+      "count": 55,
+      "expected": {
+        "observations": 55,
+        "frequency": "daily",
+        "regular": true,
+        "minimumObservations": 56,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/weekly-short.csv",
+      "id": "weekly-short",
+      "frequency": "weekly",
+      "count": 25,
+      "expected": {
+        "observations": 25,
+        "frequency": "weekly",
+        "regular": true,
+        "minimumObservations": 26,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/monthly-short.csv",
+      "id": "monthly-short",
+      "frequency": "monthly",
+      "count": 23,
+      "expected": {
+        "observations": 23,
+        "frequency": "monthly",
+        "regular": true,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/monthly-gap.csv",
+      "id": "monthly-gap",
+      "frequency": "monthly",
+      "count": 25,
+      "gap": true,
+      "expected": {
+        "observations": 25,
+        "frequency": "monthly",
+        "regular": false,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "irregular-series"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/annual-season-short.csv",
+      "id": "annual-season-short",
+      "frequency": "monthly",
+      "count": 35,
+      "requestAnnualSeasonality": true,
+      "expected": {
+        "observations": 35,
+        "frequency": "monthly",
+        "regular": true,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": true,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-annual-seasonal-cycles"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    }
+  ]
+}

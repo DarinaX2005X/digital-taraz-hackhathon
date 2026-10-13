@@ -1,19 +1,19 @@
 # Состояние проекта
 Phase: build
 Approval: approved
-Active stage: 01
-Active task: 01.4
+Active stage: 02
+Active task: 02.1
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, approval pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят/pushed84bc4af;01.2.1 принят/pushed590789a. Fixtures01.3.1 и capability gate01.4.1 приняты/pushed8a7580fb9886782c6c35e9e597026b1c59823928,7checks PASS.01.2.2 принят с55focused tests, MAIN подключил ToastProvider и готовит отдельный UI checkpoint. Все writersSTOP; незавершённые01.3.2/01.4.2 и MAINhosting остаются за его scope. После commit готов02.1. Локальный Nextdev59676 жив; пользователь предоставил BREVO_API_KEY черезenv, значения не выводились, delivery ещёнепроверена.
+2026-10-13, Asia/Qyzylorda. Полный план утверждён: «подтверждаю!», содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f.01.1 принят/pushed84bc4af;01.2.1 pushed590789a;01.3.1/01.4.1 pushed8a7580f.01.2.2 принят/pushed566291f71747b732114f7e2da7ebf30709739166, все7checks PASS. Выполняются параллельно завершение01.3.2, hosting01.4.2 и server/UI02.1. Последнее указание пользователя: не отклоняться от плана, давать агентам более крупные самостоятельные задачи; MAIN проверяет значимые handovers, не каждый шаг. Локальный Nextdev59676 жив, техническая страница ещё не заменена. SMTP key присутствует, authentication/sender/delivery ещёнепроверены.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
 1. Runtime01.1.2 зафиксирован84bc4af98995fbcb96cb584c66045b2de43f8852 и pushed origin/main, все7 configured checks PASS.01.1 done; generated Next AGENTS block сохранён вместе с runtime.
-2. UI checkpoint сsrc/ui/src/i18n/tests/ui-contracts/layout, затем release01.3.2/01.4.2 и dispatch02.1 account. MAINhosting partial: Workflow5.2.1/privateBlob2.8.1 deps, scoped security fixesdevalue5.9.4/nanoid5.1.16, disabled tokenroutes, schema/migration0002, testenv isolation, fra1 config. Не включать этот partial в UIcommit. Remote migrations0001+0002 примененынаdirectNeon, probecontrolsecretpreview установлен, никакогоdeploy ещё. Каждый worker читает полный BRIEF/references; package/lock/routes/layout остаются MAIN.
+2. Fixtures01.3.2 и server hosting01.4.2 переданы MAIN. Сейчас checkpoint завершённых путей и MAIN hosting/dependencies/isolation; unfinished identity не включать. После commit освободить identity writers, а cloud preview развернуть из отдельного git archive committed HEAD, чтобы не публиковать их текущие файлы. Remote migrations0001+0002 на direct Neon применены, probe control secret preview установлен. Затем два deploy и HTTP/Workflow resume proof. Каждый worker читает полный BRIEF/references; package/lock/routes/layout остаются MAIN.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -34,17 +34,20 @@ Active task: 01.4
 Дашборд планирования: http://127.0.0.1:4177/
 Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina/runtime; перезапуск штатным dashboard.mjs с явным root, --detach --port4177. Не завершать неизвестные процессы.
 
-Локальный Next dev: http://127.0.0.1:59676/ ; health200 database=ready подтверждён MAIN. Пока техническая страница, не полезный продуктовый UI. Supervisor PID137760, Next CLI PID151776, instance148682de-4946-45ec-b1ac-472ccc6f2d81. Logs .local-data/dev/app-<instance>.log и supervisor-<instance>.log; runtime token приватен. Start: node scripts/dev/start.mjs; stop: node scripts/dev/stop.mjs. PostgreSQL54329, Mailpit http://127.0.0.1:8029/ продолжают работать после stop. Next dev --webpack следит за source changes, Fast Refresh встроен; браузерное получение обновлений пользователем ещё не проверено. MAIN перезапускает после dependency/config changes, сохраняет порт/данные. Вкладки не открывались.
+Локальный Next dev: http://127.0.0.1:59676/ ; health200 database=ready подтверждён после dependencyrestart. Пока техническая страница, не полезный продуктовый UI. Supervisor PID143056, Next CLI PID134724, instance12e3cb29-2509-416a-9bf5-a8711b87abe1. Logs .local-data/dev/app-<instance>.log и supervisor-<instance>.log; runtime token приватен. Start: node scripts/dev/start.mjs; stop: node scripts/dev/stop.mjs. PostgreSQL54329, Mailpit http://127.0.0.1:8029/ продолжают работать после stop. Next dev --webpack следит за source changes, Fast Refresh встроен; браузерное получение обновлений пользователем ещё не проверено. MAIN перезапускает после dependency/config changes, сохраняет порт/данные. Вкладки не открывались.
 
 ## Работники
 
 /root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation завершил01.1.2, передал пути и остановил запись.
 
-- /root/ui_foundation:01.2.2 принят,STOP;55focused tests/type/lint PASS. Loan src/ui/,src/i18n/,public/brand/,public/fonts/,tests/ui-contracts/ возвращён MAIN. Полный handover/интеграцияToastProvider, visualstatesнепроверены.
-- /root/business_fixtures:01.3.2 partial,STOP наUIcheckpoint; fixtures/business/,scripts/fixtures/,tests/fixtures/.65additive files/4scripts/8tests PASS/lintPASS; остаётся генераторная интеграция/regression.01.3.1 bytes сохранены. Stress100k CSV10MB/ZIP444k; не productionimport proof.
-- /root/preflight:01.4.2 active; scripts/preflight/, tests/preflight/, loan src/server/preflight/. Synthetic DB/privateBlob/Workflow module+scripts/tests; MAIN deps/thin routes/config/schema/migration/provisioning. Module token-gated/disabled default, no productdata.01.4.1 принят с ограничениями:13offline tests PASS, live tool/vision/image PASS, provider JSON Schema unsupported, separate JSON call ambiguous timeout. Confirmed actual$0.0400707, unresolved reserved$0.480832, total ceilings$0.81472 <=$1. Ledger не повторять, новых paid calls нет. CTSA BSD notice добавлен MAIN.
+- /root/ui_foundation:02.1 UI; exclusive src/features/identity/ui/, locales/, tests/identity/ui/.01.2.2 завершён, старые loans возвращены MAIN. Экранные формы/modal/profile/team/settings/reset/verify, ru/kk/en; typed API согласует сserverworker.
+- /root/foundation:02.1 server; exclusive src/features/identity/server/, domain/, contracts.ts,index.ts, tests/identity/server/, domain/; loan src/server/db/identity-schema.ts,migrations/0003_identity.sql. BetterAuth/mail/session/ACL/invites/intent/delete lifecycle. MAIN package/routes/root schema re-export.
+- /root/business_fixtures:01.3.2 принят,STOP; fixtures/business/,scripts/fixtures/,tests/fixtures/ возвращеныMAIN.65additive files/generate+verifyintegration/14tests PASS/lintPASS;01.3.1 bytes сохранены. Stress100k CSV10MB/ZIP444k; не productionimport proof. Ожидаетcoherentcheckpoint.
+- /root/preflight:01.4.2 server/CLI переданы, STOP; scripts/preflight/, tests/preflight/, loan src/server/preflight/. 50 focused tests и scoped lint PASS. Direct Neon client TLS/reconnect/unique UUID и private Blob hash/anonymous403/overwrite denial PASS, synthetic cleanup подтверждён. MAIN выполняет два preview deploy и HTTP probe. Module token-gated/disabled default, product data отсутствуют. Новый paid AI не вызывался; прежний live ledger не повторять.
 
 MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database и всю проектную память/Git. Ни worker не меняет чужие пути/локали. Запросы shared dependencies сначала MAIN; установки только последовательно.
+
+02.1 dependencies: BetterAuth1.7.7/nodemailer10.1.0 установленызакреплены, audit прежние3moderateprod5highdev. BrevoSMTP STARTTLSauthPASS, письманеотправлялись. UserconfirmedFromсохранёнвprivateenv; deliveryещёнепроверена. Local/testMailpit явноочищает обаBrevo credentials иTLSflag;4focused environmenttestsPASS. Private.env localDATABASE_URL/BetterAuthsecret+URLнастроены, облачнаяURLнеподмешиваетсявlocal.
 
 Hosting01.4.2: pinned `npm exec --yes --package=vercel@63.1.2 --call 'vercel ...'` работает, account darinax2005x/team darinax2005xs-projects Hobby. MAIN создал/связал отдельный project tirlik. Neon tirlik-preview-db free_v3/fra1/auth=false, store_coYWFxizzHDgzIT3; private Blob tirlik-preview-files/fra1, store_IPdPAdDcaamtgX2J. Оба только preview. Env pull в ignored .vibemachina/runtime/hosting-preview.env, не в рабочий local DATABASE_URL. .env.local содержит лишь CLI development/OIDC; значения не печатались. Новые условия/оплата не запрашивались, чужие проекты не тронуты, браузер не открывался. Deploy/Workflow/DB/private-file probes ещё впереди. Hobby noncommercial и Kazakhstan privacy gate остаются открытыми; free preview не означает разрешение business production. CLI-added broad .env* восстановлен к прежним точным ignore rules с разрешённым .env.example.
 

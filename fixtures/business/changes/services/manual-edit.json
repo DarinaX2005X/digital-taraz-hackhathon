@@ -1,0 +1,48 @@
+{
+  "synthetic": true,
+  "format": "fixture-contract-not-runtime-artifact",
+  "artifactId": "fixture:services:proposal",
+  "currentArtifactRevision": 2,
+  "sourceBefore": {
+    "collection": "services-catalog",
+    "sourceRevision": 1,
+    "resolutionRevision": 1
+  },
+  "sourceAfterAcceptance": {
+    "collection": "services-catalog",
+    "sourceRevision": 2,
+    "resolutionRevision": 2
+  },
+  "binding": {
+    "recordId": "fixture:services-catalog:010201",
+    "fieldId": "priceKzt",
+    "pinnedFactRevisionBefore": 1,
+    "pinnedFactRevisionAfter": 2
+  },
+  "manualField": {
+    "fieldId": "offer-introduction",
+    "revision": 2,
+    "origin": "human",
+    "value": "Расчёт на подтверждённые 180 м². Дополнительную площадь и наружные окна обсудим отдельно, обещание стерильности не используем."
+  },
+  "staleProposal": {
+    "baseArtifactRevision": 1,
+    "targets": [
+      "offer-introduction",
+      "quote-known-total"
+    ],
+    "proposedText": "Автоматическая переформулировка из устаревшего черновика. Не должна заменить ручной текст."
+  },
+  "freshProposal": {
+    "baseArtifactRevision": 2,
+    "targets": [
+      "quote-known-total"
+    ],
+    "preserveFields": [
+      "offer-introduction"
+    ]
+  },
+  "oldKnownTotalKzt": "131900.00",
+  "newKnownTotalKzt": "143600.00",
+  "contractScope": "Source acceptance and artifact proposal acceptance are distinct. These expectations do not perform an import or an editor command."
+}

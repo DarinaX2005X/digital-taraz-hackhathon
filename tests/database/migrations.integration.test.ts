@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Pool } from 'pg';
@@ -11,6 +11,7 @@ let admin: Pool;
 let pool: Pool;
 let schema: string;
 let directory: string;
+let expectedMigrations: string[];
 
 beforeEach(async () => {
   if (!/^[a-f0-9]{32}$/.test(process.env.TIRLIK_TEST_NAMESPACE ?? '')) throw new Error('ISOLATED_TEST_NAMESPACE_REQUIRED');
@@ -22,6 +23,7 @@ beforeEach(async () => {
   pool = new Pool({ connectionString: url.href, options: `-c search_path=${schema}` });
   directory = await mkdtemp(path.join(os.tmpdir(), 'tirlik-migration-test-'));
   await cp(path.join(process.cwd(), 'migrations'), directory, { recursive: true });
+  expectedMigrations = (await readdir(directory)).filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name)).sort();
 });
 
 afterEach(async () => {
@@ -37,7 +39,7 @@ afterEach(async () => {
 
 describe('real PostgreSQL migrations and explicit synthetic seed', () => {
   it('applies once and preserves user-edited values when seeding repeatedly', async () => {
-    expect((await migrateDatabase(pool, { directory })).applied).toEqual(['0001_demo_templates.sql']);
+    expect((await migrateDatabase(pool, { directory })).applied).toEqual(expectedMigrations);
     expect((await migrateDatabase(pool, { directory })).applied).toEqual([]);
     expect(await seedDemo(pool)).toEqual({ inserted: 1 });
     const original = await pool.query('SELECT id FROM demo_templates');
@@ -47,10 +49,10 @@ describe('real PostgreSQL migrations and explicit synthetic seed', () => {
     expect(saved.rows[0].id).toBe(original.rows[0].id);
     expect(saved.rows[0].definition.title).toBe('Edited');
   });
-  it('serializes concurrent migration runners and creates only one journal entry', async () => {
+  it('serializes concurrent migration runners and journals each migration once', async () => {
     const runs = await Promise.all([migrateDatabase(pool, { directory }), migrateDatabase(pool, { directory })]);
-    expect(runs.flatMap((run) => run.applied)).toEqual(['0001_demo_templates.sql']);
-    expect((await pool.query('SELECT count(*)::int AS count FROM _tirlik_migrations')).rows[0].count).toBe(1);
+    expect(runs.flatMap((run) => run.applied)).toEqual(expectedMigrations);
+    expect((await pool.query('SELECT count(*)::int AS count FROM _tirlik_migrations')).rows[0].count).toBe(expectedMigrations.length);
   });
   it('rejects edited applied history instead of silently accepting it', async () => {
     await migrateDatabase(pool, { directory });
@@ -60,15 +62,24 @@ describe('real PostgreSQL migrations and explicit synthetic seed', () => {
   });
   it('rolls back the whole failed migration and can recover on the next run', async () => {
     await migrateDatabase(pool, { directory });
-    const file = path.join(directory, '0002_failure.sql');
+    const file = path.join(directory, '9999_failure.sql');
     await writeFile(file, 'CREATE TABLE rollback_probe (id int); SELECT * FROM missing_table;');
     await expect(migrateDatabase(pool, { directory })).rejects.toThrow();
     expect((await pool.query("SELECT to_regclass('rollback_probe') AS table_name")).rows[0].table_name).toBeNull();
     await writeFile(file, 'CREATE TABLE rollback_probe (id int);');
-    expect((await migrateDatabase(pool, { directory })).applied).toEqual(['0002_failure.sql']);
+    expect((await migrateDatabase(pool, { directory })).applied).toEqual(['9999_failure.sql']);
   });
   it('rejects unlabeled data in the synthetic catalog', async () => {
     await migrateDatabase(pool, { directory });
     await expect(pool.query("INSERT INTO demo_templates(key,schema_version,definition) VALUES ('invalid',1,'{}')")).rejects.toThrow();
+  });
+  it('bounds synthetic hosting receipts and rejects duplicate workflow IDs', async () => {
+    await migrateDatabase(pool, { directory });
+    const probeId = randomUUID();
+    await pool.query('INSERT INTO preflight_hosting_probes(probe_id, workflow_run_id, start_deployment_id) VALUES ($1,$2,$3)', [probeId, 'synthetic-run', 'synthetic-deployment']);
+    await expect(pool.query('UPDATE preflight_hosting_probes SET before_count=2 WHERE probe_id=$1', [probeId])).rejects.toThrow();
+    await expect(pool.query("UPDATE preflight_hosting_probes SET state='unknown' WHERE probe_id=$1", [probeId])).rejects.toThrow();
+    await expect(pool.query("UPDATE preflight_hosting_probes SET blob_sha256='invalid' WHERE probe_id=$1", [probeId])).rejects.toThrow();
+    await expect(pool.query('INSERT INTO preflight_hosting_probes(probe_id, workflow_run_id, start_deployment_id) VALUES ($1,$2,$3)', [randomUUID(), 'synthetic-run', 'synthetic-deployment'])).rejects.toThrow();
   });
 });

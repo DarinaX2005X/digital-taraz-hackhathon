@@ -1,10 +1,15 @@
 import type { NextConfig } from "next";
+import { withWorkflow } from "workflow/next";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 const distDir = process.env.NEXT_DIST_DIR || ".next";
 const configId = createHash("sha256").update(distDir).digest("hex").slice(0, 12);
+if (!process.env.VERCEL_DEPLOYMENT_ID) {
+  process.env.WORKFLOW_TARGET_WORLD ??= "local";
+  process.env.WORKFLOW_LOCAL_DATA_DIR ??= path.join(process.cwd(), ".local-data", "workflow", configId);
+}
 const generatedDirectory = path.join(process.cwd(), ".local-data", "tsconfig");
 const generatedConfig = path.join(generatedDirectory, `${configId}.json`);
 mkdirSync(generatedDirectory, { recursive: true });
@@ -24,4 +29,4 @@ const config: NextConfig = {
   typescript: { tsconfigPath: path.relative(process.cwd(), generatedConfig) },
 };
 
-export default config;
+export default withWorkflow(config);

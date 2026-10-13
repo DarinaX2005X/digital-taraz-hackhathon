@@ -1,0 +1,745 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "01.3.2",
+  "synthetic": true,
+  "seed": 20261013,
+  "businessId": "services",
+  "scope": "Fixture contract expectations only, not evidence that a production importer/editor/forecast engine is implemented.",
+  "catalogCases": [
+    {
+      "id": "reorder",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-reordered.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Row order changes only raw lineage, never stable identity or field value.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:reorder",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:services-catalog:010201",
+          "fixture:services-catalog:010202",
+          "fixture:services-catalog:010203",
+          "fixture:services-catalog:010204",
+          "fixture:services-catalog:010205",
+          "fixture:services-catalog:010206",
+          "fixture:services-catalog:010207",
+          "fixture:services-catalog:010208"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:services-catalog:010208"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:services-catalog:010207"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:services-catalog:010206"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:services-catalog:010205"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:services-catalog:010204"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:services-catalog:010203"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:services-catalog:010202"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:services-catalog:010201"
+          }
+        ]
+      }
+    },
+    {
+      "id": "same-file",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-reordered.csv",
+      "repeatOf": "reorder",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Retry the accepted reorder with the same bytes and operation key; zero new records, effects or revisions.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 2,
+      "operationKey": "fixture:services:reorder",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "acceptedContentSha256": "9759e4798f6eb1142eae7b282ad50de9f5a01724d63efe0a9360580b98a55c81",
+        "sameOperationAs": "reorder",
+        "reusesAcceptedSourceVersion": true,
+        "acceptedSourceVersion": 2,
+        "newRecords": 0,
+        "changedFactRevisions": 0,
+        "changedArtifactRevisions": 0,
+        "newResolutionVersions": 0,
+        "sideEffects": 0
+      }
+    },
+    {
+      "id": "upsert-new-price",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-new-price.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Confirmed SKU keeps recordId; only price fact revision and dependent proposals change.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:upsert-new-price",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:services-catalog:010201",
+          "fixture:services-catalog:010202",
+          "fixture:services-catalog:010203",
+          "fixture:services-catalog:010204",
+          "fixture:services-catalog:010205",
+          "fixture:services-catalog:010206",
+          "fixture:services-catalog:010207",
+          "fixture:services-catalog:010208"
+        ],
+        "updated": [
+          {
+            "recordId": "fixture:services-catalog:010201",
+            "fields": [
+              {
+                "fieldId": "priceKzt",
+                "before": "420.00",
+                "after": "485.00"
+              }
+            ]
+          }
+        ],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:services-catalog:010201"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:services-catalog:010202"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:services-catalog:010203"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:services-catalog:010204"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:services-catalog:010205"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:services-catalog:010206"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:services-catalog:010207"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:services-catalog:010208"
+          }
+        ]
+      }
+    },
+    {
+      "id": "upsert-partial",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-upsert-partial.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Add one explicit new key and update one price; absent records are retained.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:upsert-partial",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:services-catalog:010201"
+        ],
+        "updated": [
+          {
+            "recordId": "fixture:services-catalog:010201",
+            "fields": [
+              {
+                "fieldId": "priceKzt",
+                "before": "420.00",
+                "after": "485.00"
+              }
+            ]
+          }
+        ],
+        "createdRecordIds": [
+          "fixture:services-catalog:019901"
+        ],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [
+          "fixture:services-catalog:010202",
+          "fixture:services-catalog:010203",
+          "fixture:services-catalog:010204",
+          "fixture:services-catalog:010205",
+          "fixture:services-catalog:010206",
+          "fixture:services-catalog:010207",
+          "fixture:services-catalog:010208"
+        ],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:services-catalog:010201"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:services-catalog:019901"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-full-snapshot",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-missing-row.csv",
+      "mode": "replace-snapshot",
+      "complete": true,
+      "purpose": "Only explicit confirmed complete snapshot permits a tombstone; old bindings stay missing, never move to a different row.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:missing-full-snapshot",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:services-catalog:010201",
+          "fixture:services-catalog:010202",
+          "fixture:services-catalog:010203",
+          "fixture:services-catalog:010204",
+          "fixture:services-catalog:010205",
+          "fixture:services-catalog:010206",
+          "fixture:services-catalog:010207"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [
+          "fixture:services-catalog:010208"
+        ],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:services-catalog:010201"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:services-catalog:010202"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:services-catalog:010203"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:services-catalog:010204"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:services-catalog:010205"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:services-catalog:010206"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:services-catalog:010207"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-unconfirmed-snapshot",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-missing-row.csv",
+      "mode": "replace-snapshot",
+      "complete": false,
+      "purpose": "Unconfirmed completeness or partial parsing cannot prove a deletion.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:missing-unconfirmed-snapshot",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:services-catalog:010201",
+          "fixture:services-catalog:010202",
+          "fixture:services-catalog:010203",
+          "fixture:services-catalog:010204",
+          "fixture:services-catalog:010205",
+          "fixture:services-catalog:010206",
+          "fixture:services-catalog:010207"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [
+          "fixture:services-catalog:010208"
+        ],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:services-catalog:010201"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:services-catalog:010202"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:services-catalog:010203"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:services-catalog:010204"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:services-catalog:010205"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:services-catalog:010206"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:services-catalog:010207"
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate-record-key",
+      "baseline": "services/catalog.csv",
+      "incoming": "catalog-duplicate-key.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Non-unique key candidates are unresolved before any update of their bindings.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:duplicate-record-key",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:services-catalog:010202",
+          "fixture:services-catalog:010203",
+          "fixture:services-catalog:010204",
+          "fixture:services-catalog:010205",
+          "fixture:services-catalog:010206",
+          "fixture:services-catalog:010207",
+          "fixture:services-catalog:010208"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [
+          {
+            "key": "010201",
+            "sourceRecordNumbers": [
+              1,
+              9
+            ],
+            "reason": "non-unique-record-key",
+            "existingRecordId": "fixture:services-catalog:010201"
+          }
+        ],
+        "lineage": [
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:services-catalog:010202"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:services-catalog:010203"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:services-catalog:010204"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:services-catalog:010205"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:services-catalog:010206"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:services-catalog:010207"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:services-catalog:010208"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rename-no-key",
+      "baseline": "changes/services/catalog-no-key-before.csv",
+      "incoming": "catalog-no-key-renamed.csv",
+      "mode": "upsert",
+      "hasKey": false,
+      "purpose": "Neither a similar name nor a changed price proves identity; unchanged fingerprints are confirmation candidates only.",
+      "collection": "services-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:services:rename-no-key",
+      "recordKeySpec": null,
+      "expected": {
+        "preservedRecordIds": [],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [
+          {
+            "sourceRecordNumber": 1,
+            "reason": "no-confirmed-business-key",
+            "automaticIdentity": null
+          }
+        ],
+        "lineage": [
+          {
+            "sourceRecordNumber": 2,
+            "matchedBaselineRecordNumber": 2,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "matchedBaselineRecordNumber": 3,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "matchedBaselineRecordNumber": 4,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          }
+        ]
+      }
+    }
+  ],
+  "missingRecord": {
+    "sku": "010208",
+    "recordId": "fixture:services-catalog:010208",
+    "oldBindingAfterConfirmedRemoval": "missing-tombstoned-record-not-rebound-to-row-position"
+  },
+  "overlap": {
+    "baseline": "history-overlap-before.csv",
+    "incoming": "history-overlap-incoming.csv",
+    "collection": "services-history",
+    "mode": "append",
+    "recordKeySpec": [
+      "Операция",
+      "Строка"
+    ],
+    "expected": {
+      "repeatedEventKeys": [
+        "SERVICES-000005|01",
+        "SERVICES-000006|01"
+      ],
+      "addedEventKeys": [
+        "SERVICES-NEXT-001|01",
+        "SERVICES-NEXT-002|01"
+      ],
+      "conflicts": [
+        {
+          "eventKey": "SERVICES-000003|01",
+          "existingRecordId": "fixture:services-history:SERVICES-000003|01",
+          "incomingSourceRecordNumber": 4,
+          "action": "keep-existing-accepted-revision-and-review-incoming",
+          "automaticallyAddedRows": 0
+        }
+      ],
+      "stableRecordIds": [
+        "fixture:services-history:SERVICES-000005|01",
+        "fixture:services-history:SERVICES-000006|01",
+        "fixture:services-history:SERVICES-000003|01"
+      ],
+      "acceptedRowsAfter": 8,
+      "netRevenueKztAfter": "296175.76"
+    }
+  },
+  "schemaDrift": {
+    "file": "catalog-schema-drift.csv",
+    "mapping": "schema-mapping.json",
+    "beforeConfirmation": {
+      "status": "schema-drift",
+      "bindingUpdates": 0
+    },
+    "afterExplicitConfirmation": {
+      "preservedRecordIds": [
+        "fixture:services-catalog:010201",
+        "fixture:services-catalog:010202",
+        "fixture:services-catalog:010203",
+        "fixture:services-catalog:010204",
+        "fixture:services-catalog:010205",
+        "fixture:services-catalog:010206",
+        "fixture:services-catalog:010207",
+        "fixture:services-catalog:010208"
+      ],
+      "updated": [],
+      "createdRecordIds": [],
+      "tombstonedRecordIds": [],
+      "retainedAbsentRecordIds": [],
+      "unresolved": [],
+      "lineage": [
+        {
+          "sourceRecordNumber": 1,
+          "recordId": "fixture:services-catalog:010201"
+        },
+        {
+          "sourceRecordNumber": 2,
+          "recordId": "fixture:services-catalog:010202"
+        },
+        {
+          "sourceRecordNumber": 3,
+          "recordId": "fixture:services-catalog:010203"
+        },
+        {
+          "sourceRecordNumber": 4,
+          "recordId": "fixture:services-catalog:010204"
+        },
+        {
+          "sourceRecordNumber": 5,
+          "recordId": "fixture:services-catalog:010205"
+        },
+        {
+          "sourceRecordNumber": 6,
+          "recordId": "fixture:services-catalog:010206"
+        },
+        {
+          "sourceRecordNumber": 7,
+          "recordId": "fixture:services-catalog:010207"
+        },
+        {
+          "sourceRecordNumber": 8,
+          "recordId": "fixture:services-catalog:010208"
+        }
+      ]
+    }
+  },
+  "priceChange": {
+    "sku": "010201",
+    "beforeKzt": "420.00",
+    "afterKzt": "485.00",
+    "deltaKzt": "65.00",
+    "quoteBeforeKzt": "131900.00",
+    "quoteAfter": {
+      "subtotalKzt": "140100.00",
+      "discountKzt": "0.00",
+      "deliveryKzt": "3500.00",
+      "knownTotalKzt": "143600.00",
+      "finalTotalKzt": null,
+      "unresolvedCosts": [
+        "tax-status",
+        "optional-packaging-or-scope"
+      ]
+    }
+  },
+  "manualEdit": {
+    "file": "manual-edit.json",
+    "expected": {
+      "staleProposal": {
+        "status": "conflict",
+        "appliedOperations": 0,
+        "expectedRevision": 1,
+        "actualRevision": 2
+      },
+      "sourceOnlyRefresh": {
+        "status": "proposal-awaiting-human-acceptance",
+        "manualFieldId": "offer-introduction",
+        "preservedText": "Расчёт на подтверждённые 180 м². Дополнительную площадь и наружные окна обсудим отдельно, обещание стерильности не используем.",
+        "preservedTextSha256": "ac46a19a4c94d3045009329d2981f2bd25fd5778426574c5cd64ee3577ca7e10",
+        "updatedKnownTotalKzt": "143600.00",
+        "finalTotalKzt": null,
+        "automaticOverwriteOfManualText": false,
+        "quoteUnknownsRemainUnresolved": true
+      }
+    }
+  },
+  "forecastCases": [
+    {
+      "file": "forecast/daily-short.csv",
+      "id": "daily-short",
+      "frequency": "daily",
+      "count": 55,
+      "expected": {
+        "observations": 55,
+        "frequency": "daily",
+        "regular": true,
+        "minimumObservations": 56,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/weekly-short.csv",
+      "id": "weekly-short",
+      "frequency": "weekly",
+      "count": 25,
+      "expected": {
+        "observations": 25,
+        "frequency": "weekly",
+        "regular": true,
+        "minimumObservations": 26,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/monthly-short.csv",
+      "id": "monthly-short",
+      "frequency": "monthly",
+      "count": 23,
+      "expected": {
+        "observations": 23,
+        "frequency": "monthly",
+        "regular": true,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/monthly-gap.csv",
+      "id": "monthly-gap",
+      "frequency": "monthly",
+      "count": 25,
+      "gap": true,
+      "expected": {
+        "observations": 25,
+        "frequency": "monthly",
+        "regular": false,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "irregular-series"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/annual-season-short.csv",
+      "id": "annual-season-short",
+      "frequency": "monthly",
+      "count": 35,
+      "requestAnnualSeasonality": true,
+      "expected": {
+        "observations": 35,
+        "frequency": "monthly",
+        "regular": true,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": true,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-annual-seasonal-cycles"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    }
+  ]
+}

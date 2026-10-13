@@ -1,0 +1,745 @@
+{
+  "schemaVersion": 1,
+  "checkpoint": "01.3.2",
+  "synthetic": true,
+  "seed": 20261013,
+  "businessId": "manufacturing",
+  "scope": "Fixture contract expectations only, not evidence that a production importer/editor/forecast engine is implemented.",
+  "catalogCases": [
+    {
+      "id": "reorder",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-reordered.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Row order changes only raw lineage, never stable identity or field value.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:reorder",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:manufacturing-catalog:020301",
+          "fixture:manufacturing-catalog:020302",
+          "fixture:manufacturing-catalog:020303",
+          "fixture:manufacturing-catalog:020304",
+          "fixture:manufacturing-catalog:020305",
+          "fixture:manufacturing-catalog:020306",
+          "fixture:manufacturing-catalog:020307",
+          "fixture:manufacturing-catalog:020308"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:manufacturing-catalog:020308"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:manufacturing-catalog:020307"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:manufacturing-catalog:020306"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:manufacturing-catalog:020305"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:manufacturing-catalog:020304"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:manufacturing-catalog:020303"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:manufacturing-catalog:020302"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:manufacturing-catalog:020301"
+          }
+        ]
+      }
+    },
+    {
+      "id": "same-file",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-reordered.csv",
+      "repeatOf": "reorder",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Retry the accepted reorder with the same bytes and operation key; zero new records, effects or revisions.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 2,
+      "operationKey": "fixture:manufacturing:reorder",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "acceptedContentSha256": "ac364b03ceb18e4b0736e5a2d43993f69f03835aa7f5774b4bbd5bcbabcb362a",
+        "sameOperationAs": "reorder",
+        "reusesAcceptedSourceVersion": true,
+        "acceptedSourceVersion": 2,
+        "newRecords": 0,
+        "changedFactRevisions": 0,
+        "changedArtifactRevisions": 0,
+        "newResolutionVersions": 0,
+        "sideEffects": 0
+      }
+    },
+    {
+      "id": "upsert-new-price",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-new-price.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Confirmed SKU keeps recordId; only price fact revision and dependent proposals change.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:upsert-new-price",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:manufacturing-catalog:020301",
+          "fixture:manufacturing-catalog:020302",
+          "fixture:manufacturing-catalog:020303",
+          "fixture:manufacturing-catalog:020304",
+          "fixture:manufacturing-catalog:020305",
+          "fixture:manufacturing-catalog:020306",
+          "fixture:manufacturing-catalog:020307",
+          "fixture:manufacturing-catalog:020308"
+        ],
+        "updated": [
+          {
+            "recordId": "fixture:manufacturing-catalog:020301",
+            "fields": [
+              {
+                "fieldId": "priceKzt",
+                "before": "7900.00",
+                "after": "8900.00"
+              }
+            ]
+          }
+        ],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:manufacturing-catalog:020301"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:manufacturing-catalog:020302"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:manufacturing-catalog:020303"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:manufacturing-catalog:020304"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:manufacturing-catalog:020305"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:manufacturing-catalog:020306"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:manufacturing-catalog:020307"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:manufacturing-catalog:020308"
+          }
+        ]
+      }
+    },
+    {
+      "id": "upsert-partial",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-upsert-partial.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Add one explicit new key and update one price; absent records are retained.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:upsert-partial",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:manufacturing-catalog:020301"
+        ],
+        "updated": [
+          {
+            "recordId": "fixture:manufacturing-catalog:020301",
+            "fields": [
+              {
+                "fieldId": "priceKzt",
+                "before": "7900.00",
+                "after": "8900.00"
+              }
+            ]
+          }
+        ],
+        "createdRecordIds": [
+          "fixture:manufacturing-catalog:029901"
+        ],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [
+          "fixture:manufacturing-catalog:020302",
+          "fixture:manufacturing-catalog:020303",
+          "fixture:manufacturing-catalog:020304",
+          "fixture:manufacturing-catalog:020305",
+          "fixture:manufacturing-catalog:020306",
+          "fixture:manufacturing-catalog:020307",
+          "fixture:manufacturing-catalog:020308"
+        ],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:manufacturing-catalog:020301"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:manufacturing-catalog:029901"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-full-snapshot",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-missing-row.csv",
+      "mode": "replace-snapshot",
+      "complete": true,
+      "purpose": "Only explicit confirmed complete snapshot permits a tombstone; old bindings stay missing, never move to a different row.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:missing-full-snapshot",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:manufacturing-catalog:020301",
+          "fixture:manufacturing-catalog:020302",
+          "fixture:manufacturing-catalog:020303",
+          "fixture:manufacturing-catalog:020304",
+          "fixture:manufacturing-catalog:020305",
+          "fixture:manufacturing-catalog:020306",
+          "fixture:manufacturing-catalog:020307"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [
+          "fixture:manufacturing-catalog:020308"
+        ],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:manufacturing-catalog:020301"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:manufacturing-catalog:020302"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:manufacturing-catalog:020303"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:manufacturing-catalog:020304"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:manufacturing-catalog:020305"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:manufacturing-catalog:020306"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:manufacturing-catalog:020307"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-unconfirmed-snapshot",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-missing-row.csv",
+      "mode": "replace-snapshot",
+      "complete": false,
+      "purpose": "Unconfirmed completeness or partial parsing cannot prove a deletion.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:missing-unconfirmed-snapshot",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:manufacturing-catalog:020301",
+          "fixture:manufacturing-catalog:020302",
+          "fixture:manufacturing-catalog:020303",
+          "fixture:manufacturing-catalog:020304",
+          "fixture:manufacturing-catalog:020305",
+          "fixture:manufacturing-catalog:020306",
+          "fixture:manufacturing-catalog:020307"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [
+          "fixture:manufacturing-catalog:020308"
+        ],
+        "unresolved": [],
+        "lineage": [
+          {
+            "sourceRecordNumber": 1,
+            "recordId": "fixture:manufacturing-catalog:020301"
+          },
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:manufacturing-catalog:020302"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:manufacturing-catalog:020303"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:manufacturing-catalog:020304"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:manufacturing-catalog:020305"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:manufacturing-catalog:020306"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:manufacturing-catalog:020307"
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate-record-key",
+      "baseline": "manufacturing/catalog.csv",
+      "incoming": "catalog-duplicate-key.csv",
+      "mode": "upsert",
+      "complete": false,
+      "purpose": "Non-unique key candidates are unresolved before any update of their bindings.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:duplicate-record-key",
+      "recordKeySpec": {
+        "fields": [
+          "sku"
+        ],
+        "type": "string",
+        "normalization": "none-preserve-leading-zeros"
+      },
+      "expected": {
+        "preservedRecordIds": [
+          "fixture:manufacturing-catalog:020302",
+          "fixture:manufacturing-catalog:020303",
+          "fixture:manufacturing-catalog:020304",
+          "fixture:manufacturing-catalog:020305",
+          "fixture:manufacturing-catalog:020306",
+          "fixture:manufacturing-catalog:020307",
+          "fixture:manufacturing-catalog:020308"
+        ],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [
+          {
+            "key": "020301",
+            "sourceRecordNumbers": [
+              1,
+              9
+            ],
+            "reason": "non-unique-record-key",
+            "existingRecordId": "fixture:manufacturing-catalog:020301"
+          }
+        ],
+        "lineage": [
+          {
+            "sourceRecordNumber": 2,
+            "recordId": "fixture:manufacturing-catalog:020302"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "recordId": "fixture:manufacturing-catalog:020303"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "recordId": "fixture:manufacturing-catalog:020304"
+          },
+          {
+            "sourceRecordNumber": 5,
+            "recordId": "fixture:manufacturing-catalog:020305"
+          },
+          {
+            "sourceRecordNumber": 6,
+            "recordId": "fixture:manufacturing-catalog:020306"
+          },
+          {
+            "sourceRecordNumber": 7,
+            "recordId": "fixture:manufacturing-catalog:020307"
+          },
+          {
+            "sourceRecordNumber": 8,
+            "recordId": "fixture:manufacturing-catalog:020308"
+          }
+        ]
+      }
+    },
+    {
+      "id": "rename-no-key",
+      "baseline": "changes/manufacturing/catalog-no-key-before.csv",
+      "incoming": "catalog-no-key-renamed.csv",
+      "mode": "upsert",
+      "hasKey": false,
+      "purpose": "Neither a similar name nor a changed price proves identity; unchanged fingerprints are confirmation candidates only.",
+      "collection": "manufacturing-catalog",
+      "sourceVersionBefore": 1,
+      "operationKey": "fixture:manufacturing:rename-no-key",
+      "recordKeySpec": null,
+      "expected": {
+        "preservedRecordIds": [],
+        "updated": [],
+        "createdRecordIds": [],
+        "tombstonedRecordIds": [],
+        "retainedAbsentRecordIds": [],
+        "unresolved": [
+          {
+            "sourceRecordNumber": 1,
+            "reason": "no-confirmed-business-key",
+            "automaticIdentity": null
+          }
+        ],
+        "lineage": [
+          {
+            "sourceRecordNumber": 2,
+            "matchedBaselineRecordNumber": 2,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          },
+          {
+            "sourceRecordNumber": 3,
+            "matchedBaselineRecordNumber": 3,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          },
+          {
+            "sourceRecordNumber": 4,
+            "matchedBaselineRecordNumber": 4,
+            "confidence": "exact-row-candidate-requires-confirmation"
+          }
+        ]
+      }
+    }
+  ],
+  "missingRecord": {
+    "sku": "020308",
+    "recordId": "fixture:manufacturing-catalog:020308",
+    "oldBindingAfterConfirmedRemoval": "missing-tombstoned-record-not-rebound-to-row-position"
+  },
+  "overlap": {
+    "baseline": "history-overlap-before.csv",
+    "incoming": "history-overlap-incoming.csv",
+    "collection": "manufacturing-history",
+    "mode": "append",
+    "recordKeySpec": [
+      "Операция",
+      "Строка"
+    ],
+    "expected": {
+      "repeatedEventKeys": [
+        "MANUFACTURING-000005|01",
+        "MANUFACTURING-000006|01"
+      ],
+      "addedEventKeys": [
+        "MANUFACTURING-NEXT-001|01",
+        "MANUFACTURING-NEXT-002|01"
+      ],
+      "conflicts": [
+        {
+          "eventKey": "MANUFACTURING-000003|01",
+          "existingRecordId": "fixture:manufacturing-history:MANUFACTURING-000003|01",
+          "incomingSourceRecordNumber": 4,
+          "action": "keep-existing-accepted-revision-and-review-incoming",
+          "automaticallyAddedRows": 0
+        }
+      ],
+      "stableRecordIds": [
+        "fixture:manufacturing-history:MANUFACTURING-000005|01",
+        "fixture:manufacturing-history:MANUFACTURING-000006|01",
+        "fixture:manufacturing-history:MANUFACTURING-000003|01"
+      ],
+      "acceptedRowsAfter": 8,
+      "netRevenueKztAfter": "594230.00"
+    }
+  },
+  "schemaDrift": {
+    "file": "catalog-schema-drift.csv",
+    "mapping": "schema-mapping.json",
+    "beforeConfirmation": {
+      "status": "schema-drift",
+      "bindingUpdates": 0
+    },
+    "afterExplicitConfirmation": {
+      "preservedRecordIds": [
+        "fixture:manufacturing-catalog:020301",
+        "fixture:manufacturing-catalog:020302",
+        "fixture:manufacturing-catalog:020303",
+        "fixture:manufacturing-catalog:020304",
+        "fixture:manufacturing-catalog:020305",
+        "fixture:manufacturing-catalog:020306",
+        "fixture:manufacturing-catalog:020307",
+        "fixture:manufacturing-catalog:020308"
+      ],
+      "updated": [],
+      "createdRecordIds": [],
+      "tombstonedRecordIds": [],
+      "retainedAbsentRecordIds": [],
+      "unresolved": [],
+      "lineage": [
+        {
+          "sourceRecordNumber": 1,
+          "recordId": "fixture:manufacturing-catalog:020301"
+        },
+        {
+          "sourceRecordNumber": 2,
+          "recordId": "fixture:manufacturing-catalog:020302"
+        },
+        {
+          "sourceRecordNumber": 3,
+          "recordId": "fixture:manufacturing-catalog:020303"
+        },
+        {
+          "sourceRecordNumber": 4,
+          "recordId": "fixture:manufacturing-catalog:020304"
+        },
+        {
+          "sourceRecordNumber": 5,
+          "recordId": "fixture:manufacturing-catalog:020305"
+        },
+        {
+          "sourceRecordNumber": 6,
+          "recordId": "fixture:manufacturing-catalog:020306"
+        },
+        {
+          "sourceRecordNumber": 7,
+          "recordId": "fixture:manufacturing-catalog:020307"
+        },
+        {
+          "sourceRecordNumber": 8,
+          "recordId": "fixture:manufacturing-catalog:020308"
+        }
+      ]
+    }
+  },
+  "priceChange": {
+    "sku": "020301",
+    "beforeKzt": "7900.00",
+    "afterKzt": "8900.00",
+    "deltaKzt": "1000.00",
+    "quoteBeforeKzt": "563325.00",
+    "quoteAfter": {
+      "subtotalKzt": "612500.00",
+      "discountKzt": "18375.00",
+      "deliveryKzt": "8000.00",
+      "knownTotalKzt": "602125.00",
+      "finalTotalKzt": null,
+      "unresolvedCosts": [
+        "tax-status",
+        "optional-packaging-or-scope"
+      ]
+    }
+  },
+  "manualEdit": {
+    "file": "manual-edit.json",
+    "expected": {
+      "staleProposal": {
+        "status": "conflict",
+        "appliedOperations": 0,
+        "expectedRevision": 1,
+        "actualRevision": 2
+      },
+      "sourceOnlyRefresh": {
+        "status": "proposal-awaiting-human-acceptance",
+        "manualFieldId": "offer-introduction",
+        "preservedText": "Персонализацию обсудим после получения макета. Сушку оставляем отдельным ожиданием, а не трудозатратами сотрудника.",
+        "preservedTextSha256": "756ba823e768fad0a096d701830fb731883232dcd3ec658e69109101e3d1d42b",
+        "updatedKnownTotalKzt": "602125.00",
+        "finalTotalKzt": null,
+        "automaticOverwriteOfManualText": false,
+        "quoteUnknownsRemainUnresolved": true
+      }
+    }
+  },
+  "forecastCases": [
+    {
+      "file": "forecast/daily-short.csv",
+      "id": "daily-short",
+      "frequency": "daily",
+      "count": 55,
+      "expected": {
+        "observations": 55,
+        "frequency": "daily",
+        "regular": true,
+        "minimumObservations": 56,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/weekly-short.csv",
+      "id": "weekly-short",
+      "frequency": "weekly",
+      "count": 25,
+      "expected": {
+        "observations": 25,
+        "frequency": "weekly",
+        "regular": true,
+        "minimumObservations": 26,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/monthly-short.csv",
+      "id": "monthly-short",
+      "frequency": "monthly",
+      "count": 23,
+      "expected": {
+        "observations": 23,
+        "frequency": "monthly",
+        "regular": true,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-history"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/monthly-gap.csv",
+      "id": "monthly-gap",
+      "frequency": "monthly",
+      "count": 25,
+      "gap": true,
+      "expected": {
+        "observations": 25,
+        "frequency": "monthly",
+        "regular": false,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": false,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "irregular-series"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    },
+    {
+      "file": "forecast/annual-season-short.csv",
+      "id": "annual-season-short",
+      "frequency": "monthly",
+      "count": 35,
+      "requestAnnualSeasonality": true,
+      "expected": {
+        "observations": 35,
+        "frequency": "monthly",
+        "regular": true,
+        "minimumObservations": 24,
+        "eligibleForRegularModel": true,
+        "eligibleForRequestedModel": false,
+        "annualSeasonalityEligible": false,
+        "reasons": [
+          "insufficient-annual-seasonal-cycles"
+        ],
+        "fallback": "explicit-assumption-scenario-or-request-more-observations",
+        "forecastValues": null,
+        "accuracyClaimed": false
+      }
+    }
+  ]
+}

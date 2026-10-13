@@ -1,0 +1,62 @@
+{
+  "checkedAt": "2026-10-13",
+  "scope": "Synthetic preview feasibility only. No production legal approval, browser verification, or business-data readiness is claimed.",
+  "deploymentProof": "Pending the separately orchestrated preview deploy and redeploy. Existing Workflow runs remain pinned to their original deployment; successful resume proves survival, not an in-place code upgrade.",
+  "selectedServices": [
+    {
+      "service": "Vercel Hobby",
+      "accountObservation": "Separate tirlik project provisioned by MAIN. Fluid enabled, Node 22.x, system environment variables exposed; requested function region fra1. Actual runtime region must be measured on deployment.",
+      "limits": "Personal noncommercial usage only. Monthly included compute: 4 active CPU hours, 360 GB-hours provisioned memory, one million function invocations. Maximum function duration 300 seconds.",
+      "productionGate": "A free synthetic preview does not authorize business production under Hobby terms. Paid upgrade requires explicit approval.",
+      "sources": ["https://vercel.com/docs/plans/hobby", "https://vercel.com/docs/regions"]
+    },
+    {
+      "service": "Vercel Workflow 5.2.1",
+      "configuration": "withWorkflow integration; durable state requested in fra1 through start options. VERCEL_DEPLOYMENT_ID is required for Vercel world selection. Internal .well-known/workflow routes must not be intercepted by user-auth middleware.",
+      "limits": "Hobby includes 50000 events and 1 GB data writes per month; completed-run observability retention is one day. Function and Queue usage have their own quotas. Database receipts therefore remain separate from provider observability.",
+      "sources": ["https://workflow-sdk.dev/worlds/vercel", "https://workflow-sdk.dev/docs/deploying", "https://vercel.com/docs/workflows/pricing"]
+    },
+    {
+      "service": "Neon PostgreSQL",
+      "accountObservation": "Dedicated tirlik-preview-db, marketplace plan free_v3, fra1, preview environment only. Application uses pooled connection; MAIN applied migrations through direct connection.",
+      "limits": "Public Free plan documentation currently states 1 GB storage per project, 100 CU-hours per project per month, 5 GB monthly public egress, five-minute idle suspension, six-hour point-in-time restore. Exact marketplace free_v3 entitlement mapping remains to be verified; public plan numbers are not an account quota receipt.",
+      "residency": "Selected project is Frankfurt, AWS eu-central-1. Listed Neon regions do not include Kazakhstan. Public security documentation describes encrypted provider backups retained 30 days, distinct from the Free six-hour restore window; exact backup and control-plane residency remains unverified.",
+      "sources": ["https://neon.com/docs/introduction/plans", "https://neon.com/docs/introduction/regions", "https://neon.com/docs/security/security-overview"]
+    },
+    {
+      "service": "Vercel private Blob",
+      "accountObservation": "Dedicated tirlik-preview-files, private access, fra1, preview environment only. Direct API proof uses one bounded synthetic JSON object and deletes it after readback.",
+      "limits": "Hobby includes 1 GB-month storage, 10000 simple operations, 2000 advanced operations, and 10 GB transfer per month. On Hobby, exceeding limits suspends access rather than enabling paid overage. Private access also involves function and CDN transfer.",
+      "residency": "Storage region is fixed at creation. S3 durability and CDN caching do not prove all copies, logs, metadata or control-plane data remain in Frankfurt. Probe reads bypass cache; this is not a general residency guarantee.",
+      "sources": ["https://vercel.com/docs/vercel-blob", "https://vercel.com/docs/vercel-blob/usage-and-pricing"]
+    },
+    {
+      "service": "Brevo transactional email",
+      "accountObservation": "User selected Brevo and supplied keys privately to MAIN. No real email is sent by this preflight. SMTP authentication, verified sender and delivery are separate checks; account-specific retention has not been inspected or changed.",
+      "residency": "Brevo states database hosting in the EU, with OVH in France/Germany and Google Cloud storage in Belgium; replicated and encrypted backups exist. This is a cross-border processor for account email addresses and reset/verification content, not Kazakhstan-local storage.",
+      "retentionGate": "Logs are indefinite unless a retention rule is configured; custom log retention supports 1-24 months. Preview storage has a separate setting that must be verified off for authentication emails. Generic retention defaults do not establish this account's settings, deletion completion, or backup expiry.",
+      "sources": ["https://help.brevo.com/hc/en-us/articles/360001005510-Data-storage-location", "https://help.brevo.com/hc/en-us/articles/4415743225746-Configure-a-custom-retention-period-for-your-transactional-logs-and-email-previews", "https://www.brevo.com/legal/termsofuse/"]
+    },
+    {
+      "service": "OpenRouter and selected AI endpoints",
+      "accountObservation": "No additional paid calls in hosting preflight. Prior immutable model receipts retained. Xiaomi MiMo v2.5 metadata announced expiration 2026-10-21, requiring revalidation/replacement before production runtime work.",
+      "residencyGate": "Router and endpoint terms, retention, training choices, payload logging and processing region require independent verification. A no-training routing preference is not evidence of Kazakhstan residency or zero retention.",
+      "sources": ["https://openrouter.ai/privacy", "https://openrouter.ai/docs/guides/privacy/provider-logging"]
+    }
+  ],
+  "kazakhstanPrivacyGate": {
+    "status": "open",
+    "source": "https://old.adilet.zan.kz/rus/docs/Z1300000094",
+    "observation": "The current primary law text includes Article 12(2), requiring storage of personal data in a database or digital object located in Kazakhstan. Article 16 separately regulates cross-border transfers. Its exceptions must not be treated as an automatic exemption from Article 12 localization.",
+    "dataCategories": ["Account email addresses and authentication records", "Employee and customer data", "Uploaded business files and derived artifacts", "Application and provider logs", "Backups and recovery copies", "AI prompts, attachments and responses", "Transactional email recipients and authentication content"],
+    "requiredDecision": "Before real personal data: obtain qualified jurisdiction-specific review; choose a compliant primary-storage, transfer, processor and retention arrangement; document account, business, log, backup, email and AI paths independently. No legal certification is asserted by this engineering preflight.",
+    "unknowns": ["Full Vercel and Neon subprocessor/control-plane residency", "Exact backup locations and deletion windows", "Marketplace free_v3 quota mapping", "Brevo account retention and full subprocessor terms", "AI endpoint-specific retention and processing regions"]
+  },
+  "verificationBoundaries": [
+    "All generated records and files are explicitly synthetic.",
+    "Direct API transport proves client TLS, not the provider's complete internal network encryption architecture.",
+    "The Neon pooler reports backend pg_stat_ssl=false while the actual Node client socket is encrypted and certificate-authorized; attempt one is retained honestly, and corrected attempt two measures the proper TLS boundary.",
+    "No browser, screenshot, UI automation, real transactional email, paid hosting purchase or provider security-setting change was performed.",
+    "Passing technical probes does not close regional privacy, business-use licensing, recovery-policy or production-readiness gates."
+  ]
+}

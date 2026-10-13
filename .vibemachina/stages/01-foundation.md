@@ -58,7 +58,7 @@ Unit reducer tests dialog/combobox/debounce/cancel и сохранение зн�
 Принято 2026-10-13: Ariakit controls, Lucide buttons/tooltips, label/unit/error fields, strict-ID combobox с debounce250/AbortController/epoch/retry, dirty dialog с mounted draft и explicit discard, tabs с сохранением panels, table frame/toolbar/save/empty/error/skeleton/toasts/LocaleSelect.55focused tests PASS (27новых state/AST/CSS contracts), typecheck/scoped lint PASS. MAIN подключил единый ToastProvider внутри стабильного LocaleProvider. Системные toast strings используют locale resolver; error/action notifications persistent, info>=6s и pause hover/focus. Native validity запрещает произвольный текст вместо ID; серверный caller обязан проверить право на выбранный ID. Source review не заменяет реальный focus/tab/touch/locale-retention: матрица src/ui/README.md ждёт пользователя на продуктовых routes. Публичная gallery не создавалась.
 
 ## 01.3 Подготовить неоднородные материалы трёх бизнес-моделей
-Status: active
+Status: done
 Requirements: R01, R02, R07, R15, R75, R76, R82, R99
 Depends on: 01.1
 Owner: /root/business_fixtures
@@ -76,9 +76,11 @@ Status: done
 Принято 2026-10-13:79 файлов (seed20261013) для synthetic розницы, услуг и производства. CSV/XLSX/DOCX/PDF, brand assets и3 фото с лицензиями PD/CC0, закреплёнными provenance/hash/EXIF checks; quick/full working ZIP исключают golden и будущие evaluation observations. Истории1526/954/764 строк, возвраты/credit notes, MOQ/упаковки/доставка/актуальность, неизвестные налоги и противоречивые сроки. Независимый csv-parse/BigInt oracle подтверждает net revenue34244571.00/51671456.70/58875825.00 KZT и известную часть предложений141870/131900/563325 KZT; finalTotal=null при неизвестных условиях. По одному exact duplicate удаляется, обе конфликтующие строки одного ключа карантинируются,3 строки с пропусками исключаются. Прогноз60 месяцев:36train/12validation/12holdout и2rolling folds, без утечки в рабочий архив. `vitest tests/fixtures`:6PASS; scoped lint PASS; verify воспроизводит все79 файлов побайтово и разбирает реальные OOXML/PDF,2страницы ru/kk/en каждого PDF. Внешний вид не проверялся. Stress/reimport changes остаются01.3.2.
 
 ### 01.3.2 Проверочные изменения и большие наборы
-Status: active
+Status: done
 
 Новая цена, ручная формулировка, изменённая схема CSV, недостаточный ряд и 100k-row input. Воспроизводимые хеши и отсутствие настоящих PII; возможность скачать/перенести свой вариант.
+
+Принято2026-10-13:65добавленных файлов контролируемых изменений/stress, исходные79файлов побайтно сохранены. Per-business cases: stableID reorder, same-file retry, overlap сдублями/конфликтом, одна новаяцена, partialupsert, отсутствующаястрока толькоconfirmedfullsnapshot, неоднозначныйключ/rename, явныйschema remap, stale mixedproposal не затрагивает manualwording. Forecast недостаточность отдельноdaily/weekly/monthly/annualseason. Stress100000records, CSV10103061bytes, ZIP443806bytes; генерация/распаковка/проверка потоковые, chunks250rows, независимые BigInt totals1209650960.00revenue/734598070.00costKZT. Нормальные workingarchives не содержат stress/goldens. npmrunfixtures:generate/fixtures:verify PASS, Vitest14/14PASS, scopedESLintPASS. MAIN проверил новые oracle/stream/negative tests; это fixtures, не реализованный importer или UI acceptance. Checkpoint ожидает общего безопасного handover writers.
 
 ## 01.4 Проверить модели, форматы и управляемое размещение
 Status: active
@@ -106,4 +108,6 @@ Status: active
 Preview HTTP/API + workflow resume после redeploy; storage permissions и лимиты. Privacy gate отдельно для аккаунтов, бизнес-данных, backups и AI subprocessors; неподтверждённую локализацию не считать production-ready.
 
 Release01.4.2: MAIN создал отдельный tirlik, Neon free_v3/fra1 и private Blob/fra1 толькоpreview. Worker получил exclusive loan src/server/preflight/ для token-gated synthetic Workflow probe, MAIN монтирует thin routes/config и marker SQL/schema. Probe по умолчанию disabled404, не содержит бизнес-данных; state вDB, private bytes/hash, hook/resume после redeploy. Preview secrets толькоignored env/providerenv. Отдельно проверяются limits/regions/Hobby/privacy, без покупки или принятия новых условий.
+
+Промежуточный handover 2026-10-13: server probe и CLI готовы, 50 focused tests / 8 files и scoped ESLint PASS. Реальный Neon client TLS с проверенным сертификатом, reconnect persistence и unique UUID подтверждены. Private Blob: запись/чтение 141 байта с одинаковым SHA-256, анонимный GET403, overwrite rejected. Синтетические строка/объект удалены, cleanup подтверждён. Первый false-negative по pg_stat_ssl за transaction pooler сохранён отдельно; второй attempt проверяет правильную границу клиентского TLS. Реальный Workflow modern/legacy serializer проверен с Date/Map/Set/typed-array slices. HTTP handlers по умолчанию disabled404; включаются только в preview с отдельным bearer token, ограничивают тело/deadline/idempotency/rate. MAIN принимает пакет для checkpoint, но не закрывает 01.4.2 до deploy/redeploy HTTP proof. Хостинг/региональные ограничения и первичные источники: tests/preflight/evidence/hosting-facts.json.
 

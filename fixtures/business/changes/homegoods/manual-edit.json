@@ -1,0 +1,48 @@
+{
+  "synthetic": true,
+  "format": "fixture-contract-not-runtime-artifact",
+  "artifactId": "fixture:homegoods:proposal",
+  "currentArtifactRevision": 2,
+  "sourceBefore": {
+    "collection": "homegoods-catalog",
+    "sourceRevision": 1,
+    "resolutionRevision": 1
+  },
+  "sourceAfterAcceptance": {
+    "collection": "homegoods-catalog",
+    "sourceRevision": 2,
+    "resolutionRevision": 2
+  },
+  "binding": {
+    "recordId": "fixture:homegoods-catalog:000101",
+    "fieldId": "priceKzt",
+    "pinnedFactRevisionBefore": 1,
+    "pinnedFactRevisionAfter": 2
+  },
+  "manualField": {
+    "fieldId": "offer-introduction",
+    "revision": 2,
+    "origin": "human",
+    "value": "Кружки только 300 мл. Упаковку и дату согласуем отдельно; замену на 450 мл не принимать без подтверждения."
+  },
+  "staleProposal": {
+    "baseArtifactRevision": 1,
+    "targets": [
+      "offer-introduction",
+      "quote-known-total"
+    ],
+    "proposedText": "Автоматическая переформулировка из устаревшего черновика. Не должна заменить ручной текст."
+  },
+  "freshProposal": {
+    "baseArtifactRevision": 2,
+    "targets": [
+      "quote-known-total"
+    ],
+    "preserveFields": [
+      "offer-introduction"
+    ]
+  },
+  "oldKnownTotalKzt": "141870.00",
+  "newKnownTotalKzt": "148151.40",
+  "contractScope": "Source acceptance and artifact proposal acceptance are distinct. These expectations do not perform an import or an editor command."
+}

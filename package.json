@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.13.0 <23", "npm": ">=10" },
+  "engines": {
+    "node": ">=22.13.0 <23",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "next dev --webpack --hostname 127.0.0.1",
     "build": "next build --webpack",
@@ -20,6 +23,7 @@
   },
   "dependencies": {
     "@ariakit/react": "0.4.41",
+    "@opentelemetry/api": "1.9.0",
     "@univerjs/core": "1.0.4",
     "@univerjs/docs": "1.0.4",
     "@univerjs/engine-formula": "1.0.4",
@@ -27,7 +31,9 @@
     "@univerjs/sheets": "1.0.4",
     "@univerjs/sheets-formula": "1.0.4",
     "@univerjs/sheets-numfmt": "1.0.4",
+    "@vercel/blob": "2.8.1",
     "arima": "0.2.8",
+    "better-auth": "1.7.7",
     "csv-parse": "7.0.3",
     "decimal.js": "10.6.0",
     "docx": "9.10.0",
@@ -39,6 +45,7 @@
     "lucide-react": "0.468.0",
     "mammoth": "1.13.0",
     "next": "16.4.0",
+    "nodemailer": "10.1.0",
     "pdfjs-dist": "6.4.299",
     "pdfkit": "0.20.2",
     "pg": "8.23.1",
@@ -46,13 +53,21 @@
     "react-dom": "19.3.0",
     "sharp": "0.35.5",
     "simple-statistics": "7.12.1",
+    "workflow": "5.2.1",
     "zod": "4.6.7"
   },
   "overrides": {
-    "exceljs": { "uuid": "11.1.1" }
+    "@workflow/core": {
+      "devalue": "5.9.4",
+      "nanoid": "5.1.16"
+    },
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   },
   "devDependencies": {
     "@types/node": "22.20.5",
+    "@types/nodemailer": "8.0.2",
     "@types/pg": "8.15.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

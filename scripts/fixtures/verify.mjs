@@ -137,4 +137,6 @@ export async function verifyFixtureFiles({ fixtureRoot = FIXTURE_ROOT, regenerat
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   console.log(JSON.stringify(await verifyFixtureFiles(), null, 2));
+  const { verifyChangeFixtures } = await import("./verify-changes.mjs");
+  console.log(JSON.stringify(await verifyChangeFixtures(), null, 2));
 }

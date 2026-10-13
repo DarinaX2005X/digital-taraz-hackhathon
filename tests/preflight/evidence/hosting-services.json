@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-10-13T17:42:20.623Z",
+  "probeId": "2737793f-7f00-44e1-a0a3-8284e119976c",
+  "syntheticOnly": true,
+  "status": "failed",
+  "checks": {},
+  "cleanup": {
+    "database": true,
+    "blob": true
+  },
+  "errorCategory": "assertion-failed"
+}
