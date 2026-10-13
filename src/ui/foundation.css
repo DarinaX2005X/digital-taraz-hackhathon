@@ -1,0 +1,160 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  letter-spacing: var(--font-tracking);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-inline-size: 0;
+  margin: 0;
+  font-size: var(--type-body);
+  line-height: var(--type-body-line);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+button,
+input,
+select {
+  min-block-size: var(--size-touch);
+}
+
+button,
+select {
+  touch-action: manipulation;
+}
+
+button {
+  min-inline-size: var(--size-touch);
+}
+
+button:not(:disabled),
+summary {
+  cursor: pointer;
+}
+
+:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: var(--color-action);
+  text-underline-offset: 0.18em;
+}
+
+@media (hover: hover) {
+  a:hover {
+    color: var(--color-action-hover);
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-focus-gap);
+}
+
+::selection {
+  background: var(--color-selected);
+  color: var(--color-on-selected);
+}
+
+img,
+video {
+  max-inline-size: 100%;
+  block-size: auto;
+}
+
+h1,
+h2,
+h3,
+p {
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: var(--weight-semibold);
+}
+
+.tirlik-page-heading {
+  font-size: var(--type-page);
+  line-height: var(--type-page-line);
+}
+
+.tirlik-panel-heading {
+  font-size: var(--type-panel);
+  line-height: var(--type-panel-line);
+}
+
+.tirlik-object-heading {
+  font-size: var(--type-object);
+  line-height: var(--type-object-line);
+}
+
+.tirlik-dense {
+  font-size: var(--type-dense);
+  line-height: var(--type-dense-line);
+}
+
+.tirlik-meta {
+  color: var(--color-muted);
+  font-size: var(--type-meta);
+  line-height: var(--type-meta-line);
+}
+
+.tirlik-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.tirlik-sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-hover: 0ms;
+    --motion-menu: 0ms;
+    --motion-object: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+    box-shadow: none;
+  }
+}

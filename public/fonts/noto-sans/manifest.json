@@ -1,0 +1,16 @@
+{
+  "family": "Noto Sans",
+  "license": "OFL-1.1",
+  "licenseFile": "OFL.txt",
+  "licenseSha256": "0dab92d0544f7b233403f14b84a663bdbfa746982eda629e7f4f9ffe1b036feb",
+  "source": "https://github.com/notofonts/noto-fonts",
+  "revision": "ffebf8c1ee449e544955a7e813c54f9b73848eac",
+  "sourceDirectory": "hinted/ttf/NotoSans",
+  "modified": false,
+  "files": [
+    { "file": "NotoSans-Regular.ttf", "weight": 400, "sha256": "b85c38ecea8a7cfb39c24e395a4007474fa5a4fc864f6ee33309eb4948d232d5" },
+    { "file": "NotoSans-Medium.ttf", "weight": 500, "sha256": "7bbe267354704c6ad18bde24b1dbc756c8e4380ca1c3f3c25c45ec5c4471510b" },
+    { "file": "NotoSans-SemiBold.ttf", "weight": 600, "sha256": "87a8b90ece1e89746b544e4e086f85a3710e41485a8078f9be874837dfad45d5" },
+    { "file": "NotoSans-Bold.ttf", "weight": 700, "sha256": "c976e4b1b99edc88775377fcc21692ca4bfa46b6d6ca6522bfda505b28ff9d6a" }
+  ]
+}

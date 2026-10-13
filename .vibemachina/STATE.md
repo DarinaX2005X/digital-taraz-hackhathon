@@ -2,18 +2,18 @@
 Phase: build
 Approval: approved
 Active stage: 01
-Active task: 01.1
+Active task: 01.2
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Approval зафиксирован и pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят: контракты/DB и безопасный повторяемый runtime,64unit+7integration+ручной lifecycle PASS. Worker передал пути и остановил запись. MAIN фиксирует checkpoint перед независимыми01.2/01.3/01.4. Это техническая основа, не пользовательский путь.
+2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Approval pushed f5e1a505953d674ab4882b985bc2ade1929546c7.01.1 принят/pushed84bc4af. Независимые01.2/01.3/01.4 работают;01.2.1 worker передан, MAIN подключил layout/cookie/lang/font и исправил fractional signDisplay edge. Общий check.mjs types/lint/unit PASS, интеграция HTTP выполняется. Все writers временно STOP для scoped UI/dependency checkpoint; fixture/preflight unfinished paths не включаются.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
-1. Выполнить штатный scoped checkpoint01.1.2 с7 configured checks и push. Предыдущий DB checkpoint e466058f2ada71c5ea33a397048bad83c9f863e5 уже pushed origin/main. Все writers остановлены; generated Next AGENTS block сохраняется вместе с runtime.
-2. После checkpoint записать ownership и назначить независимые01.2 UI/локали,01.3 fixtures и01.4 format/provider/hosting preflight. Каждый читает полный BRIEF и соответствующие references; общий package/lock/routes/layout остаются MAIN.
+1. Runtime01.1.2 зафиксирован84bc4af98995fbcb96cb584c66045b2de43f8852 и pushed origin/main, все7 configured checks PASS.01.1 done; generated Next AGENTS block сохранён вместе с runtime.
+2.01.2.1 принят:28UI unit tests и12общих integration tests PASS, включая реальный HTTP locale/font/icon. Выполнить scoped UI/dependency checkpoint; затем release01.2.2,01.3.1 и corrected live01.4.1. Каждый прочёл полный BRIEF/references; package/lock/routes/layout остаются MAIN. После каждого checkpoint worker останавливает запись до release.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -38,7 +38,15 @@ Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina
 
 ## Работники
 
-/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation завершил01.1.2, передал scripts/dev/, scripts/check-integration.mjs, tests/foundation/ и остановил запись. MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database. Активных writers нет; старый review v3 не считается доказательством v4.
+/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation завершил01.1.2, передал пути и остановил запись.
+
+- /root/ui_foundation:01.2.1 handover/STOP; loan src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/. MAIN подключил layout и добавил HTTP locale/asset test. После checkpoint release01.2.2, Ariakit уже установлен.
+- /root/business_fixtures:01.3.1; fixtures/business/, scripts/fixtures/, tests/fixtures/. STOP для checkpoint, файлы parse/lint-safe, три licence-verified representative photos с hashes, definitions/data/oracle/formats; in-memory XLSX/DOCX/PDF smoke PASS. После release generator/manifest/tests и deterministic DOCX image ID. Не включать в UI commit.
+- /root/preflight:01.4.1; scripts/preflight/, tests/preflight/. STOP, offline formats PASS, first live tool PASS actual$0.00003388. Schema/vision strict response и Seedream1K получили explicit4xx; cumulative reserved0.480832. Исправленные JSON-object+local validation и2K image cases разрешены в том же <=$1: cumulative worst0.81472, ещё НЕ отправлены. После release продолжить без повтора ambiguous paid call. Не включать в UI commit.
+
+MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database и всю проектную память/Git. Ни worker не меняет чужие пути/локали. Запросы shared dependencies сначала MAIN; установки только последовательно.
+
+Hosting read-only: глобальный Vercel shim сломан, pinned `npm exec --yes --package=vercel@63.1.2 -- vercel ...` работает, account darinax2005x/default team Hobby. Tirlik project ещё нет; существующие чужие проекты не трогать. Blob stores нет; Neon installation существует без project links, список Neon resources недоступен user API403. Хакатонный noncommercial preview и реальная business production различаются; Hobby/region/privacy constraints ещё01.4.2. Никаких login/browser/deploy/покупок выполнено не было.
 
 После approval каждый worker получает полный BRIEF и все содержательные дословные замечания, relevant original TESTING и domain/shared design references. MAIN владеет каноническими docs/Git/shared schemas/routes/package; loans только явно и исключительно. Краткий dispatch не заменяет исходник. Новые продуктовые/UI/UX/video замечания передаются полностью.
 

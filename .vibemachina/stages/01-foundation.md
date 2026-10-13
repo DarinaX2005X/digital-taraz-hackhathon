@@ -33,10 +33,10 @@ Release /root/foundation 2026-10-13 после commit/push e466058f2ada71c5ea33a
 Принято 2026-10-13: check.mjs types/lint/64tests PASS; check-integration.mjs 7tests PASS, включая настоящий Next HTTP:200 -> PostgreSQL stop -> типизированный503 без credentials -> PostgreSQL start ->200. Next закрыт по живому owned child handle, test containers/volume удалены после проверки labels. `node tests/foundation/lifecycle.acceptance.mjs` на Windows подтвердил start -> запись -> stop/start: UUID63210895-4f44-45ec-896c-40e1406dcca3, значение и файл сохранены, seed UUID прежний/count1. Повторный start возвращает текущий instance/PID; явный занятый порт отклоняется, автоматический выбирает свободный, чужой сервер остаётся жив. Tokenless/wrong-token/foreign-Origin stop получают403, посторонний supervisor не меняет runtime. Отказ записи runtime не мешает остановке собственного child; незавершённый control socket ограничен deadline. POSIX process-group ветка покрыта unit, но не исполнялась на реальной POSIX ОС. Ручной lifecycle harness не входит в обычный checkpoint, поскольку перезапускает dev app. MAIN HTTP health200 database=ready подтверждён. UI не проверялся; это foundation, не готовый пользовательский путь.
 
 ## 01.2 Собрать общие элементы понятного интерфейса
-Status: todo
+Status: active
 Requirements: R09, R31, R32, R33, R34, R38, R39, R40, R44, R45, R46, R47, R48, R49, R60, R101
 Depends on: 01.1
-Owner: SUBAGENT to assign
+Owner: /root/ui_foundation
 Paths: src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/
 
 **Контракт и результат.** C2, C4, DESIGN целиком. Токены, локальный Noto Sans с казахскими глифами, логотип/favicon, кнопки Lucide с tooltip/accessible name, поля label/unit/error, combobox, dialog, tabs, table frame, save-status, toast, skeleton, empty/error states. Каталоги ru/kk/en разделены по namespaces; feature worker владеет своим namespace внутри feature, shared dictionary здесь. Смена локали не перемонтирует несохранённый editor store; server cookie и explicit preference согласованы. Focus return, Escape без потери черновика, reduced motion, 44px touch targets, fixed toolbar dimensions.
@@ -44,9 +44,11 @@ Paths: src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/
 **Вход в работу и состояния.** Элементы внутри будущих Работа/Материалы/Бизнес; не публичный каталог компонентов вместо сервиса. Компактные панели, белый лист, бирюзовое действие и коралловые акценты по DESIGN. На узком экране вторичная панель становится drawer.
 
 ### 01.2.1 Токены, шрифты и локали
-Status: todo
+Status: done
 
 Contrast calculation, наличие glyphs, parity ключей, fallback policy и отсутствие secret/client imports. Иконки и focus semantics проверяются по исходникам, внешний вид ещё не принят.
+
+Принято 2026-10-13: semantic token/CSS parity и contrast, официальный pinned Noto Sans400/500/600/700 с OFL/hash/cmap/embedding checks, сохранённый T-знак/favicon/monochrome. Полные typed shared ru/kk/en catalogs и Intl без float loss для денег; pure locale store сохраняет identity и сериализует account preference writes. Worker27focused tests/type/lint PASS. MAIN подключил root font/CSS/server locale/provider и добавил regression fractional signDisplay (28UI unit tests), общий check.mjs PASS. Настоящие HTTP checks всех3 cookie locales/invalid cookie -> Accept-Language/local icon+font и прежние DB cases PASS (12integration tests). Account API ещё02.1, реальные controls01.2.2; mounted editor/focus/locale language quality и внешний вид пользователь ещё не проверял.
 
 ### 01.2.2 Рабочие состояния контролов
 Status: todo
@@ -54,10 +56,10 @@ Status: todo
 Unit reducer tests dialog/combobox/debounce/cancel и сохранение значения при locale switch. Типы и CSS constraints проходят check.mjs; пользователю список состояний для визуальной проверки.
 
 ## 01.3 Подготовить неоднородные материалы трёх бизнес-моделей
-Status: todo
+Status: active
 Requirements: R01, R02, R07, R15, R75, R76, R82, R99
 Depends on: 01.1
-Owner: SUBAGENT to assign
+Owner: /root/business_fixtures
 Paths: fixtures/business/, scripts/fixtures/, tests/fixtures/
 
 **Контракт и результат.** C1, C5, C9, C13. Synthetic розница товаров для дома, сервисная компания и малое производство: истории операций, возвраты, прайсы с разными единицами/упаковками, запрос на предложение, собственные условия, бренд-набор и фото с проверенной лицензией. Manifest происхождения, ожидаемых сумм, противоречий, недостающих полей и контрольных изменений. Для прогноза достаточно длинный ряд с train/holdout, сезонностью и выбросами, не подмена фактической истории. Никаких реальных PII, фальшивых местных партнёров и обещаний прибыли.
@@ -65,7 +67,7 @@ Paths: fixtures/business/, scripts/fixtures/, tests/fixtures/
 **Вход в работу и состояния.** Позднее доступны явно как «Учебный пример». Файлы скачиваемы и загружаются тем же импортом, что материалы пользователя. Малый quick-start и большой stress набор разделены; пример не ограничивает свободную задачу.
 
 ### 01.3.1 Рабочие материалы и контрольные ответы
-Status: todo
+Status: active
 
 Генератор с seed, CSV/XLSX/DOCX/PDF/изображения, права на assets и manifest. Независимо вычислить golden totals, пропуски, дубли, revisions.
 
@@ -75,10 +77,10 @@ Status: todo
 Новая цена, ручная формулировка, изменённая схема CSV, недостаточный ряд и 100k-row input. Воспроизводимые хеши и отсутствие настоящих PII; возможность скачать/перенести свой вариант.
 
 ## 01.4 Проверить модели, форматы и управляемое размещение
-Status: todo
+Status: active
 Requirements: R17, R56, R79, R85, R86, R105
 Depends on: 01.1
-Owner: SUBAGENT to assign
+Owner: /root/preflight
 Paths: scripts/preflight/, tests/preflight/
 
 **Контракт и результат.** C2, C7-C9, C12, C14. После approval ограниченные probes OpenRouter: schema/tool call, vision extraction, отдельная economical image generation с известной полной ценой; запрет OpenAI/Anthropic/дорогого fallback. Проверить лицензии и реальную поставку Univer data-only formulas, Fabric serialisation, DOCX/PDF/Unicode export, arima CTSA. MAIN управляет dependencies/env/deploy; worker только scripts/evidence. Vercel account/project/tier/regions, pooled PostgreSQL, private Blob и Workflow resume проверяются API на synthetic содержимом. Сервисы и платные опции без разрешения не покупать.
@@ -86,7 +88,7 @@ Paths: scripts/preflight/, tests/preflight/
 **Вход в работу и состояния.** Readiness gate, не публичная кнопка «всё работает». Показать разрешённые модели/цены, недоступную модальность и ограничения форматов. Если библиотека требует Pro, найти проверенную OSS реализацию контракта, не убрать функцию.
 
 ### 01.4.1 Форматы и стоимость подтверждены
-Status: todo
+Status: active
 
 Roundtrip файлы, Unicode text extraction, formulas vs golden, schema/tool/vision result и usage без секретов. Live budget <= $1 batch; неоднозначный платный timeout не повторять вслепую.
 
