@@ -1,15 +1,15 @@
 # 01 Проверяемая основа и ранние ограничения
-Status: todo
+Status: active
 
 Сначала проверяем, что выбранные редакторы, модели и размещение действительно подходят. Готовим повторяемый запуск, общие правила данных и реалистичные учебные материалы.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 01.1 Зафиксировать контракты и воспроизводимый запуск
-Status: todo
+Status: active
 Requirements: R18, R50, R51, R52, R53, R54, R55, R58, R59, R74, R77, R81, R87, R88, R89, R105
 Depends on: none
-Owner: SUBAGENT to assign
+Owner: /root/foundation
 Paths: scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/check-build.mjs, tests/foundation/
 
 **Контракт и результат.** C2-C4, C11. После явного approval MAIN фиксирует версию пакета, создаёт минимальный Next/TS каркас, shared contracts/schema/route registry и передаёт работнику только указанные пути. Одна команда start: проверка Node/Docker/env без печати значений, npm ci при смене lock hash, PostgreSQL/Mailpit health, advisory-lock migration, идемпотентный demo seed, свободный localhost-порт. stop останавливает только собственный процесс. Повторный запуск не стирает базу. Shared Money/Quantity, ArtifactEnvelope, Command, ошибки и capability registration из PROJECT интегрирует MAIN.
@@ -17,7 +17,7 @@ Paths: scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/c
 **Вход в работу и состояния.** Пока нет продуктового экрана: оператор получает адрес, причину недоступного Docker/порта и точную команду восстановления. Локальный запуск и проверки не зависят от VibeMachina; приватный checkpoint вызывает их снаружи.
 
 ### 01.1.1 Контракты, миграции и независимые проверки
-Status: todo
+Status: active
 
 MAIN принимает schemas и минимальный scaffold; worker проверяет CLI/env, отдельные test namespaces и типизированный error envelope. node scripts/check.mjs действительно исполняет type/lint/unit/locales/contracts, а не заглушку.
 

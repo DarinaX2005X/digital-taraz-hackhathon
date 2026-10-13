@@ -1,19 +1,19 @@
 # Состояние проекта
-Phase: awaiting-approval
-Approval: pending
-Active stage: none
-Active task: none
+Phase: build
+Approval: approved
+Active stage: 01
+Active task: 01.1
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Подробное планирование Tirlik v4 завершено: PROJECT C1-C14, DESIGN, полный PLAN, 15 stages/43 задачи/86 checkpoints, PLAN-HUMAN с объяснением каждой задачи, двустороннее покрытие105 требований. Концепция принята для планирования; отдельного утверждения этого полного пакета ещё нет. Код/scaffold/dependencies/live AI/deploy не начинались.
+2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Начинается01.1: MAIN готовит shared scaffold/contracts, bounded foundation worker получает scripts/checks. Node22.13.0/npm10.9.2/Docker29.4.3 доступны; продуктовых файлов до фиксации approval нет.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
-1. Предъявить готовый пакет: в первую очередь PLAN-HUMAN, затем PROJECT/PLAN/DESIGN. Дождаться явного approval всего плана, не спрашивать заново уже принятое направление.
-2. После approval сохранить дословное содержательное решение и fingerprint/commit пакета; только тогда Phase build, Approval approved и bounded workers с исключительными путями.
+1. Зафиксировать approval штатным scoped checkpoint с реальными document/privacy checks; затем минимальный общий scaffold/contracts MAIN и dispatch01.1 с записью paths.
+2. Интегрировать01.1.1 и01.1.2 отдельно, подтверждая runtime/checks и restart сохранение. Не объявлять foundation готовым продуктом. После готовности01.1 назначить независимые01.2/01.3/01.4.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -35,7 +35,7 @@ Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina
 
 ## Работники
 
-/root/plan_reader_v4 завершил единственное независимое read-only чтение нового плана. Findings интегрированы MAIN, повторный полный review не назначался. Активных writers нет. Все43 implementation tasks остаются todo. Старый review v3 не является доказательством v4.
+/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. Назначение перед dispatch: /root/foundation, task01.1, checkpoint01.1.1. Exclusive scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/check-build.mjs, tests/foundation/. Все остальные пути read-only; MAIN owns package/lock/config/app/contracts/db/migrations. Worker подтверждает весь BRIEF/references, передаёт checkpoint и останавливает запись до release. Других writers пока нет; старый review v3 не считается доказательством v4.
 
 После approval каждый worker получает полный BRIEF и все содержательные дословные замечания, relevant original TESTING и domain/shared design references. MAIN владеет каноническими docs/Git/shared schemas/routes/package; loans только явно и исключительно. Краткий dispatch не заменяет исходник. Новые продуктовые/UI/UX/video замечания передаются полностью.
 
