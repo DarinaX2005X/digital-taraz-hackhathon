@@ -21,6 +21,8 @@ Status: active
 
 MAIN принимает schemas и минимальный scaffold; worker проверяет CLI/env, отдельные test namespaces и типизированный error envelope. node scripts/check.mjs действительно исполняет type/lint/unit/locales/contracts, а не заглушку.
 
+Промежуточная интеграция 2026-10-13: Zod contracts Money/Quantity/locale/ArtifactEnvelope/SourceRef/Command/group/capability; минимальный Next16.4/React19.3/TS5.9, Drizzle schema и SQL migration journal с hash/advisory lock; явный synthetic catalog seed без аккаунтов. Worker передал CLI/env/ports/process/test namespace helpers и остановил запись. `node scripts/check.mjs`: types/lint/48 tests PASS; `node scripts/check-build.mjs`: Webpack production build PASS. Turbopack на Windows дал junction error87, штатный Webpack подтверждён. DB migration tests написаны, но ещё не запускались против PostgreSQL; 01.1.1 остаётся active до этого доказательства. Locale test пока проверяет коды; parity словарей относится к01.2. Runtime/start/restart ещё не реализованы.
+
 ### 01.1.2 Повторяемый запуск без потери работы
 Status: todo
 

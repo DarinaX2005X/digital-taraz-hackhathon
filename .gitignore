@@ -2,6 +2,14 @@
 .env.*
 !.env.example
 node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+.local-data/
+.vercel/
+next-env.d.ts
+*.log
 .vibemachina/runtime/
 .vibemachina/BRIEF.md
 .vibemachina/TESTING.md

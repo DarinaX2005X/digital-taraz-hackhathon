@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: tirlik
+      POSTGRES_USER: tirlik
+      POSTGRES_PASSWORD: tirlik_local
+    ports:
+      - "127.0.0.1:${TIRLIK_DB_PORT:-54329}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tirlik -d tirlik"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    ports:
+      - "127.0.0.1:${TIRLIK_SMTP_PORT:-10259}:1025"
+      - "127.0.0.1:${TIRLIK_MAIL_UI_PORT:-8029}:8025"
+volumes:
+  postgres-data:

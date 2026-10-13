@@ -6,14 +6,14 @@ Active task: 01.1
 
 ## Сейчас
 
-2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Начинается01.1: MAIN готовит shared scaffold/contracts, bounded foundation worker получает scripts/checks. Node22.13.0/npm10.9.2/Docker29.4.3 доступны; продуктовых файлов до фиксации approval нет.
+2026-10-13, Asia/Qyzylorda. Пользователь утвердил полный план: «подтверждаю!». Содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f, курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e, весь scope PROJECT/DESIGN/PLAN/stages/PLAN-HUMAN. Approval зафиксирован и pushed f5e1a505953d674ab4882b985bc2ade1929546c7. В01.1 готовы общий scaffold/contracts/migration/seed и CLI helpers; types/lint/48tests/build PASS, реальный DB/runtime proof остаётся следующим действием. Это техническая основа, не пользовательский путь.
 
 Один независимый читатель изучил полный оригинальный BRIEF со всеми содержательными замечаниями, TESTING, канонические документы и все stages. Замечания о повторном импорте, многоматериальном undo и доступности сотрудников закрыты конкретными контрактами/приёмкой; полный журнал PF1-PF4 в PLAN. Это документальная готовность, не реализация и не доказанная рыночная польза.
 
 ## Следующие шаги
 
-1. Зафиксировать approval штатным scoped checkpoint с реальными document/privacy checks; затем минимальный общий scaffold/contracts MAIN и dispatch01.1 с записью paths.
-2. Интегрировать01.1.1 и01.1.2 отдельно, подтверждая runtime/checks и restart сохранение. Не объявлять foundation готовым продуктом. После готовности01.1 назначить независимые01.2/01.3/01.4.
+1. Зафиксировать переданный foundation increment штатным checkpoint с реальными scripts/check.mjs и check-build.mjs; worker paused. Затем release /root/foundation на01.1.2 в тех же owned paths.
+2. Запустить tests/database/migrations.integration.test.ts против изолированного PostgreSQL через будущий check-integration.mjs; только после этого закрыть01.1.1. Проверить start/stop/restart UUID+значение, idempotent seed и безопасные порты для01.1.2. После готовности01.1 назначить независимые01.2/01.3/01.4.
 3. Первая последовательность:01.1 контракты/запуск, независимые01.2/01.3/01.4,02.1 account,02.2 durable runtime/стоимость,02.3 sources,02.4 mapping.03.1 artifact history может идти параллельно02.2. Чтение конкретных Depends on важнее порядка номера. Ранний настоящий путь04.2.
 4.01.4 рано доказывает provider/модальность/форматы/хостинг/региональные условия. Эти неизвестные не считать уже решёнными по документации. Существенный дополнительный расход/провайдер согласовывается, услуги не покупаются молча.
 
@@ -21,7 +21,8 @@ Active task: 01.1
 
 - Штатный check-plan:15 stages,43tasks,86checkpoints,105requirements, errors=[],warnings=[] после перестановки runtime и campaign dependency.
 - Source preservation: все89 прежних строк сохраняют содержание/источник/статус/проверку; исходные28621 символ BRIEF сохранены, полное продуктовое сообщение о pivot и поздняя поправка слогана/разрешение планирования присутствуют. Менялись только task mappings.
-- Privacy check: runtime/BRIEF/TESTING/env ignored, секрет не читался/не печатался; новых product files нет. TESTING прочитан целиком, пользовательских findings пока нет.
+- Privacy: runtime/BRIEF/TESTING/env ignored, значения секретов не читались/не печатались. TESTING прочитан целиком на foundation boundary, пользовательских findings пока нет.
+- 01.1 intermediate: check.mjs types/lint/48tests PASS; check-build.mjs Webpack PASS. Первый Turbopack build failed Windows junction error87; поддерживаемый Webpack исправил сборку, source tsconfig изолирован от runtime edits. Docker server29.4.3 отвечает. DB integration tests ещё не запускались. Audit --omit=dev:0; полный audit9 dev entries, границы/перепроверка в PROJECT C2.
 - b04a360: контракты деловых работ; 5e4891f8a06e22e5d447f3563d0b532688be27cb: первый полный draft. Итоговый пакет после review: f5f1da6230454c3d04aef02f6142bf40e37e3d8f, все4 configured checks успешны, commit/push в origin/main подтверждены. Это версия для approval, не факт его получения. Последующая запись результата в STATE не меняет предметный пакет.
 - PF1: SourceCollection/importMode/recordKeySpec/RecordIdentity/ResolutionVersion, reorder/retry/overlap/price/deletion cases. PF2: CommandGroup+revision vector и атомарный общий inverse без partial undo при чужой правке. PF3: WorkResource без обязательного аккаунта, availability/исключения/effort vs duration. PF4: campaign зависит от календарного engine07.4.
 - Дополнительно: общий договор PLAN восстановлен, введена проверка обязательных разделов; budget/runtime перенесён в02.2 до платного OCR; structural sharing больших версий, lifecycle/tombstones/backup policy, проверенность ручных финансовых формул и лицензии font embedding определены.
@@ -35,7 +36,7 @@ Loopback VibeMachina, не продукт. Runtime identity/logs в .vibemachina
 
 ## Работники
 
-/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. Назначение перед dispatch: /root/foundation, task01.1, checkpoint01.1.1. Exclusive scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/check-build.mjs, tests/foundation/. Все остальные пути read-only; MAIN owns package/lock/config/app/contracts/db/migrations. Worker подтверждает весь BRIEF/references, передаёт checkpoint и останавливает запись до release. Других writers пока нет; старый review v3 не считается доказательством v4.
+/root/plan_reader_v4 завершил независимое чтение, findings интегрированы. /root/foundation передал helpers01.1.1; writing STOPPED, ждёт release01.1.2. Exclusive scripts/dev/, scripts/check.mjs, scripts/check-integration.mjs, scripts/check-build.mjs, tests/foundation/. MAIN owns package/lock/config/app/contracts/db/migrations/tests/contracts/tests/database. Worker прочитал весь BRIEF/references. Других writers нет; старый review v3 не считается доказательством v4.
 
 После approval каждый worker получает полный BRIEF и все содержательные дословные замечания, relevant original TESTING и domain/shared design references. MAIN владеет каноническими docs/Git/shared schemas/routes/package; loans только явно и исключительно. Краткий dispatch не заменяет исходник. Новые продуктовые/UI/UX/video замечания передаются полностью.
 
