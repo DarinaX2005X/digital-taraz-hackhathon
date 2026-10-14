@@ -51,6 +51,28 @@ describe("source-level accessibility contracts (not browser validation)", () => 
     expect(named("Ariakit.TooltipAnchor")).toHaveLength(1);
   });
 
+  it("keeps a readable pending label without exposing two accessible names", () => {
+    const source = read("button.tsx");
+    const spans = parse("button.tsx").named("span");
+    expect(spans.some((span) => attribute(span, "aria-hidden") === "pending && pendingLabel !== undefined ? true : undefined")).toBe(true);
+    expect(spans.some((span) => attribute(span, "aria-hidden") === "!pending ? true : undefined")).toBe(true);
+    expect(source).toContain("Icon || pending !== undefined");
+    expect(source).toContain("pendingLabel?: ReactNode");
+  });
+
+  it("shares the product header while keeping its home target named and configurable", () => {
+    const header = parse("product-header.tsx");
+    const home = header.named("Link")[0]!;
+    expect(attribute(home, "href")).toBe("homeHref");
+    expect(attribute(home, "aria-label")).toContain("homeLabel");
+    expect(attribute(header.named("Image")[0]!, "alt")).toBe("");
+    expect(read("product-header.tsx")).not.toContain("identity");
+    const locale = parse("locale-select.tsx").named("SelectField")[0]!;
+    expect(attribute(locale, "label")).toBe('t("common.navigation.language")');
+    expect(read("locale-select.tsx")).toContain("compact?: boolean");
+    expect(attribute(parse("locale-select.tsx").named("Button")[0]!, "onClick")).toBe("() => setLocale(locale)");
+  });
+
   it("retains both dialog trees and sends all dismissal through the dirty guard", () => {
     const { named } = parse("dialog.tsx");
     const dialogs = named("Ariakit.Dialog");
@@ -153,9 +175,18 @@ describe("CSS source constraints", () => {
     expect(block(".tl-icon-button")).toContain("block-size: var(--size-touch)");
     expect(block(".tl-toolbar")).toContain("min-block-size: var(--size-header)");
     expect(block(".tl-button__progress")).toContain("position: absolute");
-    expect(css).toMatch(/\.tl-button\[data-pending\] \.tl-button__label,[\s\S]+?opacity: 0/);
+    expect(block(".tl-button__label")).toContain("display: grid");
+    expect(block('.tl-button__label > [aria-hidden="true"]')).toContain("visibility: hidden");
+    expect(block(".tl-button__icon")).toContain("block-size: var(--size-icon)");
+    expect(css).not.toMatch(/\.tl-button\[data-pending\] \.tl-button__label[\s,{]/);
     expect(block(".tl-combobox__clear")).toContain("var(--size-touch)");
     expect(block(".tl-checkbox-field__target")).toContain("block-size: var(--size-touch)");
+  });
+
+  it("removes empty field message tracks but preserves compact language labels", () => {
+    expect(block(".tl-field__messages:empty")).toContain("display: none");
+    expect(block(".tl-locale--compact .tl-field__label")).toContain("clip-path: inset(50%)");
+    expect(block(".tl-locale--compact .tl-field__label")).not.toContain("display: none");
   });
 
   it("keeps link hover colors out of button variants", () => {

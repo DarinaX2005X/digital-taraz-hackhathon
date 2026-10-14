@@ -2,7 +2,8 @@
 
 This feature contains real account, team and ownership-safe deletion flows for
 tasks 02.1.1 and 02.1.2, not the business shell or final public landing page.
-Routes, root layout, server session lookup and metadata belong to MAIN.
+The public account routes mount these components directly. The root layout and
+server session lookup provide the shared account context and route metadata.
 
 ## Root And Routes
 
@@ -30,6 +31,13 @@ requires an explicit button press, never an effect/GET mutation. A missing reset
 token displays the request form, not a broken password form. Email requests use
 neutral responses and do not reveal whether an account exists.
 
+Account, auth, team and route-state pages use `ProductHeader` with a compact,
+labelled language selector. `IdentityFrame.headerActions` accepts optional trailing
+account actions without importing account state into the shared header. The
+account menu groups personal settings, team access and confirmed sign-out; opening
+the menu does not start a mutation. Public sign-in/sign-up links remain available
+in the entry HTML before the client account lookup finishes.
+
 `/app` is the authoritative default allowed return location. Until the real shell
 is integrated, MAIN owns a redirect to an existing account route and preserves
 only the opaque `intent` parameter. The UI reuses the domain return-path allowlist.
@@ -43,9 +51,12 @@ in-flight UI results. It does not cancel a server action already received.
 
 The success callback reports authentication, not authorization to automatically
 repeat a saved action. Never resubmit a generation, edit, order or export in that
-callback. On expired authentication, the settings forms stay mounted for the
-same user and require a new explicit submission. A different user ID replaces the
-private settings tree and clears its old form values. Language changes do neither.
+callback. Confirmed authentication loss unmounts the private settings/team tree
+and cancels its operations. Only account-owned, nonpassword form input remains in
+RAM outside that tree. The same user must explicitly continue after signing in;
+fresh authorized data is loaded before team drafts reopen. Passwords, session lists
+and destructive confirmations are not retained. A different user ID replaces the
+owner and discards old drafts before private rendering. Language changes do neither.
 
 For a guest goal, first call `identityClient.saveIntent({ goal, returnTo }, key)`
 with a fresh stable UUID idempotency key for that save attempt. Retain and pass the
@@ -58,10 +69,17 @@ local/session storage, a persisted query cache, telemetry or URLs.
 ## Account And Transport
 
 `useIdentityAccount` exposes the safe viewer, readiness, `refresh`, `acceptUser`
-and `clear`. The root provider checks the session on mount and visibility return.
+and `clear`. `authEpoch` is a nonsecret invalidation counter, incremented before
+notifications on clear/account switch. `isCurrent(userId, authEpoch)` and
+`invalidate(userId, authEpoch)` protect against old responses invalidating a new
+session. Private recovery considers both user ID and epoch, including a batched
+401 followed by same-user refresh. The root provider checks the session on mount and visibility return.
 Preference writes use the existing serialized locale store. Guest 401 removes
 the account writer while the language cookie remains available. Logout invalidates
 requests and the viewer. Old results cannot restore a previous account's state.
+`useIdentityGuard` rejects stale owners before and after an operation and turns a
+direct current-session 401 into immediate account invalidation. Scoped team,
+workspace, session, invitation and deletion-preview reads use that same boundary.
 
 Transport validates authoritative input/output schemas, expects each operation's
 own result status and displays only known localized error keys. It uses same-origin
@@ -88,6 +106,9 @@ team route. Do not key these forms by locale. A new account ID replaces the tree
 
 Render role, permission and per-record actions from the server's `allowedActions`.
 The pure domain role presets initialize selections but do not grant authorization.
+Team input and its payload-bound idempotency intent stay in the owner component's
+RAM during same-user recovery; the server team snapshot does not. Destructive
+target confirmations and permission review state reset on authentication loss.
 Membership writes use the workspace security revision captured for review, not a
 member's revision. A conflict requires an explicit refresh and another review;
 403/404/409 reads clear inaccessible cached team details. All new writes include
@@ -109,8 +130,10 @@ these decisions and requires the current password plus explicit consent. A stale
 security revision blocks deletion until an explicit refresh and clears password/consent.
 Successful acknowledgement clears account state and the entire private settings
 tree, then shows the actual cleanup date. A timeout/network failure blocks another
-submission until an explicit account-status check. A missing session is not proof
-that deletion succeeded. Copy distinguishes immediate loss of access, scheduled
+submission until an explicit account-status check. The uncertain-attempt flag
+survives private-tree unmount and dialog close; a missing session still shows a
+generic uncertainty warning outside the private tree, never a success claim.
+Copy distinguishes immediate loss of access, scheduled
 cleanup and separately retained backups; it does not claim a production backup
 exists or that every historical copy disappears immediately.
 

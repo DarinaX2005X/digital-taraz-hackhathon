@@ -4,12 +4,21 @@ import { CommandGroupInputSchema, RevisionVectorSchema } from '../../contracts/c
 import { WorkspaceCursorSchema } from '../../contracts/events';
 import { HashSchema, IdSchema, InstantSchema, RevisionSchema } from '../../contracts/primitives';
 import { ArtifactContentSchema } from './domain/content-models';
+import { TargetLocksSchema } from './domain/content-state';
+import { ElementIdSchema } from '../../contracts/primitives';
 
 export { ArtifactContentSchema } from './domain/content-models';
 export type { ArtifactContent } from './domain/content-models';
+export { TargetLockSchema, TargetLocksSchema } from './domain/content-state';
 export const ArtifactAccessClassSchema = z.enum(['internal', 'confidential']);
 export const ArtifactViewerSchema = z.strictObject({ userId: IdSchema, workspaceId: IdSchema, authzVersion: z.number().int().positive() });
+export const ArtifactAccessRequestSchema = z.strictObject({ workspaceId: IdSchema, artifactIds: z.array(IdSchema).min(1).max(100) }).refine((value) => new Set(value.artifactIds).size === value.artifactIds.length);
+export const ArtifactAccessResultSchema = z.strictObject({ viewer: ArtifactViewerSchema, authorizedArtifactIds: z.array(IdSchema).max(100), editableArtifactIds: z.array(IdSchema).max(100), unavailableArtifactIds: z.array(IdSchema).max(100) }).superRefine((result, context) => {
+  const allowed = new Set(result.authorizedArtifactIds), denied = new Set(result.unavailableArtifactIds);
+  if (allowed.size !== result.authorizedArtifactIds.length || denied.size !== result.unavailableArtifactIds.length || allowed.size + denied.size > 100 || [...denied].some((id) => allowed.has(id)) || new Set(result.editableArtifactIds).size !== result.editableArtifactIds.length || result.editableArtifactIds.some((id) => !allowed.has(id))) context.addIssue({ code: 'custom', message: 'Access decisions must be unique, disjoint and scoped to authorized artifacts.' });
+});
 export const ArtifactPermissionsSchema = z.strictObject({ edit: z.boolean(), rename: z.boolean(), duplicate: z.boolean(), move: z.boolean(), archive: z.boolean(), trash: z.boolean(), restore: z.boolean(), purge: z.boolean() });
+export const ArtifactBranchParentSchema = z.strictObject({ artifactId: IdSchema, revision: RevisionSchema, versionId: IdSchema });
 export const SourceFreshnessSchema = z.strictObject({
   sourceRef: SourceRefSchema,
   status: z.enum(['current', 'stale', 'unknown']),
@@ -23,14 +32,16 @@ export const SourceFreshnessSchema = z.strictObject({
 export const ArtifactVersionSchema = z.strictObject({
   id: IdSchema, artifactId: IdSchema, revision: RevisionSchema, parentRevision: RevisionSchema.nullable(),
   contentRef: ContentRefSchema, snapshotHash: HashSchema, title: z.string().min(1).max(240),
-  reason: z.string().min(1).max(1000), authorId: IdSchema, createdAt: InstantSchema, inputRevisions: RevisionVectorSchema,
+  reason: z.string().min(1).max(1000), authorId: IdSchema, authorName: z.string().min(1).max(160).optional(), createdAt: InstantSchema, inputRevisions: RevisionVectorSchema,
+  branchParent: ArtifactBranchParentSchema.optional(), branchParentUnavailable: z.literal(true).optional(),
 });
 export const ArtifactHistoryGroupSchema = z.strictObject({
-  commandGroupId: IdSchema, actorId: IdSchema, reason: z.string().min(1).max(1000), origin: z.enum(['human', 'ai', 'import']), createdAt: InstantSchema,
+  commandGroupId: IdSchema, actorId: IdSchema, actorName: z.string().min(1).max(160).optional(), reason: z.string().min(1).max(1000), origin: z.enum(['human', 'ai', 'import']), createdAt: InstantSchema,
   state: z.enum(['active', 'undone']), committedRevisionVector: RevisionVectorSchema,
   artifacts: z.array(z.strictObject({ artifactId: IdSchema, title: z.string().min(1).max(240), kind: ArtifactKindSchema, committedRevision: RevisionSchema, currentRevision: RevisionSchema })).min(1).max(100),
   hasUnavailableArtifacts: z.boolean(), canUndo: z.boolean(), canRedo: z.boolean(),
   undoneByGroupId: IdSchema.optional(), undoesGroupId: IdSchema.optional(), redoesGroupId: IdSchema.optional(),
+  expectedSourceRevisions: RevisionVectorSchema.optional(),
 }).superRefine((group, context) => {
   const ids = new Set(group.artifacts.map((artifact) => artifact.artifactId));
   if (ids.size !== group.artifacts.length || Object.keys(group.committedRevisionVector).length !== ids.size || group.artifacts.some((artifact) => group.committedRevisionVector[artifact.artifactId] !== artifact.committedRevision)) context.addIssue({ code: 'custom', message: 'History revisions must match the visible artifacts exactly.' });
@@ -40,6 +51,7 @@ export const ArtifactHistorySchema = z.strictObject({ viewer: ArtifactViewerSche
 export const ArtifactSnapshotSchema = z.strictObject({
   viewer: ArtifactViewerSchema, artifact: ArtifactEnvelopeSchema, content: ArtifactContentSchema, version: ArtifactVersionSchema,
   permissions: ArtifactPermissionsSchema, sourceFreshness: z.array(SourceFreshnessSchema).max(1000), history: z.array(ArtifactHistoryGroupSchema).max(100), cursor: WorkspaceCursorSchema,
+  locks: TargetLocksSchema.optional(), missingTargets: z.array(ElementIdSchema).max(10000).optional(),
 }).superRefine((snapshot, context) => {
   if (snapshot.viewer.workspaceId !== snapshot.artifact.workspaceId || snapshot.version.artifactId !== snapshot.artifact.id || snapshot.version.revision !== snapshot.artifact.currentRevision || snapshot.content.kind !== snapshot.artifact.kind || snapshot.content.schemaVersion !== snapshot.artifact.schemaVersion || snapshot.version.contentRef.id !== snapshot.artifact.contentRef.id || snapshot.version.contentRef.hash !== snapshot.artifact.contentRef.hash) context.addIssue({ code: 'custom', message: 'Snapshot identity and revision must agree.' });
 });
@@ -67,14 +79,19 @@ export const ArtifactMutationSchema = z.strictObject({ workspaceId: IdSchema, ex
 export const RenameArtifactSchema = ArtifactMutationSchema.extend({ title: z.string().trim().min(1).max(240) });
 export const MoveArtifactSchema = ArtifactMutationSchema.extend({ projectId: IdSchema });
 export const DuplicateArtifactSchema = ArtifactMutationSchema.extend({ projectId: IdSchema, title: z.string().trim().min(1).max(240), revision: RevisionSchema.optional() });
+export const BranchArtifactSchema = ArtifactMutationSchema.extend({ projectId: IdSchema, title: z.string().trim().min(1).max(240), parentRevision: RevisionSchema, content: ArtifactContentSchema.optional() });
 export const RestoreArtifactVersionSchema = ArtifactMutationSchema.extend({ revision: RevisionSchema, reason: z.string().trim().min(1).max(1000) });
 export const PurgeArtifactSchema = ArtifactMutationSchema.extend({ confirmationTitle: z.string().min(1).max(240), immediate: z.boolean() });
 export const ArtifactMutationResultSchema = z.strictObject({ viewer: ArtifactViewerSchema, artifact: ArtifactEnvelopeSchema, version: ArtifactVersionSchema, cursor: WorkspaceCursorSchema });
 export const ArtifactVersionPageSchema = z.strictObject({ viewer: ArtifactViewerSchema, artifactId: IdSchema, versions: z.array(ArtifactVersionSchema).max(50), nextBeforeRevision: RevisionSchema.nullable() });
-export const ArtifactVersionDetailSchema = z.strictObject({ viewer: ArtifactViewerSchema, artifact: ArtifactEnvelopeSchema, version: ArtifactVersionSchema, content: ArtifactContentSchema, sourceFreshness: z.array(SourceFreshnessSchema).max(1000) });
+export const ArtifactVersionDetailSchema = z.strictObject({ viewer: ArtifactViewerSchema, artifact: ArtifactEnvelopeSchema, version: ArtifactVersionSchema, content: ArtifactContentSchema, sourceFreshness: z.array(SourceFreshnessSchema).max(1000), locks: TargetLocksSchema.optional(), missingTargets: z.array(ElementIdSchema).max(10000).optional(), headRevision: RevisionSchema.optional() }).superRefine((detail, context) => {
+  if (detail.artifact.id !== detail.version.artifactId || detail.artifact.currentRevision !== detail.version.revision || detail.artifact.contentRef.id !== detail.version.contentRef.id || detail.artifact.contentRef.hash !== detail.version.contentRef.hash || detail.content.kind !== detail.artifact.kind) context.addIssue({ code: 'custom', message: 'Historical content and metadata must describe the selected version.' });
+});
 export const ArtifactPurgeResultSchema = z.strictObject({ viewer: ArtifactViewerSchema, artifactId: IdSchema, deletedAt: InstantSchema, cleanupPending: z.boolean(), cursor: WorkspaceCursorSchema });
 
 export type ArtifactViewer = z.infer<typeof ArtifactViewerSchema>;
+export type ArtifactAccessRequest = z.infer<typeof ArtifactAccessRequestSchema>;
+export type ArtifactAccessResult = z.infer<typeof ArtifactAccessResultSchema>;
 export type ArtifactPermissions = z.infer<typeof ArtifactPermissionsSchema>;
 export type SourceFreshness = z.infer<typeof SourceFreshnessSchema>;
 export type ArtifactVersion = z.infer<typeof ArtifactVersionSchema>;

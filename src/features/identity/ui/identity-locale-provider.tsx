@@ -26,5 +26,5 @@ export function useIdentityAccount() {
   const store = useContext(IdentityAccountContext);
   if (!store) throw new Error("Identity UI requires IdentityLocaleProvider");
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  return { ...snapshot, refresh: store.refresh, clear: store.clear, acceptUser: store.acceptUser };
+  return { ...snapshot, refresh: store.refresh, clear: store.clear, acceptUser: store.acceptUser, isCurrent: store.isCurrent, invalidate: store.invalidate };
 }

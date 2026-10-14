@@ -9,11 +9,13 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   icon?: LucideIcon;
   pending?: boolean;
+  /** Both labels reserve their space so a pending command does not resize. */
+  pendingLabel?: ReactNode;
   disabledReason?: string;
   ref?: Ref<HTMLButtonElement>;
 };
 
-export function Button({ variant = "secondary", icon: Icon, pending = false, disabled, disabledReason, children, className = "", ref, type = "button", ...props }: ButtonProps) {
+export function Button({ variant = "secondary", icon: Icon, pending, pendingLabel, disabled, disabledReason, children, className = "", ref, type = "button", ...props }: ButtonProps) {
   const reasonId = useId();
   const describedBy = [props["aria-describedby"], disabled && disabledReason ? reasonId : null].filter(Boolean).join(" ") || undefined;
   return <>
@@ -28,15 +30,20 @@ export function Button({ variant = "secondary", icon: Icon, pending = false, dis
       aria-describedby={describedBy}
       data-pending={pending || undefined}
     >
-      {Icon && <span className="tl-button__icon"><Icon aria-hidden="true" size={20} /></span>}
-      <span className="tl-button__label">{children}</span>
-      {pending && <LoaderCircle className="tl-button__progress tl-spin" aria-hidden="true" size={20} />}
+      {(Icon || pending !== undefined) && <span className="tl-button__icon">
+        {Icon && <Icon className="tl-button__rest-icon" aria-hidden="true" size={20} />}
+        {pending && <LoaderCircle className="tl-button__progress tl-spin" aria-hidden="true" size={20} />}
+      </span>}
+      <span className="tl-button__label">
+        <span aria-hidden={pending && pendingLabel !== undefined ? true : undefined}>{children}</span>
+        {pendingLabel !== undefined && <span aria-hidden={!pending ? true : undefined}>{pendingLabel}</span>}
+      </span>
     </Ariakit.Button>
     {disabled && disabledReason && <span id={reasonId} className="tirlik-sr-only">{disabledReason}</span>}
   </>;
 }
 
-export type IconButtonProps = Omit<ButtonProps, "children" | "icon" | "aria-label"> & {
+export type IconButtonProps = Omit<ButtonProps, "children" | "icon" | "aria-label" | "pendingLabel"> & {
   icon: LucideIcon;
   label: string;
   tooltip?: ReactNode;

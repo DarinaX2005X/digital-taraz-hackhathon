@@ -11,7 +11,7 @@ export function safeReturnTo(input: unknown): string {
     const result = new URLSearchParams();
     const intents = url.searchParams.getAll('intent');
     if (intents.length === 1 && /^[a-f0-9]{64}$/.test(intents[0]!)) result.set('intent', intents[0]!);
-    if (url.pathname === '/settings/team' && url.searchParams.has('workspace')) {
+    if (['/settings/team', '/app/runs'].includes(url.pathname) && url.searchParams.has('workspace')) {
       const workspaces = url.searchParams.getAll('workspace');
       if (workspaces.length !== 1 || !z.uuid().safeParse(workspaces[0]).success) return '/app';
       result.set('workspace', workspaces[0]!);

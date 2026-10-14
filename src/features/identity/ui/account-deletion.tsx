@@ -19,7 +19,7 @@ import styles from "./identity.module.css";
 
 const actionLabels = { leave: "identity.deletion.leave", transfer: "identity.deletion.transfer", delete: "identity.deletion.deleteWorkspace" } as const;
 
-function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { userId: string; guard: IdentityAuthGuard; authVersion: number; onClose: () => void; onDeleted: (result: AccountDeletionResult) => void }) {
+function DeletionDialog({ userId, guard, authVersion, initialUncertain, onUncertainChange, onClose, onDeleted }: { userId: string; guard: IdentityAuthGuard; authVersion: number; initialUncertain: boolean; onUncertainChange: (uncertain: boolean) => void; onClose: () => void; onDeleted: (result: AccountDeletionResult) => void }) {
   const t = useIdentityTranslations();
   const { locale } = useLocale();
   const account = useIdentityAccount();
@@ -37,17 +37,17 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
   const [passwordError, setPasswordError] = useState<IdentityMessageKey>();
   const [confirmationError, setConfirmationError] = useState(false);
   const [stale, setStale] = useState(false);
-  const [uncertain, setUncertain] = useState(false);
+  const [uncertain, setUncertain] = useState(initialUncertain);
   const [sessionMissing, setSessionMissing] = useState(false);
   const read = useIdentityOperation<AccountDeletionPreview>();
   const operation = useIdentityOperation<AccountDeletionResult>();
   const check = useIdentityOperation<boolean>();
   const intent = useIdentityWriteIntent();
   const { run, cancel } = read;
-  const load = useCallback((authorize?: IdentityAuthGuard) => {
+  const load = useCallback(() => {
     cancel();
     return run(async (signal) => {
-      try { return await (authorize ? authorize(signal, () => identityClient.deletionPreview({ signal, expectedUserId: userId })) : identityClient.deletionPreview({ signal, expectedUserId: userId })); }
+      try { return await guard(signal, () => identityClient.deletionPreview({ signal, expectedUserId: userId })); }
       catch (error) {
         const status = asIdentityFailure(error).status;
         if (!signal.aborted && [403, 404, 409].includes(status)) { setPreview(undefined); setPassword(""); setConfirmed(false); }
@@ -61,7 +61,7 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
       }
       return result;
     });
-  }, [run, cancel, userId, refreshAccount]);
+  }, [run, cancel, userId, refreshAccount, guard]);
   useEffect(() => { void load(); return cancel; }, [load, cancel, authVersion]);
   const busy = read.pending || operation.pending || check.pending;
 
@@ -72,15 +72,14 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
   }
   async function checkAccount() {
     const result = await check.run(async (signal) => {
-      try { await identityClient.me({ signal, expectedUserId: userId }); return true; }
+      try { await guard(signal, () => identityClient.me({ signal, expectedUserId: userId })); return true; }
       catch (error) {
         if (asIdentityFailure(error).status === 401) return false;
-        if (!signal.aborted && asIdentityFailure(error).status === 409) void refreshAccount().catch(() => undefined);
         throw error;
       }
     });
-    if (result === false) { setSessionMissing(true); setPassword(""); setConfirmed(false); account.clear(); }
-    if (result === true) { setUncertain(false); setSessionMissing(false); }
+    if (result === false) { setSessionMissing(true); setPassword(""); setConfirmed(false); }
+    if (result === true) { setUncertain(false); onUncertainChange(false); setSessionMissing(false); }
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,11 +102,13 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
     const result = await operation.run((signal) => guard(signal, async () => {
       try {
         const key = await intent.keyFor({ userId, action: "delete-account", body }, signal);
+        onUncertainChange(true);
         return await identityClient.deleteAccount(body, key, { signal, expectedUserId: userId });
       } catch (error) {
         const failure = asIdentityFailure(error);
         if (!signal.aborted && failure.status === 409) { setStale(true); setConfirmed(false); setPassword(""); }
         if (!signal.aborted && failure.status === 0) setUncertain(true);
+        if (!signal.aborted && failure.status !== 0) onUncertainChange(false);
         throw error;
       }
     }));
@@ -121,7 +122,7 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
     <form ref={form} id={formId} className={styles.form} onSubmit={submit} noValidate>
       {read.pending && <LoadingState label={t("identity.deletion.loading")} />}
       <OperationError failure={read.failure} />
-      {read.failure && <Button icon={RefreshCw} onClick={() => { void load(guard); }}>{t(read.failure.status === 401 ? "identity.navigation.signIn" : "identity.deletion.refresh")}</Button>}
+      {read.failure && <Button icon={RefreshCw} onClick={() => { void load(); }}>{t(read.failure.status === 401 ? "identity.navigation.signIn" : "identity.deletion.refresh")}</Button>}
       {preview && <>
         <p>{t("identity.deletion.consequence")}</p>
         {stage === "choices" ? <>
@@ -157,7 +158,7 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
         <p className={styles.muted}>{t("identity.deletion.retention")}</p>
         <dl className={styles.facts}><dt>{t("identity.deletion.retentionPeriod")}</dt><dd>{formatUnit(locale, preview.retentionDays, "day", { unitDisplay: "long" })}</dd></dl>
       </>}
-      {stale && <div className={styles.stack}><p role="alert">{t("identity.deletion.changed")}</p><Button icon={RefreshCw} onClick={() => { void load(guard); }}>{t("identity.deletion.refresh")}</Button></div>}
+      {stale && <div className={styles.stack}><p role="alert">{t("identity.deletion.changed")}</p><Button icon={RefreshCw} onClick={() => { void load(); }}>{t("identity.deletion.refresh")}</Button></div>}
       {uncertain && <div className={styles.stack}><p role="alert">{t("identity.deletion.uncertain")}</p>{sessionMissing ? <p>{t("identity.deletion.sessionUnavailable")}</p> : <Button icon={RefreshCw} pending={check.pending} onClick={() => { void checkAccount(); }}>{t("identity.deletion.checkStatus")}</Button>}</div>}
       <OperationError failure={operation.failure?.status === 401 ? undefined : operation.failure} />
       <OperationError failure={check.failure} />
@@ -166,14 +167,14 @@ function DeletionDialog({ userId, guard, authVersion, onClose, onDeleted }: { us
   </Dialog>;
 }
 
-export function AccountDeletionSection({ userId, guard, authVersion, onDeleted }: { userId: string; guard: IdentityAuthGuard; authVersion: number; onDeleted: (result: AccountDeletionResult) => void }) {
+export function AccountDeletionSection({ userId, guard, authVersion, uncertain, onUncertainChange, onDeleted }: { userId: string; guard: IdentityAuthGuard; authVersion: number; uncertain: boolean; onUncertainChange: (uncertain: boolean) => void; onDeleted: (result: AccountDeletionResult) => void }) {
   const t = useIdentityTranslations();
   const [open, setOpen] = useState(false);
   return <section className={`${styles.section} ${styles.dangerSection}`} id="delete-account" aria-labelledby="delete-account-title">
     <h2 id="delete-account-title">{t("identity.deletion.title")}</h2>
     <p className={styles.muted}>{t("identity.deletion.consequence")}</p>
     <Button icon={Trash2} variant="danger" onClick={() => setOpen(true)}>{t("identity.deletion.open")}</Button>
-    {open && <DeletionDialog userId={userId} guard={guard} authVersion={authVersion} onClose={() => setOpen(false)} onDeleted={onDeleted} />}
+    {open && <DeletionDialog userId={userId} guard={guard} authVersion={authVersion} initialUncertain={uncertain} onUncertainChange={onUncertainChange} onClose={() => setOpen(false)} onDeleted={onDeleted} />}
   </section>;
 }
 

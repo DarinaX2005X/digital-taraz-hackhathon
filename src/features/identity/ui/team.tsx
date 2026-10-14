@@ -1,23 +1,23 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, LogIn, Mail, Plus, RefreshCw, ShieldCheck, SlidersHorizontal, Trash2, UserMinus, Users } from "lucide-react";
-import { Button, Combobox, IconButton, InputField, LoadingState, LocaleSelect } from "@/ui";
+import { Button, Combobox, IconButton, InputField, LoadingState, LocaleSelect, ProductHeader } from "@/ui";
 import { useLocale } from "@/i18n/provider";
 import { formatInstant, formatNumber } from "@/i18n/format";
 import type { IdentityViewer, TeamInvitation, TeamResult, WorkspaceMembership } from "../contracts";
 import type { IdentityMessageKey } from "../locales";
-import { OperationError, SuccessNotice } from "./common";
+import { OperationError, PrivateSessionState, SuccessNotice } from "./common";
 import { AuthDialog } from "./credentials";
-import { useIdentityOperation, useIdentityTranslations } from "./hooks";
+import { useIdentityGuard, useIdentityOperation, useIdentityTranslations, usePrivateIdentityAccess } from "./hooks";
 import { useIdentityAccount } from "./identity-locale-provider";
 import { AccountMenu } from "./account-menu";
 import { asIdentityFailure, identityClient } from "./transport";
 import { roleLabels } from "./team-state";
 import { PersonIdentity, ScopeList, type IdentityAuthGuard } from "./team-controls";
 import { CreateWorkspaceDialog, TeamActionDialog, type TeamAction } from "./team-dialogs";
+import { createTeamDrafts, type TeamDrafts } from "./team-drafts";
 import styles from "./identity.module.css";
 
 const deliveryKeys: Record<TeamInvitation["delivery"], IdentityMessageKey> = {
@@ -25,23 +25,30 @@ const deliveryKeys: Record<TeamInvitation["delivery"], IdentityMessageKey> = {
   sent: "identity.invitation.deliverySent", uncertain: "identity.invitation.deliveryUnknown",
 };
 
-function TeamWorkspace({ workspaceId, userId, guard, authVersion, onMembershipChanged, onSignIn }: { workspaceId: string; userId: string; guard: IdentityAuthGuard; authVersion: number; onMembershipChanged: () => void; onSignIn: () => void }) {
+function TeamWorkspace({ workspaceId, userId, guard, drafts, authVersion, onMembershipChanged, onSignIn }: { workspaceId: string; userId: string; guard: IdentityAuthGuard; drafts: TeamDrafts; authVersion: number; onMembershipChanged: () => void; onSignIn: () => void }) {
   const t = useIdentityTranslations();
   const { locale } = useLocale();
   const { refresh: refreshAccount } = useIdentityAccount();
   const [team, setTeam] = useState<TeamResult>();
-  const [action, setAction] = useState<TeamAction>();
+  const [action, setActionState] = useState<TeamAction | undefined>(drafts.getAction(workspaceId)?.getSnapshot().action);
   const [notice, setNotice] = useState<IdentityMessageKey>();
   const [query, setQuery] = useState("");
   const operation = useIdentityOperation<TeamResult>();
   const { run, cancel } = operation;
+  const closeAction = useCallback(() => { drafts.clearAction(workspaceId); setActionState(undefined); }, [drafts, workspaceId]);
+  function setAction(next: TeamAction | undefined) {
+    if (!next) { closeAction(); return; }
+    if (!team) return;
+    drafts.startAction(workspaceId, next, team);
+    setActionState(next);
+  }
   const load = useCallback(() => {
     cancel();
     return run(async (signal) => {
-      try { return await identityClient.team(workspaceId, { signal, expectedUserId: userId }); }
+      try { return await guard(signal, () => identityClient.team(workspaceId, { signal, expectedUserId: userId })); }
       catch (error) {
         const status = asIdentityFailure(error).status;
-        if (!signal.aborted && [403, 404, 409].includes(status)) { setTeam(undefined); setAction(undefined); }
+        if (!signal.aborted && [403, 404, 409].includes(status)) { setTeam(undefined); closeAction(); }
         if (!signal.aborted && status === 409) void refreshAccount().catch(() => undefined);
         throw error;
       }
@@ -49,7 +56,7 @@ function TeamWorkspace({ workspaceId, userId, guard, authVersion, onMembershipCh
       if (result) setTeam(result);
       return result;
     });
-  }, [run, cancel, userId, workspaceId, refreshAccount]);
+  }, [run, cancel, userId, workspaceId, refreshAccount, guard, closeAction]);
   useEffect(() => {
     void load();
     const visible = () => { if (document.visibilityState === "visible") void load(); };
@@ -105,50 +112,58 @@ function TeamWorkspace({ workspaceId, userId, guard, authVersion, onMembershipCh
         </ul>
         {!current.invitations.length && <p className={styles.muted}>{t(current.allowedActions.invite ? "identity.invitation.empty" : "identity.invitation.noInvitationsAccess")}</p>}
       </section>
-      {action && <TeamActionDialog key={JSON.stringify(action)} action={action} team={current} userId={userId} guard={guard} onClose={() => setAction(undefined)} onChanged={changed} onRefresh={refreshForDialog} />}
+      {action && drafts.getAction(workspaceId) && <TeamActionDialog key={JSON.stringify(action)} action={action} team={current} userId={userId} guard={guard} draft={drafts.getAction(workspaceId)!} onClose={() => setAction(undefined)} onChanged={changed} onRefresh={refreshForDialog} />}
     </>}
   </div>;
 }
 
-function TeamContent({ viewer, initialWorkspaceId }: { viewer: IdentityViewer; initialWorkspaceId?: string }) {
+function TeamContent({ viewer, drafts, guard, authVersion, onSignIn }: { viewer: IdentityViewer; drafts: TeamDrafts; guard: IdentityAuthGuard; authVersion: number; onSignIn: () => void }) {
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
   const [workspaces, setWorkspaces] = useState(viewer.workspaces);
-  const [selectedId, setSelectedId] = useState<string | null | undefined>(initialWorkspaceId ?? viewer.workspaces[0]?.workspaceId);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authVersion, setAuthVersion] = useState(0);
+  const [selectedId, setSelectedId] = useState<string | null | undefined>(drafts.getSnapshot().selectedId);
+  const [createOpen, setCreateOpen] = useState(drafts.getSnapshot().createOpen);
   const operation = useIdentityOperation<{ workspaces: WorkspaceMembership[] }>();
   const { run, cancel } = operation;
   const userId = viewer.user.id;
+  const chooseWorkspace = useCallback((selectedId: string | null | undefined) => { drafts.update({ selectedId }); setSelectedId(selectedId); }, [drafts]);
+  function closeCreate() { drafts.update({ createOpen: false, workspaceName: "" }); drafts.workspaceIntent.clear(); setCreateOpen(false); }
   const reload = useCallback(() => {
     cancel();
-    return run((signal) => identityClient.workspaces({ signal, expectedUserId: userId })).then((result) => {
-      if (result) { setWorkspaces(result.workspaces); setSelectedId((previous) => previous === undefined ? result.workspaces[0]?.workspaceId ?? null : previous); }
+    return run((signal) => guard(signal, () => identityClient.workspaces({ signal, expectedUserId: userId }))).then((result) => {
+      if (result) { setWorkspaces(result.workspaces); if (drafts.getSnapshot().selectedId === undefined) chooseWorkspace(result.workspaces[0]?.workspaceId ?? null); }
     });
-  }, [cancel, run, userId]);
+  }, [cancel, run, userId, guard, drafts, chooseWorkspace]);
   useEffect(() => { void reload(); return cancel; }, [reload, cancel]);
   const options = useMemo(() => workspaces.map((workspace) => ({ id: workspace.workspaceId, label: workspace.name })), [workspaces]);
   const selection = options.find((option) => option.id === selectedId) ?? null;
-  const guard: IdentityAuthGuard = async (signal, action) => {
-    try { return await action(); }
-    catch (error) {
-      if (!signal.aborted && asIdentityFailure(error).status === 401) setAuthOpen(true);
-      if (!signal.aborted && asIdentityFailure(error).status === 409) void account.refresh().catch(() => undefined);
-      throw error;
-    }
-  };
   return <>
     <div className={styles.workspaceBar}>
-      {!!options.length && <Combobox label={t("identity.workspace.choose")} options={options} value={selection} onChange={(option) => setSelectedId(option?.id ?? null)} />}
-      <Button icon={Plus} onClick={() => setCreateOpen(true)}>{t("identity.workspace.create")}</Button>
+      {!!options.length && <Combobox label={t("identity.workspace.choose")} options={options} value={selection} onChange={(option) => chooseWorkspace(option?.id ?? null)} />}
+      <Button icon={Plus} onClick={() => { drafts.update({ createOpen: true }); setCreateOpen(true); }}>{t("identity.workspace.create")}</Button>
     </div>
     <OperationError failure={operation.failure} />
     {operation.failure && <Button icon={RefreshCw} onClick={() => { void reload(); }}>{t("identity.workspace.refresh")}</Button>}
-    {((account.ready && !account.viewer) || operation.failure?.status === 401) && <div className={styles.sessionExpired}><p>{t("identity.profile.sessionExpired")}</p><Button icon={LogIn} onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button></div>}
-    {operation.pending && !workspaces.length ? <LoadingState label={t("identity.workspace.loading")} /> : !workspaces.length && !operation.failure ? <div className={styles.emptyTeam}><Users aria-hidden="true" size={32} /><p>{t("identity.workspace.empty")}</p></div> : selectedId ? <TeamWorkspace key={selectedId} workspaceId={selectedId} userId={userId} guard={guard} authVersion={authVersion} onSignIn={() => setAuthOpen(true)} onMembershipChanged={() => { void reload(); void account.refresh().catch(() => undefined); }} /> : null}
-    {createOpen && <CreateWorkspaceDialog userId={userId} guard={guard} onClose={() => setCreateOpen(false)} onCreated={(workspace) => { setWorkspaces((previous) => [...previous.filter((item) => item.workspaceId !== workspace.workspaceId), workspace]); setSelectedId(workspace.workspaceId); setCreateOpen(false); void account.refresh().catch(() => undefined); }} />}
-    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={selectedId ? `/settings/team?workspace=${selectedId}` : "/settings/team"} onAuthenticated={() => { setAuthOpen(false); setAuthVersion((previous) => previous + 1); void reload(); }} />
+    {operation.pending && !workspaces.length ? <LoadingState label={t("identity.workspace.loading")} /> : !workspaces.length && !operation.failure ? <div className={styles.emptyTeam}><Users aria-hidden="true" size={32} /><p>{t("identity.workspace.empty")}</p></div> : selectedId ? <TeamWorkspace key={selectedId} workspaceId={selectedId} userId={userId} guard={guard} drafts={drafts} authVersion={authVersion} onSignIn={onSignIn} onMembershipChanged={() => { void reload(); void account.refresh().catch(() => undefined); }} /> : null}
+    {createOpen && <CreateWorkspaceDialog userId={userId} guard={guard} draft={drafts} onClose={closeCreate} onCreated={(workspace) => { setWorkspaces((previous) => [...previous.filter((item) => item.workspaceId !== workspace.workspaceId), workspace]); chooseWorkspace(workspace.workspaceId); closeCreate(); void account.refresh().catch(() => undefined); }} />}
+  </>;
+}
+
+function TeamSession({ viewer, initialWorkspaceId }: { viewer: IdentityViewer; initialWorkspaceId?: string }) {
+  const account = useIdentityAccount();
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authVersion, setAuthVersion] = useState(0);
+  const [drafts] = useState(() => createTeamDrafts(initialWorkspaceId ?? viewer.workspaces[0]?.workspaceId));
+  const access = usePrivateIdentityAccess(viewer.user.id);
+  const guard = useIdentityGuard();
+  useEffect(() => {
+    if (access.phase !== "active") drafts.discardConfirmations();
+    if (access.phase === "discarded") drafts.discard();
+  }, [access.phase, drafts]);
+  const selectedId = drafts.getSnapshot().selectedId;
+  return <>
+    {access.phase === "active" ? <TeamContent viewer={account.viewer?.user.id === viewer.user.id ? account.viewer : viewer} drafts={drafts} guard={guard} authVersion={authVersion} onSignIn={() => setAuthOpen(true)} /> : <PrivateSessionState phase={access.phase} onSignIn={() => setAuthOpen(true)} onResume={access.resume} />}
+    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={selectedId ? `/settings/team?workspace=${selectedId}` : "/settings/team"} onAuthenticated={() => { setAuthOpen(false); setAuthVersion((previous) => previous + 1); }} />
   </>;
 }
 
@@ -159,11 +174,11 @@ export function TeamSettingsPage({ initialWorkspaceId }: { initialWorkspaceId?: 
   const [authOpen, setAuthOpen] = useState(false);
   if (account.viewer && account.viewer.user.id !== viewer?.user.id) setViewer(account.viewer);
   return <div className={styles.page}>
-    <header className={styles.topbar}><Link href="/" className={styles.brand}><Image src="/brand/tirlik-mark.svg" width={40} height={40} alt="" /><span>Tirlik</span></Link><div className={styles.actions}><LocaleSelect className={styles.locale} /><AccountMenu /></div></header>
+    <ProductHeader homeLabel={t("identity.navigation.home")}><LocaleSelect compact /><AccountMenu /></ProductHeader>
     <main className={styles.settings}>
       <Link href="/settings" className={styles.textLink}><ArrowLeft size={18} aria-hidden="true" />{t("identity.workspace.back")}</Link>
       <div className={styles.heading}><h1>{t("identity.team.manage")}</h1></div>
-      {viewer ? <TeamContent key={viewer.user.id} viewer={viewer} initialWorkspaceId={initialWorkspaceId} /> : !account.ready ? <LoadingState label={t("identity.profile.loading")} /> : <Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button>}
+      {viewer ? <TeamSession key={viewer.user.id} viewer={viewer} initialWorkspaceId={initialWorkspaceId} /> : !account.ready ? <LoadingState label={t("identity.profile.loading")} /> : <Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button>}
     </main>
     <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={initialWorkspaceId ? `/settings/team?workspace=${initialWorkspaceId}` : "/settings/team"} onAuthenticated={() => setAuthOpen(false)} />
   </div>;

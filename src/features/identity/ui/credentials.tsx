@@ -22,10 +22,10 @@ export function VerificationPending({ email, destination = {}, onChangeEmail }: 
   const operation = useIdentityOperation<IdentityMutationResult>();
   return <div className={styles.stack}>
     <SuccessNotice><p>{t("identity.verification.pendingDescription")}</p></SuccessNotice>
-    <p className={styles.address}>{email}</p>
+    <div className={styles.identityDetails}><span className={styles.meta}>{t("identity.verification.address")}</span><p className={styles.address}>{email}</p></div>
     <OperationError failure={operation.failure} />
     {operation.result && <SuccessNotice>{t("identity.verification.resent")}</SuccessNotice>}
-    <Button icon={Mail} pending={operation.pending} onClick={() => { void operation.run((signal) => identityClient.sendVerification({ email, locale, ...destination }, { signal })); }}>{t(operation.pending ? "identity.verification.resending" : "identity.verification.resend")}</Button>
+    <Button icon={Mail} pending={operation.pending} pendingLabel={t("identity.verification.resending")} onClick={() => { void operation.run((signal) => identityClient.sendVerification({ email, locale, ...destination }, { signal })); }}>{t("identity.verification.resend")}</Button>
     {onChangeEmail && <Button variant="quiet" onClick={onChangeEmail}>{t("identity.verification.changeEmail")}</Button>}
   </div>;
 }
@@ -99,7 +99,7 @@ export function CredentialsForm({ mode, returnTo, intentToken, onAuthenticated, 
       </fieldset>
       <OperationError failure={operation.failure} />
       {operation.failure?.messageKey === "identity.errors.emailNotVerified" && <Link className={styles.textLink} href={authHref("/auth/verify", destination)}>{t("identity.verification.resend")}</Link>}
-      <Button type="submit" icon={signup ? UserPlus : LogIn} variant="primary" pending={operation.pending} className={styles.primary}>{t(signup ? operation.pending ? "identity.signUp.pending" : "identity.signUp.submit" : operation.pending ? "identity.signIn.pending" : "identity.signIn.submit")}</Button>
+      <Button type="submit" icon={signup ? UserPlus : LogIn} variant="primary" pending={operation.pending} pendingLabel={t(signup ? "identity.signUp.pending" : "identity.signIn.pending")} className={styles.primary}>{t(signup ? "identity.signUp.submit" : "identity.signIn.submit")}</Button>
       {!signup && <Link href={authHref("/auth/reset", destination)} className={styles.textLink}>{t("identity.signIn.forgotPassword")}</Link>}
     </form>
     <div className={styles.formFooter}>
@@ -112,14 +112,14 @@ export function CredentialsForm({ mode, returnTo, intentToken, onAuthenticated, 
 export function SignInPage(props: AuthReturn) {
   const t = useIdentityTranslations();
   const router = useRouter();
-  return <IdentityFrame title={t("identity.signIn.title")}><CredentialsForm {...props} mode="sign-in" onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
+  return <IdentityFrame title={t("identity.signIn.title")} description={t("identity.signIn.description")}><CredentialsForm {...props} mode="sign-in" onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
 }
 
 export function SignUpPage(props: AuthReturn) {
   const t = useIdentityTranslations();
   const router = useRouter();
   const [verificationPending, setVerificationPending] = useState(false);
-  return <IdentityFrame title={t(verificationPending ? "identity.verification.pendingTitle" : "identity.signUp.title")}><CredentialsForm {...props} mode="sign-up" onVerificationPending={setVerificationPending} onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
+  return <IdentityFrame title={t(verificationPending ? "identity.verification.pendingTitle" : "identity.signUp.title")} description={verificationPending ? undefined : t("identity.signUp.description")}><CredentialsForm {...props} mode="sign-up" onVerificationPending={setVerificationPending} onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
 }
 
 export function AuthDialog({ open, onOpenChange, onAuthenticated, returnTo, intentToken, returnFocus }: AuthReturn & { open: boolean; onOpenChange: (open: boolean) => void; onAuthenticated: (returnTo: string) => void; returnFocus?: RefObject<HTMLElement | null> }) {
@@ -128,6 +128,6 @@ export function AuthDialog({ open, onOpenChange, onAuthenticated, returnTo, inte
   const [verificationPending, setVerificationPending] = useState(false);
   const handleOpen = (next: boolean) => { if (!next) { setMode("sign-in"); setVerificationPending(false); } onOpenChange(next); };
   return <Dialog open={open} onOpenChange={handleOpen} returnFocus={returnFocus} title={t(verificationPending ? "identity.verification.pendingTitle" : mode === "sign-in" ? "identity.signIn.title" : "identity.signUp.title")} description={mode === "sign-in" ? t("identity.signIn.dialogDescription") : undefined} footer={<DialogClose>{t("identity.sessions.cancel")}</DialogClose>}>
-    {open && <div className={styles.stack}><LocaleSelect /><CredentialsForm mode={mode} returnTo={returnTo} intentToken={intentToken} onModeChange={setMode} onVerificationPending={setVerificationPending} onAuthenticated={(target) => { handleOpen(false); onAuthenticated(target); }} /></div>}
+    {open && <div className={styles.stack}><div className={styles.dialogLocale}><LocaleSelect compact /></div><CredentialsForm mode={mode} returnTo={returnTo} intentToken={intentToken} onModeChange={setMode} onVerificationPending={setVerificationPending} onAuthenticated={(target) => { handleOpen(false); onAuthenticated(target); }} /></div>}
   </Dialog>;
 }

@@ -10,19 +10,21 @@ import type { IdentityMessageKey } from "../locales";
 import { OperationError } from "./common";
 import { useIdentityOperation, useIdentityTranslations } from "./hooks";
 import { asIdentityFailure, identityClient } from "./transport";
-import { defaultGrant, roleLabels, scopeChanges, validGrant, type Grant } from "./team-state";
-import { GrantFields, PersonIdentity, ScopeList, useIdentityWriteIntent, type IdentityAuthGuard } from "./team-controls";
+import { roleLabels, scopeChanges, validGrant } from "./team-state";
+import { GrantFields, PersonIdentity, ScopeList, type IdentityAuthGuard } from "./team-controls";
+import type { TeamAction, TeamActionDraft, TeamDrafts } from "./team-drafts";
 import { validateEmail } from "./validation";
 import styles from "./identity.module.css";
 
-export function CreateWorkspaceDialog({ userId, guard, onClose, onCreated }: { userId: string; guard: IdentityAuthGuard; onClose: () => void; onCreated: (workspace: WorkspaceMembership) => void }) {
+export function CreateWorkspaceDialog({ userId, guard, draft, onClose, onCreated }: { userId: string; guard: IdentityAuthGuard; draft: TeamDrafts; onClose: () => void; onCreated: (workspace: WorkspaceMembership) => void }) {
   const t = useIdentityTranslations();
   const formId = useId();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(draft.getSnapshot().workspaceName);
   const [invalid, setInvalid] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const operation = useIdentityOperation<{ workspace: WorkspaceMembership }>();
-  const intent = useIdentityWriteIntent();
+  const intent = draft.workspaceIntent;
+  function changeName(next: string) { draft.update({ workspaceName: next }); setName(next); }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsed = CreateWorkspaceSchema.safeParse({ name });
@@ -34,15 +36,15 @@ export function CreateWorkspaceDialog({ userId, guard, onClose, onCreated }: { u
     }));
     if (result) onCreated(result.workspace);
   }
-  return <Dialog open onOpenChange={(open) => { if (!open && !operation.pending) onClose(); }} title={t("identity.workspace.createTitle")} dirty={!operation.pending && Boolean(name)} onDiscard={() => setName("")} initialFocus={input} footer={<><DialogClose disabled={operation.pending}>{t("identity.workspace.cancel")}</DialogClose><Button icon={Plus} type="submit" form={formId} variant="primary" pending={operation.pending}>{t(operation.pending ? "identity.workspace.creating" : "identity.workspace.create")}</Button></>}>
+  return <Dialog open onOpenChange={(open) => { if (!open && !operation.pending) onClose(); }} title={t("identity.workspace.createTitle")} dirty={!operation.pending && Boolean(name)} onDiscard={() => changeName("")} initialFocus={input} footer={<><DialogClose disabled={operation.pending}>{t("identity.workspace.cancel")}</DialogClose><Button icon={Plus} type="submit" form={formId} variant="primary" pending={operation.pending}>{t(operation.pending ? "identity.workspace.creating" : "identity.workspace.create")}</Button></>}>
     <form id={formId} className={styles.form} onSubmit={submit} noValidate>
-      <InputField ref={input} label={t("identity.workspace.name")} name="workspaceName" autoComplete="organization" value={name} required maxLength={100} readOnly={operation.pending} error={invalid ? t("identity.workspace.nameError") : undefined} onChange={(event) => { setName(event.target.value); setInvalid(false); operation.clear(); }} />
+      <InputField ref={input} label={t("identity.workspace.name")} name="workspaceName" autoComplete="organization" value={name} required maxLength={100} readOnly={operation.pending} error={invalid ? t("identity.workspace.nameError") : undefined} onChange={(event) => { changeName(event.target.value); setInvalid(false); operation.clear(); }} />
       <OperationError failure={operation.failure?.status === 401 ? undefined : operation.failure} />
     </form>
   </Dialog>;
 }
 
-export type TeamAction = { kind: "invite" } | { kind: "edit" | "revoke-member" | "transfer"; userId: string } | { kind: "resend" | "revoke-invite"; invitationId: string };
+export type { TeamAction } from "./team-drafts";
 const titleKeys: Record<TeamAction["kind"], IdentityMessageKey> = {
   invite: "identity.invitation.createTitle", edit: "identity.access.editTitle", "revoke-member": "identity.team.revokeTitle",
   transfer: "identity.team.transferTitle", resend: "identity.invitation.resendTitle", "revoke-invite": "identity.invitation.revokeTitle",
@@ -56,7 +58,7 @@ const pendingKeys: Record<TeamAction["kind"], IdentityMessageKey> = {
   transfer: "identity.team.transferring", resend: "identity.invitation.resending", "revoke-invite": "identity.invitation.revoking",
 };
 
-export function TeamActionDialog({ action, team, userId, guard, onClose, onChanged, onRefresh }: { action: TeamAction; team: TeamResult; userId: string; guard: IdentityAuthGuard; onClose: () => void; onChanged: (message: IdentityMessageKey) => void; onRefresh: () => Promise<TeamResult | undefined> }) {
+export function TeamActionDialog({ action, team, userId, guard, draft, onClose, onChanged, onRefresh }: { action: TeamAction; team: TeamResult; userId: string; guard: IdentityAuthGuard; draft: TeamActionDraft; onClose: () => void; onChanged: (message: IdentityMessageKey) => void; onRefresh: () => Promise<TeamResult | undefined> }) {
   const t = useIdentityTranslations();
   const { locale } = useLocale();
   const formId = useId();
@@ -66,17 +68,17 @@ export function TeamActionDialog({ action, team, userId, guard, onClose, onChang
   const member = "userId" in action ? team.members.find((item) => item.userId === action.userId) : undefined;
   const invitation = "invitationId" in action ? team.invitations.find((item) => item.id === action.invitationId) : undefined;
   const options = action.kind === "edit" && member ? member.allowedActions : team.allowedActions;
-  const [initialGrant] = useState<Grant | undefined>(() => member ? { role: member.role, scopes: [...member.scopes] } : defaultGrant(options));
-  const [grant, setGrant] = useState(initialGrant);
-  const [email, setEmail] = useState("");
+  const initialGrant = draft.getSnapshot().initialGrant;
+  const [grant, setGrant] = useState(draft.getSnapshot().grant);
+  const [email, setEmail] = useState(draft.getSnapshot().email);
   const [emailError, setEmailError] = useState<ReturnType<typeof validateEmail>>();
   const [grantError, setGrantError] = useState(false);
   const [review, setReview] = useState(false);
-  const [revision, setRevision] = useState(team.workspace.authzVersion);
+  const [revision, setRevision] = useState(draft.getSnapshot().revision);
   const [refreshing, setRefreshing] = useState(false);
   const [conflict, setConflict] = useState(false);
   const operation = useIdentityOperation<{ message: IdentityMessageKey }>();
-  const intent = useIdentityWriteIntent();
+  const intent = draft.intent;
   const changed = revision !== team.workspace.authzVersion || conflict;
   const allowed = action.kind === "invite" ? team.allowedActions.invite : action.kind === "edit" ? member?.allowedActions.update : action.kind === "revoke-member" ? member?.allowedActions.revoke : action.kind === "transfer" ? member?.allowedActions.transfer : action.kind === "resend" ? invitation?.allowedActions.resend : invitation?.allowedActions.revoke;
   const isGrant = action.kind === "invite" || action.kind === "edit";
@@ -88,7 +90,7 @@ export function TeamActionDialog({ action, team, userId, guard, onClose, onChang
     if (refreshing || operation.pending) return;
     setRefreshing(true);
     const result = await onRefresh();
-    if (result) { setRevision(result.workspace.authzVersion); setReview(false); setConflict(false); operation.clear(); }
+    if (result) { draft.update({ revision: result.workspace.authzVersion }); setRevision(result.workspace.authzVersion); setReview(false); setConflict(false); operation.clear(); }
     setRefreshing(false);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -145,7 +147,7 @@ export function TeamActionDialog({ action, team, userId, guard, onClose, onChang
     }));
     if (result) onChanged(result.message);
   }
-  return <Dialog open onOpenChange={(open) => { if (!open && !operation.pending && !refreshing) onClose(); }} title={t(action.kind === "edit" && review ? "identity.access.reviewTitle" : titleKeys[action.kind])} dirty={dirty} onDiscard={() => { setEmail(""); setGrant(undefined); }} initialFocus={isGrant ? undefined : cancel} footer={<>
+  return <Dialog open onOpenChange={(open) => { if (!open && !operation.pending && !refreshing) onClose(); }} title={t(action.kind === "edit" && review ? "identity.access.reviewTitle" : titleKeys[action.kind])} dirty={dirty} onDiscard={() => { draft.update({ email: "", grant: undefined }); setEmail(""); setGrant(undefined); }} initialFocus={isGrant ? undefined : cancel} footer={<>
     <DialogClose ref={cancel} disabled={operation.pending || refreshing}>{t("identity.workspace.cancel")}</DialogClose>
     {review && <Button icon={ArrowLeft} disabled={operation.pending} onClick={() => setReview(false)}>{t("identity.access.back")}</Button>}
     <Button icon={action.kind === "edit" && !review ? ArrowRight : Icon} type="submit" form={formId} variant={isGrant || action.kind === "resend" ? "primary" : "danger"} pending={operation.pending} disabled={!allowed || changed || refreshing}>{t(operation.pending ? pendingKeys[action.kind] : action.kind === "edit" && !review ? "identity.access.review" : submitKeys[action.kind])}</Button>
@@ -155,8 +157,8 @@ export function TeamActionDialog({ action, team, userId, guard, onClose, onChang
       {!allowed && <p role="alert" className={styles.error}>{t("identity.access.restricted")}</p>}
       {member && <PersonIdentity name={member.name} email={member.email} />}
       {invitation && <PersonIdentity email={invitation.email} />}
-      {action.kind === "invite" && <InputField ref={emailInput} name="email" label={t("identity.invitation.email")} autoComplete="email" type="email" autoCapitalize="none" required readOnly={operation.pending} value={email} error={emailError ? t(emailError) : operation.failure?.fieldErrors.email ? t(operation.failure.fieldErrors.email) : undefined} onChange={(event) => { setEmail(event.target.value); setEmailError(undefined); operation.clear(); }} />}
-      {isGrant && grant && !review && <GrantFields value={grant} options={options} disabled={operation.pending || !allowed} error={grantError ? t("identity.access.invalid") : operation.failure?.fieldErrors.role || operation.failure?.fieldErrors.scopes ? t((operation.failure.fieldErrors.role ?? operation.failure.fieldErrors.scopes)!) : undefined} onChange={(next) => { setGrant(next); setGrantError(false); operation.clear(); }} />}
+      {action.kind === "invite" && <InputField ref={emailInput} name="email" label={t("identity.invitation.email")} autoComplete="email" type="email" autoCapitalize="none" required readOnly={operation.pending} value={email} error={emailError ? t(emailError) : operation.failure?.fieldErrors.email ? t(operation.failure.fieldErrors.email) : undefined} onChange={(event) => { draft.update({ email: event.target.value }); setEmail(event.target.value); setEmailError(undefined); operation.clear(); }} />}
+      {isGrant && grant && !review && <GrantFields value={grant} options={options} disabled={operation.pending || !allowed} error={grantError ? t("identity.access.invalid") : operation.failure?.fieldErrors.role || operation.failure?.fieldErrors.scopes ? t((operation.failure.fieldErrors.role ?? operation.failure.fieldErrors.scopes)!) : undefined} onChange={(next) => { draft.update({ grant: next }); setGrant(next); setGrantError(false); operation.clear(); }} />}
       {grantError && !grant && <p role="alert" className={styles.error}>{t("identity.access.invalid")}</p>}
       {action.kind === "invite" && <dl className={styles.facts}><dt>{t("identity.invitation.expiresIn")}</dt><dd>{formatUnit(locale, team.allowedActions.invitationTtlSeconds / 86400, "day", { unitDisplay: "long" })}</dd></dl>}
       {action.kind === "edit" && review && member && grant && <div className={styles.stack}>

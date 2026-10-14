@@ -30,6 +30,18 @@ describe('identity navigation and input boundaries', () => {
     expect(authReturnTo(`/settings/team?workspace=${id}`, 'a'.repeat(64))).toBe(`/settings/team?workspace=${id}&intent=${'a'.repeat(64)}`);
     expect(safeReturnTo(`/settings?intent=${'a'.repeat(64)}&intent=${'b'.repeat(64)}`)).toBe('/settings');
   });
+  it('preserves the run-list workspace but not private queries or ambiguous selection', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    const token = 'a'.repeat(64);
+    expect(safeReturnTo(`/app/runs?workspace=${id}&goal=private&email=owner%40example.test#private`)).toBe(`/app/runs?workspace=${id}`);
+    expect(authReturnTo(`/app/runs?workspace=${id}`, token)).toBe(`/app/runs?workspace=${id}&intent=${token}`);
+    for (const workspace of ['', 'invalid', `${id}&workspace=${id}`, `${id}&work%73pace=${id}`]) {
+      expect(safeReturnTo(`/app/runs?workspace=${workspace}`)).toBe('/app');
+    }
+    expect(safeReturnTo(`/app/runs/${id}?workspace=${id}&goal=private`)).toBe(`/app/runs/${id}`);
+    expect(safeReturnTo(`/app/runs-archive?workspace=${id}`)).toBe('/app/runs-archive');
+    expect(safeReturnTo('/app/runs')).toBe('/app/runs');
+  });
 });
 describe('default-deny scopes', () => {
   it('keeps confidential data and membership management restricted', () => {

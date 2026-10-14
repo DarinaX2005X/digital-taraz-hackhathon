@@ -5,6 +5,8 @@ import { teamEn } from "./team-en";
 export const en = {
   identity: {
     ...teamEn,
+    entry: { tagline: "Everything for your business" },
+    sessionRecovery: { ready: "Signed in again", review: "Review your retained input before submitting. Passwords and confirmations for destructive actions have been cleared.", continue: "Continue" },
     devices: { desktop: "Computer", mobile: "Mobile device" },
     navigation: { home: "Home", signIn: "Sign in", signUp: "Create account", settings: "Settings", profile: "Profile", security: "Security", team: "Team", signOut: "Sign out", account: "Account", language: "Language" },
     signIn: { title: "Sign in to Tirlik", description: "Your materials and saved work.", submit: "Sign in", pending: "Signing in", noAccount: "New to Tirlik?", forgotPassword: "Forgot your password?", sessionExpired: "Sign in again to continue. Your input is still on this screen.", continue: "Continue", success: "You are signed in", returnToWork: "Return to work", dialogDescription: "Sign in to continue with this account." },

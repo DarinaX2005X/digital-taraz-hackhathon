@@ -14,4 +14,5 @@ export { ToastProvider, useToast } from "./toast";
 export type { ToastInput } from "./toast";
 export { Toolbar, ToolbarItem } from "./toolbar";
 export { LocaleSelect } from "./locale-select";
+export { ProductHeader } from "./product-header";
 export { colorValue, designTokens } from "./tokens";

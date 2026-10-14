@@ -10,9 +10,9 @@ import { InvitationTokenSchema, type IdentityUser, type InvitationPreview, type 
 import { authHref, IdentityFrame, OperationError, SuccessNotice } from "./common";
 import { AuthDialog } from "./credentials";
 import { SignOutDialog } from "./account-menu";
-import { useIdentityOperation, useIdentityTranslations } from "./hooks";
+import { useIdentityGuard, useIdentityOperation, useIdentityTranslations } from "./hooks";
 import { useIdentityAccount } from "./identity-locale-provider";
-import { asIdentityFailure, identityClient } from "./transport";
+import { identityClient } from "./transport";
 import { PersonIdentity, ScopeList, useIdentityWriteIntent } from "./team-controls";
 import { roleLabels } from "./team-state";
 import styles from "./identity.module.css";
@@ -21,6 +21,7 @@ function InvitationContent({ token, user, onSignIn, onSwitchAccount }: { token: 
   const t = useIdentityTranslations();
   const { locale } = useLocale();
   const account = useIdentityAccount();
+  const guard = useIdentityGuard();
   const preview = useIdentityOperation<InvitationPreview>();
   const accept = useIdentityOperation<{ workspace: WorkspaceMembership }>();
   const intent = useIdentityWriteIntent();
@@ -30,20 +31,14 @@ function InvitationContent({ token, user, onSignIn, onSwitchAccount }: { token: 
   const returnTo = `/settings/invitations/${token}`;
   const load = useCallback(() => {
     cancel();
-    return run((signal) => identityClient.invitation(token, { signal, expectedUserId: userId }));
-  }, [cancel, run, token, userId]);
+    return run((signal) => guard(signal, () => identityClient.invitation(token, { signal, expectedUserId: userId })));
+  }, [cancel, run, token, userId, guard]);
   useEffect(() => { if (valid && user.emailVerified) void load(); return cancel; }, [valid, user.emailVerified, load, cancel]);
   async function join() {
-    const result = await accept.run(async (signal) => {
-      try {
-        const key = await intent.keyFor({ userId, action: "accept-invitation", token }, signal);
-        return await identityClient.acceptInvitation(token, key, { signal, expectedUserId: userId });
-      } catch (error) {
-        if (!signal.aborted && asIdentityFailure(error).status === 401) onSignIn();
-        if (!signal.aborted && asIdentityFailure(error).status === 409) void account.refresh().catch(() => undefined);
-        throw error;
-      }
-    });
+    const result = await accept.run((signal) => guard(signal, async () => {
+      const key = await intent.keyFor({ userId, action: "accept-invitation", token }, signal);
+      return identityClient.acceptInvitation(token, key, { signal, expectedUserId: userId });
+    }));
     if (result) void account.refresh().catch(() => undefined);
   }
   if (accept.result) return <div className={styles.stack}>

@@ -5,6 +5,8 @@ import { teamKk } from "./team-kk";
 export const kk = {
   identity: {
     ...teamKk,
+    entry: { tagline: "Бизнесіңізге қажеттінің бәрі" },
+    sessionRecovery: { ready: "Кіру қалпына келтірілді", review: "Жібермес бұрын сақталған енгізуді тексеріңіз. Құпиясөздер мен қауіпті әрекеттерді растау тазартылды.", continue: "Жалғастыру" },
     devices: { desktop: "Компьютер", mobile: "Мобильді құрылғы" },
     navigation: { home: "Басты бет", signIn: "Кіру", signUp: "Аккаунт ашу", settings: "Баптаулар", profile: "Профиль", security: "Қауіпсіздік", team: "Команда", signOut: "Шығу", account: "Аккаунт", language: "Тіл" },
     signIn: { title: "Tirlik жүйесіне кіру", description: "Материалдарыңыз бен сақталған жұмысыңыз.", submit: "Кіру", pending: "Кіру орындалуда", noAccount: "Аккаунтыңыз жоқ па?", forgotPassword: "Құпиясөзді ұмыттыңыз ба?", sessionExpired: "Жалғастыру үшін қайта кіріңіз. Енгізілген деректер осы экранда сақталды.", continue: "Жалғастыру", success: "Аккаунтқа кірдіңіз", returnToWork: "Жұмысқа оралу", dialogDescription: "Осы аккаунтпен жалғастыру үшін кіріңіз." },

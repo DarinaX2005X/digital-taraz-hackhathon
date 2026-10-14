@@ -117,9 +117,33 @@ describe("identity source contracts, without browser or rendering", () => {
     expect(menu.named("DialogClose")).toHaveLength(1);
     expect(attribute(menu.named("Dialog")[0]!, "initialFocus")).toBe("cancel");
     expect(read("account-menu.tsx")).toContain("beforeSignOut");
-    expect(read("account-menu.tsx")).toContain("account.clear()");
+    expect(read("account-menu.tsx")).toContain("account.invalidate(userId, authEpoch)");
+    expect(read("account-menu.tsx")).toContain("!account.isCurrent(userId, authEpoch)");
     expect(read("account-menu.tsx")).toContain("asIdentityFailure(error).status === 401");
     expect(items.some((item) => attribute(item, "render")?.includes("/settings/team"))).toBe(true);
+    expect(menu.named("Ariakit.MenuGroup")).toHaveLength(1);
+    expect(attribute(menu.named("IconButton")[0]!, "label")).toContain("viewer.user.name");
+  });
+
+  it("discards account-menu confirmation state before a missing, different or renewed account renders", () => {
+    const menu = parse("account-menu.tsx");
+    const privateMenu = menu.named("AuthenticatedAccountMenu")[0]!;
+    expect(attribute(privateMenu, "key")).toBe("`${account.viewer.user.id}:${account.authEpoch}`");
+    expect(attribute(privateMenu, "viewer")).toBe("account.viewer");
+    const wrapper = menu.tree.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "AccountMenu");
+    const content = menu.tree.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "AuthenticatedAccountMenu");
+    expect(wrapper?.getText(menu.tree)).toContain("if (!account.viewer) return <Link");
+    expect(wrapper?.getText(menu.tree)).not.toContain("useState");
+    expect(content?.getText(menu.tree)).toContain("const [signOutOpen, setSignOutOpen] = useState(false)");
+  });
+
+  it("uses the same header and compact language control across current account surfaces", () => {
+    for (const file of ["common.tsx", "settings.tsx", "team.tsx"]) {
+      const source = parse(file);
+      expect(source.named("ProductHeader"), file).toHaveLength(1);
+      expect(source.named("LocaleSelect").some((node) => attribute(node, "compact") === "true"), file).toBe(true);
+      expect(source.named("header"), file).toHaveLength(0);
+    }
   });
 
   it("keeps invitation acceptance behind a named explicit action and rejects an invalid token before authentication", () => {
@@ -141,7 +165,7 @@ describe("identity source contracts, without browser or rendering", () => {
       expect(attribute(dialog, "returnTo")).toContain("/settings/team?workspace=");
       expect(attribute(dialog, "onAuthenticated")).not.toMatch(/createWorkspace|updateMember|revokeMember|createInvitation|acceptInvitation/);
     }
-    expect(attribute(team.named("TeamContent")[0]!, "key")).toBe("viewer.user.id");
+    expect(attribute(team.named("TeamSession")[0]!, "key")).toBe("viewer.user.id");
     expect(attribute(team.named("TeamWorkspace")[0]!, "key")).toBe("selectedId");
   });
 
@@ -149,13 +173,29 @@ describe("identity source contracts, without browser or rendering", () => {
     const team = read("team.tsx");
     for (const action of ["update", "transfer", "revoke"]) expect(team).toContain(`member.allowedActions.${action}`);
     expect(team).toContain("current.allowedActions.invite");
-    expect(team).toContain("[403, 404, 409].includes(status)) { setTeam(undefined); setAction(undefined); }");
+    expect(team).toContain("[403, 404, 409].includes(status)) { setTeam(undefined); closeAction(); }");
     const modal = read("team-dialogs.tsx");
     expect(modal).toContain("expectedAuthzVersion: revision");
     expect(modal).toContain("revision !== team.workspace.authzVersion || conflict");
     expect(modal).toContain("setConflict(true)");
     expect(modal).toContain("setConflict(false)");
     expect(modal).not.toContain("actorMembership.authzVersion");
+  });
+
+  it("unmounts private settings and team trees instead of hiding cached metadata on authentication loss", () => {
+    for (const file of ["settings.tsx", "team.tsx"]) {
+      expect(read(file), file).toContain('access.phase === "active" ?');
+      expect(parse(file).named("PrivateSessionState"), file).toHaveLength(1);
+      expect(read(file), file).toContain("usePrivateIdentityAccess(viewer.user.id)");
+      expect(read(file), file).toContain("useIdentityGuard()");
+      expect(read(file), file).not.toContain('hidden={access.phase');
+    }
+    expect(read("settings.tsx")).toContain("guard(signal, () => identityClient.sessions");
+    expect(read("team.tsx")).toContain("guard(signal, () => identityClient.team");
+    expect(read("team.tsx")).toContain("guard(signal, () => identityClient.workspaces");
+    expect(read("invitation.tsx")).toContain("guard(signal, () => identityClient.invitation");
+    expect(read("account-deletion.tsx")).toContain("guard(signal, () => identityClient.deletionPreview");
+    expect(read("hooks.ts")).toContain("useEffect(() => () => operation.cancel()");
   });
 
   it("requires ownership review, a current password and consent before deletion, with an uncertain-outcome gate", () => {
@@ -172,6 +212,8 @@ describe("identity source contracts, without browser or rendering", () => {
     expect(source).toContain("if (!preview || busy || stale || uncertain || sessionMissing) return;");
     expect(source).toContain("if (!signal.aborted && failure.status === 0) setUncertain(true)");
     expect(source).toContain("identity.deletion.sessionUnavailable");
+    expect(source).toContain("initialUncertain={uncertain}");
+    expect(read("settings.tsx")).toContain("deletionUncertain &&");
     for (const effect of deletion.calls.filter((call) => call.expression.getText(deletion.tree) === "useEffect")) expect(effect.arguments[0]?.getText(deletion.tree)).not.toContain("deleteAccount");
     expect(attribute(deletion.named("Dialog")[0]!, "initialFocus")).toBe("cancelButton");
     expect(read("settings.tsx")).toContain("setDeleted(result); setViewer(undefined); account.clear()");

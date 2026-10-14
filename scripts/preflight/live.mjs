@@ -47,6 +47,8 @@ const finalSchema = z.object({ total: z.literal(3750), currency: z.literal("KZT"
 const visionSchema = z.object({ item: z.literal("LAMP"), quantity: z.literal(3), unitPrice: z.literal(1250), currency: z.literal("KZT") }).strict();
 
 export async function runLive(maxUsd, { correctKnownRejections = false } = {}) {
+  // New paid work must use the durable runtime authorization ledger.
+  requireCondition(false, "LEGACY_LIVE_EXECUTION_RETIRED_USE_RUNTIME");
   requireCondition(Number.isFinite(maxUsd) && maxUsd > 0 && maxUsd <= 1, "MAX_USD_MUST_BE_EXPLICIT_AND_AT_MOST_ONE");
   const env = {};
   dotenv.config({ path: path.join(root, ".env"), processEnv: env, quiet: true });
@@ -208,6 +210,7 @@ export async function runLive(maxUsd, { correctKnownRejections = false } = {}) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
+    requireCondition(!process.argv.includes("--execute"), "LEGACY_LIVE_EXECUTION_RETIRED_USE_RUNTIME");
     if (process.argv.includes("--metadata-only")) {
       const result = await readProviderMetadata();
       await mkdir(evidenceDirectory, { recursive: true });

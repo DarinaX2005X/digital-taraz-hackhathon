@@ -1,30 +1,29 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { KeyRound, LogIn, LogOut, Monitor, RefreshCw, Save, Smartphone } from "lucide-react";
-import { Button, Dialog, DialogClose, InputField, LoadingState, LocaleSelect } from "@/ui";
+import { Button, Dialog, DialogClose, InputField, LoadingState, LocaleSelect, ProductHeader } from "@/ui";
 import { useLocale } from "@/i18n/provider";
 import { formatInstant } from "@/i18n/format";
 import type { AccountDeletionResult, IdentityMutationResult, IdentitySession, IdentityUser, IdentityViewer } from "../contracts";
-import { authHref, OperationError, PasswordField, SuccessNotice } from "./common";
+import { authHref, OperationError, PasswordField, PrivateSessionState, SuccessNotice } from "./common";
 import { AuthDialog } from "./credentials";
-import { useIdentityOperation, useIdentityTranslations } from "./hooks";
+import { useIdentityGuard, useIdentityOperation, useIdentityTranslations, usePrivateIdentityAccess } from "./hooks";
 import { useIdentityAccount } from "./identity-locale-provider";
-import { SignOutDialog } from "./account-menu";
+import { AccountMenu, SignOutDialog } from "./account-menu";
 import { AccountDeletedResult, AccountDeletionSection } from "./account-deletion";
-import { asIdentityFailure, identityClient } from "./transport";
+import { identityClient } from "./transport";
 import { focusFirstError, hasErrors, passwordVariables, validateName, validatePassword, type FormErrors } from "./validation";
 import styles from "./identity.module.css";
 
 type AuthGuard = <T>(signal: AbortSignal, action: () => Promise<T>) => Promise<T>;
+type ProfileDraft = { name: string; savedName: string };
 
-function ProfileForm({ user, guard }: { user: IdentityUser; guard: AuthGuard }) {
+function ProfileForm({ user, guard, draft, setDraft }: { user: IdentityUser; guard: AuthGuard; draft: ProfileDraft; setDraft: Dispatch<SetStateAction<ProfileDraft>> }) {
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
-  const [name, setName] = useState(user.name);
-  const [savedName, setSavedName] = useState(user.name);
+  const { name, savedName } = draft;
   const [error, setError] = useState<ReturnType<typeof validateName>>();
   const input = useRef<HTMLInputElement>(null);
   const operation = useIdentityOperation<{ user: IdentityUser }>();
@@ -35,10 +34,10 @@ function ProfileForm({ user, guard }: { user: IdentityUser; guard: AuthGuard }) 
     setError(invalid);
     if (invalid) { input.current?.focus(); return; }
     const result = await operation.run((signal) => guard(signal, () => identityClient.updateProfile({ name: name.trim() }, { signal, expectedUserId: user.id })));
-    if (result) { setName(result.user.name); setSavedName(result.user.name); account.acceptUser(result.user); }
+    if (result) { setDraft({ name: result.user.name, savedName: result.user.name }); account.acceptUser(result.user); }
   }
   return <form onSubmit={submit} className={styles.form} noValidate aria-busy={operation.pending || undefined}>
-    <InputField ref={input} name="name" label={t("identity.fields.name")} hint={t("identity.profile.nameHint")} autoComplete="name" value={name} required readOnly={operation.pending} error={error ? t(error) : operation.failure?.fieldErrors.name ? t(operation.failure.fieldErrors.name) : undefined} onBlur={() => setError(validateName(name))} onChange={(event) => { setName(event.target.value); setError(undefined); operation.clear(); }} />
+    <InputField ref={input} name="name" label={t("identity.fields.name")} hint={t("identity.profile.nameHint")} autoComplete="name" value={name} required readOnly={operation.pending} error={error ? t(error) : operation.failure?.fieldErrors.name ? t(operation.failure.fieldErrors.name) : undefined} onBlur={() => setError(validateName(name))} onChange={(event) => { setDraft((previous) => ({ ...previous, name: event.target.value })); setError(undefined); operation.clear(); }} />
     <InputField name="email" label={t("identity.fields.email")} value={user.email} readOnly autoComplete="username" hint={t(user.emailVerified ? "identity.profile.emailVerified" : "identity.profile.emailUnverified")} />
     {!user.emailVerified && <Link href="/auth/verify" className={styles.textLink}>{t("identity.verification.resend")}</Link>}
     <OperationError failure={operation.failure?.status === 401 ? undefined : operation.failure} />
@@ -94,9 +93,9 @@ function SessionsSection({ version, guard, onSignOut, onSignIn, userId }: { vers
   const run = operation.run;
   const cancel = operation.cancel;
   useEffect(() => {
-    void run((signal) => identityClient.sessions({ signal, expectedUserId: userId })).then((result) => { if (result) setSessions(result.sessions); });
+    void run((signal) => guard(signal, () => identityClient.sessions({ signal, expectedUserId: userId }))).then((result) => { if (result) setSessions(result.sessions); });
     return cancel;
-  }, [run, cancel, version, refreshVersion, userId]);
+  }, [run, cancel, version, refreshVersion, userId, guard]);
   return <section className={styles.section} id="sessions" aria-labelledby="sessions-title">
     <h2 id="sessions-title">{t("identity.sessions.title")}</h2>
     <p className={styles.muted}>{t("identity.sessions.description")}</p>
@@ -126,28 +125,24 @@ function SettingsContent({ viewer, onDeleted }: { viewer: IdentityViewer; onDele
   const [authOpen, setAuthOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [sessionsVersion, setSessionsVersion] = useState(0);
-  const guard: AuthGuard = async (signal, action) => {
-    try { return await action(); }
-    catch (error) {
-      if (!signal.aborted && asIdentityFailure(error).status === 401) setAuthOpen(true);
-      if (!signal.aborted && asIdentityFailure(error).status === 409) void account.refresh().catch(() => undefined);
-      throw error;
-    }
-  };
+  const [deletionUncertain, setDeletionUncertain] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<ProfileDraft>({ name: viewer.user.name, savedName: viewer.user.name });
+  const access = usePrivateIdentityAccess(viewer.user.id);
+  const guard = useIdentityGuard();
+  if (access.phase !== "active" && signOutOpen) setSignOutOpen(false);
   return <>
-    <div className={styles.settingsGrid}>
+    {access.phase === "active" ? <div className={styles.settingsGrid}>
       <nav className={styles.settingsNav} aria-label={t("identity.navigation.settings")}><a href="#profile">{t("identity.navigation.profile")}</a><a href="#language">{t("identity.navigation.language")}</a><a href="#security">{t("identity.navigation.security")}</a><Link href="/settings/team">{t("identity.team.manage")}</Link></nav>
       <div className={styles.settingsBody}>
-        {account.ready && !account.viewer && <div className={styles.stack}><p>{t("identity.profile.sessionExpired")}</p><Button icon={LogIn} onClick={() => setAuthOpen(true)}>{t("identity.navigation.signIn")}</Button></div>}
-        <section className={styles.section} id="profile" aria-labelledby="profile-title"><h2 id="profile-title">{t("identity.navigation.profile")}</h2><ProfileForm user={account.viewer?.user.id === viewer.user.id ? account.viewer.user : viewer.user} guard={guard} /></section>
+        <section className={styles.section} id="profile" aria-labelledby="profile-title"><h2 id="profile-title">{t("identity.navigation.profile")}</h2><ProfileForm user={account.viewer?.user.id === viewer.user.id ? account.viewer.user : viewer.user} guard={guard} draft={profileDraft} setDraft={setProfileDraft} /></section>
         <section className={styles.section} id="language" aria-labelledby="language-title"><h2 id="language-title">{t("identity.profile.languageTitle")}</h2><p className={styles.muted}>{t("identity.profile.languageDescription")}</p><LocaleSelect className={styles.locale} /></section>
         <section className={styles.section} id="security" aria-labelledby="security-title"><h2 id="security-title">{t("identity.password.title")}</h2><p className={styles.muted}>{t("identity.password.description")}</p><ChangePasswordForm guard={guard} userId={viewer.user.id} onChanged={() => setSessionsVersion((value) => value + 1)} /></section>
         <SessionsSection version={sessionsVersion} guard={guard} userId={viewer.user.id} onSignIn={() => setAuthOpen(true)} onSignOut={() => setSignOutOpen(true)} />
-        <AccountDeletionSection userId={viewer.user.id} guard={guard} authVersion={sessionsVersion} onDeleted={onDeleted} />
+        <AccountDeletionSection userId={viewer.user.id} guard={guard} authVersion={sessionsVersion} uncertain={deletionUncertain} onUncertainChange={setDeletionUncertain} onDeleted={onDeleted} />
       </div>
-    </div>
+    </div> : <div className={styles.stack}><PrivateSessionState phase={access.phase} onSignIn={() => setAuthOpen(true)} onResume={access.resume} />{deletionUncertain && <p role="alert">{t("identity.deletion.sessionUnavailable")}</p>}</div>}
     <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo="/settings" onAuthenticated={() => { setAuthOpen(false); setSessionsVersion((value) => value + 1); }} />
-    <SignOutDialog open={signOutOpen} onOpenChange={setSignOutOpen} />
+    {access.phase === "active" && <SignOutDialog open={signOutOpen} onOpenChange={setSignOutOpen} />}
   </>;
 }
 
@@ -160,7 +155,7 @@ export function SettingsPage({ initialViewer }: { initialViewer?: IdentityViewer
   if (account.viewer && account.viewer.user.id !== viewer?.user.id) setViewer(account.viewer);
   if (deleted) return <AccountDeletedResult result={deleted} />;
   return <div className={styles.page}>
-    <header className={styles.topbar}><Link href="/" className={styles.brand}><Image src="/brand/tirlik-mark.svg" width={40} height={40} alt="" /><span>Tirlik</span></Link><Link className={styles.textLink} href="/">{t("identity.navigation.home")}</Link></header>
+    <ProductHeader homeLabel={t("identity.navigation.home")}><LocaleSelect compact /><AccountMenu /></ProductHeader>
     <main className={styles.settings}><div className={styles.heading}><h1>{t("identity.profile.title")}</h1></div>
       {viewer ? <SettingsContent key={viewer.user.id} viewer={viewer} onDeleted={(result) => { setDeleted(result); setViewer(undefined); account.clear(); }} /> : !account.ready || operation.pending ? <LoadingState label={t("identity.profile.loading")} /> : <div className={styles.stack}>
         <OperationError failure={operation.failure} />

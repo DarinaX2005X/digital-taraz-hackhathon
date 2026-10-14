@@ -35,7 +35,7 @@ This is a foundation for real product routes, not a separate component gallery.
 
 | Export | Contract |
 | --- | --- |
-| `Button`, `IconButton` | Explicit commands, Lucide icons, 44px targets, pending/disabled states. Icon buttons require a localized `label` independent of their tooltip. `disabledReason` remains accessible while disabled. Default `type` is `button`; form submission needs `type="submit"`. |
+| `Button`, `IconButton` | Explicit commands, Lucide icons, 44px targets, pending/disabled states. `Button.pendingLabel` reserves both labels' geometry and exposes only the current label. Without it, the existing children remain visible while pending. Icon buttons require a localized `label` independent of their tooltip. `disabledReason` remains accessible while disabled. Default `type` is `button`; form submission needs `type="submit"`. |
 | `InputField`, `TextareaField`, `SelectField`, `CheckboxField` | Native input props, ref and controlled/uncontrolled values. Required `label`, optional `hint` and field `error`; input may show `unit`. Descriptions/errors are associated by ID; errors do not clear the value. `className` styles the field wrapper. |
 | `Combobox` | Controlled `SelectOption \| null`; options have stable IDs, labels, optional descriptions and disabled state. Supply either `options` or `loadOptions`, not both. Only a current, enabled list option can be selected. |
 | `Dialog`, `DialogClose` | Controlled modal, optional `placement="side"` drawer, title/description, scrollable body/footer, initial and return focus refs. Dirty drafts require explicit discard confirmation. |
@@ -45,7 +45,8 @@ This is a foundation for real product routes, not a separate component gallery.
 | `SaveStatus` | `saving`, `saved`, `unsaved`, `local`, `offline` or `conflict`, optional detail and retry. This presents an actual persistence state; it does not save data or infer success. |
 | `EmptyState`, `ErrorState`, `LoadingState`, `Skeleton` | Object-specific copy/actions and retained children, polite loading, assertive error. Skeleton dimensions are explicit and static; do not replace existing work with a blank loading surface. |
 | `ToastProvider`, `useToast` | Deduplicated notification IDs, update/dismiss/clear, persistent errors/actions, timed information with hover/focus pause. |
-| `LocaleSelect` | All three language names, existing cookie/account preference states, no editor navigation or remount. |
+| `LocaleSelect` | All three language names, existing cookie/account preference states, no editor navigation or remount. Optional `compact` hides the associated label visually for headers and adds a language icon; errors and retry remain available. |
+| `ProductHeader` | Shared branded full-width header, named home link and trailing action slot. Required localized `homeLabel`; optional `homeHref` defaults to `/`. No account state or feature navigation is created here. |
 
 ### Search
 

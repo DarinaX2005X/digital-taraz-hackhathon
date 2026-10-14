@@ -3,6 +3,8 @@ import { teamRu } from "./team-ru";
 export const ru = {
   identity: {
     ...teamRu,
+    entry: { tagline: "Всё для вашего бизнеса" },
+    sessionRecovery: { ready: "Вход восстановлен", review: "Проверьте сохранённый ввод перед отправкой. Пароли и подтверждения опасных действий сброшены.", continue: "Продолжить" },
     devices: { desktop: "Компьютер", mobile: "Мобильное устройство" },
     navigation: { home: "На главную", signIn: "Войти", signUp: "Создать аккаунт", settings: "Настройки", profile: "Профиль", security: "Безопасность", team: "Команда", signOut: "Выйти", account: "Аккаунт", language: "Язык" },
     signIn: { title: "Войти в Tirlik", description: "Ваши материалы и сохранённая работа.", submit: "Войти", pending: "Входим", noAccount: "Нет аккаунта?", forgotPassword: "Забыли пароль?", sessionExpired: "Войдите снова, чтобы продолжить. Введённые данные остались на этом экране.", continue: "Продолжить", success: "Вы вошли в аккаунт", returnToWork: "Вернуться к работе", dialogDescription: "Войдите, чтобы продолжить с этим аккаунтом." },
