@@ -18,6 +18,15 @@ export const ArtifactAccessResultSchema = z.strictObject({ viewer: ArtifactViewe
   if (allowed.size !== result.authorizedArtifactIds.length || denied.size !== result.unavailableArtifactIds.length || allowed.size + denied.size > 100 || [...denied].some((id) => allowed.has(id)) || new Set(result.editableArtifactIds).size !== result.editableArtifactIds.length || result.editableArtifactIds.some((id) => !allowed.has(id))) context.addIssue({ code: 'custom', message: 'Access decisions must be unique, disjoint and scoped to authorized artifacts.' });
 });
 export const ArtifactPermissionsSchema = z.strictObject({ edit: z.boolean(), rename: z.boolean(), duplicate: z.boolean(), move: z.boolean(), archive: z.boolean(), trash: z.boolean(), restore: z.boolean(), purge: z.boolean() });
+export const ArtifactListInputSchema = z.strictObject({
+  workspaceId: IdSchema, projectId: IdSchema, status: z.enum(['active', 'archived', 'trashed', 'all']).default('active'),
+  kind: ArtifactKindSchema.optional(), query: z.string().trim().max(200).default(''), after: z.string().min(1).max(2048).regex(/^[A-Za-z0-9_-]+$/).optional(), limit: z.number().int().min(1).max(50).default(30),
+});
+export const ArtifactSummarySchema = ArtifactEnvelopeSchema.pick({ id: true, workspaceId: true, projectId: true, kind: true, currentRevision: true, title: true, status: true, createdBy: true, updatedAt: true });
+export const ArtifactListResultSchema = z.strictObject({ viewer: ArtifactViewerSchema, artifacts: z.array(ArtifactSummarySchema).max(50), nextAfter: z.string().nullable(), cursor: WorkspaceCursorSchema });
+export type ArtifactSummary = z.infer<typeof ArtifactSummarySchema>;
+export type ArtifactListInput = z.infer<typeof ArtifactListInputSchema>;
+export type ArtifactListResult = z.infer<typeof ArtifactListResultSchema>;
 export const ArtifactBranchParentSchema = z.strictObject({ artifactId: IdSchema, revision: RevisionSchema, versionId: IdSchema });
 export const SourceFreshnessSchema = z.strictObject({
   sourceRef: SourceRefSchema,

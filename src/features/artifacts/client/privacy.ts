@@ -45,7 +45,7 @@ export function createArtifactPrivacy(authority: CacheAuthority) {
     close() { if (state !== "closed") invalidate("closed"); },
     resume(authority: CacheAuthority) {
       const next = CacheAuthoritySchema.parse(authority);
-      if (state === "closed" || next.userId !== current.userId || next.workspaceId !== current.workspaceId) {
+      if (state === "closed" || next.userId !== current.userId || next.workspaceId !== current.workspaceId || next.authzVersion < current.authzVersion) {
         invalidate("closed");
         throw new PrivacyBoundaryError();
       }

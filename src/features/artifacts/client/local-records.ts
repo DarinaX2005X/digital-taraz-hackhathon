@@ -11,10 +11,11 @@ export const LocalDraftSchema = z.strictObject({
   generation: z.number().int().nonnegative(),
   content: ArtifactContentSchema,
   updatedAt: InstantSchema,
-});
+}).refine((draft) => draft.schemaVersion === draft.content.schemaVersion, { message: "Draft schema must match its canonical content." });
 
 export const PendingCommandSchema = z.strictObject({
   group: CommandGroupInputSchema,
+  expectedAuthzVersion: z.number().int().positive().optional(),
   state: z.enum(["ready", "uncertain", "authentication-required", "conflict"]),
   createdAt: InstantSchema,
   draftGenerations: z.record(IdSchema, z.number().int().nonnegative()),

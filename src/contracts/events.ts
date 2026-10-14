@@ -21,6 +21,7 @@ export const WorkspaceEventPayloadSchema = z.strictObject({
 });
 export const WorkspaceEventSchema = z.strictObject({
   cursor: WorkspaceCursorSchema,
+  projectId: IdSchema.optional(),
   kind: WorkspaceEventKindSchema,
   objectId: IdSchema,
   revision: RevisionSchema,

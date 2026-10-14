@@ -8,3 +8,5 @@ export { createCommandGrouping, TYPING_GROUP_DELAY_MS } from "./grouping";
 export type { CommandGrouping, CommandGroupDraft, EditorActionBoundary } from "./grouping";
 export { createArtifactAutosave, ArtifactSubmissionError } from "./autosave";
 export type { ArtifactAutosave, ArtifactSubmit, AutosaveState, AutosaveStatus } from "./autosave";
+export { createArtifactClient, artifactClient, artifactSubmit, ArtifactRequestError } from "./transport";
+export type { ArtifactClient, ArtifactRequestOptions } from "./transport";

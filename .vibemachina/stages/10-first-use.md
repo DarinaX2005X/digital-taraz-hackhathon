@@ -1,27 +1,37 @@
 # 10 Публичный сайт, пример и понятное первое использование
-Status: todo
+Status: active
 
 Новый посетитель должен понять продукт и безопасно попробовать его, а вошедший пользователь быстро начать свою работу. Пример и обучение не создают чужие или лишние записи в аккаунте.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 10.1 Показать продукт и привести к настоящей работе
-Status: todo
+Status: active
 Requirements: R02, R07, R08, R09, R19, R21, R28, R29, R30, R31, R38, R40, R41, R44, R45, R46, R47, R48, R49, R64, R101
-Depends on: 04.2, 06.3, 07.2, 01.2
-Owner: SUBAGENT to assign
-Paths: src/features/public-site/, public/site/, tests/public-site/
+Depends on: 01.2, 02.1
+Owner: /root/public_auth
+Paths: src/features/public-site/, public/site/, tests/public-site/, src/app/page.tsx
+
+Точные дополнительные loans public_auth: `src/app/[locale]/page.tsx`, `src/app/[locale]/layout.tsx`, `src/app/[locale]/help/page.tsx`, `src/app/[locale]/privacy/page.tsx`. Только эти файлы, не wildcard subtree. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Существующие auth/settings/shared UI loans перечислены в STATE и не пересекаются с server/runtime/workspace owners.
+
+Дополнительный bounded loan `src/app/[locale]/not-found.tsx` для полноценной локализованной404 при неизвестном locale/path; текущий checkpoint выявил реальный SSRerror shell вместо h1/lang/home link. Owner исправляет root/locale error boundary по installedNext docs, не снижает HTTP acceptance и не меняет остальной frozen UI.
+
+Bounded repair принят2026-10-14: locale layout закрывает набор ru/kk/en через generateStaticParams/dynamicParams=false, local not-found использует общую страницу.4invalid routes возвращают полноценный404 HTML с h1/lang/home и безerror shell;5valid routes200. Independent isolated identity route suite4/4PASS включает auth intent/workspace/privatequery иinvalidfilter recovery. Rootlayout/next.config для исправления не менялись; public owner STOP. Это серверная проверка, не визуальная приёмка.
+
+Прямое новое поручение пользователя2026-10-14: полноценный landing и заметно переработанные вход/регистрация нужны сейчас, прежнее ожидание04.2/06.3/07.2 для начала публичной страницы отменено. Реальный ранний site/auth workflow строится на уже принятом account/UI foundation. Полные предметные примеры и demo10.2 добавляются после фактической готовности соответствующих сценариев; не изображать недоступные handlers работающими и не считать весь продукт принятым. Исходное полное сообщение в BRIEF/TESTING обязательно. Feature owner сам монтирует свои страницы, shared root integration отдельно.
 
 **Контракт и результат.** C1, DESIGN публичная часть. Full ru/kk/en site /[locale], clear Tirlik H1 and «Всё для вашего бизнеса», literal supporting examples, visible «Начать работу» and «Посмотреть пример», how-it-works visible before FAQ, actual useful scenarios and footer to product/help/privacy/contact/repo. No pricing or fake partners/results/testimonials. Relevant real or generated subject bitmap carrying business materials, not AI-fake screenshot; actual product views only supplied by user. Fullbleed hero text notcard/notsplit, nextsection hint across widths per DESIGN. MAIN owns routes/SEO metadata registry.
 
 **Вход в работу и состояния.** CTA to real work entry/auth preserving intent, demo explicit; shared profile/session and language. Public URL stays public after signin, correct404, accessible footer and no dead links. Motion modest/reduced-motion; assets dimensions/alt/loading budgets; no imposed auto browser.
 
 ### 10.1.1 Содержательная публичная часть
-Status: todo
+Status: active
 
 Исходное F002 и полное последующее замечание в BRIEF обязательны исполнителю: нынешняя account-entry страница не заменяет лендинг. Сделать самостоятельную публичную подачу с отдельным входом и собственной предметной композицией, не расширять стандартную форму до якобы готового сайта. Внешний вид утверждает пользователь.
 
-Content and route inventory verified HTTP statuses/destinations, factual claims traced to implemented functions, complete locales/no tariffs. Asset license/hash/dimensions checked, not visual approval.
+Content and route inventory verified HTTP statuses/destinations, claims traced to approved product specification, complete locales/no tariffs. Asset license/hash/dimensions checked, not visual approval. По прямому последующему указанию пользователя публичная copy представляет полную целевую Tirlik до релиза, без временных «пока доступны только настройки», «это иллюстрации, не результаты» и прочих dev-status отчётов. Это разрешение на целевую подачу для её оценки, не приёмка отсутствующего кода; actual readiness отдельно в STATE/чате. Не выдумывать клиентов/отзывы/метрики. Неработающие handlers не симулируются.
+
+Первый mounted handover public/auth: ru/kk/en landing, help/privacy/footer, отдельные формы, localMail hint и width refinement;17 HTTP routes/invalidlocale404,215 focused tests иtype/lint PASS, independent HTTP locale/home/help/privacy/auth/image PASS. Пользователь одобрил фон landing hero, но требует отдельную PNG/SVG-графику для авторизации, более выразительные hover и сокращение больших боковых отступов, включая privacy. Owner продолжает связанное refinement вместе с целевой copy; checkpoints остаются active до этого handover и общей интеграции. Весь интерфейс визуально принятым не объявлен.
 
 ### 10.1.2 Первое действие и возврат
 Status: todo

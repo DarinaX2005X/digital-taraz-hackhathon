@@ -7,7 +7,7 @@ import { PrivacyBoundaryError, type ArtifactPrivacy, type CacheAuthority } from 
 
 export class ArtifactSubmissionError extends Error {
   readonly envelope?: ErrorEnvelope;
-  constructor(readonly kind: "network" | "timeout" | "server" | "invalid-response", envelope?: ErrorEnvelope) {
+  constructor(readonly kind: "network" | "timeout" | "server" | "invalid-response", envelope?: ErrorEnvelope, readonly status = 0) {
     super(`artifacts.errors.${kind}`);
     this.name = "ArtifactSubmissionError";
     this.envelope = envelope ? ErrorEnvelopeSchema.parse(envelope) : undefined;
@@ -16,8 +16,8 @@ export class ArtifactSubmissionError extends Error {
 
 export type AutosaveStatus = "saved" | "local-only" | "saving" | "uncertain" | "conflict" | "authentication-required" | "access-changed" | "storage-error" | "failed";
 export type AutosaveState = Readonly<{ status: AutosaveStatus; pendingCount: number; dirtyCount: number; locallyPersisted: boolean; failure?: ErrorEnvelope }>;
-export type ArtifactSubmit = (input: ArtifactCommandRequest, options: { signal: AbortSignal; expectedUserId: string; idempotencyKey: string }) => Promise<CommandReceipt>;
-type Options = { privacy: ArtifactPrivacy; cache: ArtifactCache; submit: ArtifactSubmit; now?: () => string; onConfirmed?: (receipt: CommandReceipt) => void; flushGroups?: () => void };
+export type ArtifactSubmit = (input: ArtifactCommandRequest, options: { signal: AbortSignal; expectedUserId: string; idempotencyKey: string; currentAuthzVersion?: number }) => Promise<CommandReceipt>;
+type Options = { privacy: ArtifactPrivacy; cache: ArtifactCache; submit: ArtifactSubmit; now?: () => string; onConfirmed?: (receipt: CommandReceipt, generations: Readonly<Record<string, number>>) => void; flushGroups?: () => void; recoveryArtifactId?: string; onAccessDenied?: (artifactIds: string[]) => Promise<void> };
 
 /** Durable outbox; it never retries a rejected/ambiguous command without an explicit call. */
 export function createArtifactAutosave(options: Options) {
@@ -62,13 +62,15 @@ export function createArtifactAutosave(options: Options) {
     blocked = true;
     if (error instanceof PrivacyBoundaryError) { privacy.close(); return; }
     const failure = error instanceof ArtifactSubmissionError ? error.envelope : undefined;
-    if (failure?.code === "FORBIDDEN" || failure?.code === "NOT_FOUND") {
+    const status = error instanceof ArtifactSubmissionError ? error.status : 0;
+    if (failure?.code === "FORBIDDEN" || failure?.code === "NOT_FOUND" || status === 403 || status === 404) {
       queue.length = 0; dirty.clear();
-      try { await cache.clearPrivate(); } catch { /* Privacy is closed even if the device refuses cleanup. */ }
+      privacy.close();
+      try { await (options.onAccessDenied ? options.onAccessDenied(record.group.commands.map((command) => command.artifactId)) : cache.clearPrivate()); } catch { /* Privacy is closed even if the device refuses cleanup. */ }
       publish("access-changed");
       return;
     }
-    if (failure?.code === "UNAUTHENTICATED") {
+    if (failure?.code === "UNAUTHENTICATED" || status === 401) {
       record.state = "authentication-required";
       try { await cache.putPending(record); } catch { /* The already-written outbox is still not acknowledged. */ }
       privacy.suspend();
@@ -97,7 +99,7 @@ export function createArtifactAutosave(options: Options) {
       privacy.assert(lease);
       publish("saving");
       try {
-        const raw = await options.submit({ workspaceId: lease.authority.workspaceId, expectedAuthzVersion: lease.authority.authzVersion, group: structuredClone(record.group) }, { signal: lease.signal, expectedUserId: lease.authority.userId, idempotencyKey: record.group.commandGroupId });
+        const raw = await options.submit({ workspaceId: lease.authority.workspaceId, expectedAuthzVersion: record.expectedAuthzVersion ?? lease.authority.authzVersion, group: structuredClone(record.group) }, { signal: lease.signal, expectedUserId: lease.authority.userId, idempotencyKey: record.group.commandGroupId, currentAuthzVersion: lease.authority.authzVersion });
         privacy.assert(lease);
         const receipt = validateReceipt(raw, record);
         await cache.acknowledge(record);
@@ -106,7 +108,7 @@ export function createArtifactAutosave(options: Options) {
         for (const [artifactId, generation] of Object.entries(record.draftGenerations)) {
           if ((dirty.get(artifactId)?.generation ?? Infinity) <= generation) dirty.delete(artifactId);
         }
-        try { options.onConfirmed?.(receipt); } catch { blocked = true; publish("failed"); return; }
+        try { options.onConfirmed?.(receipt, { ...record.draftGenerations }); } catch { blocked = true; publish("failed"); return; }
         publish(queue.length || dirty.size ? "local-only" : "saved");
       } catch (error) {
         if (lease.signal.aborted || disposed) return;
@@ -155,7 +157,7 @@ export function createArtifactAutosave(options: Options) {
         if (JSON.stringify(existing.group) !== JSON.stringify(group)) throw new TypeError("A command ID cannot be reused with changed content.");
         return running ?? Promise.resolve();
       }
-      const record = PendingCommandSchema.parse({ group, state: "ready", createdAt: options.now?.() ?? new Date().toISOString(), draftGenerations: generations });
+      const record = PendingCommandSchema.parse({ group, expectedAuthzVersion: lease.authority.authzVersion, state: "ready", createdAt: options.now?.() ?? new Date().toISOString(), draftGenerations: generations });
       queue.push(record);
       publish(blocked ? state.status : "local-only", state.failure);
       try { await cache.putPending(record); privacy.assert(lease); } catch (error) {
@@ -169,10 +171,11 @@ export function createArtifactAutosave(options: Options) {
       assertOpen();
       if (running || queue.length) throw new Error("Recover before adding new commands.");
       const lease = privacy.capture();
-      const records = await cache.listPending();
+      const records = await cache.listPending(options.recoveryArtifactId);
       const recovered = new Map<string, { generation: number; persisted: boolean }>();
       for (const record of records) for (const [artifactId, generation] of Object.entries(record.draftGenerations)) recovered.set(artifactId, { generation, persisted: true });
-      for (const artifactId of lease.authority.artifactIds) {
+      const recoveryIds = options.recoveryArtifactId ? [...new Set([options.recoveryArtifactId, ...records.flatMap((record) => record.group.commands.map((command) => command.artifactId))])] : lease.authority.artifactIds;
+      for (const artifactId of recoveryIds) {
         const draft = await cache.getDraft(artifactId);
         if (draft && draft.generation >= (recovered.get(artifactId)?.generation ?? -1)) recovered.set(artifactId, { generation: draft.generation, persisted: true });
       }
