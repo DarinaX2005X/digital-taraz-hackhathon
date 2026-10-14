@@ -6,7 +6,7 @@ Status: active
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 02.1 Дать владельцу и приглашённому коллеге надёжный вход
-Status: active
+Status: done
 Requirements: R11, R22, R23, R24, R25, R34, R39, R41, R43, R44, R45, R90
 Depends on: 01.1, 01.2
 Owner: /root/foundation (server), /root/ui_foundation (UI)
@@ -32,7 +32,7 @@ UI handover: 59 focused tests / 6 files, TypeScript и scoped ESLint PASS. Ре�
 Принято: штатный checkpoint 9d98ac9fc99a12d530311a95ac6625d6c36450f6, все 7 checks PASS, pushed origin/main. Сборка и общие type/lint/unit/domain/locale checks успешны; изолированный HTTP/DB/Mailpit прогон включает mounted pages, отсутствие создания аккаунта при GET, no-referrer token pages и server account locale на другом устройстве. Source/core identity handover завершён; визуальная проверка пользователя остаётся отдельной.
 
 ### 02.1.2 Приглашение и отзыв прав
-Status: active
+Status: done
 
 Invite/role change/revoke increments authzVersion и blocks jobs/downloads. Guessed IDs/CSRF denied, last owner не оставляет workspace без владельца. User проверяет modal/focus/return.
 
@@ -50,23 +50,37 @@ MAIN подключил team/invitation pages, сохраняет workspace quer
 
 UI handover: worker STOP, все UI/locales/tests paths переданы MAIN. Реализованы workspace create/select, server-owned role/scope inventory и подтверждение изменений, приглашения/delivery states, приватный invitation preview с явным accept, ownership-safe deletion choices/password/consent, refresh при изменённых правах и проверка неопределённого результата удаления. Возврат гостя сохраняет выбранное пространство; смена аккаунта очищает private tree, повторный вход того же человека не отправляет прежнюю команду автоматически. TypeScript/scoped ESLint и107 UI state/transport/locale tests в10 файлах PASS. Общий checkpoint со сборкой ожидается; F001/F002 не закрыты визуально.
 
+Принято02.1: checkpoint a0f110c1654e2af4d0075770170788e06e70cc88, все7 configured checks PASS, pushed origin/main. Проверены общая сборка, type/lint/unit/domain/locale и настоящий изолированный HTTP/PostgreSQL/Mailpit путь, включая mounted pages. Полная задача02.1 завершена по невизуальным acceptance; user visual review и фактическая Brevo delivery остаются отдельными непроверенными границами. Все writer paths возвращены MAIN.
+
+После нового UI/UX поручения2026-10-14 назначен свежий interface_quality для цельного refinement действующих account/team/recovery pages и общих controls по F002. Сначала read-only изучение исходных требований/Design/references, затем отдельный write release после ближайшего common checkpoint; не менять серверные контракты и не выдавать временный вход за landing10.1. Прежняя невизуальная приёмка остаётся фактом, новые изменения потребуют собственной проверки и пользовательской визуальной оценки.
+
 ## 02.2 Управлять длительными задачами, ценой и отказами моделей
-Status: todo
+Status: active
 Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105
 Depends on: 02.1
-Owner: SUBAGENT to assign
-Paths: src/features/runs/, tests/runs/
+Owner: /root/preflight
+Paths: src/features/runs/, tests/runs/, src/contracts/runs.ts, src/server/db/run-schema.ts, migrations/0006_runs.sql
 
 Локальный допуск: capability gate01.4.1 принят с ограничениями C14; отложенный по указанию пользователя remote01.4.2 не блокирует локальную реализацию. Облачную durability не объявлять доказанной. Старый Mimo истекает2026-10-21, metadata кандидата не заменяет реальный proof; live calls только с действующим явным budget/разрешением, ambiguous ledger не повторять.
+
+Dispatch после a0f110c: preflight владеет целым runtime package02.2, включая feature UI/locales и tests, а также явно выданными runs contract/schema/migration paths. Общие schema/contract index, routes/config/package и memory остаются MAIN. Существующих Run/Step/Usage declarations в src/contracts пока нет: создать единственные typed declarations в runs.ts, переиспользуя общие ID/errors/permissions. 0001-0004 immutable;0005 зарезервирована для03.1, runtime использует0006. Перед mounted handlers нужен ранний целостный schema/contract handover и local migration MAIN. Реальные paid calls, remote hosting/deploy и изменение env сейчас не разрешены; закончить всю локально проверяемую часть, не выдавая fault injection за live proof02.2.2.
+
+Разрешение пользователя 2026-10-14 после dispatch: «Да, разрешаю до $0.30» на полный вопрос о двух synthetic запросах к MiMo2.6 Flash после готовности локального runtime, без повторов и Vercel. Это разрешает только конкретный bounded proof C14, не произвольные paid calls. MAIN отдельно release выполнение после проверки реализации/цены/резервирования; ранний implementation packet пока работает offline. Remote hosting/deploy всё ещё отложены.
+
+Новое разрешение того же дня заменяет предыдущий узкий лимит: общий максимум $10 новых расходов OpenRouter для автономной работы над всем продуктом, экономичные non-top модели допустимы. Runtime должен дать единый точный учёт, current price/capability check, reservations и сохранение ambiguous charges; proof выполнять после готовности этого пути, не обходным скриптом. Каждый запрос в пределах общего выделения не требует нового пользовательского подтверждения. Только локально, hosting search/deploy/probes запрещены по свежему ответу. Feature worker получает собственные реальные runtime routes/pages; общий root integration у integration agent.
 
 **Контракт и результат.** C3-C4, C8, C11-C12. Run/Receipt/Usage используют общие схемы01.1 и identity02.1, не требуют готового редактора03.1. Платный импорт первым подключает этот runtime; artifact adapters включаются позже с тем же idempotent effect protocol. Durable Run/Step/ToolReceipt/Usage ledger with Workflow adapter and DB authority. Claim lease+epoch fencing, idempotent tool receipt by run/step/call/inputhash, cancel/resume terminal rules. Atomic estimated worst-case reservation before provider call, priceTTL/max_tokens and daily workspace/deployment caps C8. Allowlisted economical text/vision/image model endpoints, no forbidden provider fallback. Ambiguous paid timeout retains reservation until reconcile, not blind retry; bounded safe retry. Concurrency fairness limits across tenants, restore pending work after process death/redeploy.
 
 **Вход в работу и состояния.** Task progress names actual stages/tools and produced results, never pretend internal thoughts. Stop, retry failed step, resume from saved partial; cost/limit explanation localized. No key/provider failure leaves manual editors usable and result drafts intact. Run SSE reconnect cursor is progress, not job persistence.
 
 ### 02.2.1 Durable state и бюджет
-Status: todo
+Status: active
 
 Concurrency tests overspend race, duplicate tool, lease expiry/stale worker, cancelled job cannot write, forbidden models denied and unknown price blocked. Usage totals independently reconciled.
+
+Ранний frozen handover:0006/run-schema/runs contracts/exactUSD/domain limits, type/lint иfocused contracts PASS. Integration выявил и owner исправил finite numeric guards противPostgreSQL NaN и согласованность cached/input token nullable fields;7SQL cases включаяtenantFK выполняются вместе с0005. Shared exports40tables smokePASS,19core contractsPASS. Это foundation, не полный durable runtime/budget acceptance; общий$10authorization ledger запланирован следующей additive0007 после checkpoint, реальные calls до него запрещены.
+
+Общий runner9files/45tests PASS, включая7runtime SQL cases; primary local journal0001-0006/health ready подтверждены после штатного stop/start. Все writers STOP для общего foundation commit.02.2.1 остаётся active: executable runtime/ledger/queue/workflow/API/UI и live proof ещё впереди.
 
 ### 02.2.2 Реальные сбои и восстановление
 Status: todo
@@ -82,6 +96,8 @@ Owner: SUBAGENT to assign
 Paths: src/features/sources/, tests/sources/
 
 Локальная реализация использует принятые format/capability limits01.4.1; remote storage/hosting acceptance01.4.2 остаётся обязательной перед cloud release, но отложена по указанию пользователя. OCR не обходит runtime budget или live-proof ограничения02.2.
+
+Подготовительное чтение02.3: новый /root/source_ingestion, Paths:none. Предыдущий foundation prep остановился без результата. Новый самостоятельный feature owner читает полный исходный BRIEF/TESTING/Design и контракты, existing fixtures/parsers/storage proof и новые source-head declarations; согласует с runtime owner необходимые интерфейсы. Возвращает цельный implementation packet без реализации, SQL/keys/paid calls. После принятия02.2 получает целиком upload/extraction/UI/API/pages, не только отдельные parser components. Это не снятие зависимости и не перенос задачи MAIN.
 
 **Контракт и результат.** C3-C5, C8, C12. Private uploads init/finalize, immutable final key после bytes/magic/size/hash; staging PUT не меняет finalized content. CSV/TSV/XLSX/DOCX/text PDF/PNG/JPEG/WebP/paste по C5; scan PDF page vision с review flags. Любой платный vision/OCR использует Run/Usage reservation02.2, отдельного неограниченного parser key path нет. Пустой text PDF не вызывает все100 страниц модели без расчёта бюджета. Fragments file/page/row/cell, версии/diagnostics. Bounded stream/zip/images, safe HTML/XML, macros/external formulas disabled; download rechecks ACL. Interrupted upload retry без двойного ready source; удаление учитывает dependencies/retention.
 

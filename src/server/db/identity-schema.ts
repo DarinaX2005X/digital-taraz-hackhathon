@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { boolean, check, foreignKey, index, integer, jsonb, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { projects } from './project-schema';
 
 const instant = (name: string) => timestamp(name, { withTimezone: true });
 export const identityUsers = pgTable('identity_users', {
@@ -70,6 +71,7 @@ export const identityProjectGrants = pgTable('identity_project_grants', {
 }, (table) => [
   primaryKey({ columns: [table.workspaceId, table.projectId, table.userId] }),
   foreignKey({ columns: [table.workspaceId, table.userId], foreignColumns: [identityMemberships.workspaceId, identityMemberships.userId] }),
+  foreignKey({ name: 'identity_project_grants_project_fk', columns: [table.workspaceId, table.projectId], foreignColumns: [projects.workspaceId, projects.id] }),
   check('identity_project_grants_scopes_check', sql`${table.scopes} <@ ARRAY['read','edit','approve','export','manage-members','read-confidential']::text[] AND ${table.scopes} @> ARRAY['read']::text[]`),
 ]);
 export const identityInvitations = pgTable('identity_invitations', {

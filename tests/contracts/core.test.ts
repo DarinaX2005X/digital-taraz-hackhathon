@@ -86,6 +86,16 @@ describe('bounded public contracts', () => {
     expect(ERROR_HTTP_STATUS.FORBIDDEN).toBe(403);
     expect(ERROR_HTTP_STATUS.UNAVAILABLE).toBe(503);
   });
+  it('bounds conflict references and excludes private values', () => {
+    const ref = { kind: 'target', objectId: id, targetId: 'block_1', reason: 'before-hash', expectedHash: hash, currentHash: 'b'.repeat(64), expectedRevision: 1, currentRevision: 2 };
+    const error = { code: 'CONFLICT', messageKey: 'errors.conflict', retryable: false, requestId: id, conflictRefs: [ref], recovery: 'resolve-conflict' };
+    expect(ErrorEnvelopeSchema.safeParse(error).success).toBe(true);
+    for (const conflictRefs of [[], Array(101).fill(ref), [{ ...ref, value: 'private text' }], [{ ...ref, currentHash: 'private text' }], [{ ...ref, targetId: undefined }], [{ ...ref, kind: 'source' }]]) {
+      expect(ErrorEnvelopeSchema.safeParse({ ...error, conflictRefs }).success).toBe(false);
+    }
+    expect(ErrorEnvelopeSchema.safeParse({ ...error, code: 'NOT_FOUND' }).success).toBe(false);
+    expect(ErrorEnvelopeSchema.safeParse({ ...error, conflictRefs: [{ kind: 'source', objectId: second, reason: 'source-changed', expectedRevision: 1, currentRevision: 2 }] }).success).toBe(true);
+  });
   it('registers only immutable explicitly versioned capability descriptors', () => {
     const descriptor = { id: 'document.edit', version: 1, policyClass: 'mutate' as const, permissions: ['edit' as const], artifactKinds: ['document' as const] };
     const registry = createCapabilityRegistry([descriptor]);

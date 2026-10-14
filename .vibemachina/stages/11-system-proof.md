@@ -29,13 +29,15 @@ Static entry->action->result->next inventory every task; locale gap/missing cont
 ## 11.2 Проверить изоляцию, объёмы, восстановление и условия эксплуатации
 Status: todo
 Requirements: R18, R22, R23, R25, R42, R43, R79, R85, R105
-Depends on: 11.1, 01.4
+Depends on: 11.1
 Owner: SUBAGENT to assign
 Paths: tests/resilience/, scripts/ops/, docs/operations/
 
 **Контракт и результат.** C3-C5, C8, C11-C12. Fixture100kCSV/20kXLSX/10kprojects/100kmetadata,20concurrentHTTPusers5tenants30queuedjobs8active. Measure warm metadata p95 target<500ms/mutationack<1s with hardware/region/dataset notes, no unmeasured guarantee. EXPLAIN indexes/keyset50/<=1MBmetadata/lazyeditor/chunkresume/fairqueue and bounded memory/context. Security probes SSRF DNS redirects/privateIPs, file formats/injection, IDOR, CSRF, event/export leaks, revocation midjob. Backup+restore isolated database/files, schema/capability compatibility of in-flight workflows, retention/delete behavior. Regional privacy/account/subprocessor/deletion/backup gate from01.4 must be resolved before real PII rollout.
 
 **Вход в работу и состояния.** Manual editor remains usable during AI queue/limit; readable job wait and file processing failure. Ops evidence documents test envelope and hosting plan cost/limits. If legal region or service unavailable, report precise unfinished gate, not silently deploy unsafe real-data collection or drop requested service.
+
+Уточнение local-only2026-10-14: локальные нагрузка/изоляция/backup-restore11.2.1 выполняются после11.1 на принятом capability gate01.4.1 и не ждут отложенного cloud01.4.2. Условия будущего hosting/region rollout11.2.2 сохраняются отдельным непроверенным gate, не исследуются до выбора сервера пользователем. Для перехода к локальному review12.1 требуется фактическая приёмка11.2.1; полный11.2 не объявлять done при отложенной production части.
 
 ### 11.2.1 Нагрузка и отказоустойчивость
 Status: todo

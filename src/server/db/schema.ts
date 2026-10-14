@@ -2,6 +2,10 @@ import { sql } from 'drizzle-orm';
 import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export * from './identity-schema';
+export * from './project-schema';
+export * from './source-schema';
+export * from './artifact-schema';
+export * from './run-schema';
 
 export const demoTemplates = pgTable('demo_templates', {
   id: uuid('id').defaultRandom().primaryKey(),

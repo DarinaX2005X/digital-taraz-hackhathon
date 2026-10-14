@@ -26,12 +26,14 @@ Status: todo
 
 Isolated checkout npm/compose/migration/start->HTTP real smallworkflow->stop/start->samework. Record OS/envnames/versions withoutvalues; safely remove only verified own test resources after evidence.
 
-## 13.2 Выпустить проверенную ревизию на Vercel
+## 13.2 Выпустить проверенную ревизию на согласованном сервере
 Status: todo
 Requirements: R17, R25, R74, R78, R79, R85, R86
 Depends on: 13.1, 11.2, 01.4
 Owner: SUBAGENT to assign
 Paths: scripts/release/, tests/deployed/
+
+Отложено по прямому ответу пользователя2026-10-14: сейчас только локальный продукт, не искать хостинг и не делать deploy/probes. Пользователь позже выберет сервер; Vercel больше не считается подтверждённым целевым размещением. Исторические Vercel proofs сохраняются фактами, но не предписывают новый deploy. Этот task не объявлять выполненным; локальные README/clean start13.1 и media14 после стабильного проверенного продукта продолжаются без13.2.
 
 **Контракт и результат.** C2, C11-C13. MAIN owns Vercel project/env/deploy, verified upstream and deployment promotion. Worker returns release checks: region/privacy gate01.4/11.2, pooledPG/migrations/privateBlob/SMTP/Workflow config, secretsscope/pricingcaps, production vs preview isolation, signedassets, scheduledworkflow resumes afterdeploy. Deployment associated exact pushed commit; migration forwardcompatible and tested backup/rollback path without reverting user data. Real requested production, not localhost substitute; insufficient access explicit incomplete gate.
 

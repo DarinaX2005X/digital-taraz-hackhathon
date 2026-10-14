@@ -49,18 +49,30 @@ export function assertAuthzVersion(access: WorkspaceAccess, expected: number) {
 
 export interface AccessRequest { workspaceId: string; scope: AccessScope; projectId?: string; confidential?: boolean; expectedAuthzVersion?: number }
 
+/** Reuses the actor/workspace locks already held by the caller's transaction. */
+export async function lockProjectAccess(transaction: PoolClient, access: WorkspaceAccess, request: { projectId: string; scope: AccessScope; confidential?: boolean }): Promise<WorkspaceAccess> {
+  const project = await transaction.query('SELECT id FROM projects WHERE workspace_id=$1 AND id=$2 FOR SHARE', [access.workspace.id, request.projectId]);
+  if (!project.rowCount) throw new IdentityError('NOT_FOUND', 'identity.errors.notFound');
+  let projectScopes: AccessScope[] | undefined;
+  if (access.membership.role !== 'owner') {
+    const grant = (await transaction.query<{ scopes: AccessScope[] }>('SELECT scopes FROM identity_project_grants WHERE workspace_id=$1 AND project_id=$2 AND user_id=$3 FOR SHARE', [access.workspace.id, request.projectId, access.userId])).rows[0];
+    if (!grant) throw new IdentityError('NOT_FOUND', 'identity.errors.notFound');
+    projectScopes = grant.scopes;
+  }
+  if (!hasScope({ ...access.membership, projectScopes, confidential: request.confidential }, request.scope)) throw new IdentityError('FORBIDDEN', 'identity.errors.forbidden');
+  return { ...access, projectScopes };
+}
+
 /** The effect must be short, transaction-local database work. Never send mail,
  * render, call providers or issue remote downloads while holding these locks. */
 export async function withWorkspaceAccess<T>(pool: Pool, principal: IdentityPrincipal, request: AccessRequest, effect: (transaction: PoolClient, access: WorkspaceAccess) => Promise<T>): Promise<T> {
   return identityTransaction(pool, async (transaction) => {
     await lockIdentityActor(transaction, principal);
-    const access = await lockWorkspaceAccess(transaction, principal.userId, request.workspaceId);
+    let access = await lockWorkspaceAccess(transaction, principal.userId, request.workspaceId);
     if (principal.kind === 'job') assertAuthzVersion(access, principal.authzVersion);
     if (request.expectedAuthzVersion !== undefined) assertAuthzVersion(access, request.expectedAuthzVersion);
     if (request.projectId !== undefined) {
-      const project = (await transaction.query<{ scopes: AccessScope[] }>('SELECT scopes FROM identity_project_grants WHERE workspace_id=$1 AND project_id=$2 AND user_id=$3 FOR SHARE', [request.workspaceId, request.projectId, principal.userId])).rows[0];
-      if (!project) throw new IdentityError('NOT_FOUND', 'identity.errors.notFound');
-      access.projectScopes = project.scopes;
+      access = await lockProjectAccess(transaction, access, { projectId: request.projectId, scope: request.scope, confidential: request.confidential });
     }
     if (!hasScope({ ...access.membership, projectScopes: access.projectScopes, confidential: request.confidential }, request.scope)) throw new IdentityError('FORBIDDEN', 'identity.errors.forbidden');
     return effect(transaction, access);

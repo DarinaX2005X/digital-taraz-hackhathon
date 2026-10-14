@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AccountDeletionPreviewSchema, AccountDeletionResultSchema, IdentityViewerSchema, InvitationMutationResultSchema, InvitationPreviewSchema, TeamMutationResultSchema, TeamResultSchema, WorkspaceResultSchema, type WorkspaceMembership } from '../../../src/features/identity/contracts';
 import { withWorkspaceAccess, type SessionPrincipal } from '../../../src/features/identity/server/access';
 import { createInvitationService } from '../../../src/features/identity/server/invitations';
+import { createProjectCore } from '../../../src/features/workspace/server/project-core';
 
 let pool: Pool;
 let origin: string;
@@ -124,15 +125,17 @@ describe('real workspace invitations and authorization', () => {
   it('binds project scopes, confidential data and late effects to authoritative access', async () => {
     const current = await workspace(owner, 'Guarded synthetic workspace');
     const joined = await accept(colleague, await invite(owner, current, colleague));
-    const projectId = randomUUID();
-    await pool.query("INSERT INTO identity_project_grants(workspace_id,project_id,user_id,scopes) VALUES($1,$2,$3,ARRAY['read','approve','export'])", [current.workspaceId, projectId, colleague.principal.userId]);
+    const projects = createProjectCore(pool);
+    const projectId = (await projects.create(owner.principal, randomUUID(), { workspaceId: current.workspaceId, title: 'Guarded synthetic project', expectedAuthzVersion: joined.authzVersion })).project.id;
+    const granted = await projects.setGrant(owner.principal, randomUUID(), { workspaceId: current.workspaceId, projectId, userId: colleague.principal.userId, scopes: ['read', 'approve', 'export'], expectedAuthzVersion: joined.authzVersion });
     const effect = vi.fn(async () => 'authorized');
     await expect(withWorkspaceAccess(pool, colleague.principal, { workspaceId: current.workspaceId, projectId, scope: 'approve' }, effect)).resolves.toBe('authorized');
     await expect(withWorkspaceAccess(pool, colleague.principal, { workspaceId: current.workspaceId, projectId, scope: 'edit' }, effect)).rejects.toMatchObject({ code: 'FORBIDDEN' });
     await expect(withWorkspaceAccess(pool, colleague.principal, { workspaceId: current.workspaceId, projectId, scope: 'export', confidential: true }, effect)).rejects.toMatchObject({ code: 'FORBIDDEN' });
-    await expect(withWorkspaceAccess(pool, owner.principal, { workspaceId: current.workspaceId, projectId, scope: 'read' }, effect)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(withWorkspaceAccess(pool, owner.principal, { workspaceId: current.workspaceId, projectId, scope: 'read' }, effect)).resolves.toBe('authorized');
+    await expect(withWorkspaceAccess(pool, owner.principal, { workspaceId: current.workspaceId, projectId: randomUUID(), scope: 'read' }, effect)).rejects.toMatchObject({ code: 'NOT_FOUND' });
     await expect(withWorkspaceAccess(pool, colleague.principal, { workspaceId: current.workspaceId, projectId: randomUUID(), scope: 'read' }, effect)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    expect(effect).toHaveBeenCalledTimes(1);
+    expect(effect).toHaveBeenCalledTimes(2);
     let release!: () => void;
     let entered!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
@@ -143,7 +146,7 @@ describe('real workspace invitations and authorization', () => {
     });
     await started;
     let revoked = false;
-    const revoking = owner.request(`/api/identity/workspaces/${current.workspaceId}/members/${colleague.principal.userId}`, 'DELETE', { expectedAuthzVersion: joined.authzVersion }).then((response) => { revoked = true; return response; });
+    const revoking = owner.request(`/api/identity/workspaces/${current.workspaceId}/members/${colleague.principal.userId}`, 'DELETE', { expectedAuthzVersion: granted.authzVersion }).then((response) => { revoked = true; return response; });
     try {
       let waiting = false;
       for (let attempt = 0; attempt < 40; attempt++) {

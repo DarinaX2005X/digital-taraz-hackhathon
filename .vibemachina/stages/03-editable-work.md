@@ -1,32 +1,44 @@
 # 03 Сохранённая работа и настоящий редактор
-Status: todo
+Status: active
 
 Результат становится вашим рабочим материалом, а не сообщением чата. Начинаем с документа и общей истории, на которые затем опираются таблицы, макеты и планы.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 03.1 Сохранить команды, версии и защищённую отмену
-Status: todo
+Status: active
 Requirements: R10, R25, R42, R92, R93, R94, R102, R105
 Depends on: 02.1
-Owner: SUBAGENT to assign
-Paths: src/features/artifacts/, tests/artifacts/
+Owner: /root/business_fixtures (server/domain), /root/ui_foundation (client/UI)
+Paths: src/features/artifacts/, tests/artifacts/, src/contracts/events.ts, src/server/db/artifact-schema.ts, src/server/db/project-schema.ts, src/server/db/source-schema.ts, migrations/0005_artifacts.sql, src/features/workspace/server/project-core.ts, src/features/sources/server/source-heads.ts, src/features/identity/server/access.ts, src/server/db/identity-schema.ts, tests/identity/server/team.integration.test.ts
 
 **Контракт и результат.** C3-C4, C6. Artifact service create/read/rename/duplicate/move/archive/restore/delete dependency checks. Atomic Command validator: actor+ACL/authzVersion, baseRevision, stable targetIds, beforeHash, locked fields, expected sources, schema; one transaction revision+inverse+receipt+event. Retry commandId exactly-once, payload mismatch rejected. Last100 confirmed groups persisted; typing group700ms/drag-end/paste/AI package unified history adapter. Conditional inverse cannot undo чужое изменение; restore creates new revision, branch has parent. IndexedDB pending queue user/workspace isolated, no cross-account draft leakage.
 
 Интеграция по C3: минимальная canonical Project persistence/create/read входит в03.1, поскольку projectId уже обязателен;03.2 продолжает ту же модель. Минимальные Source/SourceVersion heads продолжаются02.3 без второго source registry. MAIN выдаёт явные loans для schema/migration/project/source paths и изменения project guard после приёмки02.1; root registry/routes/package остаются MAIN. Conflict refs в общем409 содержат только разрешённые ID/revision/hash, не закрытые значения. WorkspaceEvent cursor выделяется под блокировкой workspace head в той же транзакции, не обычной sequence, которая допускает поздний commit с меньшим cursor. Раннее чтение03.1 завершено без реализации; запуск после фактической приёмки02.1.
 
+Dispatch после a0f110c: business_fixtures владеет artifacts/server/, artifacts/domain/, artifacts/contracts.ts и index.ts; tests/artifacts/server/, domain/, contracts/; всеми перечисленными SQL/schema/project/source/event loans и identity access.ts, identity-schema.ts, team.integration.test.ts для canonical Project FK/owner guard. UI worker отдельно владеет artifacts/client/, ui/, locales/ и tests/artifacts/client/, ui/. Это непересекающиеся whole paths. UI работает с общими transport/domain schemas server worker, не создаёт вторые команды. MAIN owns root indexes, shared errors, routes/package/config. Ранний coherent0005/contracts handover нужен до mounted handlers и local migration;0001-0004 immutable. Клиентские проверки IndexedDB выполняются в Node через fake-indexeddb, не через браузер.
+
+Новое указание2026-10-14 отменило прежнюю остановку после02: продолжать весь утверждённый продукт автономно. Ближайший coherent handover0005/schema/contracts+Project/source heads и client persistence/grouping/autosave сохраняется для проверенного checkpoint, после него03.1 продолжается полностью. MAIN делегирует source review и общую интеграцию отдельному агенту; будущий feature owner03.2 получает реальные pages/routes вместе с модулем. Partial checkpoint не означает весь03.1 done.
+
 **Вход в работу и состояния.** Общий editor header save status, undo/redo arrows, version menu. Conflict preserves local and server values; user picks version/merge, not forced overwrite. Offline draft visible as not saved; logout warns and clears private local cache. Same state/labels across ru/kk/en; phone controls remain available. Реализовать SourceFreshness для прямых sourceRefs уже здесь; полные транзитивные предложения08.1 позже. Content chunks используют immutable structural sharing по C3, lifecycle/archive/trash/purge/tombstones по C6, не неопределённое хранение «пока нужно».
 
 ### 03.1.1 Команды и неизменяемая история
-Status: todo
+Status: active
 
 Domain tests insert/delete/move/undo/redo/restore/branch, stable references after row insert, locks, duplicate command and beforeHash conflict. Migrations через MAIN.
+
+Ранний server handover2026-10-14 frozen:0005/schema/contracts, canonical Project create/read, Source/SourceVersion heads и авторизованный freshness reader, event contracts/commit-ordered cursor, project access integration и updated identity fixture. Type/lint и5contract tests PASS;6реальныхDB cases ещё выполняются integration worker в общем runner0005→0006. ArtifactService lifecycle/commands/history/versions/chunk operations и HTTP endpoints пока не доставлены; task/checkpoint остаются active.
 
 ### 03.1.2 Сохранение и конкурирующие правки
 Status: todo
 
 Two actors edit same/different targets via real DB; stale base returns409 without loss, event cursor only after commit. Restart retains history; logout/login other workspace cannot recover old private draft.
+
+Промежуточный клиентский результат:11 Node IndexedDB API tests PASS для reopen, immutable pending payload, user/workspace/artifact isolation, authz epoch invalidation между connections, abort races при session expiry, newest draft generation, quota/unavailable errors и подтверждённого user-wide signout clear. Это часть пакета, не приёмка checkpoint: grouping/autosave/confirmed history и реальная server integration ещё разрабатываются. Браузерная persistence не проверена агентами.
+
+Цельный ранний client handover2026-10-14: src/features/artifacts/client/ и tests/artifacts/client/ frozen,39focused Node tests/type/lint PASS. Добавлены700ms grouping и flush, immutable pending command/retry IDs, canonical typed receipts, persisted revocation/account epoch и atomic draft-generation cleanup. UI/routes/HTTP transport/полная confirmed history остаются для продолжения03.1, не объявлены готовыми. Integration принимает common batch перед checkpoint; пользовательская visual/browser проверка не выполнялась.
+
+Интеграционный handover: исправлен найденный equal-createdAt replay ordering дефект через durable insertion sequence;41client tests PASS. Общий isolated runner9files/45tests PASS, включая6Project/source DB cases и identity regression; fresh0001-0006 и primary local migration journal подтверждены. Все writers STOP для штатного Git checkpoint. Это проверенный ранний фундамент, не окончание03.1.1/03.1.2.
 
 ## 03.2 Организовать работу вокруг проектов и текущего результата
 Status: todo
@@ -35,7 +47,7 @@ Depends on: 03.1, 01.2
 Owner: SUBAGENT to assign
 Paths: src/features/workspace/, tests/workspace/
 
-**Контракт и результат.** C1, C4, C6, DESIGN маршруты/композиция. Работа list/search/filter/recent/archive, Project с Goal и attachments/results, free-form input retaining draft. Create blank document/table/design/plan and AI goal are equal entry points; no mandatory company wizard. Cursor pagination, invalid filter IDs rejected; async stale request cancelled, keep loaded rows on failure. Workspace event snapshot+cursor then bounded polling per C4; late responses/revocations/resetRequired invalidate narrowly without reload or editor reset. MAIN owns app route composition; worker exports screens/handlers.
+**Контракт и результат.** C1, C4, C6, DESIGN маршруты/композиция. Работа list/search/filter/recent/archive, Project с Goal и attachments/results, free-form input retaining draft. Create blank document/table/design/plan and AI goal are equal entry points; no mandatory company wizard. Cursor pagination, invalid filter IDs rejected; async stale request cancelled, keep loaded rows on failure. Workspace event snapshot+cursor then bounded polling per C4; late responses/revocations/resetRequired invalidate narrowly without reload or editor reset. Feature worker владеет screens/handlers и явно назначенными app pages/routes; MAIN не выполняет эту часть за агента. Shared layout согласуется через единственного integration owner.
 
 **Вход в работу и состояния.** Navigation Работа/Материалы/Бизнес, no agent-role tabs. Project opens dominant selected editor; result rail and contextual Источники/Изменения/AI only when relevant. «Новая работа», attach, submit and recent work immediately reachable. Empty/partial/pending/failed/archived and404 purposeful. Mobile one main pane with labelled drawers and preserved return selection.
 

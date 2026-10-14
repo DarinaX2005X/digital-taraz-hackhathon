@@ -8,13 +8,15 @@ Status: todo
 ## 12.1 Проверить исходный запрос, контракты и устойчивость
 Status: todo
 Requirements: R02, R03, R04, R05, R06, R20, R50, R51, R52, R53, R54, R55, R57, R58, R60, R87, R100
-Depends on: 11.2
+Depends on: 11.1
 Owner: SUBAGENT to assign
 Paths: none
 
 **Контракт и результат.** C13; flow/05-review.md. One fresh SUBAGENT fork without inherited plan history. First packet complete original BRIEF/all later verbatim remarks, original TESTING, repo and commands ONLY; explicitly do not read PROJECT/DESIGN/REQUIREMENTS/PLAN/stages. Derive acceptance from user words and trace actual handlers/domain/persistence; return concrete findings first. Then MAIN supplies approved contracts and shared design foundation/ux/anti-slop for second/third lenses. Read-only code/API checks, no UI automation; reviewer writes no canonical files and makes no Git.
 
 **Вход в работу и состояния.** No new screen. Return severity/promise/file:line/reproduction/expected vsactual and whether user visual confirmation needed. MAIN records bounded findings in this stage, preserving TESTING. Distinguish unsupported market claims from verified mechanism.
+
+Допуск local-only2026-10-14: дополнительно к11.1 должен быть принят локальный checkpoint11.2.1 (нагрузка, изоляция, восстановление); отложенный по пользователю cloud/region gate11.2.2 не останавливает review локального продукта. Рецензент явно отделяет непроверенную будущую публикацию от реализованных свойств; локальный review не доказывает cloud readiness.
 
 ### 12.1.1 Независимое чтение исходного запроса
 Status: todo

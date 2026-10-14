@@ -3,12 +3,14 @@ Status: todo
 
 Материалы для жюри создаём после стабильного продукта и README. Они должны показать реальную работу и управление результатом, а не обещать функции, которых нет.
 
+Уточнение2026-10-14: после независимого review/исправлений12 и проверенного локального README/clean start13.1 можно выполнять media14. Публикация13.2 отложена пользователем до выбора сервера и не блокирует готовые локальные материалы. Не выдумывать live URL/QR или cloud доказательства; локальная поставка и будущая публикация отдельны.
+
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 14.1 Подготовить презентацию о проблеме, механизме и результате
 Status: todo
 Requirements: R01, R02, R04, R12, R13, R64, R78, R80, R90, R99, R101
-Depends on: 13.2
+Depends on: 13.1
 Owner: SUBAGENT to assign
 Paths: delivery/presentation/
 
@@ -29,13 +31,15 @@ Parse deck/PDF text/fonts/pages/links, no clipped-text claim without userlook. F
 ## 14.2 Изучить видеореференсы и спроектировать историю движения
 Status: todo
 Requirements: R61, R67, R68, R69, R70, R71, R72, R73, R87
-Depends on: 13.2
+Depends on: 13.1
 Owner: SUBAGENT to assign
 Paths: delivery/video/research/, delivery/video/story/
 
 **Контракт и результат.** C13; media/INDEX и media/reference-study читаются здесь. Read full original BRIEF including detailed user video observations and all later statements, plus existing study; locate all three original MP4 named there, verify actual file titles. Study complete motion using dense6-8fps sequences overview and sourcefps consecutiveframes for selected transitions with timecodes; metadata/sparse frames not full study. Only provided videos/images allowed, not capture product browser. Explain reusable timing/focus/composition lessons without copying brands/palette/music. Story actual input->tools->edit->versiondiff->export->return, multiple active layers and meaningful scene changes.
 
 **Вход в работу и состояния.** No product UI inspection task. For footage use user recordings/images when available; else explicitly labelled motion diagrams built from validated product data, not fake screen recording. Plan legible narration/text/camera/object/sound together, no monotonous cornerzoom or card-click-card.
+
+Новые обязательные первоисточники2026-10-14: два полных пользовательских сообщения из Arkiv_Hackathon/arkiv/.vibemachina/BRIEF, разделы11October «полная исходная обратная связь» и13October «новый подробный разбор движения полного видео», уже сохранены verbatim в BRIEF Tirlik. Читать полностью вместе с полезными F003/F004 из original TESTING. MAIN не открывал код чужого сайта; будущему worker это также запрещено. Разрешён при необходимости только renderer последней версии ролика. Принципы: camera-led focus, одновременные слои, связные morph/flight transitions, быстрые осмысленные взаимодействия, разнообразный звук без жёсткой зависимости движения от SFX; не scaled slideshow/fade-grid. Не копировать буквальный чужой сценарий или называть его preview approval приёмкой Tirlik. После достаточных проверок завершить цельный результат, не расходовать бесконечно циклы на те же кадры.
 
 ### 14.2.1 Честное исследование всех референсов
 Status: todo
