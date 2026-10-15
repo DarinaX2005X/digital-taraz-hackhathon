@@ -1,16 +1,18 @@
 # 08 Изменения без потери ручной работы
-Status: todo
+Status: active
 
 Главная связующая способность продукта: понять последствия изменения и принять нужное, сохранив сделанное человеком. Здесь проверяем не только счастливый путь, но и расхождения между материалами.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 08.1 Рассчитать последствия изменения источника
-Status: todo
+Status: active
 Requirements: R10, R14, R16, R25, R102, R103, R105
-Depends on: 05.1, 06.1, 07.1, 07.2, 07.3, 07.4
-Owner: SUBAGENT to assign
+Depends on: 03.1
+Owner: /root/connected_delivery
 Paths: src/features/dependencies/, tests/dependencies/
+
+Уточнение2026-10-15: общий binding/graph/invalidation механизм начинается на принятом03.1 и canonical source/fact adapters, не ждёт всех07. Первые реальные adapters таблицы/документа подключаются вместе с05.1/03.3/02.4; раннее доказательство price -> formula -> document с сохранением ручной фразы входит в первый J1. Полная08.1 приёмка по-прежнему требует05.1/06.1/07.1/07.2/07.3/07.4 и всех описанных типов, включая plan/design и отсутствие пересечений прав. Исчезновение конечных зависимостей из условия старта не означает их принятие. Не делать отдельный fake demo engine; общий публичный пример использует те же pure domain transformations.
 
 **Контракт и результат.** C3, C6, C8. Versioned FieldBinding/DependencyEdge DAG links source fact/calculated cell/docfield/designlayer/planentry, allowed updatePolicy formula-auto/propose/manual. Detect cycles; reachable-only propagation, stable IDs survive sorted/inserted rows; removed source yields unresolved not rebind by position. Deterministic calculations create next draft, semantic text/layout modifications proposed patch only. Track local override and AI-lock separately, source revision input snapshot. Invalidations include scenario/approval/export staleness, not destructive regeneration. Cross-project dependency reads enforce rights transitively.
 
@@ -30,7 +32,7 @@ Real new source snapshot computes draft diff, preserves locked/manual content, i
 Status: todo
 Requirements: R16, R32, R33, R39, R40, R92, R93, R94, R96, R102
 Depends on: 08.1, 03.2
-Owner: SUBAGENT to assign
+Owner: /root/connected_delivery
 Paths: src/features/change-review/, tests/change-review/
 
 **Контракт и результат.** C4, C6. ChangeSet target operations with before/after/source reason/dependency group/baseRevision; causal group closure prevents accepttotal/rejectlines inconsistency. Preview is computed from same apply validation, no separate optimistic interpretation. Accept/reject selected groups/whole, human edits before apply create new validation; 409 beforeHash/source drift preserves selection and shows recomputed diff. Compare table cells/doc blocks/layers geometry+text/plan fields by stable IDs. Version approval hash invalidated on material change; restore creates newversion; branch merge explicit conflicts.

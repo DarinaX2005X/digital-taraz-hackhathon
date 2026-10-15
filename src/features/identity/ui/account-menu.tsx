@@ -3,7 +3,7 @@
 import * as Ariakit from "@ariakit/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KeyRound, Languages, LogOut, UserRound, Users } from "lucide-react";
+import { Activity, KeyRound, Languages, LogOut, UserRound, Users } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button, Dialog, DialogClose, IconButton } from "@/ui";
 import type { IdentityMutationResult, IdentityViewer } from "../contracts";
@@ -12,6 +12,8 @@ import { useIdentityOperation, useIdentityTranslations } from "./hooks";
 import { useIdentityAccount } from "./identity-locale-provider";
 import { asIdentityFailure, identityClient } from "./transport";
 import styles from "./identity.module.css";
+import { AuthDialog } from "./credentials";
+import { accountAuthDestination } from "./navigation";
 
 export function SignOutDialog({ open, onOpenChange, beforeSignOut, onSignedOut }: { open: boolean; onOpenChange: (open: boolean) => void; beforeSignOut?: () => Promise<boolean>; onSignedOut?: () => void }) {
   const t = useIdentityTranslations();
@@ -57,6 +59,7 @@ function AuthenticatedAccountMenu({ viewer, beforeSignOut, onSignedOut }: Accoun
         </Ariakit.MenuGroup>
         <Ariakit.MenuSeparator className={styles.menuSeparator} />
         <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings/team" />}><Users aria-hidden="true" size={18} />{t("identity.team.manage")}</Ariakit.MenuItem>
+        <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/app/runs" />}><Activity aria-hidden="true" size={18} />{t("identity.navigation.activity")}</Ariakit.MenuItem>
         <Ariakit.MenuSeparator className={styles.menuSeparator} />
         <Ariakit.MenuItem className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={() => setSignOutOpen(true)}><LogOut aria-hidden="true" size={18} />{t("identity.navigation.signOut")}</Ariakit.MenuItem>
       </Ariakit.Menu>
@@ -68,6 +71,13 @@ function AuthenticatedAccountMenu({ viewer, beforeSignOut, onSignedOut }: Accoun
 export function AccountMenu(props: AccountMenuProps) {
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
-  if (!account.viewer) return <Link href="/sign-in" className={styles.textLink}>{t("identity.navigation.signIn")}</Link>;
+  const router = useRouter();
+  const [auth, setAuth] = useState<{ returnTo: string; stay: boolean }>();
+  if (!account.viewer || auth) return <>
+    <Button variant="quiet" onClick={() => {
+      setAuth(accountAuthDestination(window.location.pathname, window.location.search));
+    }}>{t("identity.navigation.signIn")}</Button>
+    <AuthDialog open={Boolean(auth)} returnTo={auth?.returnTo} onOpenChange={(open) => { if (!open) setAuth(undefined); }} onAuthenticated={(target) => { if (!auth?.stay) router.push(target); }} />
+  </>;
   return <AuthenticatedAccountMenu key={`${account.viewer.user.id}:${account.authEpoch}`} viewer={account.viewer} {...props} />;
 }

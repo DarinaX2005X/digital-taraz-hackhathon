@@ -4,6 +4,9 @@ import { check, index, integer, jsonb, pgTable, text, timestamp, uuid } from 'dr
 export * from './identity-schema';
 export * from './project-schema';
 export * from './source-schema';
+export * from './source-ingestion-schema';
+export * from './source-asset-schema';
+export * from './workspace-view-schema';
 export * from './artifact-schema';
 export * from './run-schema';
 

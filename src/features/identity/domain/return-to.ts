@@ -11,10 +11,29 @@ export function safeReturnTo(input: unknown): string {
     const result = new URLSearchParams();
     const intents = url.searchParams.getAll('intent');
     if (intents.length === 1 && /^[a-f0-9]{64}$/.test(intents[0]!)) result.set('intent', intents[0]!);
-    if (['/settings/team', '/app/runs'].includes(url.pathname) && url.searchParams.has('workspace')) {
+    if (['/settings/team', '/app', '/app/work', '/app/runs'].includes(url.pathname) && url.searchParams.has('workspace')) {
       const workspaces = url.searchParams.getAll('workspace');
       if (workspaces.length !== 1 || !z.uuid().safeParse(workspaces[0]).success) return '/app';
       result.set('workspace', workspaces[0]!);
+    }
+    const projectPathId = /^\/app\/projects\/([^/]+)$/.exec(url.pathname)?.[1];
+    if (projectPathId && z.uuid().safeParse(projectPathId).success && url.searchParams.has('resume')) {
+      const resume = url.searchParams.getAll('resume');
+      if (resume.length !== 1 || resume[0] !== '1') return '/app';
+      result.set('resume', '1');
+    }
+    const sourcePathId = /^\/app\/materials\/sources\/([^/]+)$/.exec(url.pathname)?.[1];
+    const collectionPathId = /^\/app\/materials\/collections\/([^/]+)$/.exec(url.pathname)?.[1];
+    const sourceKeys = url.pathname === '/app/materials'
+      ? ['workspaceId', 'projectId', 'sourceId', 'sourceVersionId']
+      : url.pathname === '/app/materials/add' ? ['workspaceId', 'projectId', 'sourceId']
+        : sourcePathId && z.uuid().safeParse(sourcePathId).success ? ['workspaceId']
+          : collectionPathId && z.uuid().safeParse(collectionPathId).success ? ['workspaceId', 'importId'] : [];
+    for (const key of sourceKeys) {
+      const values = url.searchParams.getAll(key);
+      if (!values.length) continue;
+      if (values.length !== 1 || !z.uuid().safeParse(values[0]).success) return '/app';
+      result.set(key, values[0]!);
     }
     return `${url.pathname}${result.size ? `?${result}` : ''}`;
   } catch { return '/app'; }

@@ -42,6 +42,59 @@ describe('identity navigation and input boundaries', () => {
     expect(safeReturnTo(`/app/runs-archive?workspace=${id}`)).toBe('/app/runs-archive');
     expect(safeReturnTo('/app/runs')).toBe('/app/runs');
   });
+  it('preserves workspace selection for the work entry without retaining private input', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    const token = 'a'.repeat(64);
+    for (const route of ['/app', '/app/work']) {
+      expect(safeReturnTo(`${route}?workspace=${id}&goal=private#private`)).toBe(`${route}?workspace=${id}`);
+      expect(authReturnTo(`${route}?workspace=${id}`, token)).toBe(`${route}?workspace=${id}&intent=${token}`);
+      expect(safeReturnTo(`${route}?workspace=${id}&workspace=${id}`)).toBe('/app');
+      expect(safeReturnTo(`${route}?workspace=invalid`)).toBe('/app');
+    }
+    expect(safeReturnTo(`/app/work-archive?workspace=${id}`)).toBe('/app/work-archive');
+  });
+  it('retains only exact source route identifiers and rejects ambiguous identifiers', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    const route = '/app/materials/add';
+    expect(safeReturnTo(`${route}?workspaceId=${id}&projectId=${id}&sourceId=${id}&fileName=private`))
+      .toBe(`${route}?workspaceId=${id}&projectId=${id}&sourceId=${id}`);
+    for (const key of ['workspaceId', 'projectId', 'sourceId']) {
+      expect(safeReturnTo(`${route}?${key}=${id}&${key}=${id}`)).toBe('/app');
+      expect(safeReturnTo(`${route}?${key}=invalid`)).toBe('/app');
+    }
+    expect(safeReturnTo(`/app/materials/sources/${id}?workspaceId=${id}&projectId=${id}&goal=private`))
+      .toBe(`/app/materials/sources/${id}?workspaceId=${id}`);
+    expect(safeReturnTo(`/app/materials/sources/invalid?workspaceId=${id}`)).toBe('/app/materials/sources/invalid');
+    expect(safeReturnTo(`/app/materials/additional?workspaceId=${id}`)).toBe('/app/materials/additional');
+  });
+  it('preserves only an unambiguous project resume command on an exact project route', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    const route = `/app/projects/${id}`;
+    expect(safeReturnTo(`${route}?resume=1&title=private#private`)).toBe(`${route}?resume=1`);
+    for (const query of ['resume=0', 'resume=true', 'resume=', 'resume=1&resume=1', 'resume=1&res%75me=1']) {
+      expect(safeReturnTo(`${route}?${query}`)).toBe('/app');
+    }
+    for (const other of ['/app/projects/invalid', `${route}/artifacts`, '/app/work']) {
+      expect(safeReturnTo(`${other}?resume=1`)).toBe(other);
+    }
+    expect(authReturnTo(`${route}?resume=1`, 'a'.repeat(64))).toBe(`${route}?resume=1&intent=${'a'.repeat(64)}`);
+  });
+  it('retains only supported opaque material library and saved import identifiers', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    const libraryKeys = ['workspaceId', 'projectId', 'sourceId', 'sourceVersionId'];
+    const query = libraryKeys.map((key) => `${key}=${id}`).join('&');
+    expect(safeReturnTo(`/app/materials?${query}&search=private&title=private`)).toBe(`/app/materials?${query}`);
+    const collection = `/app/materials/collections/${id}`;
+    expect(safeReturnTo(`${collection}?workspaceId=${id}&importId=${id}&key=private`))
+      .toBe(`${collection}?workspaceId=${id}&importId=${id}`);
+    for (const [route, keys] of [['/app/materials', libraryKeys], [collection, ['workspaceId', 'importId']]] as const) {
+      for (const key of keys) {
+        expect(safeReturnTo(`${route}?${key}=${id}&${key}=${id}`)).toBe('/app');
+        expect(safeReturnTo(`${route}?${key}=invalid`)).toBe('/app');
+      }
+    }
+    expect(safeReturnTo(`/app/materials/collections/invalid?importId=${id}`)).toBe('/app/materials/collections/invalid');
+  });
 });
 describe('default-deny scopes', () => {
   it('keeps confidential data and membership management restricted', () => {

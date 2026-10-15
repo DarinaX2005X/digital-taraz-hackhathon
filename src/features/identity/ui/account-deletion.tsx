@@ -170,7 +170,7 @@ function DeletionDialog({ userId, guard, authVersion, initialUncertain, onUncert
 export function AccountDeletionSection({ userId, guard, authVersion, uncertain, onUncertainChange, onDeleted }: { userId: string; guard: IdentityAuthGuard; authVersion: number; uncertain: boolean; onUncertainChange: (uncertain: boolean) => void; onDeleted: (result: AccountDeletionResult) => void }) {
   const t = useIdentityTranslations();
   const [open, setOpen] = useState(false);
-  return <section className={`${styles.section} ${styles.dangerSection}`} id="delete-account" aria-labelledby="delete-account-title">
+  return <section className={`${styles.section} ${styles.dangerSection}`} id="delete-account" tabIndex={-1} aria-labelledby="delete-account-title">
     <h2 id="delete-account-title">{t("identity.deletion.title")}</h2>
     <p className={styles.muted}>{t("identity.deletion.consequence")}</p>
     <Button icon={Trash2} variant="danger" onClick={() => setOpen(true)}>{t("identity.deletion.open")}</Button>

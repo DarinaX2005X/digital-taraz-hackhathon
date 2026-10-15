@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { IdSchema, RevisionSchema } from '../../../contracts/primitives';
-import { withWorkspaceAccess, type IdentityPrincipal } from '../../identity/server/access';
+import { identityTransaction, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
 import { readSourceFreshness } from '../../sources/server/source-heads';
 import { ArtifactAccessRequestSchema, ArtifactAccessResultSchema, ArtifactHistorySchema, ArtifactMutationResultSchema, ArtifactSnapshotSchema, ArtifactVersionDetailSchema, ArtifactVersionPageSchema, CreateArtifactSchema, type ArtifactMutationResult, type ArtifactSnapshot, type CreateArtifact } from '../contracts';
@@ -58,10 +58,14 @@ export function createArtifactService(pool: Pool) {
     return read(principal, { workspaceId: metadata.workspace_id, artifactId: body.artifactId, expectedProjectId: body.projectId });
   }
   async function create(principal: IdentityPrincipal, operationId: string, input: z.input<typeof CreateArtifactSchema>): Promise<ArtifactMutationResult> {
+    return identityTransaction(pool, (tx) => createInTransaction(tx, principal, operationId, input));
+  }
+  /** Persists the artifact, version, event and receipt in the caller's active transaction. */
+  async function createInTransaction(transaction: PoolClient, principal: IdentityPrincipal, operationId: string, input: z.input<typeof CreateArtifactSchema>): Promise<ArtifactMutationResult> {
     validate(IdSchema, operationId); assertBoundedJson(input, { bytes: 22 * 1024 * 1024, depth: 70 });
     const body: CreateArtifact = validate(CreateArtifactSchema, input), hash = operationBodyHash(body);
     const state = createArtifactState(body.content, body.sourceRefs, body.bindings);
-    return withWorkspaceAccess(pool, principal, { workspaceId: body.workspaceId, scope: 'edit' }, async (tx, access) => {
+    return withWorkspaceAccessInTransaction(transaction, principal, { workspaceId: body.workspaceId, scope: 'edit' }, async (tx, access) => {
       await authorizeProject(tx, access, body.projectId, 'edit', body.accessClass === 'confidential');
       await operationLock(tx, body.workspaceId, operationId);
       const replay = await receipt<ArtifactMutationResult>(tx, access, operationId, 'artifact.create', hash);
@@ -106,6 +110,6 @@ export function createArtifactService(pool: Pool) {
       return ArtifactVersionDetailSchema.parse({ viewer: viewer(access), artifact: envelope(historical, state), version: { ...versionDto(selected), ...await branchParent(tx, access, row.id) }, content: state.content, sourceFreshness: await readSourceFreshness(tx, access, collectSourceRefs(state)), locks: state.locks, missingTargets: missingTargets(state), headRevision: row.current_revision });
     });
   }
-  return { create, read, readRoute, access, history, versions, version, list: createArtifactCatalog(pool), ...createCommandHistory(pool), ...createArtifactLifecycle(pool) };
+  return { create, createInTransaction, read, readRoute, access, history, versions, version, list: createArtifactCatalog(pool), ...createCommandHistory(pool), ...createArtifactLifecycle(pool) };
 }
 export type ArtifactService = ReturnType<typeof createArtifactService>;

@@ -31,6 +31,8 @@ Domain tests insert/delete/move/undo/redo/restore/branch, stable references afte
 
 Текущая приёмка2026-10-14: полный ArtifactService/commands/versions/conditional history/lifecycle/event core независимо принят,155 domain/client/unit checks,19SQL и1реальный HTTPсценарий PASS. Проверены duplicate body conflict, чужие actor/origin, expiry/revoke, branch/restore/undo и неизменяемые hashes, mounted API. Frozen editor helper сохраняет legitimate missing bindings/retired targets, review+3regressions PASS. Checkpoint03.1.1 done по доказанному ядру;03.1.2 и пользовательский UI остаются отдельной приёмкой/следующим commit. Ранние описания active ниже являются историей предыдущих handovers.
 
+Core сохранён8b1b8649eab2b5ed5488b3813601106d37fa0afa, pushed origin/main, все9configured checks PASS. Включены server/client/commands/versions, Project closure и API; public/history UI и смешанныйHTTPfixture будут отдельным connected commit. Общая03.1/03.1.2 уже независимо принята ниже, визуальная проверка остаётся у пользователя. Послеcheckpoint workspace/document получают полныйrelease на собственные сценарии с этим единым history/session API.
+
 Ранний server handover2026-10-14 frozen:0005/schema/contracts, canonical Project create/read, Source/SourceVersion heads и авторизованный freshness reader, event contracts/commit-ordered cursor, project access integration и updated identity fixture. Type/lint и5contract tests PASS;6реальныхDB cases ещё выполняются integration worker в общем runner0005→0006. ArtifactService lifecycle/commands/history/versions/chunk operations и HTTP endpoints пока не доставлены; task/checkpoint остаются active.
 
 ### 03.1.2 Сохранение и конкурирующие правки
@@ -70,7 +72,7 @@ Domain/contract boundary сохранена37d4bd53177a0bfa90a1290c10d6a2451dd90
 Status: active
 Requirements: R08, R21, R25, R31, R32, R33, R35, R36, R37, R38, R39, R40, R41, R44, R45, R97
 Depends on: 02.1, 01.2
-Owner: /root/workspace_delivery
+Owner: /root/journey_delivery
 Paths: src/features/workspace/, tests/workspace/, src/app/api/projects/, src/server/db/workspace-view-schema.ts, migrations/0009_workspace_views.sql, src/app/app/work/
 
 Дополнительные точные route loans исключительно workspace_delivery: `src/app/app/projects/[projectId]/page.tsx`, `src/app/app/projects/[projectId]/layout.tsx`, `src/app/app/projects/[projectId]/artifacts/[artifactId]/page.tsx`. History subtree принадлежит artifact_delivery. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Начало возможно на независимо принятом server03.1 boundary, финальная03.2 acceptance требует полной03.1 integration.
@@ -90,6 +92,8 @@ Read-only prep завершён: полный packet/исходники/referenc
 ### 03.2.1 Личная работа и навигация
 Status: active
 
+Приоритет исправления2026-10-15: существующая page результата монтирует только preview и creation ведёт в пустой документ. При подключении готового capability монтировать настоящий editor с save/history и next action, обеспечить create document/table/design по фактической полной готовности. Сохранённая свободная цель получает явную команду выполнения через04.1, не link в пустой runs history. Первичная рабочая форма минимизирует обязательное именование, сохраняет intent/locale/draft и добавленные источники. Initial workspace для solo user создаётся только явной командой, несколько доступных выбираются явно. Все visible auth recovery entries сохраняют destination/черновик; pending create нельзя закрыть как discard с продолжающимся эффектом и потерей idempotency key. Интеграцию shared routes выполняет единственный owner, редактирование features поручено их owners.
+
 API create/list/open/archive, same project on return, search/filter validation and 404 HTTP status. Route action inventory points to real handlers, no dead CTA.
 
 ### 03.2.2 Согласованное состояние без reload
@@ -101,7 +105,7 @@ Reducer/event tests stale response, pagination reset, reconnect cursor, role rev
 Status: active
 Requirements: R10, R16, R34, R39, R40, R44, R45, R92, R93, R94, R95
 Depends on: 02.1, 01.2
-Owner: /root/document_delivery
+Owner: /root/documents_finish
 Paths: src/features/documents/, tests/documents/, src/app/api/documents/import/route.ts
 
 Точный дополнительный route loan `src/app/api/documents/import/route.ts` принадлежит document_delivery: thin authenticated DOCX preview/materialize handler вызывает documents/server и canonical source retrieval. Не дублировать SourceVersion/private assets; schema/package integration у integration_delivery.
@@ -123,13 +127,15 @@ Status: todo
 Command adapters tested direct edits/format/find/replace/locks undo through DB reopen; stale source marks field without replacing local text. User verifies caret/selection/keyboard/mobile.
 
 ## 03.4 Выгрузить документ и зафиксировать состав пакета
-Status: todo
+Status: active
 Requirements: R13, R16, R25, R42, R43, R95
-Depends on: 03.3
-Owner: SUBAGENT to assign
+Depends on: 03.1
+Owner: /root/exports_delivery
 Paths: src/features/exports/, tests/exports/
 
 Локальный допуск опирается на принятый format proof01.4.1; remote01.4.2 отложен по указанию пользователя. Реальные локальные DOCX/PDF и их содержимое проверяются здесь; пригодность cloud execution/storage отдельно обязательна11.2/13.2.
+
+Старт03.4 разрешён на принятом canonical ArtifactContent/immutable revision03.1: экспорт и редактор03.3 разрабатываются независимо против одной модели. Окончательная приёмка требует завершённого03.3, доступного действия в редакторе и реального edit→export→reopen; раннее начало не отменяет эти условия.
 
 **Контракт и результат.** C3-C4, C7. Export service extensible by artifact kind: initial DOCX/PDF via docx/PDFKit, same typed model, local embedded fonts ru/kk/en, table/pagebreak/images. Fixed revision IDs/layout/locale/private policy hash persisted before render, immutable ExportBundleManifest files/hashes/sourceVersions. Queued/rendering/partial/ready/failed; never mix revisions on retry. Download rechecks current rights; revoke removes access even historic link. Draft unresolved critical binding blocks ordinary approved bundle; explicit historic draft export labelled.
 

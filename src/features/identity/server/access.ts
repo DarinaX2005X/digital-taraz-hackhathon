@@ -66,7 +66,12 @@ export async function lockProjectAccess(transaction: PoolClient, access: Workspa
 /** The effect must be short, transaction-local database work. Never send mail,
  * render, call providers or issue remote downloads while holding these locks. */
 export async function withWorkspaceAccess<T>(pool: Pool, principal: IdentityPrincipal, request: AccessRequest, effect: (transaction: PoolClient, access: WorkspaceAccess) => Promise<T>): Promise<T> {
-  return identityTransaction(pool, async (transaction) => {
+  return identityTransaction(pool, (transaction) => withWorkspaceAccessInTransaction(transaction, principal, request, effect));
+}
+
+/** Uses the caller's active transaction without committing or checking out another connection.
+ * The caller must roll back the transaction when the effect fails. */
+export async function withWorkspaceAccessInTransaction<T>(transaction: PoolClient, principal: IdentityPrincipal, request: AccessRequest, effect: (transaction: PoolClient, access: WorkspaceAccess) => Promise<T>): Promise<T> {
     await lockIdentityActor(transaction, principal);
     let access = await lockWorkspaceAccess(transaction, principal.userId, request.workspaceId);
     if (principal.kind === 'job') assertAuthzVersion(access, principal.authzVersion);
@@ -76,5 +81,4 @@ export async function withWorkspaceAccess<T>(pool: Pool, principal: IdentityPrin
     }
     if (!hasScope({ ...access.membership, projectScopes: access.projectScopes, confidential: request.confidential }, request.scope)) throw new IdentityError('FORBIDDEN', 'identity.errors.forbidden');
     return effect(transaction, access);
-  });
 }

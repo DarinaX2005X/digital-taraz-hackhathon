@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uuid as uuidColumn } from 'drizzle-orm/pg-core';
+import { bigint, boolean, check, date, foreignKey, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, unique, uniqueIndex, uuid as uuidColumn } from 'drizzle-orm/pg-core';
 import type { RunInputRef, RunResultRef } from '../../contracts/runs';
 import { identityUsers, identityWorkspaces } from './identity-schema';
 import { projects } from './project-schema';
@@ -59,6 +59,7 @@ export const agentRunSteps = pgTable('agent_run_steps', {
   state: text('state').notNull().default('planned'), attempt: integer('attempt').notNull().default(0), executionEpoch: integer('execution_epoch'),
   failureCode: text('failure_code'), retryable: boolean('retryable').notNull().default(false),
   resultRefs: jsonb('result_refs').$type<RunResultRef[]>().notNull().default([]),
+  inputState: jsonb('input_state').$type<Record<string, unknown>>().notNull().default({}), inputHash: text('input_hash'),
   startedAt: instant('started_at'), finishedAt: instant('finished_at'), createdAt: instant('created_at').notNull().defaultNow(),
 }, (table) => [
   unique('agent_run_steps_run_id_id_key').on(table.runId, table.id), unique('agent_run_steps_run_id_ordinal_key').on(table.runId, table.ordinal),
@@ -71,6 +72,8 @@ export const agentRunSteps = pgTable('agent_run_steps', {
   check('agent_run_steps_result_refs_check', sql`jsonb_typeof(${table.resultRefs}) = 'array' AND jsonb_array_length(${table.resultRefs}) <= 40`),
   check('agent_run_steps_terminal_check', sql`(${table.state} IN ('succeeded','failed','skipped')) = (${table.finishedAt} IS NOT NULL)`),
   check('agent_run_steps_claim_check', sql`${table.state} <> 'claimed' OR ${table.executionEpoch} IS NOT NULL`),
+  check('agent_run_steps_input_state_check', sql`jsonb_typeof(${table.inputState}) = 'object' AND octet_length(${table.inputState}::text) <= 65536`),
+  check('agent_run_steps_input_hash_check', sql`${table.inputHash} ~ '^[a-f0-9]{64}$'`),
 ]);
 export const agentRunContexts = pgTable('agent_run_contexts', {
   runId: uuidColumn('run_id').primaryKey().references(() => agentRuns.id), revision: integer('revision').notNull().default(0),
@@ -94,17 +97,21 @@ export const agentToolReceipts = pgTable('agent_tool_receipts', {
 ]);
 export const agentRunUsage = pgTable('agent_run_usage', {
   id: uuidColumn('id').primaryKey(), runId: uuidColumn('run_id').notNull(), stepId: uuidColumn('step_id').notNull(),
-  callKey: text('call_key').notNull(), inputHash: text('input_hash').notNull(), workspaceId: uuidColumn('workspace_id').notNull(),
+  callKey: text('call_key').notNull(), operationKey: text('operation_key'), inputHash: text('input_hash').notNull(), workspaceId: uuidColumn('workspace_id').notNull(),
   budgetDay: date('budget_day').notNull(), state: text('state').notNull(), model: text('model').notNull(), endpoint: text('endpoint').notNull(),
   pricingSnapshot: jsonb('pricing_snapshot').notNull(), reservedUsd: usd('reserved_usd').notNull(), actualUsd: usd('actual_usd'),
   providerRequestId: text('provider_request_id'), inputTokens: integer('input_tokens'), outputTokens: integer('output_tokens'), cachedInputTokens: integer('cached_input_tokens'),
   leaseEpoch: integer('lease_epoch').notNull(), dispatchedAt: instant('dispatched_at'), reconciledAt: instant('reconciled_at'), createdAt: instant('created_at').notNull().defaultNow(),
+  authorizationId: text('authorization_id').references(() => agentBudgetAuthorizations.id),
 }, (table) => [
   unique('agent_run_usage_run_id_call_key_key').on(table.runId, table.callKey),
+  uniqueIndex('agent_model_operation_idx').on(table.runId, table.stepId, table.operationKey).where(sql`${table.state} <> 'released'`),
+  index('agent_run_usage_authorization_idx').on(table.authorizationId, table.state),
   foreignKey({ columns: [table.runId, table.stepId], foreignColumns: [agentRunSteps.runId, agentRunSteps.id] }),
   foreignKey({ columns: [table.workspaceId, table.runId], foreignColumns: [agentRuns.workspaceId, agentRuns.id] }),
   index('agent_run_usage_day_idx').on(table.budgetDay, table.workspaceId, table.state), index('agent_run_usage_run_idx').on(table.runId, table.createdAt),
   check('agent_run_usage_call_key_check', sql`length(${table.callKey}) BETWEEN 1 AND 128`),
+  check('agent_run_usage_operation_key_check', sql`${table.operationKey} ~ '^[A-Za-z0-9_-]{1,90}$'`),
   check('agent_run_usage_input_hash_check', sql`${table.inputHash} ~ '^[a-f0-9]{64}$'`),
   check('agent_run_usage_state_check', sql`${table.state} IN ('reserved','dispatched','succeeded','released','ambiguous')`),
   check('agent_run_usage_model_check', sql`length(${table.model}) BETWEEN 1 AND 128`),
@@ -157,3 +164,46 @@ export const agentRunOperations = pgTable('agent_run_operations', {
   check('agent_run_operations_kind_check', sql`${table.kind} IN ('cancel','resume')`), check('agent_run_operations_result_epoch_check', sql`${table.resultEpoch} >= 0`),
 ]);
 
+export const agentBudgetAuthorizations = pgTable('agent_budget_authorizations', {
+  id: text('id').primaryKey(), provider: text('provider').notNull(), state: text('state').notNull(),
+  limitUsd: usd('limit_usd').notNull(), reservedUsd: usd('reserved_usd').notNull().default('0'), spentUsd: usd('spent_usd').notNull().default('0'),
+  keyFingerprint: text('key_fingerprint').notNull(), authorityRef: text('authority_ref').notNull(),
+  createdAt: instant('created_at').notNull().defaultNow(), activatedAt: instant('activated_at'),
+}, (table) => [
+  uniqueIndex('agent_one_active_authorization').on(table.provider).where(sql`${table.state}='active'`),
+  check('agent_budget_authorizations_id_check', sql`length(${table.id}) BETWEEN 1 AND 100`),
+  check('agent_budget_authorizations_provider_check', sql`${table.provider}='openrouter'`),
+  check('agent_budget_authorizations_state_check', sql`${table.state} IN ('inactive','active','closed')`),
+  check('agent_budget_authorizations_limit_usd_check', sql`${table.limitUsd}>0 AND ${table.limitUsd}<=10`),
+  check('agent_budget_authorizations_reserved_usd_check', sql`${table.reservedUsd}>=0 AND ${table.reservedUsd}<>'NaN'::numeric`),
+  check('agent_budget_authorizations_spent_usd_check', sql`${table.spentUsd}>=0 AND ${table.spentUsd}<>'NaN'::numeric`),
+  check('agent_budget_authorizations_key_fingerprint_check', sql`${table.keyFingerprint} ~ '^[a-f0-9]{64}$'`),
+  check('agent_budget_authorizations_authority_ref_check', sql`length(${table.authorityRef}) BETWEEN 1 AND 200`),
+  check('agent_budget_authorizations_activation_check', sql`${table.state}<>'active' OR ${table.activatedAt} IS NOT NULL`),
+]);
+export const agentModelOutputs = pgTable('agent_model_outputs', {
+  usageId: uuidColumn('usage_id').primaryKey().references(() => agentRunUsage.id), payload: jsonb('payload').notNull(),
+  outputHash: text('output_hash').notNull(), createdAt: instant('created_at').notNull().defaultNow(),
+}, (table) => [
+  check('agent_model_outputs_payload_check', sql`jsonb_typeof(${table.payload})='object' AND octet_length(${table.payload}::text)<=131072`),
+  check('agent_model_outputs_output_hash_check', sql`${table.outputHash} ~ '^[a-f0-9]{64}$'`),
+]);
+export const agentModelEndpoints = pgTable('agent_model_endpoints', {
+  model: text('model').notNull(), endpoint: text('endpoint').notNull(), kind: text('kind').notNull(), state: text('state').notNull(),
+  policyRevision: integer('policy_revision').notNull(), pricingSnapshot: jsonb('pricing_snapshot').notNull(), pricingHash: text('pricing_hash').notNull(),
+  proofState: text('proof_state').notNull(), proofRef: text('proof_ref'), quarantineUsageId: uuidColumn('quarantine_usage_id').references(() => agentRunUsage.id),
+  quarantinedAt: instant('quarantined_at'), updatedAt: instant('updated_at').notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.model, table.endpoint, table.kind] }),
+  check('agent_model_endpoints_model_check', sql`length(${table.model}) BETWEEN 1 AND 128`),
+  check('agent_model_endpoints_endpoint_check', sql`length(${table.endpoint}) BETWEEN 1 AND 128`),
+  check('agent_model_endpoints_kind_check', sql`${table.kind} IN ('text','image')`),
+  check('agent_model_endpoints_state_check', sql`${table.state} IN ('candidate','enabled','disabled','quarantined')`),
+  check('agent_model_endpoints_policy_revision_check', sql`${table.policyRevision}>0`),
+  check('agent_model_endpoints_pricing_snapshot_check', sql`jsonb_typeof(${table.pricingSnapshot})='object' AND octet_length(${table.pricingSnapshot}::text)<=16384`),
+  check('agent_model_endpoints_pricing_hash_check', sql`${table.pricingHash} ~ '^[a-f0-9]{64}$'`),
+  check('agent_model_endpoints_proof_state_check', sql`${table.proofState} IN ('unproven','passed')`),
+  check('agent_model_endpoints_proof_ref_check', sql`length(${table.proofRef}) BETWEEN 1 AND 200`),
+  check('agent_model_endpoints_enabled_check', sql`${table.state}<>'enabled' OR (${table.proofState}='passed' AND ${table.proofRef} IS NOT NULL)`),
+  check('agent_model_endpoints_quarantine_check', sql`(${table.state}='quarantined')=(${table.quarantineUsageId} IS NOT NULL AND ${table.quarantinedAt} IS NOT NULL)`),
+]);

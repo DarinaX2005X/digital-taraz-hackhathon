@@ -170,6 +170,13 @@ describe("search controller", () => {
 });
 
 describe("dialog close protection", () => {
+  it("cannot discard a pending or unresolved effect through any close request", () => {
+    for (const dirty of [true, false]) {
+      expect(dialogCloseReducer("editing", { type: "request-close", dirty, blocked: true })).toBe("editing");
+    }
+    expect(dialogCloseReducer("confirming-discard", { type: "discard", blocked: true })).toBe("confirming-discard");
+    expect(dialogCloseReducer("editing", { type: "request-close", dirty: true, blocked: false })).toBe("confirming-discard");
+  });
   it("requires explicit discard after a dirty close request", () => {
     expect(dialogCloseReducer("editing", { type: "discard" })).toBe("editing");
     const warning = dialogCloseReducer("editing", { type: "request-close", dirty: true });

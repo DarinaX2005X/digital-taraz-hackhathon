@@ -13,7 +13,7 @@ export const UpdateProjectSchema = z.strictObject({ workspaceId: IdSchema, expec
 export const ProjectLifecycleSchema = z.strictObject({ workspaceId: IdSchema, expectedAuthzVersion: AuthzVersionSchema, expectedRevision: z.number().int().positive() });
 export const SetProjectGrantSchema = z.strictObject({ workspaceId: IdSchema, projectId: IdSchema, userId: IdSchema, scopes: ScopeListSchema.nullable(), expectedAuthzVersion: AuthzVersionSchema });
 export const ProjectGrantResultSchema = z.strictObject({ projectId: IdSchema, userId: IdSchema, scopes: ScopeListSchema.nullable(), authzVersion: AuthzVersionSchema, cursor: WorkspaceCursorSchema });
-export const ProjectListInputSchema = z.strictObject({ workspaceId: IdSchema, status: z.enum(['active', 'archived', 'trashed']).default('active'), query: z.string().trim().max(200).default(''), after: z.string().min(1).max(2048).regex(/^[A-Za-z0-9_-]+$/).optional(), limit: z.number().int().min(1).max(50).default(30) });
+export const ProjectListInputSchema = z.strictObject({ workspaceId: IdSchema, status: z.enum(['active', 'archived', 'trashed']).default('active'), order: z.enum(['updated', 'recent']).default('updated'), query: z.string().trim().max(200).default(''), after: z.string().min(1).max(2048).regex(/^[A-Za-z0-9_-]+$/).optional(), limit: z.number().int().min(1).max(50).default(30) });
 export const ProjectListResultSchema = z.strictObject({ projects: z.array(ProjectSchema).max(50), authzVersion: AuthzVersionSchema, cursor: WorkspaceCursorSchema, nextAfter: z.string().nullable() });
 
 export type Project = z.infer<typeof ProjectSchema>;

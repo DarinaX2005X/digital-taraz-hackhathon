@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import type { SourceRef } from '../../../contracts/artifacts';
 import { hasScope } from '../../identity/domain/policy';
-import { withWorkspaceAccess, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
+import { identityTransaction, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
 import { ArtifactCommandRequestSchema, ArtifactHistoryActionSchema, ArtifactHistoryGroupSchema, CommandReceiptSchema, type ArtifactCommandRequest, type ArtifactHistoryAction, type ArtifactHistoryGroup, type CommandReceipt } from '../contracts';
 import { collectSourceRefs } from '../domain/content-state';
@@ -107,10 +107,14 @@ async function commitGroup(tx: PoolClient, access: WorkspaceAccess, input: { id:
 
 export function createCommandHistory(pool: Pool) {
   async function apply(principal: IdentityPrincipal, input: z.input<typeof ArtifactCommandRequestSchema>, origin: 'human' | 'ai' | 'import' = 'human'): Promise<CommandReceipt> {
+    return identityTransaction(pool, (tx) => applyInTransaction(tx, principal, input, origin));
+  }
+  /** Uses the caller's transaction so run checkpoints and artifact effects commit together. */
+  async function applyInTransaction(transaction: PoolClient, principal: IdentityPrincipal, input: z.input<typeof ArtifactCommandRequestSchema>, origin: 'human' | 'ai' | 'import' = 'human'): Promise<CommandReceipt> {
     assertBoundedJson(input, { bytes: 22 * 1024 * 1024, depth: 80 });
     const body: ArtifactCommandRequest = validate(ArtifactCommandRequestSchema, input);
     const id = body.group.commandGroupId, hash = operationBodyHash({ body, origin });
-    return withWorkspaceAccess(pool, principal, { workspaceId: body.workspaceId, scope: 'edit' }, async (tx, access) => {
+    return withWorkspaceAccessInTransaction(transaction, principal, { workspaceId: body.workspaceId, scope: 'edit' }, async (tx, access) => {
       await operationLock(tx, body.workspaceId, id);
       const authorized = new Map<string, ArtifactRow>();
       for (const command of [...body.group.commands].sort((a, b) => a.artifactId.localeCompare(b.artifactId))) {
@@ -191,6 +195,6 @@ export function createCommandHistory(pool: Pool) {
       return result;
     });
   }
-  return { apply, undo: (principal: IdentityPrincipal, input: z.input<typeof ArtifactHistoryActionSchema>) => historyAction(principal, 'undo', input), redo: (principal: IdentityPrincipal, input: z.input<typeof ArtifactHistoryActionSchema>) => historyAction(principal, 'redo', input) };
+  return { apply, applyInTransaction, undo: (principal: IdentityPrincipal, input: z.input<typeof ArtifactHistoryActionSchema>) => historyAction(principal, 'undo', input), redo: (principal: IdentityPrincipal, input: z.input<typeof ArtifactHistoryActionSchema>) => historyAction(principal, 'redo', input) };
 }
 export type ArtifactCommandService = ReturnType<typeof createCommandHistory>;

@@ -6,9 +6,11 @@ import { assertOrigin, IdentityError, json, limit, validate } from '@/features/i
 import { artifactErrorResponse, assertActorHeader, idempotencyKey, queryObject, readArtifactJson } from '@/features/artifacts/server/http';
 import { ProjectListInputSchema } from '../contracts';
 import { createProjectCore } from './project-core';
+import { createProjectViews } from './project-views';
 
 export function createWorkspaceHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor> }) {
   const service = createProjectCore(options.pool);
+  const views = createProjectViews(options.pool);
   return async function projects(request: Request): Promise<Response> {
     try {
       const writing = request.method === 'POST';
@@ -20,16 +22,19 @@ export function createWorkspaceHandlers(options: { pool: Pool; origin: string; g
       const url = new URL(request.url);
       const path = url.pathname.slice('/api/projects'.length).split('/').filter(Boolean);
       if (request.method === 'GET') {
-        const query = queryObject(url, ['workspaceId', 'status', 'query', 'after', 'limit']);
         if (!path.length) {
+          const query = queryObject(url, ['workspaceId', 'status', 'order', 'query', 'after', 'limit']);
           const size = query.limit === undefined ? undefined : validate(z.string().regex(/^[1-9]\d?$/).transform(Number), query.limit);
           return json(await service.list(principal, validate(ProjectListInputSchema, { ...query, limit: size })));
         }
+        const query = queryObject(url, ['workspaceId']);
         if (path.length === 1) return json(await service.read(principal, validate(IdSchema, query.workspaceId), validate(IdSchema, path[0])));
+        if (path.length === 2 && path[1] === 'view') return json(await views.read(principal, validate(IdSchema, query.workspaceId), validate(IdSchema, path[0])));
       }
       if (writing) {
         queryObject(url, []);
         const key = idempotencyKey(request), body = await readArtifactJson(request);
+        if (path.length === 2 && path[1] === 'view') return json(await views.record(principal, validate(IdSchema, path[0]), body));
         if (!path.length) return json(await service.create(principal, key, body as Parameters<typeof service.create>[2]), 201);
         if (path.length === 2 && ['update', 'archive', 'restore'].includes(path[1]!)) return json(await service.mutate(principal, key, validate(IdSchema, path[0]), path[1] as 'update' | 'archive' | 'restore', body));
       }

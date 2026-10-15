@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { IdentityLocaleProvider } from "@/features/identity/ui";
+import { getLocalMailInbox } from "@/features/identity/server";
 import { readRequestLocale } from "@/i18n/server";
 import { readIdentityLocale } from "@/server/identity";
 import { tirlikFont } from "@/ui/font";
@@ -18,7 +19,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const locale = await readRequestLocale({ accountLocale: await readIdentityLocale() });
   return (
     <html lang={locale} className={tirlikFont.variable}>
-      <body><IdentityLocaleProvider initialLocale={locale}><ToastProvider>{children}</ToastProvider></IdentityLocaleProvider></body>
+      <body><IdentityLocaleProvider initialLocale={locale} localMailInbox={getLocalMailInbox()}><ToastProvider>{children}</ToastProvider></IdentityLocaleProvider></body>
     </html>
   );
 }

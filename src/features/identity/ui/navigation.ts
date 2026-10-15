@@ -1,4 +1,9 @@
-import { authReturnTo } from "../domain/return-to";
+import { authReturnTo, safeReturnTo } from "../domain/return-to";
+
+/** Private recovery stays on its mounted work surface, so signing in never submits or discards a draft. */
+export function accountAuthDestination(pathname: string, search = "") {
+  return { returnTo: safeReturnTo(`${pathname}${search}`), stay: /^\/(app|settings)(\/|$)/.test(pathname) };
+}
 
 export type AuthReturn = { returnTo?: string; intentToken?: string };
 

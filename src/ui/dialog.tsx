@@ -18,18 +18,20 @@ export type DialogProps = {
   returnFocus?: RefObject<HTMLElement | null>;
   placement?: "center" | "side";
   className?: string;
+  /** False while an effect is pending or its outcome still needs reconciliation. */
+  dismissible?: boolean;
 } & ({ dirty?: false; onDiscard?: never } | {
   dirty: boolean;
   /** Called only after explicit discard confirmation. Reset the local draft here. */
   onDiscard: () => void;
 });
 
-export function Dialog({ open, onOpenChange, title, description, children, footer, dirty = false, onDiscard, initialFocus, returnFocus, placement = "center", className = "" }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, footer, dirty = false, onDiscard, initialFocus, returnFocus, placement = "center", className = "", dismissible = true }: DialogProps) {
   const t = useTranslations();
   const [closeState, dispatch] = useReducer(dialogCloseReducer, "editing");
   const [previousOpen, setPreviousOpen] = useState(open);
   const keepEditingRef = useRef<HTMLButtonElement>(null);
-  const store = Ariakit.useDialogStore({ open, setOpen: onOpenChange });
+  const store = Ariakit.useDialogStore({ open, setOpen: (next) => { if (next || dismissible) onOpenChange(next); } });
   const warningOpen = open && closeState === "confirming-discard";
   if (previousOpen !== open) {
     setPreviousOpen(open);
@@ -44,15 +46,17 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
       unmountOnHide={false}
       initialFocus={initialFocus}
       finalFocus={returnFocus}
+      hideOnEscape={dismissible}
+      hideOnInteractOutside={dismissible}
       onClose={(event) => {
-        const next = dialogCloseReducer(closeState, { type: "request-close", dirty });
-        if (next === "confirming-discard") event.preventDefault();
-        dispatch({ type: "request-close", dirty });
+        const next = dialogCloseReducer(closeState, { type: "request-close", dirty, blocked: !dismissible });
+        if (!dismissible || next === "confirming-discard") event.preventDefault();
+        dispatch({ type: "request-close", dirty, blocked: !dismissible });
       }}
     >
       <div className="tl-dialog__header">
         <div className="tl-dialog__heading-group"><Ariakit.DialogHeading className="tl-dialog__title" render={<h2 />}>{title}</Ariakit.DialogHeading>{description && <Ariakit.DialogDescription className="tl-dialog__description">{description}</Ariakit.DialogDescription>}</div>
-        <Ariakit.DialogDismiss render={<IconButton icon={X} label={t("common.actions.close")} />} />
+        <Ariakit.DialogDismiss disabled={!dismissible} render={<IconButton icon={X} label={t("common.actions.close")} />} />
       </div>
       <div className="tl-dialog__body">{children}</div>
       {footer && <div className="tl-dialog__footer">{footer}</div>}
@@ -71,7 +75,7 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
       <Ariakit.DialogDescription className="tl-dialog__description">{t("common.dialog.unsavedDescription")}</Ariakit.DialogDescription>
       <div className="tl-dialog__footer">
         <Ariakit.DialogDismiss render={<Button ref={keepEditingRef} variant="primary" />}>{t("common.dialog.keepEditing")}</Ariakit.DialogDismiss>
-        <Button variant="danger" onClick={() => { onDiscard?.(); dispatch({ type: "discard" }); onOpenChange(false); }}>{t("common.dialog.discard")}</Button>
+        <Button variant="danger" disabled={!dismissible} onClick={() => { if (!dismissible) return; onDiscard?.(); dispatch({ type: "discard" }); onOpenChange(false); }}>{t("common.dialog.discard")}</Button>
       </div>
       </Ariakit.Dialog>
     </Ariakit.Dialog>;

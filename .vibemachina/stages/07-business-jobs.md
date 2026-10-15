@@ -9,7 +9,7 @@ Status: todo
 Status: todo
 Requirements: R01, R04, R10, R12, R15, R16, R82, R90, R91, R96, R99
 Depends on: 04.2, 05.1
-Owner: SUBAGENT to assign
+Owner: /root/agent_execution
 Paths: src/features/commercial/, tests/commercial/, evals/commercial/
 
 **Контракт и результат.** C1 J1, C8. Request-to-offer procedure extracts requirements, quantities, deliverables, exclusions and deadlines from free text/doc; maps catalog/prices with provenance and questions for unresolved terms. Build commercially distinct feasible variants using actual services/items, exact estimate formulas and editable document, not predefined three template answers. Track each request requirement answered/question/excluded-with-reason; amounts include valid discounts/tax only supplied rule. Client names are optional protected imported facts, no customer portal. Quote and estimate share bindings, approval tied to versions.

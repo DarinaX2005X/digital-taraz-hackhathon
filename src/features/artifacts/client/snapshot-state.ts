@@ -1,9 +1,28 @@
-import { ArtifactSnapshotSchema, type ArtifactSnapshot } from '../contracts';
+import type { SourceRef } from '../../../contracts/artifacts';
+import { ArtifactSnapshotSchema, SourceFreshnessSchema, type ArtifactSnapshot, type SourceFreshness } from '../contracts';
 import { ContentValidationError, hashJson } from '../domain/canonical';
 import { createArtifactState } from '../domain/content-state';
 import type { JsonValue } from '../domain/content-models';
 import { uniqueIds } from '../domain/semantic-validation';
 import { locateTarget, type ArtifactState } from '../domain/targets';
+
+/** Builds the mutation guard from authorized current heads, never pinned content revisions.
+ * Both removed and added bindings participate in the server's before/after source check.
+ * Newly bound sources must have freshness read through an authorized source endpoint. */
+export function expectedSourceRevisions(snapshot: ArtifactSnapshot, afterSourceRefs: readonly SourceRef[] = [], additionalFreshness: readonly SourceFreshness[] = []): Record<string, number> {
+  const required = new Set([...snapshot.artifact.sourceRefs, ...afterSourceRefs].map((ref) => ref.sourceId));
+  const revisions = new Map<string, number>();
+  for (const input of [...snapshot.sourceFreshness, ...additionalFreshness]) {
+    if (!required.has(input.sourceRef.sourceId)) continue;
+    const freshness = SourceFreshnessSchema.parse(input);
+    if (freshness.sourceStatus === 'unknown' || freshness.currentRevision === undefined) throw new ContentValidationError('source-current-revision-unavailable');
+    const previous = revisions.get(freshness.sourceRef.sourceId);
+    if (previous !== undefined && previous !== freshness.currentRevision) throw new ContentValidationError('source-current-revision-conflict');
+    revisions.set(freshness.sourceRef.sourceId, freshness.currentRevision);
+  }
+  if ([...required].some((id) => !revisions.has(id))) throw new ContentValidationError('source-current-revision-unavailable');
+  return Object.fromEntries(revisions);
+}
 
 /** Editor projection for checked operations, not a replacement for server history. */
 export function createEditorArtifactState(input: ArtifactSnapshot): ArtifactState {

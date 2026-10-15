@@ -14,7 +14,7 @@ import { SetProjectGrantSchema } from '../contracts';
 export { CreateProjectSchema, ProjectSchema, ProjectResultSchema, SetProjectGrantSchema, ProjectGrantResultSchema, ProjectListInputSchema, ProjectListResultSchema } from '../contracts';
 export type { Project } from '../contracts';
 
-const ProjectPageCursorSchema = z.strictObject({ workspaceId: IdSchema, authzVersion: AuthzVersionSchema, status: ProjectListInputSchema.shape.status, query: z.string().max(200), updatedAt: InstantSchema, id: IdSchema });
+const ProjectPageCursorSchema = z.strictObject({ workspaceId: IdSchema, userId: IdSchema.optional(), authzVersion: AuthzVersionSchema, status: ProjectListInputSchema.shape.status, order: ProjectListInputSchema.shape.order, query: z.string().max(200), updatedAt: InstantSchema, id: IdSchema });
 interface ProjectRow { id: string; workspace_id: string; title: string; goal: string | null; status: Project['status']; revision: number; created_by: string; creation_body_hash: string; created_at: Date; updated_at: Date; page_updated_at?: string }
 const projectColumns = 'id,workspace_id,title,goal,status,revision,created_by,creation_body_hash,created_at,updated_at';
 function projectDto(row: ProjectRow): Project {
@@ -35,16 +35,18 @@ export function createProjectCore(pool: Pool) {
       if (body.after) {
         try { after = ProjectPageCursorSchema.parse(JSON.parse(Buffer.from(body.after, 'base64url').toString('utf8'))); }
         catch { throw new IdentityError('VALIDATION_FAILED', 'identity.errors.validationFailed'); }
-        if (after.workspaceId !== body.workspaceId || after.status !== body.status || after.query !== body.query || after.authzVersion !== access.workspace.authz_version) throw new IdentityError('CONFLICT', 'identity.errors.conflict');
+        if (after.workspaceId !== body.workspaceId || after.status !== body.status || after.order !== body.order || (body.order === 'recent' && after.userId !== access.userId) || after.query !== body.query || after.authzVersion !== access.workspace.authz_version) throw new IdentityError('CONFLICT', 'identity.errors.conflict');
       }
       const cursor = await readCursor(transaction, access);
       const search = `%${body.query.replace(/[\\%_]/g, '\\$&')}%`;
-      const rows = (await transaction.query<ProjectRow>(`SELECT ${projectColumns.split(',').map((column) => `p.${column}`).join(',')},to_char(p.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS page_updated_at FROM projects p WHERE p.workspace_id=$1 AND p.status=$2
+      const orderColumn = body.order === 'recent' ? 'COALESCE(v.last_opened_at,p.updated_at)' : 'p.updated_at';
+      const viewJoin = body.order === 'recent' ? 'LEFT JOIN workspace_project_views v ON v.workspace_id=p.workspace_id AND v.project_id=p.id AND v.user_id=$4' : '';
+      const rows = (await transaction.query<ProjectRow>(`SELECT ${projectColumns.split(',').map((column) => `p.${column}`).join(',')},to_char(${orderColumn} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS page_updated_at FROM projects p ${viewJoin} WHERE p.workspace_id=$1 AND p.status=$2
         AND ($3::boolean OR EXISTS(SELECT 1 FROM identity_project_grants g WHERE g.workspace_id=p.workspace_id AND g.project_id=p.id AND g.user_id=$4 AND 'read'=ANY(g.scopes)))
         AND ($5='' OR p.title ILIKE $6 ESCAPE '\\' OR COALESCE(p.goal,'') ILIKE $6 ESCAPE '\\')
-        AND ($7::timestamptz IS NULL OR (p.updated_at,p.id)<($7,$8::uuid)) ORDER BY p.updated_at DESC,p.id DESC LIMIT $9`, [body.workspaceId, body.status, access.membership.role === 'owner', access.userId, body.query, search, after?.updatedAt ?? null, after?.id ?? null, body.limit + 1])).rows;
+        AND ($7::timestamptz IS NULL OR (${orderColumn},p.id)<($7,$8::uuid)) ORDER BY ${orderColumn} DESC,p.id DESC LIMIT $9`, [body.workspaceId, body.status, access.membership.role === 'owner', access.userId, body.query, search, after?.updatedAt ?? null, after?.id ?? null, body.limit + 1])).rows;
       const page = rows.slice(0, body.limit), last = page.at(-1);
-      const nextAfter = rows.length > body.limit && last ? Buffer.from(JSON.stringify({ workspaceId: body.workspaceId, authzVersion: access.workspace.authz_version, status: body.status, query: body.query, updatedAt: last.page_updated_at, id: last.id })).toString('base64url') : null;
+      const nextAfter = rows.length > body.limit && last ? Buffer.from(JSON.stringify({ workspaceId: body.workspaceId, userId: access.userId, authzVersion: access.workspace.authz_version, status: body.status, order: body.order, query: body.query, updatedAt: last.page_updated_at, id: last.id })).toString('base64url') : null;
       return ProjectListResultSchema.parse({ projects: page.map(projectDto), authzVersion: access.workspace.authz_version, cursor, nextAfter });
     });
   }

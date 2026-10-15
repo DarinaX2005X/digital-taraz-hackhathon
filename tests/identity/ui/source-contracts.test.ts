@@ -105,6 +105,7 @@ describe("identity source contracts, without browser or rendering", () => {
     }
     expect(attribute(parse("settings.tsx").named("SettingsContent")[0]!, "key")).toBe("viewer.user.id");
     expect(read("identity-locale-provider.tsx")).not.toContain("next/navigation");
+    expect(read("identity-locale-provider.tsx")).toContain("getSnapshot: store.getSnapshot");
     expect(read("credentials.tsx")).toContain("{open &&");
   });
 
@@ -132,8 +133,8 @@ describe("identity source contracts, without browser or rendering", () => {
     expect(attribute(privateMenu, "viewer")).toBe("account.viewer");
     const wrapper = menu.tree.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "AccountMenu");
     const content = menu.tree.statements.find((node) => ts.isFunctionDeclaration(node) && node.name?.text === "AuthenticatedAccountMenu");
-    expect(wrapper?.getText(menu.tree)).toContain("if (!account.viewer) return <Link");
-    expect(wrapper?.getText(menu.tree)).not.toContain("useState");
+    expect(wrapper?.getText(menu.tree)).toContain("if (!account.viewer || auth)");
+    expect(wrapper?.getText(menu.tree)).not.toContain("signOutOpen");
     expect(content?.getText(menu.tree)).toContain("const [signOutOpen, setSignOutOpen] = useState(false)");
   });
 
@@ -144,6 +145,22 @@ describe("identity source contracts, without browser or rendering", () => {
       expect(source.named("LocaleSelect").some((node) => attribute(node, "compact") === "true"), file).toBe(true);
       expect(source.named("header"), file).toHaveLength(0);
     }
+  });
+
+  it("keeps authorized settings drafts mounted across hash views and warns before leaving", () => {
+    const settings = parse("settings.tsx");
+    for (const id of ["profile", "language", "security"]) {
+      const section = settings.named("section").find((node) => attribute(node, "id") === id)!;
+      expect(attribute(section, "hidden")).toBe(`view !== "${id}"`);
+      expect(attribute(section, "tabIndex")).toBe("-1");
+    }
+    expect(read("settings.tsx")).toContain('access.phase === "active" ?');
+    expect(settings.named("a").some((node) => attribute(node, "aria-current")?.includes('"page"'))).toBe(true);
+    expect(read("settings.tsx")).toContain("onClickCapture={navigation.onClickCapture}");
+    expect(read("navigation-guard.tsx")).toContain('window.addEventListener("beforeunload"');
+    expect(read("navigation-guard.tsx")).toContain('window.removeEventListener("beforeunload"');
+    expect(read("navigation-guard.tsx")).not.toContain("history.pushState");
+    expect(settings.named("SessionDetails")).toHaveLength(2);
   });
 
   it("keeps invitation acceptance behind a named explicit action and rejects an invalid token before authentication", () => {

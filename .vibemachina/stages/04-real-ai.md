@@ -1,16 +1,18 @@
 # 04 Настоящая агентная работа с управляемым результатом
-Status: todo
+Status: active
 
 Проверяем полный путь на реальной модели: исходный материал, выбранные инструменты, сохранённый результат, ручная правка и экспорт. Это ранняя проверка механизма, не конец разработки.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 04.1 Выбирать инструменты под свободную деловую задачу
-Status: todo
+Status: active
 Requirements: R03, R04, R05, R14, R15, R16, R83, R84, R96, R100
-Depends on: 02.2, 02.4, 03.3
-Owner: SUBAGENT to assign
+Depends on: 02.1, 03.1
+Owner: /root/agent_execution
 Paths: src/features/agent-tools/, tests/agent-tools/, evals/agent-tools/
+
+Фактический аудит2026-10-15: существующий02.2 runtime имеет только test synthetic и private model-proof registrations; они не исполняют цель бизнеса и не создают пользовательские artifacts. Успешный proofMiMo2.6 не закрывает04.1. Следующий feature owner должен поставить настоящую public capability свободной задачи с source retrieval/provenance, typed tools и сохранёнными artifact refs. UI запуск монтирует workspace owner по одному согласованному DTO, не новая форма internal capabilities. Реестр runtime/эффекты/ledger переиспользуются. Подготовка начинается на принятых interfaces02.2/03.1/02.3, пока03.3/02.4 монтируются; окончательное принятие04.1 требует всех указанных зависимостей. Первым рабочим предметным путём является J1 из нового PROJECT, остальные предметные capabilities подключаются по плану. Никакого скрытого canned result или автоматического вызова модели при входе.
 
 **Контракт и результат.** C1, C3-C5, C8. Context builder ACL-scoped retrieval+structured queries with token budget, explicit coverage/sample/unknown labels. Planner creates short editable work plan, dynamic profiles contextreader/analyst/writer/designer/verifier, depth<=2; simple job skips needless roles. Tools typed source read/query/map, artifact create/read/propose patch, exact calculations through services, no arbitrary code/SQL/network. Capability registry includes input/output schema, permissions, procedure, quality checks, evidence. Goal changes supersede active plan safely; ambiguity about material value pauses only affected branch, optional info uses labelled assumption.
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createEditorArtifactState } from '@/features/artifacts/client/snapshot-state';
+import { createEditorArtifactState, expectedSourceRevisions } from '@/features/artifacts/client/snapshot-state';
 import { MerkleJson } from '@/features/artifacts/domain/merkle-json';
 import { ArtifactDraft } from '@/features/artifacts/domain/operations';
 import { createArtifactTargetResolver } from '@/features/artifacts/domain/targets';
@@ -16,6 +16,29 @@ function example() {
 }
 
 describe('editor state reconstruction from authorized snapshots', () => {
+  it('guards manual edits with the current source head while retaining pinned provenance', () => {
+    const value = example();
+    value.artifact.sourceRefs = [sourceRef, { ...sourceRef, revision: 2 }];
+    value.sourceFreshness = value.artifact.sourceRefs.map((ref) => ({ sourceRef: ref, sourceStatus: 'stale', status: 'stale', currentRevision: 3 }));
+    expect(expectedSourceRevisions(value)).toEqual({ [sourceRef.sourceId]: 3 });
+    expect(value.artifact.sourceRefs.map((ref) => ref.revision)).toEqual([1, 2]);
+  });
+  it('includes removed and newly bound sources but excludes unrelated freshness', () => {
+    const value = example(), added = { ...sourceRef, sourceId: ids.otherArtifact }, unrelated = { ...sourceRef, sourceId: ids.otherWorkspace };
+    value.artifact.sourceRefs = [sourceRef];
+    value.sourceFreshness = [{ sourceRef, sourceStatus: 'stale', status: 'stale', currentRevision: 3 }];
+    expect(expectedSourceRevisions(value, [])).toEqual({ [sourceRef.sourceId]: 3 });
+    expect(() => expectedSourceRevisions(value, [added])).toThrow('source-current-revision-unavailable');
+    expect(expectedSourceRevisions(value, [added], [{ sourceRef: added, sourceStatus: 'current', status: 'current', currentRevision: 1 }, { sourceRef: unrelated, sourceStatus: 'unknown', status: 'unknown' }])).toEqual({ [sourceRef.sourceId]: 3, [added.sourceId]: 1 });
+  });
+  it('fails closed for missing, unknown or inconsistent source heads', () => {
+    const value = example(); value.artifact.sourceRefs = [sourceRef];
+    expect(() => expectedSourceRevisions(value)).toThrow('source-current-revision-unavailable');
+    value.sourceFreshness = [{ sourceRef, sourceStatus: 'unknown', status: 'unknown' }];
+    expect(() => expectedSourceRevisions(value)).toThrow('source-current-revision-unavailable');
+    value.sourceFreshness = [{ sourceRef, sourceStatus: 'stale', status: 'stale', currentRevision: 2 }];
+    expect(() => expectedSourceRevisions(value, [], [{ sourceRef, sourceStatus: 'stale', status: 'stale', currentRevision: 3 }])).toThrow('source-current-revision-conflict');
+  });
   it('preserves declared missing bindings and locks without mutating the snapshot', async () => {
     const value = example();
     value.artifact.sourceRefs = [sourceRef]; value.artifact.bindings = [binding('removed')];

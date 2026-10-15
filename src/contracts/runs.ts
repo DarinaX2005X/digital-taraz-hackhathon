@@ -8,8 +8,8 @@ export const RunUsageStateSchema = z.enum(['reserved', 'dispatched', 'succeeded'
 export const RunActionSchema = z.enum(['read_sources', 'extract_text', 'calculate', 'prepare_document', 'prepare_design', 'validate', 'save', 'export', 'continue', 'process']);
 export const RunFailureSchema = z.enum([
   'unavailable', 'configuration', 'provider', 'provider_timeout', 'ambiguous_charge', 'invalid_result',
-  'price_unknown', 'price_expired', 'model_expired', 'model_unproven', 'model_forbidden', 'unsupported_parameters',
-  'run_budget', 'workspace_budget', 'deployment_budget', 'request_limit', 'step_limit', 'branch_limit',
+  'price_unknown', 'price_expired', 'price_exceeded', 'model_expired', 'model_unproven', 'model_forbidden', 'unsupported_parameters',
+  'run_budget', 'workspace_budget', 'deployment_budget', 'authorization_budget', 'request_limit', 'step_limit', 'branch_limit',
   'run_deadline', 'step_deadline', 'lease_lost', 'access_changed', 'cancelled', 'conflict',
 ]);
 // USD values keep sub-token prices exact and are never transported as floating point.
@@ -61,6 +61,8 @@ export const RunSchema = z.strictObject({
   budget: RunBudgetSchema, steps: z.array(RunStepSchema).max(40),
   actions: z.strictObject({ cancel: z.boolean(), resume: z.boolean(), retryStepIds: z.array(IdSchema).max(40) }),
 });
+export const RunListCursorSchema = z.string().min(1).max(200).regex(/^[A-Za-z0-9_-]+$/);
+export const RunListPageSchema = z.strictObject({ runs: z.array(RunSchema).max(30), nextCursor: RunListCursorSchema.nullable() });
 export const RunEventSchema = z.strictObject({
   id: IdSchema, runId: IdSchema, sequence: RunCursorSchema.refine((value) => value > 0), at: InstantSchema,
   kind: z.enum(['run_state', 'step_state', 'usage', 'result']), state: RunStateSchema,
@@ -86,6 +88,7 @@ export type RunAction = z.infer<typeof RunActionSchema>;
 export type RunFailure = z.infer<typeof RunFailureSchema>;
 export type CreateRun = z.infer<typeof CreateRunSchema>;
 export type Run = z.infer<typeof RunSchema>;
+export type RunListPage = z.infer<typeof RunListPageSchema>;
 export type RunStep = z.infer<typeof RunStepSchema>;
 export type RunUsage = z.infer<typeof RunUsageSchema>;
 export type RunEvent = z.infer<typeof RunEventSchema>;

@@ -1,23 +1,29 @@
 # 06 Креативы, которые можно менять по слоям
-Status: todo
+Status: active
 
 Маркетинговый результат должен оставаться редактируемым: текст, фото, композиция и размеры отдельно. Генерация изображения дополняет редактор, а не превращает всё в одну неподвижную картинку.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 06.1 Редактировать послойные макеты и материалы бренда
-Status: todo
+Status: active
 Requirements: R37, R40, R44, R45, R46, R48, R49, R91, R92, R93, R94
-Depends on: 03.1, 02.4, 01.2
-Owner: SUBAGENT to assign
-Paths: src/features/designs/, tests/designs/
+Depends on: 03.1, 01.2
+Owner: /root/designs_finish
+Paths: src/features/designs/, tests/designs/, src/app/api/designs/
+
+После accepted03.1/checkpoint8b1b864 полный direct layout editor начинается на проверенном ArtifactSession параллельно02.4; Fabric format gate01.4.1 принят. Final06.1 acceptance всё ещё требует02.4 для canonical material/brand/source refs и всех asset scenarios. Fresh designs_delivery получает всю модель/редактор/сохранение/бренд-функции/локали/проверки, не только canvas. Генерация изображений и export остаются отдельными06.2/06.3, не имитировать их ради меню.
+
+Exclusive API prefix `src/app/api/designs/` только для нужных feature handlers с общими ACL/source/artifact services. Main artifact route имеет единственного owner workspace_delivery, который подключает готовую design capability; завершение06.1 требует реального mount и входа/возврата. Source private assets остаются source_delivery, library/facts materials_delivery; не заводить альтернативное storage/BrandKit без согласования canonical09.1 contract. Package/root exports/schema через integration. Никакого automated canvas rendering/screenshot QA, browser/headless; pure geometry/state/server checks и пользовательская visual review.
+
+Bounded shared contract extension поручён directly-related artifact_delivery: только artifacts/domain/content-models.ts, semantic-validation.ts, operations.ts и tests/artifacts/domain/content.test.ts, operations.test.ts. Optional normalized crop только image, fontAssetId UUID только text, name<=240; старые snapshots совместимы, изменения проходят единые commands/undo. Canonical private font asset intake/metadata у source_delivery, license/embedding permissions не выводятся из самого факта upload.0010 immutable/image-only; новый DDL номер отдельно после согласования, не создавать design-only asset store.
 
 **Контракт и результат.** C3, C6-C7, DESIGN редактор макета. Fabric typed page/layer model: dimensions/bg, text/image/group, transforms/styles/source bindings; add/delete/duplicate/reorder/group/align/snap/crop/lock, pages and selections, zoom/pan. Stable layerIds, original asset and nondestructive crop preserved, command adapter one history group per gesture. Brand kit uses uploaded logo/photos/fonts/colors with license manifest; unknown font fallback flagged before export. Fit text by intentional reflow/font selection, not silent truncate; contenteditable text not raster-only.
 
 **Вход в работу и состояния.** Full workspace canvas with compact tool rail, layers contextual panel and type-specific inspector. Tooltips and icons; color swatches, numeric dimensions, alignment symbols. Phone select via layer list, direct text/property edit and fit canvas; no hover-only primary operation. Blank/design-import/asset-missing/save-conflict states.
 
 ### 06.1.1 Модель макета и базовые действия
-Status: todo
+Status: active
 
 Layer geometry/serialization/locks/crop/ordering and inverse commands tests; asset references ACL and original preservation. No UI automation/canvas screenshots.
 
@@ -51,7 +57,7 @@ Live ru/kk brief produces layout+asset, required facts matched, locked logo/text
 Status: todo
 Requirements: R25, R42, R43, R95, R102
 Depends on: 06.1, 06.2, 03.4
-Owner: SUBAGENT to assign
+Owner: /root/designs_finish
 Paths: src/features/design-export/, tests/design-export/
 
 **Контракт и результат.** C7. Server product export typed layer model -> safe SVG intermediate -> resvg/sharp PNG/JPEG and PDFKit multi-page PDF. No browser renderer; no UI screenshots. Font metrics, image crop/transforms/group opacity and page bounds reflect model. Editable .tirlik package includes schemaVersion/pages/assets/fonts/licenses/hashes; validate untrusted archive import boundaries and roundtrip. Register exporter with03.4 manifest contract via MAIN, per-size variants linked same revision family.

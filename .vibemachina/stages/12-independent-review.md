@@ -3,6 +3,29 @@ Status: todo
 
 Отдельный проверяющий сначала сравнит реальный продукт с исходными словами пользователя, а затем с техническими контрактами. Найденные ошибки исправляются до оформления окончательной поставки.
 
+## Ранний аудит по поручению15октября2026
+
+Это отдельный независимый аудит текущего committed+WIP после первичного UX разбора, не завершение будущего финального12.1 по всему продукту. Четыре fresh read-only reviewer получили сначала полный BRIEF и TESTING с запретом чтения планового обоснования; после первых фактических findings получили relevant contracts. MAIN интегрирует выводы, никаких browser checks.
+
+| Finding | Доказанный разрыв и воспроизведение | Исправление и приёмка |
+| --- | --- | --- |
+| A15-01 P1 | Project creation создаёт blank document, artifact route монтирует только ArtifactContentPreview; прямого editable результата и export нет |03.2/03.3/05.1/03.4: реальный mount, direct command, save/reopen/export. Не закрывать по существованию controller |
+| A15-02 P1 | Source mapping CTA ведёт /app/materials, page/API отсутствуют, materials services без production callers |02.4: полный hub/collection/import workflow,0011 после review, real route/HTTP/source lineage |
+| A15-03 P1 |02.2 registry содержит только test/private proof capabilities; saved goal невозможно исполнить и получить artifact |04.1: public goal capability и реальные typed services, canonical ledger/receipts, UI action/result/recovery |
+| A15-04 P1 | Фото/скан остаётся partial с pending source_pages, обработки/recognize action нет |02.3: OCR через общий runtime, progress/review/cancel/partial/error без подмены готового результата |
+| A15-05 P2 | Header Sign in при expired session теряет returnTo/RAMdraft; reset link вmodal также покидает ввод |03.2/shared auth owner: единый guarded auth entry с восстановлением того же пользователя и исходной работы |
+| A15-06 P2 | Pending create dialog можно закрыть X/Escape/outside как discard, активный request позже создаёт объект/redirect, attempt key очищен |03.2: запрет ложного discard во время эффекта либо явное reconciliation; regress uncertain outcome/no duplicate |
+| A15-07 P2 | intent восстановлен до replace workspace query; key={workspaceId} remount уничтожает восстановленную цель |03.2/auth: стабильный restore/consume после workspace resolution, успешный/отменённый вход с сохранением draft |
+| A15-08 P2 | Валидный XLSX с package-absolute worksheet Target=/xl/worksheets/... отвергается office parser |02.3: безопасное разрешение URI от workbook part, unit probe relative/absolute/malicious targets |
+| A15-09 P2 | Исправление существующего ключаA на новыйB сохраняет UUIDA и ломает INSERT; следующий resolve забывает прежнийkeyOverride |02.4: отдельная provisional identity, повторная классификация по текущему ключу, сохранение override, реальныеSQL regressions |
+| A15-10 P1 | Cyclic sheetA1=B1/B1=A1/SUM зависимого возвращает0 безdiagnostics, focusedtestFAIL |05.1: честные cycle/dependent errors, исправить engine policy, не подменять ошибку числом |
+| A15-11 P2 | Design commands всегда expectedSourceRevisions={}, document берёт pinned вместоcurrent; реальныеassertSources отклоняют ручнуюправку |03.3/06.1: полныйcurrent authorized vector + before/afterunion, pinned provenance сохранить; validator не ослаблять |
+| A15-12 P2 | Move artifactA->B оставляет historyURLA, послеreload404 |03.1: canonical redirect/title/returnTo послеconfirmedmove иrecovery |
+
+Contract pass завершён всеми четырьмяreviewers; находки сохраняются. Runtime готов для04.1 без новогоledger: нужны transaction-aware artifact effect в тойжеruntime tx и реальное continuation payload для вопроса/изменённойцели. Existing modelproof connectivity2calls/$0.00008652 проверен inventory, не повторять. Экспорт/редакторы текущиеtodo подзадачи не были объявлены done; фактический разрыв не выдаётся за регрессию целогоstage. Общий03.1done получает boundedmove fix. Snapshot audits readonly, кроме focusedNode153/155tests, безDB writes/provider/browser. Ссылки/anchors конкретных findings переданы новымwholepathowners.
+
+Нулевые paid calls у всех новых reviewers. Повторный audit неизменённого базового budget ядра не нужен без нового дефекта; новый source/readiness evidence ниже после handover. Визуальная приёмка F002-F007 остаётся пользователю.
+
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 12.1 Проверить исходный запрос, контракты и устойчивость

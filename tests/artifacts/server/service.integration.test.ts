@@ -1,13 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { Pool } from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ArtifactCommandRequest, ArtifactSnapshot } from '../../../src/features/artifacts/contracts';
 import type { JsonValue } from '../../../src/features/artifacts/domain/content-models';
 import { createArtifactTargetResolver } from '../../../src/features/artifacts/domain/targets';
 import { createArtifactService } from '../../../src/features/artifacts/server/service';
 import { createPendingSource, publishSourceVersion } from '../../../src/features/sources/server/source-heads';
-import { withWorkspaceAccess } from '../../../src/features/identity/server/access';
+import { identityTransaction, withWorkspaceAccess } from '../../../src/features/identity/server/access';
 import { artifactFixture, artifactTestPool, currentArtifactAuthz, testDocument } from './test-fixture';
 
 let pool: Pool;
@@ -21,6 +21,46 @@ function command(snapshot: ArtifactSnapshot, text: string, targetId = 'p1', grou
 function text(snapshot: ArtifactSnapshot, id: string) { return createArtifactTargetResolver(snapshot.content)(id)?.value; }
 
 describe('durable artifacts in real PostgreSQL', () => {
+  it('commits creation and AI commands only with the caller transaction, without a second connection', async () => {
+    const f = await artifactFixture(pool), operationId = randomUUID();
+    const input = { workspaceId: f.workspaceId, projectId: f.projectId, expectedAuthzVersion: 1, title: 'Atomic run result', content: testDocument() };
+    const tx = await pool.connect();
+    const checkout = vi.spyOn(pool, 'connect').mockImplementation(() => { throw new Error('NESTED_POOL_CHECKOUT'); });
+    let artifactId = '';
+    try {
+      await tx.query('BEGIN');
+      const created = await f.service.createInTransaction(tx, { kind: 'job', userId: f.owner.userId, authzVersion: 1 }, operationId, input);
+      artifactId = created.artifact.id;
+      const snapshot: ArtifactSnapshot = { ...created, content: input.content, permissions: { edit: true, rename: true, duplicate: true, move: true, archive: true, trash: true, restore: false, purge: false }, sourceFreshness: [], history: [] };
+      const applied = await f.service.applyInTransaction(tx, { kind: 'job', userId: f.owner.userId, authzVersion: 1 }, command(snapshot, 'Generated result'), 'ai');
+      expect(applied.committedRevisionVector).toEqual({ [artifactId]: 1 });
+      expect((await tx.query('SELECT count(*)::int AS count FROM artifact_operation_receipts WHERE workspace_id=$1', [f.workspaceId])).rows[0]?.count).toBe(2);
+      // A failed run checkpoint must be able to roll back both artifact effects.
+      await tx.query('ROLLBACK');
+    } finally { checkout.mockRestore(); await tx.query('ROLLBACK'); tx.release(); }
+    for (const table of ['artifacts', 'artifact_versions', 'artifact_chunks', 'artifact_commands', 'artifact_command_groups', 'artifact_operation_receipts']) {
+      expect((await pool.query(`SELECT count(*)::int AS count FROM ${table} WHERE workspace_id=$1`, [f.workspaceId])).rows[0]?.count).toBe(0);
+    }
+    expect((await pool.query("SELECT cursor FROM workspace_events WHERE workspace_id=$1 AND kind LIKE 'artifact.%'", [f.workspaceId])).rowCount).toBe(0);
+    const committed = await identityTransaction(pool, (transaction) => f.service.createInTransaction(transaction, f.owner, operationId, input));
+    const replay = await f.service.create(f.owner, operationId, input);
+    expect(replay.artifact.id).toBe(committed.artifact.id);
+    const change = command(await f.read(committed.artifact.id), 'Accepted generated result');
+    const receipt = await identityTransaction(pool, (transaction) => f.service.applyInTransaction(transaction, f.owner, change, 'ai'));
+    expect(await f.service.apply(f.owner, change, 'ai')).toEqual(receipt);
+    expect((await f.read(committed.artifact.id)).artifact.currentRevision).toBe(1);
+    expect((await pool.query("SELECT cursor FROM workspace_events WHERE workspace_id=$1 AND kind='artifact.changed'", [f.workspaceId])).rowCount).toBe(1);
+  });
+  it('enforces job epochs and project ACL inside caller-owned artifact transactions', async () => {
+    const f = await artifactFixture(pool), created = await f.create();
+    const input = { workspaceId: f.workspaceId, projectId: f.projectId, expectedAuthzVersion: 1, title: 'Forbidden run result', content: testDocument() };
+    await expect(identityTransaction(pool, (tx) => f.service.createInTransaction(tx, { kind: 'job', userId: f.owner.userId, authzVersion: 2 }, randomUUID(), input))).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(identityTransaction(pool, (tx) => f.service.createInTransaction(tx, f.member, randomUUID(), input))).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const change = command(await f.read(created.artifact.id), 'Forbidden change');
+    await expect(identityTransaction(pool, (tx) => f.service.applyInTransaction(tx, { kind: 'job', userId: f.owner.userId, authzVersion: 2 }, change, 'ai'))).rejects.toMatchObject({ code: 'CONFLICT' });
+    await expect(identityTransaction(pool, (tx) => f.service.applyInTransaction(tx, f.member, change, 'ai'))).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect((await f.read(created.artifact.id)).artifact.currentRevision).toBe(0);
+  });
   it('paginates the authorized project catalog without exposing confidential or foreign results', async () => {
     const f = await artifactFixture(pool), foreign = await artifactFixture(pool);
     const first = await f.create(testDocument(), 'Terms 100%'), second = await f.create(testDocument(), 'Terms second');
@@ -134,6 +174,8 @@ describe('durable artifacts in real PostgreSQL', () => {
     const restored = await f.service.restore(f.owner, randomUUID(), created.artifact.id, { ...mutation, baseRevision: archived.artifact.currentRevision });
     const moved = await f.service.move(f.owner, randomUUID(), created.artifact.id, { ...mutation, baseRevision: restored.artifact.currentRevision, projectId: target.project.id });
     expect(moved.artifact.projectId).toBe(target.project.id);
+    await expect(f.service.readRoute(f.owner, { projectId: f.projectId, artifactId: created.artifact.id })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect((await f.service.readRoute(f.owner, { projectId: target.project.id, artifactId: created.artifact.id })).artifact.projectId).toBe(target.project.id);
     const branch = await f.service.branch(f.owner, randomUUID(), created.artifact.id, { ...mutation, baseRevision: moved.artifact.currentRevision, parentRevision: 0, title: 'Alternative wording', projectId: f.projectId, content: testDocument('Branch first condition') });
     expect(branch.version.branchParent).toMatchObject({ artifactId: created.artifact.id, revision: 0 });
     expect(text(await f.read(branch.artifact.id), 'p1')).toEqual(paragraph('p1', 'Branch first condition'));

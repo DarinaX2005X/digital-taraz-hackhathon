@@ -9,7 +9,7 @@ Status: active
 Status: active
 Requirements: R02, R07, R08, R09, R19, R21, R28, R29, R30, R31, R38, R40, R41, R44, R45, R46, R47, R48, R49, R64, R101
 Depends on: 01.2, 02.1
-Owner: /root/public_auth
+Owner: /root/journey_delivery
 Paths: src/features/public-site/, public/site/, tests/public-site/, src/app/page.tsx
 
 Точные дополнительные loans public_auth: `src/app/[locale]/page.tsx`, `src/app/[locale]/layout.tsx`, `src/app/[locale]/help/page.tsx`, `src/app/[locale]/privacy/page.tsx`. Только эти файлы, не wildcard subtree. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Существующие auth/settings/shared UI loans перечислены в STATE и не пересекаются с server/runtime/workspace owners.
@@ -39,11 +39,13 @@ Status: todo
 HTTP auth intent/locale persistence, public/private boundary and footer link checks. User judges first3-5seconds, CTA prominence, text fit/mobile and meaningful illustration.
 
 ## 10.2 Дать интерактивный пример без нежелательных записей
-Status: todo
+Status: active
 Requirements: R08, R21, R24, R26, R27, R75, R76, R82, R99
-Depends on: 08.3, 10.1, 01.3
-Owner: SUBAGENT to assign
+Depends on: 03.1, 01.3
+Owner: /root/connected_delivery
 Paths: src/features/demo/, tests/demo/
+
+Уточнение2026-10-15: пример начинается вместе с первым реально редактируемым J1 на общих typed operations, не ждёт полного08.3. Ранний checkpoint: изолированные подготовленные synthetic смета+предложение, ручная правка, изменение цены/количества через тот же расчёт и адресное предложение, undo/reset без личных записей. Не имитировать генерацию/streaming и не рисовать pretend controls. По мере готовности08/exports подключить реальный export и явную copy-to-account; полная10.2 приёмка остаётся после08.3/10.1 и всех трёх бизнес-моделей. URL и UI entry получает этот feature owner через точный loan от MAIN, не скрытая страница по неизвестной ссылке.
 
 **Контракт и результат.** C1, C3-C4, C13. Isolated demo snapshots of meaningful business projects, same editors/calculation/tool contracts with ephemeral sandbox commands and TTL; no access to private or shared mutable demo record. Viewing/replaying requires no personal rows, live AI only explicit bounded action with abuse limit if supported; otherwise labelled prepared result not fake streaming generation. «Скопировать в мою работу» after explicit auth retains demo edits via validated payload, remaps all IDs/source ACL, exactly-one owned project per idempotency key, no unwanted copy during tour.
 
@@ -62,9 +64,11 @@ Login cancel/error preserves intent; explicit copy creates one project+correct a
 ## 10.3 Провести первое обучение и сохранить возможность повторить
 Status: todo
 Requirements: R08, R24, R29, R32, R33, R39, R40, R44, R45, R97, R98
-Depends on: 10.2, 09.2, 03.2
-Owner: SUBAGENT to assign
+Depends on: 03.2
+Owner: /root/journey_delivery
 Paths: src/features/onboarding/, tests/onboarding/
+
+Уточнение2026-10-15: первый вход, skip/resume/replay и доступные real-action steps разрабатываются сразу с03.2. Отсутствующий optional anchor не блокирует работу и не показывает несуществующую функцию. Demo10.2 и командные09.2 шаги присоединяются после их integration; полная10.3 acceptance включает обе исходные зависимости и все editor/export шаги. Никакой предварительной анкеты/автосоздания проектов. Свой goal/material и выбранное до входа намерение сохраняются.
 
 **Контракт и результат.** DESIGN обучение/первый опыт, C13. Mandatory implementation of first-signin contextual tour with skip/resume/replay Settings -> Обучение and Help. Progress versioned per user, not reset after each login; active goal preserved. Anchors based on semantic IDs wait for real element readiness, absent permission/route step skipped with proper alternate, never trapping overlay. Steps own material/goal/result directedit/sources/changes/export; microtour by editor on firstuse optional. Demo tour isolated, no silent projectcreation, no requirement to finish before work.
 

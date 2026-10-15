@@ -174,7 +174,7 @@ export function TeamSettingsPage({ initialWorkspaceId }: { initialWorkspaceId?: 
   const [authOpen, setAuthOpen] = useState(false);
   if (account.viewer && account.viewer.user.id !== viewer?.user.id) setViewer(account.viewer);
   return <div className={styles.page}>
-    <ProductHeader homeLabel={t("identity.navigation.home")}><LocaleSelect compact /><AccountMenu /></ProductHeader>
+    <ProductHeader wide homeLabel={t("identity.navigation.home")}><LocaleSelect compact /><AccountMenu /></ProductHeader>
     <main className={styles.settings}>
       <Link href="/settings" className={styles.textLink}><ArrowLeft size={18} aria-hidden="true" />{t("identity.workspace.back")}</Link>
       <div className={styles.heading}><h1>{t("identity.team.manage")}</h1></div>

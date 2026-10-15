@@ -64,10 +64,10 @@ UI handover: worker STOP, все UI/locales/tests paths переданы MAIN. �
 Status: active
 Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105
 Depends on: 02.1
-Owner: /root/runtime_delivery
+Owner: /root/agent_execution
 Paths: src/features/runs/, tests/runs/, src/contracts/runs.ts, src/server/db/run-schema.ts, migrations/0007_runtime_budget.sql, src/app/api/runs/, src/app/app/runs/, scripts/eval-live.mjs
 
-Последний independent source-only review новыхAPI/SSE/Workflow/proofentry, runtime_execution_review: два подтверждённыхP2. `proof-admin.ts:49-51` не даёт штатного price refresh после successful proof, поэтому24hTTL блокирует дальнейшие обращения; исправление должно сохранять exact endpoint identity/proof и ledger. `ui/runs-page.tsx:182/199` прекращает наблюдение waiting_input/retryablefailed, поэтому remote actor resume/cancel не виден без manual refresh; требуется bounded idle polling. Владелец признал оба, repairs после текущегоglobalfreeze, не приняты. Новых непосредственных spending/auth/SSE-dispatch safety blockers не выявлено; source-only review не заменяет pending SQL/HTTP/live acceptance.
+Два P2 из independent runtime_execution_review исправлены и приняты integration: штатный price refresh сохраняет exact endpoint proof и ledger; waiting_input/retryablefailed наблюдаются bounded idle polling и получают remote resume/cancel.33 unit, scoped lint/typecheck и новый focused SQL price-refresh case PASS. Полный mounted HTTP/live runtime acceptance остаётся02.2.2; это не заявление о готовой модели.
 
 После восстановлениялимита ownership передан свежему runtime_delivery сhigh reasoning по прямому пожеланию пользователя, прежний preflight недоступен. Integration_delivery восстановил local dev и принял additive0007 без budgetactivation;0007 теперь применена и immutable. Сохранить текущий WIP и завершить весь runtime вместе с реальными pages/API, не начать ещёодну схему заново. Open review findings ниже актуальны до фактической перепроверки. Исторические statements о неприменённой0007 не являются текущим состоянием.
 
@@ -84,9 +84,11 @@ Dispatch после a0f110c: preflight владеет целым runtime package
 **Вход в работу и состояния.** Task progress names actual stages/tools and produced results, never pretend internal thoughts. Stop, retry failed step, resume from saved partial; cost/limit explanation localized. No key/provider failure leaves manual editors usable and result drafts intact. Run SSE reconnect cursor is progress, not job persistence.
 
 ### 02.2.1 Durable state и бюджет
-Status: active
+Status: done
 
 Concurrency tests overspend race, duplicate tool, lease expiry/stale worker, cancelled job cannot write, forbidden models denied and unknown price blocked. Usage totals independently reconciled.
+
+Independent acceptance2026-10-14 после8b1b864:32 SQL плюс unit evidence закрывают lease/epoch/checkpoints, queued expiry/recovery, cancellation, durable receipts, exact reserve/settlement/quarantine, single active grant/key binding и запрет blind uncertain retry. Новый price-refresh SQL PASS сохраняет proof/ledger. Durable state/budget boundary02.2.1 done; provider availability и реальный live/HTTP путь остаются02.2.2. Runtime source ещё ждёт собственного coherent Gitcheckpoint, core8b1b864 его не включал.
 
 Ранний frozen handover:0006/run-schema/runs contracts/exactUSD/domain limits, type/lint иfocused contracts PASS. Integration выявил и owner исправил finite numeric guards противPostgreSQL NaN и согласованность cached/input token nullable fields;7SQL cases включаяtenantFK выполняются вместе с0005. Shared exports40tables smokePASS,19core contractsPASS. Это foundation, не полный durable runtime/budget acceptance; общий$10authorization ledger запланирован следующей additive0007 после checkpoint, реальные calls до него запрещены.
 
@@ -109,17 +111,21 @@ Runtime core после нескольких bounded safety repairs снова S
 Повтор helper завершён PASS по всем7checks;37d4bd53177a0bfa90a1290c10d6a2451dd90c92 pushed origin/main. В02.2 из него принят только legacy paid-path retirement, runtime WIP не закоммичен и не признан готовым. Preflight/integration RELEASE на все перечисленные review fixes и полный Workflow/API/run-page пакет. Integration может самостоятельно принять исправления, применить0007 после её окончательного handover, затем проверить readiness перед bounded synthetic live proof в общем$10ledger. MAIN не читает feature code; новые hosting операции не разрешены.
 
 ### 02.2.2 Реальные сбои и восстановление
-Status: todo
+Status: active
 
 Live bounded call then simulated network/process interruption, replay receipts without duplicate persisted effects. HTTP events reconnect and permissions revoke; missing key honestly unavailable. На этой foundation-задаче effect fixture использует Run/Receipt; артефактный adapter подключается04.1 и проверяется04.2, когда уже готов03.1.
+
+Fresh official inspect2026-10-14 обнаружил status=-2 у прежнего exact deepinfra/fp8 endpoint MiMo2.6 Flash. Gate отказал до candidate/grant/provider call, новых расходов0; старый confirmed0.0400707/unresolved0.480832 сохранён. Integration/runtime отдельно проверяют другой экономичный exact endpoint по новому общему разрешению$10; это explicit allowlist review и новый bounded proof, не automatic fallback/перенос старого proof. Пока live acceptance не заявлена, offline/mounted HTTP работа продолжается.
 
 
 ## 02.3 Сохранить оригиналы файлов и извлечь проверяемые источники
 Status: active
 Requirements: R10, R14, R16, R25, R39, R42, R43, R76, R105
 Depends on: 02.1
-Owner: /root/source_delivery
-Paths: src/features/sources/, tests/sources/, src/contracts/sources.ts, src/server/db/source-schema.ts, src/server/db/source-ingestion-schema.ts, src/server/db/source-asset-schema.ts, migrations/0008_sources.sql, migrations/0010_source_assets.sql, src/app/api/sources/, src/app/app/materials/add/
+Owner: /root/sources_finish
+Paths: src/features/sources/, tests/sources/, src/contracts/sources.ts, src/server/db/source-schema.ts, src/server/db/source-ingestion-schema.ts, src/server/db/source-asset-schema.ts, migrations/0008_sources.sql, migrations/0010_source_assets.sql, migrations/0012_source_visual_assets.sql, migrations/0012_source_visual_assets.sql.draft, src/app/api/sources/, src/app/app/materials/add/
+
+Canonical fonts/image metadata для06.1 остаются у source owner, не в отдельном design store. Зарезервирована additive0012_source_visual_assets.sql: до stable handover только.sql.draft,0001..0010 immutable. Утверждён bounded TTF/OTF/WOFF subset без WOFF2/collections,5MB input/20MB decompressed, parsed metadata и OS/2 flags отдельно от explicit license permission; unknown не exportable. fontkit2.0.4 direct/types устанавливает integration после proof window. Source visible checkpoint не ждёт всех fonts/OCR; server asset ACL согласуется с artifact/design owners.
 
 0008 применена и immutable. Следующая source migration0010_source_assets.sql и source-asset-schema принадлежат source_delivery для canonical SourceVersion embedded images, необходимых полноценному DOCX import.0009_workspace_views.sql отдельно workspace owner, reviewed/STOP и проверяется в isolated suite; primary application0009 затем0010 только после stable handover, не менять номера задним числом.
 
@@ -155,12 +161,14 @@ Golden все форматы, русский/казахский, multiple sheets
 Status: active
 Requirements: R14, R16, R32, R34, R35, R36, R37, R39, R44, R45, R76, R92, R99, R103
 Depends on: 02.1, 01.2, 01.3
-Owner: /root/materials_delivery
-Paths: src/features/materials/, tests/materials/, src/contracts/materials.ts, src/server/db/material-schema.ts, migrations/0011_material_collections.sql, src/app/api/materials/
+Owner: /root/materials_finish
+Paths: src/features/materials/, tests/materials/, src/contracts/materials.ts, src/server/db/material-schema.ts, migrations/0011_material_collections.sql, migrations/0011_material_collections.sql.draft, src/app/api/materials/
 
 По приоритету основного функционала2026-10-14 вход разрешён на независимо принятом02.3.1 immutable originals/SourceVersion/CSVpreview boundary. Source owner подтвердил stable contracts CSV/TSV/paste; все chunks, raw values, координаты и pinned version обязательны. Полная02.4 acceptance по-прежнему требует всей02.3, включая остальные форматы/OCR; это условие начала независимой mapping/library реализации, не сокращение финального результата. Fresh materials_delivery сначала читает весь BRIEF/TESTING/Design/reference packet во время текущего GLOBALSTOP, пишет только после release MAIN.
 
 Точные route loans: `src/app/app/materials/page.tsx` и `src/app/app/materials/collections/[collectionId]/` принадлежат materials_delivery. `add/` и `sources/[sourceId]/` остаются source_delivery; никаких параллельных writer в parent subtree.0011_material_collections.sql зарезервирована, применение/общие exports у integration после stable handover. Canonical pinned-source adapter запрашивать source owner, не заводить второе source storage/registry.
+
+После8b1b864/all9checks PASS owner RELEASE на весь02.4. Полный обязательный packet прочитан, source-owned readPinnedSource/readPinnedSourceChunk и librarySQLpagination/facets согласованы; document bound facts и workspace→filtered library используют тот же exact source reference. Промежуточная model/mapping/SQL boundary передаётся coherent package соSTOP, затем полная library/reimport UI, не остановка на pure functions.
 
 **Контракт и результат.** C3-C5, C9. Mapping к stable column IDs: date/decimal/unit/currency, duplicate candidates/conflicts. Versioned MappingRule подтверждает человек; schema drift queues unmatched columns; unknown != zero, returns != sales. Paginated validated search/query, debounce отменяет stale request; totals с coverage/exclusions. Тип catalog/prices/history/brand/general optional, не ограничение отрасли. Корректировка Fact отдельно от immutable original.
 
@@ -168,6 +176,8 @@ Paths: src/features/materials/, tests/materials/, src/contracts/materials.ts, sr
 
 ### 02.4.1 Сопоставление и неизвестное
 Status: active
+
+Partial2026-10-14: typed materials/mapping/import/dataset/facts DTO, mapping domain и collection prepare/preview/apply/partial/stable identities, dataset pages/aggregate server написаны;8 focused tests и typecheck PASS.0011 пока draft, SQL/API/facts corrections/undo и UI ещё не проверены, checkpoint остаётся active. Canonical pinned/library adapters согласованы с source owner, не используются latest100 fallback или вторая модель источников.
 
 Golden decimal comma, KZT, units, plausible duplicates/conflicting prices без silent merge. Mapping reapplies только при совместимой схеме. RecordIdentity/ResolutionVersion сохраняют stable recordId и fieldId между файлами независимо от порядка строк. Проверить перестановку без изменений, тот же файл, пересекающиеся периоды, одну новую цену, переименование без ключа и удалённую позицию. Replace missing только для полного подтверждённого snapshot; append overlap не удваивает продажи; upsert absence ничего не удаляет. Старые raw fragments и версии доступны.
 

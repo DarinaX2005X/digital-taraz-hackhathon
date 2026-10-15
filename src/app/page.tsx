@@ -1,5 +1,5 @@
-import { IdentityEntryPage } from '@/features/identity/ui';
+import { PublicSite } from '@/features/public-site/public-site';
 
 export default function Page() {
-  return <IdentityEntryPage />;
+  return <PublicSite />;
 }

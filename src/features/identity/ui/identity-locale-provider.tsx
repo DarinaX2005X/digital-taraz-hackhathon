@@ -7,8 +7,9 @@ import { createIdentityAccountStore } from "./account-store";
 
 type AccountStore = ReturnType<typeof createIdentityAccountStore>;
 const IdentityAccountContext = createContext<AccountStore | null>(null);
+const LocalMailInboxContext = createContext<string | undefined>(undefined);
 
-export function IdentityLocaleProvider({ initialLocale, children }: { initialLocale: Locale; children: ReactNode }) {
+export function IdentityLocaleProvider({ initialLocale, localMailInbox, children }: { initialLocale: Locale; localMailInbox?: string; children: ReactNode }) {
   const [store] = useState(createIdentityAccountStore);
   const { viewer } = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const userId = viewer?.user.id;
@@ -19,12 +20,14 @@ export function IdentityLocaleProvider({ initialLocale, children }: { initialLoc
     document.addEventListener("visibilitychange", refreshVisible);
     return () => { document.removeEventListener("visibilitychange", refreshVisible); store.clear(); };
   }, [store]);
-  return <IdentityAccountContext.Provider value={store}><LocaleProvider initialLocale={initialLocale} persistPreference={persistPreference}>{children}</LocaleProvider></IdentityAccountContext.Provider>;
+  return <IdentityAccountContext.Provider value={store}><LocalMailInboxContext.Provider value={localMailInbox}><LocaleProvider initialLocale={initialLocale} persistPreference={persistPreference}>{children}</LocaleProvider></LocalMailInboxContext.Provider></IdentityAccountContext.Provider>;
 }
+
+export function useLocalMailInbox() { return useContext(LocalMailInboxContext); }
 
 export function useIdentityAccount() {
   const store = useContext(IdentityAccountContext);
   if (!store) throw new Error("Identity UI requires IdentityLocaleProvider");
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-  return { ...snapshot, refresh: store.refresh, clear: store.clear, acceptUser: store.acceptUser, isCurrent: store.isCurrent, invalidate: store.invalidate };
+  return { ...snapshot, getSnapshot: store.getSnapshot, refresh: store.refresh, clear: store.clear, acceptUser: store.acceptUser, isCurrent: store.isCurrent, invalidate: store.invalidate };
 }

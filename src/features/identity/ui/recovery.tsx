@@ -6,19 +6,21 @@ import { Check, KeyRound, Mail } from "lucide-react";
 import { Button, InputField } from "@/ui";
 import { useLocale } from "@/i18n/provider";
 import { OpaqueTokenSchema, type IdentityMutationResult } from "../contracts";
-import { authHref, BackLink, IdentityFrame, OperationError, PasswordField, SuccessNotice, type AuthReturn } from "./common";
+import { authHref, BackLink, IdentityFrame, LocalMailNotice, OperationError, PasswordField, SuccessNotice, type AuthReturn } from "./common";
 import { useIdentityOperation, useIdentityTranslations } from "./hooks";
 import { identityClient } from "./transport";
 import { focusFirstError, hasErrors, passwordVariables, validateEmail, validatePassword, type FormErrors } from "./validation";
 import styles from "./identity.module.css";
+import { useLocalMailInbox } from "./identity-locale-provider";
 
-function RequestEmailForm({ kind, destination = {} }: { kind: "verify" | "reset"; destination?: AuthReturn }) {
+export function RequestEmailForm({ kind, destination = {} }: { kind: "verify" | "reset"; destination?: AuthReturn }) {
   const t = useIdentityTranslations();
   const { locale } = useLocale();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<ReturnType<typeof validateEmail>>();
   const input = useRef<HTMLInputElement>(null);
   const operation = useIdentityOperation<IdentityMutationResult>();
+  const localInbox = useLocalMailInbox();
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (operation.pending) return;
@@ -30,7 +32,8 @@ function RequestEmailForm({ kind, destination = {} }: { kind: "verify" | "reset"
   return <form onSubmit={submit} noValidate className={styles.form} aria-busy={operation.pending || undefined}>
     <InputField ref={input} name="email" label={t("identity.fields.email")} type="email" autoComplete="username" autoCapitalize="none" spellCheck={false} required readOnly={operation.pending} value={email} error={error ? t(error) : operation.failure?.fieldErrors.email ? t(operation.failure.fieldErrors.email) : undefined} onBlur={() => setError(validateEmail(email))} onChange={(event) => { setEmail(event.target.value); setError(undefined); operation.clear(); }} />
     <OperationError failure={operation.failure} />
-    {operation.result && <SuccessNotice>{t(kind === "verify" ? "identity.verification.resent" : "identity.reset.requestedDescription")}</SuccessNotice>}
+    {operation.result && <SuccessNotice>{t(localInbox ? "identity.localMail.resent" : kind === "verify" ? "identity.verification.resent" : "identity.reset.requestedDescription")}</SuccessNotice>}
+    <LocalMailNotice />
     <Button type="submit" variant="primary" icon={Mail} pending={operation.pending} pendingLabel={t(kind === "verify" ? "identity.verification.resending" : "identity.reset.requesting")}>{t(kind === "verify" ? "identity.verification.resend" : "identity.reset.request")}</Button>
   </form>;
 }
