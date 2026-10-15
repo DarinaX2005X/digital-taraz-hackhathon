@@ -71,6 +71,32 @@ describe('bounded canonical artifact models', () => {
     const external = structuredClone(valid); external.pages[0]!.layers[0]!.style.fill = 'url(https://example.test/asset)';
     expect(() => validateArtifactContent(external)).toThrow('invalid-color');
   });
+  it('preserves named design layers, owned font references and normalized image crops', () => {
+    const transform = { x: 0, y: 0, width: 100, height: 100, rotation: 0 }, assetId = '68eb98a7-71ba-4ec3-b4c1-ed8ec3d4df88';
+    const content: ArtifactContent = { kind: 'design', schemaVersion: 1, pages: [{ id: 'page', width: 100, height: 100, unit: 'px', background: '#ffffff', layers: [
+      { id: 'image', type: 'image', name: 'Product photo', assetId, transform, style: {}, crop: { x: 0.2, y: 0.1, width: 0.5, height: 0.8 } },
+      { id: 'title', type: 'text', name: 'Title', text: 'Тауар', fontAssetId: assetId, transform, style: {} },
+    ] }] };
+    expect(validateArtifactContent(content)).toEqual(content);
+    const outside = structuredClone(content); outside.pages[0]!.layers[0]!.crop!.width = 0.9;
+    expect(() => validateArtifactContent(outside)).toThrow('crop-outside-image');
+    const wrongKind = structuredClone(content); wrongKind.pages[0]!.layers[0]!.fontAssetId = assetId;
+    expect(() => validateArtifactContent(wrongKind)).toThrow('layer-kind-mismatch');
+    const badFont = structuredClone(content); badFont.pages[0]!.layers[1]!.fontAssetId = 'https://example.test/font';
+    expect(() => validateArtifactContent(badFont)).toThrow();
+  });
+  it('validates bounded sheet settings and keeps missing stable references explicit', () => {
+    const content = table(), sheet = content.workbook.sheets.sheet!;
+    sheet.freeze = { xSplit: 1, ySplit: 1, startRow: 1, startColumn: 1 };
+    sheet.charts = [{ id: 'sales', title: 'Prices', type: 'bar', labelColumnId: 'sku', valueColumnIds: ['price'], rowIds: ['rowA', 'removed-row'] }];
+    sheet.calculation = { schemaVersion: 1, currency: 'KZT', scale: 2, rounding: 'half-up', lines: [{ id: 'line-one', quantityCellId: tableCellTargetId('sheet', 'rowA', 'sku'), priceCellId: tableCellTargetId('sheet', 'rowA', 'price'), amountCellId: tableCellTargetId('sheet', 'rowB', 'sku'), expectedFormula: '=A1*B1' }], subtotalCellId: tableCellTargetId('sheet', 'rowB', 'price'), subtotalFormula: '=A2', totalCellId: tableCellTargetId('sheet', 'removed-row', 'price'), totalFormula: '=B2' };
+    expect(validateArtifactContent(content)).toEqual(content);
+    sheet.freeze.startRow = 2;
+    expect(() => validateArtifactContent(content)).toThrow('freeze-outside-sheet');
+    sheet.freeze.startRow = 1;
+    sheet.calculation.totalCellId = tableCellTargetId('other-sheet', 'rowA', 'price');
+    expect(() => validateArtifactContent(content)).toThrow('calculation-target-outside-sheet');
+  });
   it('rejects invalid plan dates, missing/cyclic dependencies and duplicate checklist IDs', () => {
     const entry = { id: 'prepare', title: 'Prepare', status: 'todo', resourceIds: [], dependencies: [], checklist: [], availabilityVersionIds: [] };
     const value = { kind: 'plan', schemaVersion: 1, timezone: 'Asia/Qyzylorda', entries: [entry] };

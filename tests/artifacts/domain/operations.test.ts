@@ -3,7 +3,7 @@ import { createArtifactState } from '../../../src/features/artifacts/domain/cont
 import type { ArtifactContent, JsonValue } from '../../../src/features/artifacts/domain/content-models';
 import { MerkleJson } from '../../../src/features/artifacts/domain/merkle-json';
 import { ArtifactDraft, inverseInputs, type OperationContext } from '../../../src/features/artifacts/domain/operations';
-import { tableCellTargetId, tableRowTargetId } from '../../../src/features/artifacts/domain/targets';
+import { tableCellTargetId, tableRowTargetId, tableSheetTargetId } from '../../../src/features/artifacts/domain/targets';
 
 const actorId = '68eb98a7-71ba-4ec3-b4c1-ed8ec3d4df88';
 const context: OperationContext = { actorId, at: '2026-10-14T12:00:00Z', reason: 'Manual wording', origin: 'human' };
@@ -34,6 +34,28 @@ describe('conditional artifact operations', () => {
     await expect(value.apply([{ targetId: 'p1', op: 'set', value: paragraph('p1', 'AI rewrite'), beforeHash: (await value.target('p1'))!.hash }], { ...context, origin: 'ai' })).rejects.toThrow('locked');
     await value.apply(inverseInputs(locked.inverse), { ...context, origin: 'history' }, locked.inverse);
     expect((await value.target('root'))!.lock).toBeNull();
+  });
+  it('retains imported protection without granting AI or import authority to remove existing locks', async () => {
+    const value = draft(), imported = { ...context, origin: 'import' as const };
+    const lock = { targetId: 'p1', op: 'lock' as const, value: { locked: true, reason: 'Imported approved wording' }, beforeHash: (await value.target('p1'))!.hash };
+    await expect(value.apply([lock], { ...context, origin: 'ai' })).rejects.toThrow('only-human-may-change-lock');
+    const applied = await value.apply([lock], imported);
+    expect((await value.target('p1'))!.lock).toEqual({ actorId, at: context.at, reason: 'Imported approved wording' });
+    await expect(value.apply([{ ...lock, beforeHash: (await value.target('p1'))!.hash }], imported)).rejects.toThrow('locked');
+    await expect(value.apply([{ targetId: 'p1', op: 'set', value: paragraph('p1', 'Import replacement'), beforeHash: (await value.target('p1'))!.hash }], imported)).rejects.toThrow('locked');
+    await expect(value.apply([{ targetId: 'p1', op: 'lock', value: { locked: false }, beforeHash: (await value.target('p1'))!.hash }], imported)).rejects.toThrow('locked');
+    await expect(value.apply([{ targetId: 'p2', op: 'lock', value: { locked: false }, beforeHash: (await value.target('p2'))!.hash }], imported)).rejects.toThrow('only-human-may-change-lock');
+    await value.apply(inverseInputs(applied.inverse), { ...context, origin: 'history' }, applied.inverse);
+    expect((await value.target('p1'))!.lock).toBeNull();
+    await value.apply([{ targetId: 'root', op: 'lock', value: { locked: true, reason: 'Parent protection' }, beforeHash: (await value.target('root'))!.hash }], context);
+    await expect(value.apply([{ ...lock, beforeHash: (await value.target('p1'))!.hash }], imported)).rejects.toThrow('locked');
+    const nested = draft();
+    await nested.apply([{ ...lock, beforeHash: (await nested.target('p1'))!.hash }], imported);
+    const childProtection = (await nested.target('p1'))!.lock;
+    await nested.apply([{ targetId: 'root', op: 'lock', value: { locked: true, reason: 'Imported parent protection' }, beforeHash: (await nested.target('root'))!.hash }], imported);
+    expect((await nested.target('p1'))!.lock).toEqual(childProtection);
+    expect((await nested.target('root'))!.lock?.reason).toBe('Imported parent protection');
+    await expect(nested.apply([{ targetId: 'root', op: 'set', value: paragraph('root', 'Replacement'), beforeHash: (await nested.target('root'))!.hash }], imported)).rejects.toThrow('locked');
   });
   it('inserts, moves and removes document blocks with exact inverse and retired stable IDs', async () => {
     const value = draft();
@@ -73,7 +95,26 @@ describe('conditional artifact operations', () => {
     await value.apply(inverseInputs(removed.inverse), { ...context, origin: 'history' }, removed.inverse);
     expect((await value.target('p1'))!.binding?.override?.actorId).toBe(actorId);
   });
-  it('restores table merges exactly and rejects structural edits that require a formula engine', async () => {
+  it('changes only sheet settings with exact undo and rejects hidden cell replacements', async () => {
+    const table: ArtifactContent = { kind: 'table', schemaVersion: 1, workbook: { id: 'book', name: 'Prices', appVersion: '1', locale: 'ruRU', sheetOrder: ['sheet'], sheets: { sheet: { id: 'sheet', name: 'Prices', rowCount: 2, columnCount: 2, cellData: { 0: { 0: { v: 'SKU', t: 1 } } } } } }, stableIds: { sheet: { rows: ['r1', 'r2'], columns: ['sku', 'price'] } } };
+    const value = draft(table), targetId = tableSheetTargetId('sheet');
+    const applied = await value.apply([{ targetId, op: 'set', beforeHash: (await value.target(targetId))!.hash, value: { kind: 'sheet-settings', name: 'Estimate', freeze: { xSplit: 1, ySplit: 1, startRow: 1, startColumn: 1 }, charts: [{ id: 'prices', title: 'Prices', type: 'bar', labelColumnId: 'sku', valueColumnIds: ['price'], rowIds: ['r1'] }] } }], context);
+    expect((await value.state()).content).toMatchObject({ workbook: { sheets: { sheet: { name: 'Estimate', cellData: table.workbook.sheets.sheet!.cellData } } } });
+    const undone = await value.apply(inverseInputs(applied.inverse), { ...context, origin: 'history' }, applied.inverse);
+    expect((await value.state()).content).toEqual(table);
+    await value.apply(inverseInputs(undone.inverse), { ...context, origin: 'history' }, undone.inverse);
+    await expect(value.apply([{ targetId, op: 'set', beforeHash: (await value.target(targetId))!.hash, value: { kind: 'sheet-settings', cellData: {} } }], context)).rejects.toThrow('invalid-operation-value');
+  });
+  it('roundtrips named and cropped layers without altering the original asset reference', async () => {
+    const assetId = '68eb98a7-71ba-4ec3-b4c1-ed8ec3d4df88';
+    const design: ArtifactContent = { kind: 'design', schemaVersion: 1, pages: [{ id: 'page', width: 800, height: 600, unit: 'px', background: '#ffffff', layers: [{ id: 'photo', type: 'image', assetId, transform: { x: 0, y: 0, width: 200, height: 200, rotation: 0 }, style: {} }] }] };
+    const value = draft(design), previous = (await value.target('photo'))!;
+    const changed = await value.apply([{ targetId: 'photo', op: 'set', beforeHash: previous.hash, value: { ...previous.value as Record<string, JsonValue>, name: 'Product', crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 } } }], context);
+    expect((await value.target('photo'))!.value).toMatchObject({ assetId, name: 'Product', crop: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 } });
+    await value.apply(inverseInputs(changed.inverse), { ...context, origin: 'history' }, changed.inverse);
+    expect((await value.state()).content).toEqual(design);
+  });
+  it('restores table merges exactly and permits formulas unaffected by a structural edit', async () => {
     const table: ArtifactContent = { kind: 'table', schemaVersion: 1, workbook: { id: 'book', name: 'Prices', appVersion: '1', locale: 'ruRU', sheetOrder: ['sheet'], sheets: { sheet: { id: 'sheet', name: 'Prices', rowCount: 3, columnCount: 2, cellData: {}, mergeData: [{ startRow: 0, endRow: 2, startColumn: 0, endColumn: 0 }] } } }, stableIds: { sheet: { rows: ['r1', 'r2', 'r3'], columns: ['sku', 'price'] } } };
     const value = draft(table), row = tableRowTargetId('sheet', 'r2');
     const removed = await value.apply([{ targetId: row, op: 'remove', beforeHash: (await value.target(row))!.hash }], context);
@@ -81,7 +122,30 @@ describe('conditional artifact operations', () => {
     expect((await value.state()).content).toEqual(table);
     const cell = tableCellTargetId('sheet', 'r1', 'price');
     await value.apply([{ targetId: cell, op: 'set', value: { f: '=1+1' }, beforeHash: (await value.target(cell))!.hash }], context);
-    await expect(value.apply([{ targetId: row, op: 'remove', beforeHash: (await value.target(row))!.hash }], context)).rejects.toThrow('formula-structural-adapter-required');
+    const changed = await value.apply([{ targetId: row, op: 'remove', beforeHash: (await value.target(row))!.hash }], context);
+    expect((await value.target(cell))!.value).toEqual({ f: '=1+1' });
+    await value.apply(inverseInputs(changed.inverse), { ...context, origin: 'history' }, changed.inverse);
+    expect((await value.target(cell))!.value).toEqual({ f: '=1+1' });
+  });
+  it('rewrites cross-sheet formulas with guarded exact undo/redo and protects formula locks', async () => {
+    const table: ArtifactContent = { kind: 'table', schemaVersion: 1, workbook: { id: 'book', name: 'Prices', appVersion: '1', locale: 'ruRU', sheetOrder: ['sheet', 'summary'], sheets: {
+      sheet: { id: 'sheet', name: 'Prices', rowCount: 3, columnCount: 2, cellData: { 0: { 0: { v: 10 } }, 1: { 0: { v: 20 } }, 2: { 1: { f: '=SUM(A1:A3)', v: 30, t: 2 } } }, freeze: { xSplit: 0, ySplit: 3, startRow: 2, startColumn: -1 } },
+      summary: { id: 'summary', name: 'Summary', rowCount: 1, columnCount: 1, cellData: { 0: { 0: { f: "='Prices'!$A$2", v: 20, t: 2 } } } },
+    } }, stableIds: { sheet: { rows: ['r1', 'r2', 'r3'], columns: ['sku', 'price'] }, summary: { rows: ['total'], columns: ['value'] } } };
+    const value = draft(table), row = tableRowTargetId('sheet', 'r2'), formula = tableCellTargetId('summary', 'total', 'value');
+    const lock = await value.apply([{ targetId: formula, op: 'lock', value: { locked: true, reason: 'Approved total' }, beforeHash: (await value.target(formula))!.hash }], context);
+    await expect(value.apply([{ targetId: row, op: 'remove', beforeHash: (await value.target(row))!.hash }], { ...context, origin: 'ai' })).rejects.toThrow('locked');
+    await value.apply(inverseInputs(lock.inverse), { ...context, origin: 'history' }, lock.inverse);
+    const removed = await value.apply([{ targetId: row, op: 'remove', beforeHash: (await value.target(row))!.hash }], context);
+    expect((await value.target(formula))!.value).toEqual({ f: '=#REF!' });
+    expect((await value.target(tableCellTargetId('sheet', 'r3', 'price')))!.value).toEqual({ f: '=SUM(A1:A2)' });
+    const undone = await value.apply(inverseInputs(removed.inverse), { ...context, origin: 'history' }, removed.inverse);
+    expect((await value.state()).content).toEqual(table);
+    const redone = await value.apply(inverseInputs(undone.inverse), { ...context, origin: 'history' }, undone.inverse);
+    await value.apply([{ targetId: formula, op: 'set', value: { f: '=1+1' }, beforeHash: (await value.target(formula))!.hash }], context);
+    const root = value.root;
+    await expect(value.apply(inverseInputs(redone.inverse), { ...context, origin: 'history' }, redone.inverse)).rejects.toThrow('before-hash');
+    expect(value.root).toBe(root);
   });
   it('validates design and plan semantics after addressable changes and preserves other elements', async () => {
     const design: ArtifactContent = { kind: 'design', schemaVersion: 1, pages: [{ id: 'page', width: 800, height: 600, unit: 'px', background: '#ffffff', layers: [{ id: 'title', type: 'text', text: 'Original', transform: { x: 0, y: 0, width: 200, height: 40, rotation: 0 }, style: {} }] }] };

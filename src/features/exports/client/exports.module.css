@@ -1,0 +1,22 @@
+.dialog { width: min(760px, calc(100vw - 24px)); }
+.body { display: grid; gap: 20px; }
+.revision { margin: 0; font-size: .875rem; color: var(--color-muted); }
+.formats { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 0; margin: 0; border: 0; }
+.formats legend, .layout legend { margin-bottom: 12px; font-weight: 600; }
+.layout { margin: 0; padding: 16px; border: 1px solid var(--color-divider); border-radius: 12px; display: grid; gap: 14px; }
+.columns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.history { border-top: 1px solid var(--color-divider); padding-top: 16px; }
+.historyHeading, .job header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.historyHeading h3 { margin: 0; font-size: 1rem; }
+.job { padding: 18px 0; border-bottom: 1px solid var(--color-divider); }
+.job header { font-size: .875rem; }
+.muted { color: var(--color-muted); font-size: .8125rem; line-height: 1.6; }
+.files { margin: 12px 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.files > li { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.fileInfo { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }
+.fileInfo > span { font-size: .8125rem; color: var(--color-muted); }
+.fileInfo details { font-size: .8125rem; }
+.fileInfo summary { cursor: pointer; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.error, .fileInfo > .error { color: var(--color-danger); font-size: .875rem; }
+@media (max-width: 560px) { .columns { grid-template-columns: 1fr; } .files > li { flex-direction: column; } }

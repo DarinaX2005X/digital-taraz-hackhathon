@@ -11,6 +11,7 @@ export const WorkspaceCursorPositionSchema = z.strictObject({
 export const WorkspaceEventKindSchema = z.enum([
   'project.created', 'project.changed', 'project.access-changed',
   'source.changed', 'source.unavailable',
+  'collection.changed',
   'artifact.created', 'artifact.changed', 'artifact.moved', 'artifact.archived',
   'artifact.trashed', 'artifact.restored', 'artifact.purged',
 ]);
@@ -18,6 +19,8 @@ export const WorkspaceEventPayloadSchema = z.strictObject({
   commandGroupId: IdSchema.optional(),
   changedTargetIds: z.array(ElementIdSchema).max(100).optional(),
   moreTargets: z.boolean().optional(),
+  resolutionId: IdSchema.optional(),
+  resolutionKind: z.enum(['import', 'correction', 'undo']).optional(),
 });
 export const WorkspaceEventSchema = z.strictObject({
   cursor: WorkspaceCursorSchema,

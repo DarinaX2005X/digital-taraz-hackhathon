@@ -54,7 +54,7 @@ Shot list timing/mainfocus/backgroundmotion/transition/audio tied to provenfeatu
 ## 14.3 Собрать видео, исходники и встроить его в сайт
 Status: todo
 Requirements: R61, R64, R67, R68, R71, R72, R73, R95, R101
-Depends on: 14.2, 14.1
+Depends on: 14.2, 14.1, 10.1
 Owner: SUBAGENT to assign
 Paths: delivery/video/source/, delivery/video/output/, src/features/public-site/video/, tests/product-video/
 

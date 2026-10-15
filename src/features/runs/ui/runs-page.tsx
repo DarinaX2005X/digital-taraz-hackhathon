@@ -17,6 +17,7 @@ import { runClient, RunClientError, type RunRequestOptions } from '../client/tra
 import { openRunEvents } from '../client/events';
 import { activeRun, observableRun, lostAccess, resultLink, runErrorText, runResults } from '../client/state';
 import styles from './runs.module.css';
+import { RunContinuation, type RunChange } from './run-continuation';
 
 const stateIcons = { queued: Clock3, running: LoaderCircle, waiting_input: PauseCircle, review_ready: FileCheck2, completed: CheckCircle2, failed: XCircle, cancelled: Square };
 const stepIcons = { planned: Circle, claimed: LoaderCircle, succeeded: Check, failed: XCircle, skipped: Square };
@@ -128,6 +129,7 @@ function RunList({ workspaceId, projectId, guard, text }: { workspaceId: string;
 
 function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: RunCopy }) {
   const { locale } = useLocale();
+  const router = useRouter();
   const [data, setData] = useState<Run>();
   const [error, setError] = useState<unknown>();
   const [connection, setConnection] = useState(false);
@@ -135,7 +137,7 @@ function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: 
   const [cancelOpen, setCancelOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [commandError, setCommandError] = useState<unknown>();
-  const command = useRef<{ kind: 'cancel' | 'resume'; epoch: number; key: string; stepId?: string } | null>(null);
+  const command = useRef<{ kind: 'cancel' | 'resume'; epoch: number; key: string; stepId?: string; fingerprint: string } | null>(null);
   const commandController = useRef<AbortController | null>(null);
   useEffect(() => () => commandController.current?.abort(), []);
   useEffect(() => {
@@ -206,14 +208,16 @@ function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: 
     return () => { lifetime.abort(); connectionController?.abort(); clearTimeout(scheduled); clearTimeout(cycleTimer); document.removeEventListener('visibilitychange', visibility); };
   }, [runId, guard, version]);
   const refresh = () => setVersion((value) => value + 1);
-  async function mutate(kind: 'cancel' | 'resume', stepId?: string) {
+  async function mutate(kind: 'cancel' | 'resume', stepId?: string, change: RunChange = {}) {
     if (!data || pending) return;
-    if (!command.current || command.current.kind !== kind || command.current.epoch !== data.epoch || command.current.stepId !== stepId) command.current = { kind, epoch: data.epoch, key: crypto.randomUUID(), ...(stepId ? { stepId } : {}) };
+    const fingerprint = JSON.stringify(change);
+    if (!command.current || command.current.kind !== kind || command.current.epoch !== data.epoch || command.current.stepId !== stepId || command.current.fingerprint !== fingerprint) command.current = { kind, epoch: data.epoch, key: crypto.randomUUID(), fingerprint, ...(stepId ? { stepId } : {}) };
     const intent = command.current;
     const controller = new AbortController(); commandController.current = controller;
     setPending(true); setCommandError(undefined);
     try {
-      const result = await guard(controller.signal, (options) => kind === 'cancel' ? runClient.cancel(runId, intent.epoch, intent.key, options) : runClient.resume(runId, intent.epoch, intent.key, options, stepId));
+      const result = await guard(controller.signal, (options) => kind === 'cancel' ? runClient.cancel(runId, intent.epoch, intent.key, options) : runClient.continue(runId, { expectedEpoch: intent.epoch, ...change, ...(stepId ? { stepId } : {}) }, intent.key, options));
+      if (result.id !== runId) { command.current = null; router.push(`/app/runs/${result.id}`); return; }
       setData(result); setCancelOpen(false); command.current = null; refresh();
     } catch (failure) {
       if (!controller.signal.aborted && !(failure instanceof DOMException && failure.name === 'AbortError')) {
@@ -232,12 +236,13 @@ function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: 
       {data.capabilityId.startsWith('runtime.') && <div className={styles.synthetic}><strong>{text.synthetic}</strong><p>{text.syntheticText}</p></div>}
       <div className={styles.detailMeta}><span>{text.started}: <time dateTime={data.startedAt ?? data.createdAt}>{formatInstant(locale, data.startedAt ?? data.createdAt)}</time></span><span>{text.updated}: <time dateTime={data.updatedAt}>{formatInstant(locale, data.updatedAt)}</time></span></div>
       <div className={styles.actions}>
-        {data.actions.resume && <Button icon={Play} variant="primary" pending={pending} pendingLabel={text.sending} onClick={() => { void mutate('resume'); }}>{text.resume}</Button>}
+        {data.actions.resume && !data.progress.questions.length && <Button icon={Play} variant="primary" pending={pending} pendingLabel={text.sending} onClick={() => { void mutate('resume'); }}>{text.resume}</Button>}
         {data.actions.cancel && <Button icon={Square} disabled={pending} onClick={() => setCancelOpen(true)}>{text.cancel}</Button>}
       </div>
       {data.failure && <p className={styles.failure} role="status">{text.failures[data.failure]}</p>}
       {commandError !== undefined && <ErrorNotice error={commandError} text={text} retry={refresh} />}
       {connection && <p className={styles.connection} role="status">{text.connectionLost}</p>}
+      <RunContinuation key={data.id} run={data} locale={locale} pending={pending} onContinue={(change) => { void mutate('resume', undefined, change); }} />
       <div className={styles.detailColumns}>
         <section aria-labelledby="run-progress"><h3 id="run-progress">{text.steps}</h3><ol className={styles.steps}>
           {data.steps.map((step) => <li key={step.id} className={styles.step}>
@@ -253,7 +258,8 @@ function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: 
           <section aria-labelledby="run-cost"><h3 id="run-cost">{text.budget}</h3><dl className={styles.cost}><div><dt>{text.spent}</dt><dd>{formatDecimal(locale, compactAmount(data.budget.spentUsd))} {text.dollars}</dd></div><div><dt>{text.reserved}</dt><dd>{formatDecimal(locale, compactAmount(data.budget.reservedUsd))} {text.dollars}</dd></div></dl></section>
           <section aria-labelledby="run-results"><h3 id="run-results">{text.results}</h3>{results.length ? <ul className={styles.results}>{results.map((result) => {
             const href = resultLink(data, result);
-            return <li key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{href ? <Link href={href}>{text[result.kind]}{result.revision !== undefined && ` ${formatNumber(locale, result.revision)}`}<ExternalLink size={16} aria-hidden="true" /></Link> : <span>{text[result.kind]}{result.revision !== undefined && ` ${formatNumber(locale, result.revision)}`}</span>}</li>;
+            const title = data.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? text[result.kind];
+            return <li key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{href ? <Link href={href}>{title}<ExternalLink size={16} aria-hidden="true" /></Link> : <span>{title}{result.revision !== undefined && ` ${formatNumber(locale, result.revision)}`}</span>}</li>;
           })}</ul> : <p className={styles.muted}>{text.noResult}</p>}</section>
         </aside>
       </div>
@@ -266,7 +272,7 @@ function RunsPrivate({ viewer, authEpoch, initialWorkspaceId, projectId, runId, 
   const router = useRouter();
   const guard = useGuardedRunRequest(viewer, authEpoch);
   const [selected, setSelected] = useState<string | null>(initialWorkspaceId ?? viewer.workspaces[0]?.workspaceId ?? null);
-  if (runId) return <RunDetail runId={runId} guard={guard} text={text} />;
+  if (runId) return <RunDetail key={runId} runId={runId} guard={guard} text={text} />;
   const options = viewer.workspaces.map((item) => ({ id: item.workspaceId, label: item.name }));
   const choice = options.find((item) => item.id === selected) ?? null;
   return <>

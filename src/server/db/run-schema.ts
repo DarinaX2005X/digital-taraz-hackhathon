@@ -82,6 +82,21 @@ export const agentRunContexts = pgTable('agent_run_contexts', {
   check('agent_run_contexts_revision_check', sql`${table.revision} >= 0`),
   check('agent_run_contexts_state_check', sql`jsonb_typeof(${table.state}) = 'object' AND octet_length(${table.state}::text) <= 65536`),
 ]);
+export const agentRunContinuations = pgTable('agent_run_continuations', {
+  workspaceId: uuidColumn('workspace_id').notNull(), parentRunId: uuidColumn('parent_run_id').notNull(), childRunId: uuidColumn('child_run_id').primaryKey(),
+  createdBy: uuidColumn('created_by').notNull().references(() => identityUsers.id), requestKeyHash: text('request_key_hash').notNull(), inputHash: text('input_hash').notNull(),
+  reason: text('reason').notNull(), createdAt: instant('created_at').notNull().defaultNow(),
+}, (table) => [
+  foreignKey({ columns: [table.workspaceId, table.parentRunId], foreignColumns: [agentRuns.workspaceId, agentRuns.id] }),
+  foreignKey({ columns: [table.workspaceId, table.childRunId], foreignColumns: [agentRuns.workspaceId, agentRuns.id] }),
+  unique('agent_run_continuations_request_key').on(table.parentRunId, table.createdBy, table.requestKeyHash),
+  unique('agent_run_continuations_parent_key').on(table.parentRunId),
+  index('agent_run_continuations_workspace_idx').on(table.workspaceId, table.parentRunId),
+  check('agent_run_continuations_distinct_check', sql`${table.parentRunId} <> ${table.childRunId}`),
+  check('agent_run_continuations_reason_check', sql`${table.reason} IN ('deadline','goal-change','follow-up')`),
+  check('agent_run_continuations_request_hash_check', sql`${table.requestKeyHash} ~ '^[a-f0-9]{64}$'`),
+  check('agent_run_continuations_input_hash_check', sql`${table.inputHash} ~ '^[a-f0-9]{64}$'`),
+]);
 export const agentToolReceipts = pgTable('agent_tool_receipts', {
   runId: uuidColumn('run_id').notNull(), stepId: uuidColumn('step_id').notNull(), toolCallId: text('tool_call_id').notNull(),
   inputHash: text('input_hash').notNull(), outputHash: text('output_hash').notNull(),

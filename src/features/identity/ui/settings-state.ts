@@ -1,4 +1,4 @@
-export const settingsViews = ["profile", "language", "security", "sessions", "delete-account"] as const;
+export const settingsViews = ["profile", "language", "security", "sessions", "tour", "delete-account"] as const;
 export type SettingsView = (typeof settingsViews)[number];
 
 export function settingsViewFromHash(hash: string): SettingsView {

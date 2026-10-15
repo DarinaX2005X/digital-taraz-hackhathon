@@ -16,6 +16,9 @@ import { useWorkspaceLeaveGuard } from './leave-guard';
 import { isDefiniteRequestRejection, retainRequestAttempt, type RequestAttempt } from '../domain/request-attempt';
 import { initialProjectListState, projectListReducer } from '../domain/project-list-state';
 import { initialWorkspaceSelection, restoreEntryGoal, workEntryHref } from '../domain/work-entry';
+import { suggestedProjectName } from '../domain/project-name';
+import { entryDraftKey, readEntryDraft, type EntryDraft } from '../domain/entry-draft';
+import { TourGuide } from '@/features/onboarding/tour';
 
 export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId: string; initialWorkspaceId?: string; intentToken?: string }) {
   const t = useWorkspaceCopy(), { locale } = useLocale(), router = useRouter();
@@ -32,17 +35,55 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
   const [uncertain, setUncertain] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const [discarded, setDiscarded] = useState(false);
-  const requestKey = useRef<{ value: string; key: string } | undefined>(undefined);
+  const [draftReady, setDraftReady] = useState(false), [workspaceUncertain, setWorkspaceUncertain] = useState(false);
+  const [draftStorageFailed, setDraftStorageFailed] = useState(false);
+  const workspaceCreation = useRef<{ name: string; key: string } | undefined>(undefined);
+  const confirmedWorkspaceId = useRef<string | undefined>(undefined);
   const projectCreation = useRef<RequestAttempt<CreateProject> | undefined>(undefined);
   const serial = useRef(0);
   const cursor = useRef('');
   const restoredIntent = useRef<string | undefined>(undefined);
+  const restoredDraftOwner = useRef<string | undefined>(undefined);
   const validWorkspace = Boolean(membership);
   const active = access.phase === 'active';
   const context = `${ownerId}:${workspaceId}:${status}:${query}`;
   const page = list.context === context ? list.page : undefined;
   const loading = list.context !== context || list.loading, error = list.context === context ? list.error : undefined;
-  const leave = useWorkspaceLeaveGuard(active && Boolean(title || goal || workspaceName), saving || uncertain);
+  const leave = useWorkspaceLeaveGuard(active && Boolean(title || goal || workspaceName), saving || uncertain || workspaceUncertain);
+  function persistEntry(overrides: Partial<EntryDraft> = {}) {
+    try { sessionStorage.setItem(entryDraftKey(ownerId, intentToken), JSON.stringify({ title, goal, workspaceName, selectedWorkspace, projectRequest: projectCreation.current, workspaceRequest: workspaceCreation.current, confirmedWorkspaceId: confirmedWorkspaceId.current, ...overrides })); }
+    catch { setDraftStorageFailed(true); }
+  }
+  function discardEntry() {
+    try { sessionStorage.removeItem(entryDraftKey(ownerId, intentToken)); } catch { /* The in-memory draft is cleared below. */ }
+  }
+  useEffect(() => {
+    if (restoredDraftOwner.current === entryDraftKey(ownerId, intentToken)) return;
+    const timer = setTimeout(() => {
+      const previousKey = restoredDraftOwner.current;
+      restoredDraftOwner.current = entryDraftKey(ownerId, intentToken);
+      try {
+        const draft = readEntryDraft(sessionStorage.getItem(entryDraftKey(ownerId, intentToken)));
+        if (draft) {
+          setTitle(draft.title); setGoal(draft.goal); setWorkspaceName(draft.workspaceName); setSelectedWorkspace(draft.projectRequest?.input.workspaceId ?? initialWorkspaceId ?? draft.selectedWorkspace);
+          projectCreation.current = draft.projectRequest; workspaceCreation.current = draft.workspaceRequest;
+          confirmedWorkspaceId.current = draft.confirmedWorkspaceId;
+          setUncertain(Boolean(draft.projectRequest)); setWorkspaceUncertain(Boolean(draft.workspaceRequest));
+          setOpen(Boolean(draft.goal || draft.title || draft.projectRequest));
+        } else if (previousKey) {
+          setTitle(''); setGoal(''); setWorkspaceName(''); setUncertain(false); setWorkspaceUncertain(false);
+          projectCreation.current = undefined; workspaceCreation.current = undefined;
+        }
+      } catch { setDraftStorageFailed(true); }
+      setDraftReady(true);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [ownerId, initialWorkspaceId, intentToken]);
+  useEffect(() => {
+    if (!draftReady || !active || restoredDraftOwner.current !== entryDraftKey(ownerId, intentToken)) return;
+    try { sessionStorage.setItem(entryDraftKey(ownerId, intentToken), JSON.stringify({ title, goal, workspaceName, selectedWorkspace, projectRequest: projectCreation.current, workspaceRequest: workspaceCreation.current, confirmedWorkspaceId: confirmedWorkspaceId.current })); }
+    catch { queueMicrotask(() => setDraftStorageFailed(true)); }
+  }, [draftReady, active, ownerId, intentToken, title, goal, workspaceName, selectedWorkspace, saving, uncertain, workspaceUncertain]);
   useEffect(() => {
     if (!active || !intentToken || restoredIntent.current === intentToken) return;
     const controller = new AbortController();
@@ -89,7 +130,7 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
   }, [active, validWorkspace, workspaceId, ownerId, run]);
 
   if (access.phase === 'discarded' && !discarded) { setDiscarded(true); dispatchList({ type: 'invalidate' }); setTitle(''); setGoal(''); setWorkspaceName(''); }
-  useEffect(() => { if (access.phase === 'discarded') { requestKey.current = undefined; projectCreation.current = undefined; } }, [access.phase]);
+  useEffect(() => { if (access.phase === 'discarded') { workspaceCreation.current = undefined; projectCreation.current = undefined; try { sessionStorage.removeItem(entryDraftKey(ownerId, intentToken)); } catch { /* No tab data is accessible. */ } } }, [access.phase, ownerId, intentToken]);
 
   async function more() {
     if (!page?.nextAfter || loading) return;
@@ -103,38 +144,57 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
   }
 
   async function create(event: React.FormEvent) {
-    event.preventDefault(); if (saving || !title.trim() || !membership) return;
-    const input = { workspaceId, title, goal: goal || null, expectedAuthzVersion: page?.authzVersion ?? membership.authzVersion };
-    const attempt = projectCreation.current ?? retainRequestAttempt(undefined, { workspaceId, title, goal: goal || null }, () => input);
+    event.preventDefault(); if (saving || !draftReady || !goal.trim() || !membership) return;
+    const name = title.trim() || suggestedProjectName(goal, t.newProject);
+    const input = { workspaceId, title: name, goal: goal || null, expectedAuthzVersion: page?.authzVersion ?? membership.authzVersion };
+    const attempt = projectCreation.current ?? retainRequestAttempt(undefined, { workspaceId, title: name, goal: goal || null }, () => input);
     projectCreation.current = attempt;
+    persistEntry();
     setSaving(true); setSaveError(undefined);
     try {
       const result = await run((signal) => workspaceClient.create(attempt.input, attempt.key, { userId: ownerId, signal }));
-      projectCreation.current = undefined; setUncertain(false); setOpen(false); setTitle(''); setGoal('');
+      projectCreation.current = undefined; discardEntry();
+      try { sessionStorage.removeItem('tirlik.public-goal.v1'); } catch { /* The saved project remains authoritative. */ }
+      setUncertain(false); setOpen(false); setTitle(''); setGoal('');
       router.push(`/app/projects/${result.project.id}`);
     } catch (failure) { const rejected = isDefiniteRequestRejection(failure); if (rejected) projectCreation.current = undefined; setUncertain(!rejected); setSaveError(failure); }
     finally { setSaving(false); }
   }
 
   async function createWorkspace(event: React.FormEvent) {
-    event.preventDefault(); if (!workspaceName.trim() || saving) return;
-    const value = JSON.stringify({ name: workspaceName });
-    if (requestKey.current?.value !== value) requestKey.current = { value, key: crypto.randomUUID() };
+    event.preventDefault(); if (saving || !draftReady) return;
+    if (confirmedWorkspaceId.current) {
+      setSaving(true); setSaveError(undefined);
+      try { await access.account.refresh(); setSelectedWorkspace(confirmedWorkspaceId.current); }
+      catch (failure) { setSaveError(failure); }
+      finally { setSaving(false); }
+      return;
+    }
+    const name = workspaceName.trim() || t.personalWorkspace;
+    const attempt = workspaceCreation.current ?? { name, key: crypto.randomUUID() };
+    workspaceCreation.current = attempt;
+    persistEntry();
     setSaving(true); setSaveError(undefined);
     try {
-      const result = await run((signal) => identityClient.createWorkspace({ name: workspaceName }, requestKey.current!.key, { expectedUserId: ownerId, signal }));
-      await access.account.refresh(); setSelectedWorkspace(result.workspace.workspaceId); setWorkspaceName(''); requestKey.current = undefined;
-    } catch (failure) { setSaveError(failure); }
+      const result = await run((signal) => identityClient.createWorkspace({ name: attempt.name }, attempt.key, { expectedUserId: ownerId, signal }));
+      workspaceCreation.current = undefined; setWorkspaceUncertain(false);
+      confirmedWorkspaceId.current = result.workspace.workspaceId;
+      persistEntry({ selectedWorkspace: result.workspace.workspaceId, workspaceName: '', workspaceRequest: undefined });
+      setSelectedWorkspace(result.workspace.workspaceId); setWorkspaceName('');
+      await access.account.refresh().catch(setSaveError);
+    } catch (failure) { const rejected = isDefiniteRequestRejection(failure); if (rejected) workspaceCreation.current = undefined; setWorkspaceUncertain(!rejected); setSaveError(failure); }
     finally { setSaving(false); }
   }
 
   if (!active) return <WorkspaceShell><WorkspaceAccessState access={access} returnTo="/app/work" /></WorkspaceShell>;
-  if (!memberships.length) return <WorkspaceShell beforeSignOut={leave.beforeSignOut} onClickCapture={leave.onClickCapture}><main className={styles.main}>{leave.confirmation}<section className={styles.noWorkspace}><h1>{t.noWorkspace}</h1><p className={styles.muted}>{t.noWorkspaceDescription}</p><form className={styles.form} onSubmit={createWorkspace}><InputField label={t.workspaceName} required maxLength={100} value={workspaceName} onChange={(event) => setWorkspaceName(event.target.value)} /><WorkspaceError error={saveError} saving /><Button variant="primary" type="submit" icon={Plus} pending={saving}>{t.createWorkspace}</Button></form></section></main></WorkspaceShell>;
-  return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onClickCapture={leave.onClickCapture}><main className={styles.main}>
+  if (!memberships.length) return <WorkspaceShell beforeSignOut={leave.beforeSignOut} onSignedOut={discardEntry} onClickCapture={leave.onClickCapture}><main className={styles.main}>{leave.confirmation}<section className={styles.noWorkspace}><h1>{t.noWorkspace}</h1><p className={styles.muted}>{t.noWorkspaceDescription}</p><form className={styles.form} onSubmit={createWorkspace}><InputField label={t.workspaceName} placeholder={t.personalWorkspace} maxLength={100} value={workspaceName} disabled={saving || workspaceUncertain} onChange={(event) => setWorkspaceName(event.target.value)} /><WorkspaceError error={saveError} saving />{draftStorageFailed && <p role="status">{t.draftNotSaved}</p>}<Button variant="primary" type="submit" icon={Plus} pending={saving} disabled={!draftReady}>{workspaceUncertain ? t.checkCreation : t.createWorkspace}</Button></form></section></main></WorkspaceShell>;
+  return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onSignedOut={discardEntry} onClickCapture={leave.onClickCapture}><main className={styles.main}>
     {leave.confirmation}
+    {membership?.scopes.includes('edit') && <TourGuide ownerId={ownerId} anchors={{ start: 'work-start' }} />}
+    {draftStorageFailed && <p role="status" className={styles.error}>{t.draftNotSaved}</p>}
     <header className={styles.pageHeading}><h1>{t.work}</h1><div className={styles.actions}>
       {memberships.length > 1 && <SelectField className={styles.workspaceSelect} label={t.workspace} value={workspaceId} disabled={saving || uncertain} onChange={(event) => { setSelectedWorkspace(event.target.value); dispatchList({ type: 'invalidate' }); cursor.current = ''; router.replace(workEntryHref(event.target.value, intentToken)); }}><option value="" disabled>{t.chooseWorkspace}</option>{memberships.map((item) => <option key={item.workspaceId} value={item.workspaceId}>{item.name}</option>)}</SelectField>}
-      {membership?.scopes.includes('edit') && <Button variant="primary" icon={Plus} onClick={() => { setOpen(true); setSaveError(undefined); }}>{t.newProject}</Button>}
+      {membership?.scopes.includes('edit') && <Button id="work-start" variant="primary" icon={Plus} onClick={() => { setOpen(true); setSaveError(undefined); }}>{t.newProject}</Button>}
     </div></header>
     <div className={styles.filters}><Tabs label={t.projects} items={[{ id: 'active', label: t.active, content: null }, { id: 'archived', label: t.archived, content: null }]} value={status} onChange={(value) => setStatus(value as 'active' | 'archived')} /><InputField type="search" label={t.search} value={query} maxLength={200} onChange={(event) => setQuery(event.target.value)} /></div>
     {!validWorkspace && <EmptyState icon={Folder} title={workspaceId ? t.forbidden : t.chooseWorkspace} description={workspaceId ? t.forbiddenDescription : t.chooseWorkspaceDescription} action={workspaceId ? <Button onClick={() => { setSelectedWorkspace(''); router.replace(workEntryHref(undefined, intentToken)); }}>{t.back}</Button> : undefined} />}
@@ -146,8 +206,8 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
       <div className={styles.projectFooter}><time dateTime={project.updatedAt}>{formatInstant(locale, project.updatedAt, { dateStyle: 'medium' })}</time><span>{t.open} <ArrowUpRight size={16} /></span></div>
     </Link></li>)}</ul></>}
     {page?.nextAfter && <div className={styles.more}><Button pending={loading} onClick={() => { void more(); }}>{t.more}</Button></div>}
-    <Dialog open={open && validWorkspace} onOpenChange={setOpen} title={t.newProject} dismissible={!saving && !uncertain} dirty={Boolean(title || goal)} onDiscard={() => { setTitle(''); setGoal(''); projectCreation.current = undefined; router.replace(workEntryHref(workspaceId)); }} footer={<><DialogClose disabled={saving || uncertain}>{t.cancel}</DialogClose><Button variant="primary" type="submit" form="new-project" icon={Plus} pending={saving}>{uncertain ? t.checkCreation : t.create}</Button></>}>
-      <form id="new-project" className={styles.form} onSubmit={create}><InputField label={t.title} placeholder={t.titleHint} required maxLength={240} disabled={saving || uncertain} value={title} onChange={(event) => setTitle(event.target.value)} /><TextareaField label={t.goal} placeholder={t.goalHint} maxLength={12000} rows={5} disabled={saving || uncertain} value={goal} onChange={(event) => setGoal(event.target.value)} />{uncertain ? <p role="status">{t.uncertainCreation}</p> : <WorkspaceError error={saveError} saving />}</form>
+    <Dialog open={open && validWorkspace} onOpenChange={setOpen} title={t.newProject} dismissible={!saving && !uncertain} dirty={Boolean(title || goal)} onDiscard={() => { discardEntry(); setTitle(''); setGoal(''); projectCreation.current = undefined; router.replace(workEntryHref(workspaceId)); }} footer={<><DialogClose disabled={saving || uncertain}>{t.cancel}</DialogClose><Button variant="primary" type="submit" form="new-project" icon={Plus} pending={saving}>{uncertain ? t.checkCreation : t.create}</Button></>}>
+      <form id="new-project" className={styles.form} onSubmit={create}><TextareaField label={t.goal} placeholder={t.goalHint} required maxLength={12000} rows={5} disabled={saving || uncertain} value={goal} onChange={(event) => setGoal(event.target.value)} /><details className={styles.projectDetails}><summary>{t.optionalProjectName}</summary><InputField label={t.title} placeholder={suggestedProjectName(goal, t.newProject)} maxLength={240} disabled={saving || uncertain} value={title} onChange={(event) => setTitle(event.target.value)} /></details>{uncertain ? <p role="status">{t.uncertainCreation}</p> : <WorkspaceError error={saveError} saving />}</form>
     </Dialog>
   </main></WorkspaceShell>;
 }

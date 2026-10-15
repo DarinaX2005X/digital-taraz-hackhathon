@@ -1,5 +1,14 @@
 .editor { min-width: 0; width: 100%; background: var(--tl-color-canvas, #f5f6f8); }
-.toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--tl-color-divider, #d6ddda); background: #fff; }
+.toolbar { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--tl-color-divider, #d6ddda); background: #fff; }
+.toolMenu summary, .tableMenu summary { cursor: pointer; min-height: 44px; padding: 10px 12px; border: 1px solid #63736b; border-radius: 6px; color: #202624; background: #fff; font: inherit; }
+.toolMenu summary:focus-visible, .tableMenu summary:focus-visible { outline: 2px solid #086a70; outline-offset: 2px; }
+.toolMenu[open] summary { background: #e6f2f1; border-color: #086a70; }
+.menuContent { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.toolMenu > .menuContent { position: absolute; z-index: 3; top: calc(100% - 1px); left: 8px; right: 8px; padding: 12px; border: 1px solid #63736b; border-radius: 6px; background: #fff; }
+.toolMenu:not([open]) > .menuContent, .tableMenu:not([open]) > .menuContent { display: none; }
+.tableMenu[open] > .menuContent { padding-top: 8px; }
+.fieldContext { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 16px; background: #e6f2f1; border-bottom: 1px solid #b0d1cb; }
+.fieldCaption { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
 .toolGroup { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding-right: 8px; margin-right: 4px; border-right: 1px solid var(--tl-color-divider, #d6ddda); }
 .toolGroup:last-child { border-right: 0; }
 .toolbar select { min-height: 44px; max-width: 180px; padding: 8px; border: 1px solid #63736b; border-radius: 6px; color: #202624; background: #fff; font: inherit; }
@@ -17,11 +26,11 @@
 .sheet :global(.tiptap) h4, .sheet :global(.tiptap) h5, .sheet :global(.tiptap) h6 { font-size: 18px; line-height: 1.4; }
 .sheet :global(.tiptap) blockquote { margin: 16px 0; padding: 8px 20px; border-left: 3px solid #63736b; }
 .sheet :global(.tiptap) ul, .sheet :global(.tiptap) ol { padding-left: 28px; }
-.sheet :global(.tiptap) table { border-collapse: collapse; width: 100%; table-layout: fixed; margin: 16px 0; }
+.sheet :global(.tiptap) table { border-collapse: collapse; width: 100%; min-width: 480px; table-layout: auto; margin: 16px 0; }
 .sheet :global(.tiptap) td, .sheet :global(.tiptap) th { border: 1px solid #63736b; min-width: 40px; padding: 8px; position: relative; vertical-align: top; }
 .sheet :global(.tiptap) th { background: #eef2f1; font-weight: 600; }
 .sheet :global(.tiptap) :global(.selectedCell)::after { content: ''; background: rgb(8 106 112 / 14%); position: absolute; inset: 0; pointer-events: none; }
-.sheet :global(.tiptap) :global(.tableWrapper) { overflow-x: auto; }
+.sheet :global(.tiptap) :global(.tableWrapper) { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; overscroll-behavior-inline: contain; }
 .sheet :global(.tiptap) :global(.column-resize-handle) { position: absolute; top: 0; bottom: -2px; right: -2px; width: 4px; background: #086a70; pointer-events: none; }
 .sheet :global(.document-page-break) { height: 20px; margin: 24px 0; border-top: 1px dashed #63736b; background: #f5f6f8; }
 .sheet :global(.document-data-field) { padding: 1px 3px; border-bottom: 2px solid #086a70; background: #e6f2f1; border-radius: 2px; cursor: pointer; }
@@ -55,3 +64,7 @@
 @media (max-width: 1199px) { .surfaceWithInspector { grid-template-columns: minmax(0, 1fr); } .inspector { border-left: 0; border-top: 1px solid #d6ddda; } }
 @media (max-width: 767px) { .toolbar { padding: 8px; } .sheet { padding: 8px; } .sheet :global(.tiptap) { padding: 20px 16px; min-height: 60svh; } .find label { max-width: none; width: 100%; } .status { padding: 8px; } .toolGroup { padding-right: 4px; margin-right: 0; } }
 @media (prefers-reduced-motion: no-preference) { .imageOption { transition: background-color 120ms, border-color 120ms; } }
+
+.form > label { display: grid; gap: 6px; }
+.form select { min-height: 44px; width: 100%; padding: 8px 10px; border: 1px solid #63736b; border-radius: 6px; background: #fff; color: #202624; font: inherit; }
+.imageOption:disabled { cursor: not-allowed; opacity: .65; }

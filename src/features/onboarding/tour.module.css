@@ -1,0 +1,9 @@
+.guide { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; margin-bottom: 24px; border: 1px solid #c9ded4; border-radius: 14px; background: #f5fbf7; }
+.guide > div:first-child { max-width: 72ch; }
+.guide h2, .settings h2 { font-size: 18px; margin: 0 0 8px; line-height: 1.4; }
+.guide p, .settings p { margin: 0; line-height: 1.6; color: #475d53; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.guide .actions { flex: 0 1 420px; }
+.settings { display: grid; gap: 20px; }
+.highlight { outline: 3px solid #287f6a; outline-offset: 5px; }
+@media (max-width: 900px) { .guide { flex-direction: column; align-items: flex-start; padding: 18px; } .guide .actions { flex-basis: auto; } }

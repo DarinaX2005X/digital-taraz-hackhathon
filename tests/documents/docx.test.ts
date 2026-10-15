@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, PageBreak } from 'docx';
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, HeadingLevel, PageBreak, ImageRun } from 'docx';
 import JSZip from 'jszip';
 import { importDocx } from '@/features/documents/server/docx';
 import { documentText } from '@/features/documents/domain/document';
@@ -27,5 +27,13 @@ describe('real DOCX structured conversion', () => {
     await expect(importDocx(await archive.generateAsync({ type: 'nodebuffer' }))).rejects.toThrow('invalid-docx');
     archive.file('word/document.xml', '<!DOCTYPE test [<!ENTITY x SYSTEM "file:///secret">]><doc/>');
     await expect(importDocx(await archive.generateAsync({ type: 'nodebuffer' }))).rejects.toThrow();
+  });
+  it('reports simplified Word styling and preserves private embedded image dimensions', async () => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');
+    const bytes = await Packer.toBuffer(new Document({ sections: [{ children: [new Paragraph({ children: [new TextRun({ text: 'Styled', color: 'FF0000', size: 32, font: 'Arial' })] }), new Paragraph({ children: [new ImageRun({ type: 'png', data: png, transformation: { width: 1, height: 1 } })] })] }] }));
+    const assetId = crypto.randomUUID();
+    const result = await importDocx(bytes, { storeImage: async (image, mediaType) => { expect(image).toEqual(png); return { id: assetId, width: 1, height: 1, mediaType }; } });
+    expect(result.losses.some((loss) => loss.code === 'formatting')).toBe(true);
+    expect(result.content.document.content).toContainEqual(expect.objectContaining({ type: 'image', attrs: expect.objectContaining({ assetId, width: 1, height: 1 }) }));
   });
 });

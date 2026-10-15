@@ -26,6 +26,10 @@ Contract pass завершён всеми четырьмяreviewers; наход�
 
 Нулевые paid calls у всех новых reviewers. Повторный audit неизменённого базового budget ядра не нужен без нового дефекта; новый source/readiness evidence ниже после handover. Визуальная приёмка F002-F007 остаётся пользователю.
 
+Проверенный baseline15октября: checkpoint999e1e25951569e7ceff6fecb69b9b3438dce89f отправлен origin/main. A15-05/06/07 исправлены в auth/dialog/intent state с238 focused tests и workspaceHTTP; A15-08 — package-absolute XLSX regression и9parser tests; A15-10 — cycle/dependent diagnostics,7engine tests; A15-11 — общий current authorized before/after source vector, document19/design18 focused tests и DB freshness boundary; A15-12 — canonical move location, history routing и real DB/HTTP old404→newvalid. Общие type/lint/unit/build/DB/identity/artifacts/workspace/sources/runtime checks завершены. Это подтверждение кода и серверных сценариев; визуальная проверка остаётся пользователю. A15-01/02/03/04 и SQL acceptance A15-09 ещё в работе следующего пакета.
+
+Следующий CP1: A15-09 исправлен и подтверждён6passing materialsDBcases. Проверены A→B с новымrecordId и сохранением исходной записи/старойpinnedhistory; явныйkeyOverride переживает отдельнуюправку цены; только explicitnull снимаетoverride ивозвращаетambiguity. HTTPmaterials4cases такжеPASS дляhub/import/query/correction/undo/ACL, что подтверждает подключение A15-02. Общая Gitboundary новогопакета ещё проверяется; A15-01/03/04 требуют оставшихся mounted/runtime/liveproofs. Пользовательская visualacceptance отдельно.
+
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 12.1 Проверить исходный запрос, контракты и устойчивость
@@ -56,9 +60,9 @@ Status: todo
 Requirements: R06, R57, R59, R60, R88, R89
 Depends on: 12.1
 Owner: SUBAGENT to assign
-Paths: src/, tests/, scripts/
+Paths: tests/review-regressions/, scripts/review/
 
-**Контракт и результат.** C13; flow/05-review.md. Exact repair scopes derive only from confirmed findings, not guessed bugs. All earlier writers finished; MAIN splits fixes into bounded exclusive feature paths and loans shared contracts/routes/schema only where required, never dispatch allsrc as unrestricted refactor. Preserve unaffected code and user edits. Each F has minimal repro/regression or explicit reason test not applicable, ownership and closure evidence. Security/data-loss/coreworkflow/launch bugs block completion. User visual fixes stay pending after code checks.
+**Контракт и результат.** C13; flow/05-review.md. Exact repair scopes derive only from confirmed findings, not guessed bugs. Metadata above owns only review-specific regressions and orchestration helpers. Before dispatch, MAIN records each bounded exclusive feature repair loan in this task and removes any overlap with unfinished owners; nobody receives all `src/` as an unrestricted refactor. Preserve unaffected code and user edits. Each F has minimal repro/regression or explicit reason test not applicable, ownership and closure evidence. Security/data-loss/coreworkflow/launch bugs block completion. User visual fixes stay pending after code checks.
 
 **Вход в работу и состояния.** Fix in place within original route/editor, no new feature or general redesign to dodge finding. Preserve drafts and saved project compatibility; any data repair migration preview and backup required. MAIN rereads original TESTING before each coherent checkpoint.
 

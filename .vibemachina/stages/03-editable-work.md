@@ -70,9 +70,9 @@ Domain/contract boundary сохранена37d4bd53177a0bfa90a1290c10d6a2451dd90
 
 ## 03.2 Организовать работу вокруг проектов и текущего результата
 Status: active
-Requirements: R08, R21, R25, R31, R32, R33, R35, R36, R37, R38, R39, R40, R41, R44, R45, R97
+Requirements: R08, R21, R25, R31, R32, R33, R35, R36, R37, R38, R39, R40, R41, R44, R45, R97, R106
 Depends on: 02.1, 01.2
-Owner: /root/journey_delivery
+Owner: SUBAGENT to assign (передача; прежний автор: journey_delivery)
 Paths: src/features/workspace/, tests/workspace/, src/app/api/projects/, src/server/db/workspace-view-schema.ts, migrations/0009_workspace_views.sql, src/app/app/work/
 
 Дополнительные точные route loans исключительно workspace_delivery: `src/app/app/projects/[projectId]/page.tsx`, `src/app/app/projects/[projectId]/layout.tsx`, `src/app/app/projects/[projectId]/artifacts/[artifactId]/page.tsx`. History subtree принадлежит artifact_delivery. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Начало возможно на независимо принятом server03.1 boundary, финальная03.2 acceptance требует полной03.1 integration.
@@ -85,9 +85,9 @@ Read-only prep завершён: полный packet/исходники/referenc
 
 Уточнение топологической приёмки03.2: этот пакет доставляет настоящий Project lifecycle/list/search/draft, навигацию, result/history/source/run composition и typed capability adapters. Все четыре предметных редактора и исполнение AI физически интегрируются задачами03.3/04.1/05.1/06.1/07.4;03.2 не подменяет их фиктивными engines или кнопками. Временная доступность действий определяется фактически подключённым adapter: цель можно сохранять независимо, «Выполнить» появляется при готовности runtime+tools; создание и открытие материала доступны с соответствующим реальным пользовательским путём. Приёмка03.2 означает проверенный workspace mechanism, не закрытие обещания полноценного редактирования четырёх видов. Его общие requirements остаются прослеживаемыми в последующих tasks и сквозных04.2/11.1. Будущие library02.4/business09.1 pages не заменять placeholder routes; согласовать навигационный контракт и подключить реальные области при их readiness. Это разрешает существующий порядок зависимостей, не сокращает утверждённый объём.
 
-**Контракт и результат.** C1, C4, C6, DESIGN маршруты/композиция. Работа list/search/filter/recent/archive, Project с Goal и attachments/results, free-form input retaining draft. Create blank document/table/design/plan and AI goal are equal entry points; no mandatory company wizard. Cursor pagination, invalid filter IDs rejected; async stale request cancelled, keep loaded rows on failure. Workspace event snapshot+cursor then bounded polling per C4; late responses/revocations/resetRequired invalidate narrowly without reload or editor reset. Feature worker владеет screens/handlers и явно назначенными app pages/routes; MAIN не выполняет эту часть за агента. Shared layout согласуется через единственного integration owner.
+**Контракт и результат.** C1, C4, C6, DESIGN маршруты/композиция. Работа list/search/filter/recent/archive, Project с Goal и attachments/results, free-form input retaining draft. Project является сохранённой AI-сессией: цель, изменяемый план, критические вопросы, фактические tool actions и активный редактируемый результат связаны одним route/state contract. Создание blank document/table/design/plan остаётся самостоятельным ручным входом; no mandatory company wizard. Cursor pagination, invalid filter IDs rejected; async stale request cancelled, keep loaded rows on failure. Workspace event snapshot+cursor then bounded polling per C4; late responses/revocations/resetRequired invalidate narrowly without reload or editor reset. Feature worker владеет screens/handlers и явно назначенными app pages/routes; MAIN не выполняет эту часть за агента. Shared layout согласуется через единственного integration owner.
 
-**Вход в работу и состояния.** Navigation Работа/Материалы/Бизнес, no agent-role tabs. Project opens dominant selected editor; result rail and contextual Источники/Изменения/AI only when relevant. «Новая работа», attach, submit and recent work immediately reachable. Empty/partial/pending/failed/archived and404 purposeful. Mobile one main pane with labelled drawers and preserved return selection.
+**Вход в работу и состояния.** Navigation Работа/Материалы/Бизнес, no agent-role tabs. «Работа» начинает AI-сессию через «Что нужно сделать?» и attachment; текущий plan/question/result видны без знания внутренних модулей. Project показывает assistant area и dominant selected editor; result rail and contextual Источники/Изменения only when relevant. Empty/partial/pending/waiting-input/review-ready/failed/archived and404 purposeful. Mobile переключает «Ассистент / Результат» с сохранением selection/draft, не прячет AI в неизвестной панели.
 
 ### 03.2.1 Личная работа и навигация
 Status: active
@@ -105,7 +105,7 @@ Reducer/event tests stale response, pagination reset, reconnect cursor, role rev
 Status: active
 Requirements: R10, R16, R34, R39, R40, R44, R45, R92, R93, R94, R95
 Depends on: 02.1, 01.2
-Owner: /root/documents_finish
+Owner: SUBAGENT to assign (передача; прежний автор: documents_finish)
 Paths: src/features/documents/, tests/documents/, src/app/api/documents/import/route.ts
 
 Точный дополнительный route loan `src/app/api/documents/import/route.ts` принадлежит document_delivery: thin authenticated DOCX preview/materialize handler вызывает documents/server и canonical source retrieval. Не дублировать SourceVersion/private assets; schema/package integration у integration_delivery.
@@ -122,7 +122,9 @@ Status: active
 Schema roundtrip blocks/tables/images/Kazakh, sanitised paste, DOCX losses, invalid node rejected. Editing one paragraph leaves all unrelated IDs/hashes intact.
 
 ### 03.3.2 Редактор с историей и источниками
-Status: todo
+Status: active
+
+Handover15октября: реальный DocumentEditor/контекстные source fields/find-replace/import diagnostics подключён к рабочему route через его owner;37 focused tests иscopedlint PASS. Исправлены contextual field freshness инормализация mark order, сохраняющая unchanged paragraph hash. Общая серверная цепочка edit/undo/reopen/export ещё проверяется integration. Визуальное поведение не проверялось агентами.
 
 Command adapters tested direct edits/format/find/replace/locks undo through DB reopen; stale source marks field without replacing local text. User verifies caret/selection/keyboard/mobile.
 
@@ -142,12 +144,14 @@ Paths: src/features/exports/, tests/exports/
 **Вход в работу и состояния.** «Экспорт» dialog lists formats, selected revision, files included, internal data warning and status with retry/cancel. Opens no browser automatically. Current edit during export yields «Выгружена версия N», not false current. Mobile same selections and download.
 
 ### 03.4.1 Документ в пригодных форматах
-Status: todo
+Status: active
+
+CP1 exports_delivery передан: реальные DOCX/PDF, typed registry, private storage/API/UI, immutable fixed-revision jobs;8 focused tests+scopedlint и6isolatedDB lifecycle/ACL/retry cases PASS.0014_exports.sql reviewed/final. Сложные rowspan/nested tables, custom fonts и adapters остальных видов подготовлены вscratch CP2, не снимаются с полного задания.
 
 Parse DOCX zip/XML and PDF text/page/font/image objects; golden Unicode, totals, pagebreaks and long tables. Not raster screenshot QA; user opens files in own applications.
 
 ### 03.4.2 Версионный пакет и безопасный повтор
-Status: todo
+Status: active
 
 Actual object storage writes, interruption between files -> same manifest retry, duplicate request one bundle, ACL revocation and checksum. Export reflects saved revision not latest mutable state.
 

@@ -1,6 +1,6 @@
 import { ArtifactContentSchema, DocumentNodeSchema, type ArtifactContent, type DocumentNode, type JsonValue } from '@/features/artifacts/domain/content-models';
 import { validateArtifactContent } from '@/features/artifacts/domain/semantic-validation';
-import { assertBoundedJson, ContentValidationError } from '@/features/artifacts/domain/canonical';
+import { assertBoundedJson, ContentValidationError, hashJson } from '@/features/artifacts/domain/canonical';
 
 export type DocumentContent = Extract<ArtifactContent, { kind: 'document' }>;
 export type { DocumentNode };
@@ -14,12 +14,14 @@ export function readDocument(value: unknown): DocumentContent {
 }
 
 /** Only editor defaults are removed here. Unknown attributes still fail the canonical validator. */
-export function fromEditorJson(value: unknown): DocumentContent {
+export function fromEditorJson(value: unknown, baseline?: DocumentContent): DocumentContent {
   assertBoundedJson(value);
   const root = DocumentNodeSchema.parse(value);
   function clean(node: DocumentNode): DocumentNode {
     const attrs = { ...node.attrs };
     for (const key of ['textAlign', 'colwidth', 'alt', 'title', 'width', 'height']) if (attrs[key] === null) delete attrs[key];
+    if (node.type === 'orderedList' && attrs.type === null) delete attrs.type;
+    if (['tableCell', 'tableHeader'].includes(node.type) && attrs.align === null) delete attrs.align;
     const marks = node.marks?.map((mark) => {
       const attributes = { ...mark.attrs };
       if (mark.type === 'link') for (const key of ['target', 'rel', 'class']) delete attributes[key];
@@ -28,7 +30,28 @@ export function fromEditorJson(value: unknown): DocumentContent {
     });
     return { type: node.type, ...(Object.keys(attrs).length ? { attrs } : {}), ...(node.text !== undefined ? { text: node.text } : {}), ...(marks?.length ? { marks } : {}), ...(node.content ? { content: node.content.map(clean) } : {}) };
   }
-  return readDocument({ kind: 'document', schemaVersion: DOCUMENT_SCHEMA_VERSION, document: clean(root) });
+  const content = readDocument({ kind: 'document', schemaVersion: DOCUMENT_SCHEMA_VERSION, document: clean(root) });
+  return baseline ? retainUnchangedDocumentNodes(content, baseline) : content;
+}
+
+/** Engine mark order and implied defaults must not change untouched canonical targets. */
+function retainUnchangedDocumentNodes(content: DocumentContent, baseline: DocumentContent): DocumentContent {
+  const original = new Map<string, DocumentNode>();
+  const index = (node: DocumentNode) => { const id = nodeId(node); if (id) original.set(id, node); node.content?.forEach(index); };
+  index(readDocument(baseline).document);
+  function semantic(node: DocumentNode): JsonValue {
+    const attrs = { ...node.attrs };
+    if (node.type === 'orderedList' && attrs.start === undefined) attrs.start = 1;
+    if (['tableCell', 'tableHeader'].includes(node.type)) { attrs.colspan ??= 1; attrs.rowspan ??= 1; }
+    const marks = node.marks?.map((mark) => ({ type: mark.type, attrs: mark.attrs ?? {} })).sort((a, b) => a.type.localeCompare(b.type)) ?? [];
+    return { type: node.type, attrs, marks, ...(node.text !== undefined ? { text: node.text } : {}), content: (node.content ?? []).map(semantic) };
+  }
+  function retain(node: DocumentNode): DocumentNode {
+    const next = node.content ? { ...node, content: node.content.map(retain) } : node;
+    const previous = original.get(nodeId(node) ?? '');
+    return previous && hashJson(semantic(previous)) === hashJson(semantic(next)) ? previous : next;
+  }
+  return { ...content, document: retain(content.document) };
 }
 
 export function assignDocumentIds(node: DocumentNode, makeId = newDocumentId, regenerate = false): DocumentNode {

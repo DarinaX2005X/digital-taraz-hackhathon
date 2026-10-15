@@ -12,6 +12,38 @@ function options() { let sequence = 0; return { context, makeId: () => `new-${++
 const run = (action: DesignAction) => applyDesignAction(state(), action, options());
 
 describe('design actions use the authoritative artifact journal', () => {
+  it('commits one multi-layer transform and preserves image crop/font identity through undo', async () => {
+    const initial=state();
+    if(initial.content.kind!=='design')throw new Error('fixture');
+    initial.content.pages[0]!.layers[0]!.fontAssetId=ids.image;
+    initial.content.pages[0]!.layers[1]!.crop={x:.1,y:.2,width:.8,height:.6};
+    const original=createArtifactState(initial.content);
+    const changed=await applyDesignAction(original,{type:'transform-layers',transforms:[{id:'title',transform:{x:50,y:60,width:200,height:50,rotation:20}},{id:'photo',transform:{x:300,y:310,width:240,height:180,rotation:0}}]},options());
+    expect(changed.operations).toHaveLength(2);
+    expect(designFromState(changed.state).pages[0]!.layers[1]!.crop).toEqual({x:.1,y:.2,width:.8,height:.6});
+    const graph=new MerkleJson(),draft=new ArtifactDraft(graph,graph.encode(original as unknown as JsonValue));
+    const result=await draft.apply(changed.operations,context);await draft.apply(inverseInputs(result.inverse),{...context,origin:'history'},result.inverse);
+    expect((await draft.state()).content).toEqual(original.content);
+  });
+  it('removes cleared optional fields instead of writing undefined into canonical JSON',async()=>{
+    const initial=state();if(initial.content.kind!=='design')throw new Error('fixture');initial.content.pages[0]!.layers[0]!.fontAssetId=ids.image;
+    const result=await applyDesignAction(createArtifactState(initial.content),{type:'update-layer',id:'title',patch:{fontAssetId:undefined}},options());
+    expect(Object.hasOwn(designFromState(result.state).pages[0]!.layers[0]!,'fontAssetId')).toBe(false);
+  });
+  it('carries the same metadata timestamp into its command group',async()=>{
+    const result=await prepareDesignAction(snapshot(),{type:'lock',ids:['title'],locked:true},'Lock title',{at});
+    expect(result.command.metadataAt).toBe(at);
+    const graph=new MerkleJson(),draft=new ArtifactDraft(graph,graph.encode(state() as unknown as JsonValue));
+    await draft.apply(result.operations,{...context,at:result.command.metadataAt!,reason:'Lock title'});
+    expect((await draft.state()).locks).toEqual(result.state.locks);
+  });
+  it('binds a confirmed brand color with provenance and rejects arbitrary CSS',async()=>{
+    const sourceRef={sourceId:'7c48e4e5-0264-477a-881b-a453cc78c7fb',sourceVersionId:'087b67b3-07e1-475d-ad5a-ad1e3d74efb3',revision:1};
+    const result=await applyDesignAction(state(),{type:'bind-color',id:'title',sourceRef,value:'#136766'},options());
+    expect(designFromState(result.state).pages[0]!.layers[0]!.style.fill).toBe('#136766');
+    expect(result.state.bindings.title).toMatchObject({sourceRef,transformId:'brand-color'});
+    await expect(applyDesignAction(state(),{type:'bind-color',id:'title',sourceRef,value:'url(https://example.test)'},options())).rejects.toThrow('invalid');
+  });
   it('guards edits and removals with authorized current source heads while keeping pinned bindings', async () => {
     const initial = snapshot(), sourceRef = { sourceId: '7c48e4e5-0264-477a-881b-a453cc78c7fb', sourceVersionId: '087b67b3-07e1-475d-ad5a-ad1e3d74efb3', revision: 2 };
     initial.artifact.sourceRefs = [sourceRef];

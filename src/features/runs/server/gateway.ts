@@ -8,6 +8,7 @@ import type { BudgetLedger } from './budget';
 import { boundedObject, hash, hashKey, type JsonObject, type RunFence } from './data';
 import { validatePricing, type PricingSnapshot } from './pricing';
 import { assertModelRoute, type ModelRoute } from './model-policy';
+import { UsdSchema } from '../../../contracts/runs';
 
 export interface AuthorizedImage {
   bytes: Uint8Array; mime: 'image/png' | 'image/jpeg' | 'image/webp'; sha256: string;
@@ -19,6 +20,7 @@ export interface ModelRequest {
   fence: RunFence; operationKey: string; messages: ModelMessage[]; maxOutputTokens: number;
   jsonSchema?: { name: string; schema: JsonObject }; tools?: { name: string; description: string; parameters: JsonObject }[];
   toolChoice?: 'auto' | 'required'; images?: AuthorizedImage[]; signal?: AbortSignal;
+  maxReservedUsd?: string;
 }
 export const ModelOutputSchema = z.strictObject({
   content: z.string().max(100_000).nullable(),
@@ -79,7 +81,8 @@ export function createModelGateway(options: GatewayOptions) {
     const images = request.images?.map(imageData) ?? [];
     if (images.length && messages.at(-1)?.role !== 'user') throw new RunError('unsupported_parameters');
     const structured = request.jsonSchema ? { name: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).parse(request.jsonSchema.name), schema: boundedObject(request.jsonSchema.schema) } : null;
-    const inputHash = hash({ messages, maxOutputTokens: request.maxOutputTokens, tools: modelTools, toolChoice, structured, images: request.images?.map((image) => ({ sha256: image.sha256, mime: image.mime, sourceVersionId: image.sourceVersionId, pageId: image.pageId })) ?? [] });
+    const ceiling = request.maxReservedUsd === undefined ? undefined : UsdSchema.parse(request.maxReservedUsd);
+    const inputHash = hash({ messages, maxOutputTokens: request.maxOutputTokens, tools: modelTools, toolChoice, structured, images: request.images?.map((image) => ({ sha256: image.sha256, mime: image.mime, sourceVersionId: image.sourceVersionId, pageId: image.pageId })) ?? [], ...(ceiling === undefined ? {} : { maxReservedUsd: ceiling }) });
     const previous = await options.ledger.lookupOperation({ fence: request.fence, operationKey: request.operationKey, inputHash });
     if (previous?.usage.state === 'succeeded') {
       if (!previous.output) throw new RunError('invalid_result');
@@ -90,6 +93,7 @@ export function createModelGateway(options: GatewayOptions) {
     const pricing = await options.pricing();
     assertModelRoute(pricing, options.allowedRoutes);
     const { price, reservedUsd } = validatePricing(pricing, { kind: 'text', maxOutputTokens: request.maxOutputTokens, parameters, candidateProof: options.proofRunId === request.fence.runId });
+    if (ceiling !== undefined && exceedsUsd(ceiling, reservedUsd)) throw new RunError('run_budget');
     if (images.length && !price.vision) throw new RunError('unsupported_parameters');
     const providerMessages = messages.map((message, index) => ({ role: message.role, content: images.length && index === messages.length - 1 ? [{ type: 'text', text: message.content }, ...images] : message.content, ...(message.toolCallId ? { tool_call_id: message.toolCallId } : {}), ...(message.toolCalls ? { tool_calls: message.toolCalls.map((call) => ({ id: call.id, type: 'function', function: { name: call.name, arguments: call.arguments } })) } : {}) }));
     const body: JsonObject = {

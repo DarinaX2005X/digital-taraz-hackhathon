@@ -64,7 +64,7 @@ UI handover: worker STOP, все UI/locales/tests paths переданы MAIN. �
 Status: active
 Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105
 Depends on: 02.1
-Owner: /root/agent_execution
+Owner: SUBAGENT to assign (передача; прежний автор: agent_execution)
 Paths: src/features/runs/, tests/runs/, src/contracts/runs.ts, src/server/db/run-schema.ts, migrations/0007_runtime_budget.sql, src/app/api/runs/, src/app/app/runs/, scripts/eval-live.mjs
 
 Два P2 из independent runtime_execution_review исправлены и приняты integration: штатный price refresh сохраняет exact endpoint proof и ledger; waiting_input/retryablefailed наблюдаются bounded idle polling и получают remote resume/cancel.33 unit, scoped lint/typecheck и новый focused SQL price-refresh case PASS. Полный mounted HTTP/live runtime acceptance остаётся02.2.2; это не заявление о готовой модели.
@@ -122,7 +122,7 @@ Fresh official inspect2026-10-14 обнаружил status=-2 у прежнег�
 Status: active
 Requirements: R10, R14, R16, R25, R39, R42, R43, R76, R105
 Depends on: 02.1
-Owner: /root/sources_finish
+Owner: SUBAGENT to assign (передача; прежний автор: sources_finish)
 Paths: src/features/sources/, tests/sources/, src/contracts/sources.ts, src/server/db/source-schema.ts, src/server/db/source-ingestion-schema.ts, src/server/db/source-asset-schema.ts, migrations/0008_sources.sql, migrations/0010_source_assets.sql, migrations/0012_source_visual_assets.sql, migrations/0012_source_visual_assets.sql.draft, src/app/api/sources/, src/app/app/materials/add/
 
 Canonical fonts/image metadata для06.1 остаются у source owner, не в отдельном design store. Зарезервирована additive0012_source_visual_assets.sql: до stable handover только.sql.draft,0001..0010 immutable. Утверждён bounded TTF/OTF/WOFF subset без WOFF2/collections,5MB input/20MB decompressed, parsed metadata и OS/2 flags отдельно от explicit license permission; unknown не exportable. fontkit2.0.4 direct/types устанавливает integration после proof window. Source visible checkpoint не ждёт всех fonts/OCR; server asset ACL согласуется с artifact/design owners.
@@ -155,13 +155,15 @@ Independent acceptance2026-10-14:7SQL+1полныйHTTP PASS для настоя
 ### 02.3.2 Разбор с источниками и потерями
 Status: active
 
+15октября source intake/visual assets/OCR adapter прошли17focused tests+lint, соответствующие SQL cases из общего batch иmounted HTTPsources85.9s: pinned originals/preview/library, asset bytes+thumbnail, scan partial/review/quote/page PNG, expired-session gates. Pending-start recovery regression проверяется отдельно; paid live OCR ещё не выполнялся. Полный checkpoint остаётсяactive дооставшихся format/recovery/runtime proofs.
+
 Golden все форматы, русский/казахский, multiple sheets, scan/malicious archive. Факты цитируют fragments, спорные числа needs-review. Download original hash equal.
 
 ## 02.4 Согласовать колонки, справочники и качество данных
 Status: active
 Requirements: R14, R16, R32, R34, R35, R36, R37, R39, R44, R45, R76, R92, R99, R103
 Depends on: 02.1, 01.2, 01.3
-Owner: /root/materials_finish
+Owner: SUBAGENT to assign (передача; прежний автор: materials_finish)
 Paths: src/features/materials/, tests/materials/, src/contracts/materials.ts, src/server/db/material-schema.ts, migrations/0011_material_collections.sql, migrations/0011_material_collections.sql.draft, src/app/api/materials/
 
 По приоритету основного функционала2026-10-14 вход разрешён на независимо принятом02.3.1 immutable originals/SourceVersion/CSVpreview boundary. Source owner подтвердил stable contracts CSV/TSV/paste; все chunks, raw values, координаты и pinned version обязательны. Полная02.4 acceptance по-прежнему требует всей02.3, включая остальные форматы/OCR; это условие начала независимой mapping/library реализации, не сокращение финального результата. Fresh materials_delivery сначала читает весь BRIEF/TESTING/Design/reference packet во время текущего GLOBALSTOP, пишет только после release MAIN.
@@ -182,7 +184,9 @@ Partial2026-10-14: typed materials/mapping/import/dataset/facts DTO, mapping dom
 Golden decimal comma, KZT, units, plausible duplicates/conflicting prices без silent merge. Mapping reapplies только при совместимой схеме. RecordIdentity/ResolutionVersion сохраняют stable recordId и fieldId между файлами независимо от порядка строк. Проверить перестановку без изменений, тот же файл, пересекающиеся периоды, одну новую цену, переименование без ключа и удалённую позицию. Replace missing только для полного подтверждённого snapshot; append overlap не удваивает продажи; upsert absence ничего не удаляет. Старые raw fragments и версии доступны.
 
 ### 02.4.2 Библиотека и повторный импорт
-Status: todo
+Status: active
+
+15октября materials_finish перенёс настоящие hub/collection/import mapping/fact correction/undo routes иUI.13domain tests+scopedlint,6SQL и4mounted HTTP cases PASS: mapping/import/query/correction replay/historyundo/ACL.0011 reviewed/final прошлаisolatedDB. Совпадающие уникальные headers сохраняютfield IDs при перестановке; ambiguous/renamed/headerless требуют явного решения. Groupedquery/расширеннаяpagination иполный100k reimport ещёвработе; весь02.4 не принят.
 
 Actual paging/search API/ACL и 100k CSV не целиком в память; retry retains selections. Reimport new version/diff, прошлые outputs неизменны. User checks mobile/scanning.
 

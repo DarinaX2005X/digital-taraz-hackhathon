@@ -45,6 +45,8 @@ export function createCommandGrouping(options: GroupingOptions) {
         expectedArtifactRevisions: validated.expectedArtifactRevisions,
         expectedSourceRevisions: validated.expectedSourceRevisions,
         ...(validated.changesetId ? { changesetId: validated.changesetId } : {}),
+        ...(validated.metadataAt ? { metadataAt: validated.metadataAt } : {}),
+        ...(validated.dependencyEdges ? { dependencyEdges: validated.dependencyEdges } : {}),
         commands: validated.commands.map((command) => ({ artifactId: command.artifactId, baseRevision: command.baseRevision, kind: command.kind, operations: command.operations, expectedSourceRevisions: command.expectedSourceRevisions, reason: command.reason })),
       };
       const basis = JSON.stringify({ artifacts: normalized.expectedArtifactRevisions, sources: normalized.expectedSourceRevisions, changeset: normalized.changesetId });

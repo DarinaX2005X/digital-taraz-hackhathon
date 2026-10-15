@@ -14,6 +14,7 @@ import { asIdentityFailure, identityClient } from "./transport";
 import styles from "./identity.module.css";
 import { AuthDialog } from "./credentials";
 import { accountAuthDestination } from "./navigation";
+import { clearPrivateTabDrafts } from './private-tab-drafts';
 
 export function SignOutDialog({ open, onOpenChange, beforeSignOut, onSignedOut }: { open: boolean; onOpenChange: (open: boolean) => void; beforeSignOut?: () => Promise<boolean>; onSignedOut?: () => void }) {
   const t = useIdentityTranslations();
@@ -34,6 +35,7 @@ export function SignOutDialog({ open, onOpenChange, beforeSignOut, onSignedOut }
       }
     });
     if (!result || !userId || !account.isCurrent(userId, authEpoch)) return;
+    try { clearPrivateTabDrafts(sessionStorage, userId); } catch { /* Browsers may deny tab storage; the account state is still masked. */ }
     account.invalidate(userId, authEpoch);
     onOpenChange(false);
     if (onSignedOut) onSignedOut();

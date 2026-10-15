@@ -5,13 +5,14 @@ import { SourceManifestSchema } from '../../../contracts/sources';
 import { IdentityError } from '../../identity/server/http';
 import { extractOffice } from './office';
 import { sourceHash } from './storage';
+import { inspectSourceFont } from './font';
 
-export const SOURCE_MEDIA: Record<SourceFormat, string> = { text: 'text/plain', csv: 'text/csv', tsv: 'text/tab-separated-values', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', pdf: 'application/pdf', png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
+export const SOURCE_MEDIA: Record<SourceFormat, string> = { text: 'text/plain', csv: 'text/csv', tsv: 'text/tab-separated-values', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', pdf: 'application/pdf', png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff' };
 const bad = (key: string) => new IdentityError('VALIDATION_FAILED', `sources.errors.${key}`);
 
 export function validateSourceMagic(bytes: Buffer, format: SourceFormat) {
   const starts = (...values: number[]) => values.every((value, index) => bytes[index] === value);
-  const valid = format === 'pdf' ? bytes.subarray(0, 5).toString('ascii') === '%PDF-'
+  const valid = format === 'ttf' ? starts(0, 1, 0, 0) : format === 'otf' ? bytes.subarray(0, 4).toString('ascii') === 'OTTO' : format === 'woff' ? bytes.subarray(0, 4).toString('ascii') === 'wOFF' : format === 'pdf' ? bytes.subarray(0, 5).toString('ascii') === '%PDF-'
     : format === 'png' ? starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
       : format === 'jpeg' ? starts(0xff, 0xd8, 0xff)
         : format === 'webp' ? bytes.subarray(0, 4).toString('ascii') === 'RIFF' && bytes.subarray(8, 12).toString('ascii') === 'WEBP'
@@ -80,13 +81,16 @@ export async function extractSource(bytes: Buffer, format: SourceFormat, options
     } catch (error) { if (error instanceof IdentityError) throw error; throw bad('pdf'); }
     finally { await loading.destroy(); }
     if (pages.some((page) => page.state === 'pending')) diagnostics.push('vision-required');
+  } else if (format === 'ttf' || format === 'otf' || format === 'woff') {
+    const font = inspectSourceFont(bytes, format);
+    fragments = [{ id: 'font:metadata', text: `${font.family} — ${font.subfamily}`, review: 'observed' }];
   } else {
     try {
       const metadata = await sharp(bytes, { limitInputPixels: 20_000_000, animated: false }).metadata();
       if (!metadata.width || !metadata.height || metadata.width * metadata.height > 20_000_000 || (metadata.pages ?? 1) > 1 || metadata.format !== (format === 'jpeg' ? 'jpeg' : format)) throw bad('image');
     } catch (error) { if (error instanceof IdentityError) throw error; throw bad('image'); }
-    pages = [{ page: 1, state: 'pending' }]; diagnostics.push('vision-required');
+    if (options.purpose !== 'visual') { pages = [{ page: 1, state: 'pending' }]; diagnostics.push('vision-required'); }
   }
-  if (!fragments.length && pages.every((page) => page.state === 'ready')) diagnostics.push('empty-content');
+  if (!fragments.length && pages.every((page) => page.state === 'ready') && !(options.purpose === 'visual' && ['png', 'jpeg', 'webp'].includes(format))) diagnostics.push('empty-content');
   return buildExtraction(format, byteHash, options, fragments, sheets, diagnostics, pages);
 }

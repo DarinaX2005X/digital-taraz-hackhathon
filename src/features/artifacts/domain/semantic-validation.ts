@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ElementIdSchema, IdSchema } from '../../../contracts/primitives';
 import { ArtifactContentSchema, DocumentNodeSchema, DesignLayerSchema, PlanEntrySchema, TableCellSchema, type ArtifactContent, type DesignLayer, type DocumentNode, type JsonValue, type PlanEntry, type TableCell } from './content-models';
 import { assertBoundedJson, ContentValidationError, CONTENT_LIMITS, stableToken } from './canonical';
+import { parseCellTargetId } from './targets';
 
 function fail(reason: string, path: readonly (string | number)[] = []): never { throw new ContentValidationError(reason, path); }
 const blocks = new Set(['paragraph', 'heading', 'bulletList', 'orderedList', 'blockquote', 'table', 'image', 'pageBreak']);
@@ -150,6 +151,24 @@ function validateWorkbook(content: Extract<ArtifactContent, { kind: 'table' }>):
     if (tokens.has(token)) fail('stable-token-collision');
     tokens.add(token);
     for (const list of [ids.rows, ids.columns]) uniqueIds(list.map(stableToken), 'stable-token-collision');
+    if (sheet.freeze && (sheet.freeze.xSplit > sheet.columnCount || sheet.freeze.ySplit > sheet.rowCount || sheet.freeze.startRow >= sheet.rowCount || sheet.freeze.startColumn >= sheet.columnCount)) fail('freeze-outside-sheet');
+    uniqueIds((sheet.charts ?? []).map((chart) => chart.id), 'duplicate-chart-id');
+    for (const chart of sheet.charts ?? []) {
+      uniqueIds(chart.valueColumnIds, 'duplicate-chart-column'); uniqueIds(chart.rowIds, 'duplicate-chart-row');
+      // Stable references may become unavailable after a deliberate row/column removal.
+      // Consumers must expose that state instead of substituting other data.
+      if (chart.valueColumnIds.includes(chart.labelColumnId)) fail('chart-label-is-value-column');
+    }
+    if (sheet.calculation) {
+      const calculation = sheet.calculation;
+      const targets = calculation.lines.flatMap((line) => [line.quantityCellId, line.priceCellId, line.amountCellId]);
+      targets.push(calculation.subtotalCellId, calculation.totalCellId);
+      for (const adjustment of [calculation.discount, calculation.tax]) if (adjustment) targets.push(adjustment.rateCellId, adjustment.amountCellId);
+      if (targets.some((id) => parseCellTargetId(id)?.sheetToken !== token)) fail('calculation-target-outside-sheet');
+      // Missing stable targets stay explicit in the spec so deletion/undo cannot silently
+      // discard financial rules. The evaluator returns unavailable for those targets.
+      for (const formula of [calculation.subtotalFormula, calculation.totalFormula, ...calculation.lines.map((line) => line.expectedFormula), ...[calculation.discount, calculation.tax].flatMap((adjustment) => adjustment ? [adjustment.expectedFormula] : [])]) validateTableCell({ f: formula });
+    }
     for (const [r, row] of Object.entries(sheet.cellData)) {
       if (Number(r) >= sheet.rowCount) fail('cell-outside-sheet');
       for (const [c, cell] of Object.entries(row)) {
@@ -186,6 +205,8 @@ export function validateDesignTree(layer: DesignLayer): Set<string> {
     if (item.type === 'image' && !item.assetId) fail('image-layer-requires-asset');
     if (item.type === 'shape' && !item.shape) fail('shape-layer-requires-shape');
     if ((item.type !== 'text' && item.text !== undefined) || (item.type !== 'image' && item.assetId !== undefined) || (item.type !== 'shape' && item.shape !== undefined) || (item.type !== 'group' && item.layers !== undefined)) fail('layer-kind-mismatch');
+    if ((item.fontAssetId !== undefined && item.type !== 'text') || (item.crop !== undefined && item.type !== 'image')) fail('layer-kind-mismatch');
+    if (item.crop && (item.crop.x + item.crop.width > 1 || item.crop.y + item.crop.height > 1)) fail('crop-outside-image');
     if (item.type === 'group' && !item.layers) fail('group-requires-layers');
     for (const [key, value] of Object.entries(item.style)) {
       if (!['fill', 'stroke', 'strokeWidth', 'opacity', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'textAlign', 'lineHeight', 'letterSpacing', 'radius'].includes(key)) fail('unsupported-layer-style');

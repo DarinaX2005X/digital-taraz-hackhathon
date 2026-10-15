@@ -17,8 +17,11 @@ import { WorkspaceAccessState, WorkspaceError, WorkspaceShell, useWorkspaceAcces
 import styles from './workspace.module.css';
 import { useWorkspaceLeaveGuard } from './leave-guard';
 import { isDefiniteRequestRejection, retainRequestAttempt, type RequestAttempt } from '../domain/request-attempt';
+import { taskRequestKey } from '../domain/task-request';
+import { ProjectTask } from './project-task';
+import { TourGuide } from '@/features/onboarding/tour';
 
-export function ProjectPage({ ownerId, initial }: { ownerId: string; initial: ProjectResult }) {
+export function ProjectPage({ ownerId, initial, selectedSource }: { ownerId: string; initial: ProjectResult; selectedSource?: { sourceId: string; sourceVersionId: string } }) {
   const t = useWorkspaceCopy(), { locale } = useLocale(), router = useRouter();
   const access = useWorkspaceAccess(ownerId), { run } = access;
   const [result, setResult] = useState(initial);
@@ -32,6 +35,7 @@ export function ProjectPage({ ownerId, initial }: { ownerId: string; initial: Pr
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [creating, setCreating] = useState(false), [createError, setCreateError] = useState<unknown>();
   const [creationUncertain, setCreationUncertain] = useState(false);
+  const [taskBusy, setTaskBusy] = useState(false);
   const [discarded, setDiscarded] = useState(false);
   const operation = useRef<RequestAttempt<unknown> | undefined>(undefined);
   const creation = useRef<RequestAttempt<Parameters<typeof artifactClient.create>[0]> | undefined>(undefined);
@@ -43,11 +47,11 @@ export function ProjectPage({ ownerId, initial }: { ownerId: string; initial: Pr
   const active = access.phase === 'active';
   const canEdit = result.canEdit === true && project.status === 'active';
   const externalChange = dirty && baseRevision !== project.revision;
-  const leave = useWorkspaceLeaveGuard(active && (dirty || Boolean(documentTitle)), creating || creationUncertain || saving);
+  const leave = useWorkspaceLeaveGuard(active && (dirty || Boolean(documentTitle)), creating || creationUncertain || saving || taskBusy);
 
   useEffect(() => { latestDraft.current = { title, goal, dirty }; }, [title, goal, dirty]);
   if (access.phase === 'discarded' && !discarded) { setDiscarded(true); setTitle(''); setGoal(''); setDocumentTitle(''); setArtifacts(undefined); setSources(undefined); }
-  useEffect(() => { if (access.phase === 'discarded') { operation.current = undefined; creation.current = undefined; } }, [access.phase]);
+  useEffect(() => { if (access.phase === 'discarded') { operation.current = undefined; creation.current = undefined; try { sessionStorage.removeItem(taskRequestKey(ownerId, projectId)); } catch { /* No persisted tab data is accessible. */ } } }, [access.phase, ownerId, projectId]);
   useEffect(() => {
     if (!active) return;
     const controller = new AbortController();
@@ -118,7 +122,7 @@ export function ProjectPage({ ownerId, initial }: { ownerId: string; initial: Pr
   }, [active, run, ownerId, workspaceId, projectId, refreshProject, loadArtifacts, loadSources]);
 
   async function mutate(action: 'update' | 'archive' | 'restore') {
-    if (saving) return;
+    if (saving) return false;
     const body = { workspaceId, expectedAuthzVersion: result.authzVersion, expectedRevision: action === 'update' ? baseRevision : project.revision, ...(action === 'update' ? { title, goal: goal || null } : {}) };
     const attempt = retainRequestAttempt(operation.current, { action, workspaceId, projectId, ...(action === 'update' ? { title, goal } : {}) }, () => body);
     operation.current = attempt;
@@ -127,7 +131,8 @@ export function ProjectPage({ ownerId, initial }: { ownerId: string; initial: Pr
       const next = await run((signal) => workspaceClient.mutate(projectId, action, attempt.input, attempt.key, { userId: ownerId, signal }));
       setResult(next); setTitle(next.project.title); setGoal(next.project.goal ?? ''); setBaseRevision(next.project.revision); cursor.current = next.cursor; operation.current = undefined; setArchiveOpen(false);
       await refreshProject();
-    } catch (failure) { if (isDefiniteRequestRejection(failure)) operation.current = undefined; setError(failure); }
+      return true;
+    } catch (failure) { if (isDefiniteRequestRejection(failure)) operation.current = undefined; setError(failure); return false; }
     finally { setSaving(false); }
   }
   async function createDocument(event: React.FormEvent) {
@@ -155,21 +160,23 @@ export function ProjectPage({ ownerId, initial }: { ownerId: string; initial: Pr
   </>;
   return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onClickCapture={leave.onClickCapture}><main className={styles.main}>
     {leave.confirmation}
+    {canEdit && <TourGuide ownerId={ownerId} anchors={{ task: 'project-task-goal', materials: 'project-materials' }} />}
     <Link className={styles.back} href={`/app/work?workspace=${workspaceId}`}><ArrowLeft size={18} />{t.back}</Link>
     <header className={styles.pageHeading}><div><h1>{project.title}</h1><p className={styles.meta}>{formatInstant(locale, project.updatedAt)}{result.canEdit === false && <span>{t.readOnly}</span>}</p></div><div className={styles.actions}>
       <Link className="tl-button tl-button--secondary" href={`/app/runs?workspace=${workspaceId}&project=${projectId}`}><Activity size={18} />{t.activity}</Link>
       <Button className={styles.mobileOnly} icon={FolderOpen} onClick={() => setSourcesOpen(true)}>{t.source}</Button>
-      {canEdit && <><Link className="tl-button tl-button--secondary" href={`/app/materials/add?workspaceId=${workspaceId}&projectId=${projectId}`}><Upload size={18} />{t.addSource}</Link><Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{t.newDocument}</Button><Button icon={Archive} disabled={dirty} onClick={() => setArchiveOpen(true)}>{t.archive}</Button></>}
+      {canEdit && <><Link id="project-materials" className="tl-button tl-button--secondary" href={`/app/materials/add?workspaceId=${workspaceId}&projectId=${projectId}`}><Upload size={18} />{t.addSource}</Link><Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{t.newDocument}</Button><Button icon={Archive} disabled={dirty} onClick={() => setArchiveOpen(true)}>{t.archive}</Button></>}
       {project.status === 'archived' && result.canEdit && <Button variant="primary" icon={RotateCcw} pending={saving} onClick={() => { void mutate('restore'); }}>{t.restore}</Button>}
     </div></header>
     {project.status === 'archived' && <div className={styles.archiveNotice}>{t.archivedProject}</div>}
     <div className={styles.projectLayout}><section className={styles.projectMain}>
       <form className={`${styles.goal} ${styles.form}`} onSubmit={(event) => { event.preventDefault(); void mutate('update'); }}>
-        <InputField label={t.title} required maxLength={240} value={title} disabled={!canEdit || saving} onChange={(event) => setTitle(event.target.value)} />
-        <TextareaField label={t.goal} placeholder={t.goalHint} value={goal} maxLength={12000} rows={4} disabled={!canEdit || saving} onChange={(event) => setGoal(event.target.value)} />
+        <details className={styles.projectDetails}><summary>{t.renameProject}</summary><InputField label={t.title} required maxLength={240} value={title} disabled={!canEdit || saving || taskBusy} onChange={(event) => setTitle(event.target.value)} /></details>
+        <TextareaField id="project-task-goal" label={t.goal} placeholder={t.goalHint} value={goal} maxLength={12000} rows={4} disabled={!canEdit || saving || taskBusy} onChange={(event) => setGoal(event.target.value)} />
         {externalChange && <div className={styles.error}><div><p>{t.conflict}</p><strong>{project.title}</strong><p>{project.goal}</p></div><Button onClick={() => { setBaseRevision(project.revision); setError(undefined); }}>{t.resume}</Button></div>}
         <WorkspaceError error={error} saving retry={() => { void refreshProject().catch(setError); }} />
-        {canEdit && <div className={styles.actions}><Button variant="primary" type="submit" icon={Save} pending={saving} disabled={!dirty || externalChange || !title.trim()}>{t.save}</Button><SaveStatus state={saving ? 'saving' : dirty ? 'unsaved' : 'saved'} /></div>}
+        {canEdit && <div className={styles.actions}><Button type="submit" icon={Save} pending={saving} disabled={!dirty || externalChange || !title.trim() || taskBusy}>{t.save}</Button><SaveStatus state={saving ? 'saving' : dirty ? 'unsaved' : 'saved'} /></div>}
+        {canEdit && <ProjectTask ownerId={ownerId} workspaceId={workspaceId} projectId={projectId} goal={goal} sources={sources} active={active} canEdit={canEdit && !externalChange && Boolean(title.trim())} selectedSource={selectedSource} beforeStart={async () => !dirty || await mutate('update')} onBusyChange={setTaskBusy} run={run} />}
       </form>
       <div className={styles.sectionHeading}><h2>{t.results}</h2></div><WorkspaceError error={artifactError} retry={() => { void loadArtifacts(result.authzVersion); }} />
       {!artifacts && !artifactError && <LoadingState />}

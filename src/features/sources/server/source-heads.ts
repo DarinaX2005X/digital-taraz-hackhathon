@@ -71,6 +71,36 @@ export async function markSourceUnavailable(transaction: PoolClient, access: Wor
   return { ...headDto(source), state: 'unavailable' };
 }
 
+/** Checks current read permission independently of freshness. Retained historical
+ * versions of unavailable sources remain readable; trashed sources do not. */
+export async function assertSourceReadAccess(transaction: PoolClient, access: WorkspaceAccess, input: readonly SourceRef[]): Promise<void> {
+  const refs = validate(z.array(SourceRefSchema).max(1000), input);
+  if (!refs.length) return;
+  const missing = () => new IdentityError('NOT_FOUND', 'identity.errors.notFound');
+  const ids = [...new Set(refs.map((ref) => ref.sourceId))].sort();
+  const metadata = (await transaction.query<SourceRow>(`SELECT ${sourceColumns} FROM sources WHERE workspace_id=$1 AND id=ANY($2::uuid[])`, [access.workspace.id, ids])).rows;
+  if (metadata.length !== ids.length) throw missing();
+  const projects = new Map<string, WorkspaceAccess>();
+  for (const projectId of [...new Set(metadata.map((source) => source.project_id))].sort()) {
+    projects.set(projectId, await lockProjectAccess(transaction, access, { projectId, scope: 'read' }));
+    const project = (await transaction.query<{ status: string }>('SELECT status FROM projects WHERE workspace_id=$1 AND id=$2', [access.workspace.id, projectId])).rows[0];
+    if (!project || project.status === 'trashed') throw missing();
+  }
+  const expectedProjects = new Map(metadata.map((source) => [source.id, source.project_id]));
+  const sources = (await transaction.query<SourceRow>(`SELECT ${sourceColumns} FROM sources WHERE workspace_id=$1 AND id=ANY($2::uuid[]) ORDER BY id FOR SHARE`, [access.workspace.id, ids])).rows;
+  if (sources.length !== ids.length) throw missing();
+  for (const source of sources) {
+    const project = projects.get(source.project_id);
+    if (!project || expectedProjects.get(source.id) !== source.project_id || source.state === 'trashed') throw missing();
+    if (!hasScope({ ...project.membership, projectScopes: project.projectScopes, confidential: source.access_class === 'confidential' }, 'read')) throw new IdentityError('FORBIDDEN', 'identity.errors.forbidden');
+  }
+  const versions = new Map((await transaction.query<{ id: string; source_id: string; revision: number }>('SELECT id,source_id,revision FROM source_versions WHERE workspace_id=$1 AND source_id=ANY($2::uuid[]) AND id=ANY($3::uuid[]) ORDER BY id FOR SHARE', [access.workspace.id, ids, [...new Set(refs.map((ref) => ref.sourceVersionId))].sort()])).rows.map((version) => [version.id, version]));
+  for (const ref of refs) {
+    const version = versions.get(ref.sourceVersionId);
+    if (!version || version.source_id !== ref.sourceId || version.revision !== ref.revision) throw missing();
+  }
+}
+
 /** Locks authorized heads and pinned versions in the mutation transaction. A
  * blocked fact-resolution dimension stays unknown until02.4 supplies authority. */
 export async function readSourceFreshness(transaction: PoolClient, access: WorkspaceAccess, input: readonly SourceRef[]): Promise<SourceFreshness[]> {

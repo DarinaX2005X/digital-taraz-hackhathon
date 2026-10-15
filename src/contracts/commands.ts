@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ArtifactKindSchema } from './artifacts';
-import { ElementIdSchema, HashSchema, IdSchema, RevisionSchema } from './primitives';
+import { DependencyEdgeSchema } from './dependency-edges';
+import { ElementIdSchema, HashSchema, IdSchema, InstantSchema, RevisionSchema } from './primitives';
 
 export const RevisionVectorSchema = z.record(IdSchema, RevisionSchema);
 export const CommandOperationSchema = z.strictObject({
@@ -28,6 +29,9 @@ export const CommandSchema = CommandInputSchema.extend({
 });
 export const CommandGroupInputSchema = z.strictObject({
   commandGroupId: IdSchema,
+  // Logical edit metadata only. Receipt/audit timestamps always come from the server.
+  metadataAt: InstantSchema.optional(),
+  dependencyEdges: z.array(DependencyEdgeSchema).min(1).max(1000).optional(),
   changesetId: IdSchema.optional(),
   expectedArtifactRevisions: RevisionVectorSchema,
   expectedSourceRevisions: RevisionVectorSchema,

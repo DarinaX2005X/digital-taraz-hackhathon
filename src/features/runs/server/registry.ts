@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
-import type { CreateRun, RunAction, RunPolicy, RunResultRef } from '../../../contracts/runs';
+import type { CreateRun, ResumeRun, RunAction, RunPolicy, RunResultRef } from '../../../contracts/runs';
 import { CapabilityIdSchema, ToolNameSchema, RunPolicySchema } from '../../../contracts/runs';
 import { RunError } from '../domain/errors';
 import { boundedObject, type JsonObject, type RunFence } from './data';
@@ -24,6 +24,7 @@ export interface RunTool {
 export interface RunCapability {
   id: string; version: number; publicStart: boolean; policy: RunPolicy;
   initialize: (input: CreateRun, privateInput: JsonObject) => { context: JsonObject; steps: PlannedStep[] };
+  continue?: (input: CreateRun, context: JsonObject, change: ResumeRun) => { context: JsonObject; steps: PlannedStep[] };
 }
 export function createRunRegistry(capabilities: readonly RunCapability[], tools: readonly RunTool[]) {
   const capabilityMap = new Map<string, RunCapability>();

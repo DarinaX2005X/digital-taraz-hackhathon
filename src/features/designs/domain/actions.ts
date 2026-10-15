@@ -11,6 +11,7 @@ import { alignedLayers, distributedLayers, resizeLayer, selectionBounds, transla
 import { cloneLayer, DesignActionError, isLayerLocked, layerLocations, selectedRoots, type DesignContent, type DesignLayer, type DesignPage, type LayerLocation } from './model';
 
 export type DesignAction =
+  | { type: 'transform-layers'; transforms: { id: string; transform: DesignLayer['transform'] }[] }
   | { type: 'insert-layer'; pageId: string; layer: DesignLayer; beforeId?: string | null }
   | { type: 'update-layer'; id: string; patch: Partial<Omit<DesignLayer, 'id' | 'type' | 'layers'>> }
   | { type: 'replace-layer'; id: string; layer: DesignLayer }
@@ -26,6 +27,7 @@ export type DesignAction =
   | { type: 'lock'; ids: string[]; locked: boolean }
   | { type: 'visibility'; ids: string[]; hidden: boolean }
   | { type: 'bind'; id: string; sourceRef: SourceRef; transformId: string; value: string }
+  | { type: 'bind-color'; id: string; sourceRef: SourceRef; value: string }
   | { type: 'unbind'; id: string }
   | { type: 'insert-page'; page: DesignPage; beforeId?: string | null }
   | { type: 'update-page'; id: string; patch: Partial<Omit<DesignPage, 'id' | 'layers'>> }
@@ -82,6 +84,16 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
   }
 
   switch (action.type) {
+    case 'transform-layers': {
+      const items = roots(action.transforms.map((item) => item.id)); unlocked(items, true);
+      if (items.length !== action.transforms.length) throw new DesignActionError('selection');
+      for (const item of items) {
+        const transform = action.transforms.find((entry) => entry.id === item.layer.id)!.transform;
+        const resized = resizeLayer(item.layer, transform.width, transform.height);
+        await set({ ...resized, transform });
+      }
+      selection = items.map((item) => item.layer.id); pageId = items[0]!.pageId; break;
+    }
     case 'insert-layer': {
       const parent = page(action.pageId);
       if (state.locks[parent.id]) throw new DesignActionError('locked');
@@ -91,6 +103,8 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
     case 'update-layer': case 'replace-layer': {
       const item = location(action.id); unlocked([item], true);
       let next = action.type === 'replace-layer' ? structuredClone(action.layer) : { ...structuredClone(item.layer), ...structuredClone(action.patch) };
+      // Clearing optional inspector fields removes the key from canonical JSON.
+      next = Object.fromEntries(Object.entries(next).filter(([, value]) => value !== undefined)) as unknown as DesignLayer;
       if (next.id !== item.layer.id || next.type !== item.layer.type) throw new DesignActionError('invalid');
       if (item.layer.type === 'group' && (next.transform.width !== item.layer.transform.width || next.transform.height !== item.layer.transform.height)) {
         const scaled = resizeLayer(item.layer, next.transform.width, next.transform.height);
@@ -177,9 +191,13 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
       for (const item of items) await operation(item.layer.id, 'lock', { locked: action.locked, ...(action.locked ? { reason: options.context.reason } : {}) });
       selection = items.map((item) => item.layer.id); break;
     }
-    case 'bind': case 'unbind': {
+    case 'bind': case 'bind-color': case 'unbind': {
       const item = location(action.id); unlocked([item]);
-      if (action.type === 'bind') {
+      if(action.type==='bind-color') {
+        if(!['text','shape'].includes(item.layer.type)||!/^#[\da-f]{6}$/i.test(action.value))throw new DesignActionError('invalid');
+        await operation(item.layer.id,'style',{fill:action.value});
+        await operation(item.layer.id,'bind',{sourceRef:action.sourceRef,transformId:'brand-color',updateMode:'propose'});
+      } else if (action.type === 'bind') {
         if (item.layer.type !== 'text') throw new DesignActionError('selection');
         await set({ ...item.layer, text: action.value });
         await operation(item.layer.id, 'bind', { sourceRef: action.sourceRef, transformId: action.transformId, updateMode: 'propose' });
@@ -210,9 +228,10 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
 
 export async function prepareDesignAction(snapshot: ArtifactSnapshot, action: DesignAction, reason: string, options: { makeId?: () => string; at?: string; sourceFreshness?: readonly SourceFreshness[] } = {}): Promise<DesignActionResult & { command: CommandGroupDraft }> {
   if (!snapshot.permissions.edit || ['archived', 'trashed'].includes(snapshot.artifact.status)) throw new DesignActionError('read-only');
-  const result = await applyDesignAction(createEditorArtifactState(snapshot), action, { ...options, context: { actorId: snapshot.viewer.userId, at: options.at ?? new Date().toISOString(), origin: 'human', reason } });
+  const metadataAt = options.at ?? new Date().toISOString();
+  const result = await applyDesignAction(createEditorArtifactState(snapshot), action, { ...options, context: { actorId: snapshot.viewer.userId, at: metadataAt, origin: 'human', reason } });
   const expectedSourceRevisions = currentSourceRevisions(snapshot, collectSourceRefs(result.state), options.sourceFreshness);
-  return { ...result, command: { expectedArtifactRevisions: { [snapshot.artifact.id]: snapshot.artifact.currentRevision }, expectedSourceRevisions,
+  return { ...result, command: { metadataAt, expectedArtifactRevisions: { [snapshot.artifact.id]: snapshot.artifact.currentRevision }, expectedSourceRevisions,
     commands: [{ artifactId: snapshot.artifact.id, baseRevision: snapshot.artifact.currentRevision, kind: 'design', operations: result.operations, expectedSourceRevisions, reason }] } };
 }
 

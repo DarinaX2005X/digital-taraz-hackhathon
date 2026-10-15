@@ -4,7 +4,7 @@ import { CommandOperationSchema } from '../../../contracts/commands';
 import { ElementIdSchema } from '../../../contracts/primitives';
 import { ContentValidationError, CONTENT_LIMITS, assertBoundedJson, hashJson, measureJson, jsonBytes } from './canonical';
 import { collectSourceRefs, countTreeNodes, measureArtifactContent } from './content-state';
-import type { ArtifactContent, DesignLayer, DocumentNode, JsonValue, TableCell, TableSheet } from './content-models';
+import { TableSheetSettingsSchema, type ArtifactContent, type DesignLayer, type DocumentNode, type JsonValue, type TableCell, type TableSheet } from './content-models';
 import { MerkleJson, type JsonPath } from './merkle-json';
 import { buildTargetIndex, describeTarget, locateTarget, parseCellTargetId, readPath, tableColumnTargetId, tableRowTargetId, tableSheetTargetId, targetValue, type ArtifactState, type ArtifactTarget, type TargetLocator, type TargetLock } from './targets';
 import { validateArtifactContent, validateDesignLayer, validateDocumentNode, validateTableCell, parseJsonValue } from './semantic-validation';
@@ -12,7 +12,12 @@ import { validateArtifactContent, validateDesignLayer, validateDocumentNode, val
 export type ArtifactOperation = z.infer<typeof CommandOperationSchema>;
 export interface OperationContext { actorId: string; at: string; reason: string; origin: 'human' | 'ai' | 'import' | 'history' }
 export interface MetadataRestore { binding: FieldBinding | null; lock: TargetLock | null }
-export interface ReversibleOperation { operation: ArtifactOperation; metadata: Record<string, MetadataRestore>; metadataExpectedHashes?: Record<string, string | null>; sheetMerges?: { sheetId: string; value: JsonValue | null; expectedHash: string } }
+export interface ReversibleOperation {
+  operation: ArtifactOperation; metadata: Record<string, MetadataRestore>; metadataExpectedHashes?: Record<string, string | null>;
+  sheetMerges?: { sheetId: string; value: JsonValue | null; expectedHash: string };
+  tableFormulas?: { targetId: string; value: TableCell; expectedHash: string | null }[];
+  tableSettings?: { sheetId: string; key: 'freeze' | 'calculation'; value: JsonValue | null; expectedHash: string }[];
+}
 export interface AppliedOperations { root: string; inverse: ReversibleOperation[]; beforeHashes: Record<string, string | null>; afterHashes: Record<string, string | null> }
 
 export class TargetConflictError extends Error {
@@ -139,9 +144,6 @@ function tableInsertValue(state: ArtifactState, locator: TargetLocator): JsonVal
 
 function mutateTableStructure(state: ArtifactState, operation: ArtifactOperation, locator: TargetLocator | undefined): ArtifactOperation {
   const content = state.content as Extract<ArtifactContent, { kind: 'table' }>;
-  // The engine adapter in05.1 must transform formula references as part of the same command.
-  // Until then a structural change cannot silently shift what an existing formula means.
-  if (Object.values(content.workbook.sheets).some((sheet) => Object.values(sheet.cellData).some((row) => Object.values(row).some((cell) => cell.f)))) throw new ContentValidationError('formula-structural-adapter-required');
   if (operation.op === 'insert') {
     const value = parseJsonValue(TableInsertSchema, operation.value!);
     const sheet = content.workbook.sheets[value.sheetId], ids = content.stableIds[value.sheetId];
@@ -159,7 +161,6 @@ function mutateTableStructure(state: ArtifactState, operation: ArtifactOperation
       if (other < 0) throw new ContentValidationError('missing-opposite-cell-axis');
       const row = value.axis === 'row' ? position : String(other), column = value.axis === 'row' ? String(other) : position;
       const checked = validateTableCell(cell);
-      if (checked.f) throw new ContentValidationError('formula-structural-adapter-required');
       sheet.cellData[row] ??= {}; sheet.cellData[row]![column] = checked;
     }
     if (value.data) { if (value.axis === 'row') { sheet.rowData ??= {}; sheet.rowData[position] = value.data; } else { sheet.columnData ??= {}; sheet.columnData[position] = value.data; } }
@@ -209,6 +210,28 @@ function mutateStructure(state: ArtifactState, operation: ArtifactOperation, loc
   return inverse;
 }
 
+function adjustTableSettings(content: Extract<ArtifactContent, { kind: 'table' }>, changedSheetId: string, changes: { targetId: string; before: TableCell; after: TableCell }[]) {
+  const sheet = content.workbook.sheets[changedSheetId]!;
+  if (sheet.freeze) sheet.freeze = {
+    xSplit: Math.min(sheet.freeze.xSplit, sheet.columnCount), ySplit: Math.min(sheet.freeze.ySplit, sheet.rowCount),
+    startRow: Math.min(sheet.freeze.startRow, sheet.rowCount - 1), startColumn: Math.min(sheet.freeze.startColumn, sheet.columnCount - 1),
+  };
+  const rewritten = new Map(changes.map((change) => [change.targetId, change]));
+  const formula = (targetId: string, expected: string) => {
+    const change = rewritten.get(targetId);
+    return change?.before.f === expected ? change.after.f! : expected;
+  };
+  for (const item of Object.values(content.workbook.sheets)) {
+    const calculation = item.calculation;
+    if (!calculation) continue;
+    for (const line of calculation.lines) line.expectedFormula = formula(line.amountCellId, line.expectedFormula);
+    calculation.subtotalFormula = formula(calculation.subtotalCellId, calculation.subtotalFormula);
+    calculation.totalFormula = formula(calculation.totalCellId, calculation.totalFormula);
+    if (calculation.discount) calculation.discount.expectedFormula = formula(calculation.discount.amountCellId, calculation.discount.expectedFormula);
+    if (calculation.tax) calculation.tax.expectedFormula = formula(calculation.tax.amountCellId, calculation.tax.expectedFormula);
+  }
+}
+
 export class ArtifactDraft {
   constructor(readonly graph: MerkleJson, public root: string) {}
 
@@ -252,7 +275,9 @@ export class ArtifactDraft {
       if (typeof value.sheetId === 'string') ids.add(tableSheetTargetId(value.sheetId));
     }
     for (const id of ids) { const metadata = await this.metadata(id); if (metadata.lock || metadata.binding?.lock || metadata.binding?.override) return id; }
-    if (locator && !['table-cell', 'plan-entry'].includes(locator.kind)) {
+    // Adding protection to a parent does not mutate its protected descendants.
+    // Direct and ancestor protection is still checked above for lock commands.
+    if (operation.op !== 'lock' && locator && !['table-cell', 'plan-entry'].includes(locator.kind)) {
       const bindings = (await this.graph.get(this.root, ['bindings']) ?? {}) as unknown as Record<string, FieldBinding>;
       const locks = (await this.graph.get(this.root, ['locks']) ?? {}) as unknown as Record<string, TargetLock>;
       for (const id of new Set([...Object.keys(locks), ...Object.values(bindings).filter((binding) => binding.lock || binding.override).map((binding) => binding.targetElementId)])) {
@@ -299,6 +324,23 @@ export class ArtifactDraft {
       }
       this.root = await this.graph.set(this.root, ['content', ...locator.path], value);
       await this.adjustMetrics(oldRow, await this.graph.get(this.root, rowPath), rowPath.slice(1));
+    } else if (locator.kind === 'table-sheet') {
+      if (operation.op !== 'set') throw new ContentValidationError('unsupported-target-style');
+      const settings = parseJsonValue(TableSheetSettingsSchema, value!);
+      const state = await this.state();
+      if (state.content.kind !== 'table' || !locator.sheetId) throw new ContentValidationError('missing-sheet');
+      const sheet = state.content.workbook.sheets[locator.sheetId]!;
+      const restore: Record<string, JsonValue> = { kind: 'sheet-settings' };
+      if (settings.name !== undefined) { restore.name = sheet.name; sheet.name = settings.name; }
+      for (const key of ['freeze', 'charts', 'calculation', 'mergeData', 'rowData', 'columnData'] as const) {
+        if (settings[key] === undefined) continue;
+        restore[key] = asJson(sheet[key] ?? null);
+        // The strict settings schema excludes cells, dimensions and stable IDs.
+        if (settings[key] === null) delete sheet[key];
+        else Object.assign(sheet, { [key]: settings[key] });
+      }
+      this.replaceState(state, context);
+      return { targetId: operation.targetId, op: 'set', value: restore, beforeHash: null };
     } else if (locator.kind === 'document-node' || locator.kind === 'design-layer') {
       if (operation.op === 'style') {
         if (typeof value !== 'object' || value === null || Array.isArray(value)) throw new ContentValidationError('invalid-style');
@@ -326,7 +368,7 @@ export class ArtifactDraft {
       const state = await this.state();
       if (locator.kind === 'plan-entry' && (value as Record<string, JsonValue>)?.id !== operation.targetId) throw new ContentValidationError('cannot-change-stable-id');
       if (locator.kind === 'design-page' && (value as Record<string, JsonValue>)?.id !== operation.targetId) throw new ContentValidationError('cannot-change-stable-id');
-      if (locator.kind === 'table-row' || locator.kind === 'table-column' || locator.kind === 'table-sheet') throw new ContentValidationError('use-cell-or-structural-command');
+      if (locator.kind === 'table-row' || locator.kind === 'table-column') throw new ContentValidationError('use-cell-or-structural-command');
       safeSet(state.content, locator.path, value); this.replaceState(state, context);
     }
     return { targetId: operation.targetId, op: previous === null && locator.kind === 'table-cell' ? 'remove' : 'set', ...(previous === null && locator.kind === 'table-cell' ? {} : { value: previous }), beforeHash: null };
@@ -359,7 +401,9 @@ export class ArtifactDraft {
         if (context.origin === 'ai' || context.origin === 'import') {
           const blocked = await this.protectedTarget(operation, locator);
           if (blocked) throw new TargetConflictError(blocked, 'locked', null, (await this.target(blocked))?.hash ?? null);
-          if (operation.op === 'lock') throw new ContentValidationError('only-human-may-change-lock');
+          // A reviewed import may retain protection on a new, unprotected target.
+          // It cannot remove or rewrite existing protection, or give AI lock authority.
+          if (operation.op === 'lock' && (context.origin === 'ai' || !parseJsonValue(LockSchema, operation.value!).locked)) throw new ContentValidationError('only-human-may-change-lock');
         }
         if (!Object.hasOwn(beforeHashes, operation.targetId)) beforeHashes[operation.targetId] = hash;
         const metadata = await this.metadata(operation.targetId);
@@ -369,6 +413,19 @@ export class ArtifactDraft {
           const current = (await this.target(id))?.hash ?? null;
           if (current !== expected) throw new TargetConflictError(id, 'before-hash', expected, current);
         }
+        const formulaRestores = restores?.[i]?.tableFormulas ?? [];
+        const settingRestores = restores?.[i]?.tableSettings ?? [];
+        for (const restore of formulaRestores) {
+          const current = (await this.target(restore.targetId))?.hash ?? null;
+          if (current !== restore.expectedHash) throw new TargetConflictError(restore.targetId, 'before-hash', restore.expectedHash, current);
+        }
+        for (const restore of settingRestores) {
+          const current = hashJson(await this.graph.get(this.root, ['content', 'workbook', 'sheets', restore.sheetId, restore.key]) ?? null);
+          if (current !== restore.expectedHash) throw new TargetConflictError(tableSheetTargetId(restore.sheetId), 'before-hash', restore.expectedHash, current);
+        }
+        const savedFormulas = new Map<string, TableCell>();
+        const savedFormulaHashes = new Map<string, string | null>();
+        const savedSettings: { sheetId: string; key: 'freeze' | 'calculation'; value: JsonValue | null }[] = [];
         const boundBefore = new Map<string, string | null>();
         if (context.origin === 'human' && ['set', 'style', 'remove'].includes(operation.op)) {
           const bindings = (await this.graph.get(this.root, ['bindings']) ?? {}) as unknown as Record<string, FieldBinding>;
@@ -403,7 +460,40 @@ export class ArtifactDraft {
         } else if (operation.op === 'insert' || operation.op === 'move' || (operation.op === 'remove' && locator?.kind !== 'table-cell')) {
           const state = await this.state();
           if (operation.op === 'insert' && state.retiredTargets[operation.targetId] && context.origin !== 'history') throw new ContentValidationError('cannot-reuse-retired-id');
+          const oldTable = state.content.kind === 'table' ? structuredClone(state.content) : undefined;
           reverse = mutateStructure(state, operation, locator);
+          if (oldTable && state.content.kind === 'table' && sheetId) {
+            const axis = locator?.kind === 'table-row' ? 'row' : locator?.kind === 'table-column' ? 'column' : (operation.value as Record<string, JsonValue>).axis;
+            if (axis !== 'row' && axis !== 'column') throw new ContentValidationError('unsupported-table-structural-operation');
+            const { rewriteStructuralReferences } = await import('@/features/sheets/domain/structure');
+            const changes = rewriteStructuralReferences(oldTable, state.content, sheetId, axis);
+            for (const change of changes) {
+              if (context.origin === 'ai' || context.origin === 'import') {
+                const blocked = await this.protectedTarget({ targetId: change.targetId, op: 'set', value: asJson(change.after), beforeHash: null }, await this.locator(change.targetId));
+                if (blocked) throw new TargetConflictError(blocked, 'locked', null, (await this.target(blocked))?.hash ?? null);
+              }
+              savedFormulas.set(change.targetId, change.before);
+              savedFormulaHashes.set(change.targetId, (await this.target(change.targetId))?.hash ?? null);
+            }
+            adjustTableSettings(state.content, sheetId, changes);
+            const newIndex = buildTargetIndex(state.content);
+            for (const restore of formulaRestores) {
+              const oldLocator = locateTarget(state.index, restore.targetId), nextLocator = locateTarget(newIndex, restore.targetId);
+              if (!oldLocator || !nextLocator) throw new ContentValidationError('missing-formula-restore-target');
+              savedFormulas.set(restore.targetId, structuredClone(readPath(oldTable, oldLocator.path) as TableCell));
+              savedFormulaHashes.set(restore.targetId, (await this.target(restore.targetId))?.hash ?? null);
+              safeSet(state.content, nextLocator.path, restore.value);
+            }
+            for (const restore of settingRestores) {
+              const targetSheet = state.content.workbook.sheets[restore.sheetId];
+              if (!targetSheet) throw new ContentValidationError('missing-sheet');
+              if (restore.value === null) delete targetSheet[restore.key]; else Object.assign(targetSheet, { [restore.key]: restore.value });
+            }
+            for (const [id, previous] of Object.entries(oldTable.workbook.sheets)) {
+              const next = state.content.workbook.sheets[id]!;
+              for (const key of ['freeze', 'calculation'] as const) if (hashJson(asJson(previous[key] ?? null)) !== hashJson(asJson(next[key] ?? null))) savedSettings.push({ sheetId: id, key, value: asJson(previous[key] ?? null) });
+            }
+          }
           this.replaceState(state, context);
         } else reverse = await this.setValue(operation, locator!, before!, context);
         for (const [id, previousValue] of boundBefore) {
@@ -420,7 +510,15 @@ export class ArtifactDraft {
         const sheetMerges = oldMerges !== undefined && sheetId ? { sheetId, value: oldMerges, expectedHash: hashJson(await this.graph.get(this.root, ['content', 'workbook', 'sheets', sheetId, 'mergeData']) ?? null) } : undefined;
         const metadataExpectedHashes: Record<string, string | null> = {};
         for (const id of Object.keys(savedMetadata)) metadataExpectedHashes[id] = (await this.target(id))?.hash ?? null;
-        inverse.unshift({ operation: reverse, metadata: savedMetadata, metadataExpectedHashes, ...(sheetMerges ? { sheetMerges } : {}) });
+        const tableFormulas: NonNullable<ReversibleOperation['tableFormulas']> = [];
+        for (const [targetId, value] of savedFormulas) {
+          tableFormulas.push({ targetId, value, expectedHash: (await this.target(targetId))?.hash ?? null });
+          if (!Object.hasOwn(beforeHashes, targetId)) beforeHashes[targetId] = savedFormulaHashes.get(targetId) ?? null;
+          afterHashes[targetId] = (await this.target(targetId))?.hash ?? null;
+        }
+        const tableSettings: NonNullable<ReversibleOperation['tableSettings']> = [];
+        for (const saved of savedSettings) tableSettings.push({ ...saved, expectedHash: hashJson(await this.graph.get(this.root, ['content', 'workbook', 'sheets', saved.sheetId, saved.key]) ?? null) });
+        inverse.unshift({ operation: reverse, metadata: savedMetadata, metadataExpectedHashes, ...(sheetMerges ? { sheetMerges } : {}), ...(tableFormulas.length ? { tableFormulas } : {}), ...(tableSettings.length ? { tableSettings } : {}) });
         afterHashes[operation.targetId] = after?.hash ?? null;
       }
       const bindings = (await this.graph.get(this.root, ['bindings']) ?? {}) as unknown as Record<string, FieldBinding>;

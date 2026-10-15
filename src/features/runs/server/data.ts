@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { RunEventSchema, RunSchema, type Run, type RunAction, type RunFailure, type RunInputRef, type RunPolicy, type RunState, type RunStep, type RunResultRef } from '../../../contracts/runs';
+import { RunEventSchema, RunProgressSchema, RunSchema, type Run, type RunAction, type RunFailure, type RunInputRef, type RunPolicy, type RunState, type RunStep, type RunResultRef } from '../../../contracts/runs';
 import { RunError } from '../domain/errors';
 
 export type JsonObject = { [key: string]: unknown };
@@ -92,14 +92,20 @@ export async function snapshot(transaction: PoolClient, run: RunRow): Promise<Ru
     toolVersion: step.tool_version, attempt: step.attempt, failure: step.failure_code, retryable: step.retryable,
     resultRefs: step.result_refs, startedAt: iso(step.started_at), finishedAt: iso(step.finished_at),
   }));
-  const canResume = ['waiting_input', 'failed'].includes(run.state) && (!run.deadline_at || run.deadline_at > new Date())
-    && (steps.some((step) => step.retryable) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
+  const links = (await transaction.query<{ parent_run_id: string; child_run_id: string }>('SELECT parent_run_id,child_run_id FROM agent_run_continuations WHERE parent_run_id=$1 OR child_run_id=$1', [run.id])).rows;
+  const parentRunId = links.find((link) => link.child_run_id === run.id)?.parent_run_id ?? null;
+  const continuationRunId = links.find((link) => link.parent_run_id === run.id)?.child_run_id ?? null;
+  const stored = run.capability_id === 'business.goal' ? (await transaction.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1', [run.id])).rows[0]?.state : undefined;
+  const progress = RunProgressSchema.parse({ plan: stored?.plan ?? [], questions: stored?.questions ?? [], summary: stored?.summary ?? '', results: stored?.results ?? [], parentRunId, continuationRunId });
+  const canContinue = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed';
+  const canResume = (canContinue && ['waiting_input', 'failed', 'review_ready'].includes(run.state)) || (['waiting_input', 'failed'].includes(run.state) && (!run.deadline_at || run.deadline_at > new Date())
+    && (steps.some((step) => step.retryable) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned'))));
   return RunSchema.parse({
     id: run.id, workspaceId: run.workspace_id, projectId: run.project_id, createdBy: run.created_by,
     capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale,
     state: run.state, epoch: run.execution_epoch, cursor: Number(run.event_sequence), failure: run.failure_code,
     createdAt: iso(run.created_at), updatedAt: iso(run.updated_at), startedAt: iso(run.started_at), deadlineAt: iso(run.deadline_at),
     budget: { limitUsd: run.budget_limit_usd, reservedUsd: run.reserved_usd, spentUsd: run.spent_usd, requestCount: run.request_count, requestLimit: 12 },
-    steps, actions: { cancel: !terminal(run.state), resume: canResume, retryStepIds: canResume ? steps.filter((step) => step.retryable).map((step) => step.id) : [] },
+    steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canContinue, retryStepIds: canResume ? steps.filter((step) => step.retryable).map((step) => step.id) : [] },
   });
 }

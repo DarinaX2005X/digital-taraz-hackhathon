@@ -1,8 +1,10 @@
 import type { Locale } from "@/i18n";
 
-type InformationSection = { title: string; text: string; link?: "signup" | "verify" | "reset" | "team"; action?: string };
+type InformationSection = { title: string; text: string; link?: "signup" | "verify" | "reset" | "team" | 'tour'; action?: string };
 
 export type PublicCopy = {
+  mechanismIllustration: string; mechanismSource: string; mechanismResult: string;
+  ownTaskTitle: string; ownTaskDescription: string; ownTaskLabel: string; ownTaskPlaceholder: string; ownTaskAction: string; ownTaskError: string; ownTaskAccount: string; ownTaskSignedIn: string; exampleAction: string; useScenario: string;
   tagline: string; description: string; home: string; scenarios: string; process: string;
   start: string; signIn: string; account: string; work: string; explore: string; language: string;
   illustration: string; introTitle: string; intro: string;
@@ -18,9 +20,12 @@ export type PublicCopy = {
 };
 
 const ru: PublicCopy = {
+  mechanismIllustration: 'Исходный прайс в папке связан с подготовленным предложением. Проверенные изменения переходят в результат.', mechanismSource: 'Цена изменилась в исходнике', mechanismResult: 'Расчёт обновлён, ваша фраза сохранена',
+  ownTaskTitle: 'Начните со своей задачи', ownTaskDescription: 'Опишите нужный результат. Затем добавьте прайс, запрос клиента или другие материалы в свой проект.',
+  ownTaskLabel: 'Что нужно подготовить?', ownTaskPlaceholder: 'Смету и предложение для клиента по моему прайсу. Отдельно показать доставку и сроки.', ownTaskAction: 'Продолжить с моей задачей', ownTaskError: 'Не удалось продолжить. Ваш текст остался здесь. Попробуйте ещё раз.', ownTaskAccount: 'После входа ваша задача откроется в проекте.', ownTaskSignedIn: 'Выберите рабочее пространство и добавьте материалы.', exampleAction: 'Попробовать на примере', useScenario: 'Начать такую задачу',
   tagline: "Всё для вашего бизнеса",
   work: "Перейти к работе",
-  description: "Рабочее место с ИИ для расчётов, документов, креативов и планов. На основе ваших материалов, с решениями под вашим контролем.",
+  description: "Превратите прайс и запрос клиента в смету и предложение. Отредактируйте результат, обновите цены и сохраните свои формулировки.",
   home: "На главную", scenarios: "Для каких задач", process: "Как это работает", start: "Начать работу", signIn: "Войти", account: "Мой аккаунт", explore: "Посмотреть сценарии", language: "Язык",
   illustration: "Иллюстрация рабочих материалов: таблицы, папка и фотографии продукта.",
   introTitle: "Работа начинается с вашей задачи",
@@ -52,6 +57,7 @@ const ru: PublicCopy = {
   team: "Открыть команду", footerText: "Рабочие материалы и повседневные задачи бизнеса. Решения остаются за вами.", help: "Помощь", privacy: "Данные и конфиденциальность", repository: "Код проекта", back: "Вернуться на главную",
   helpTitle: "Помощь с аккаунтом", helpIntro: "Вход, подтверждение почты и начало работы с командой.",
   helpSections: [
+    { title: 'Первый результат', text: 'Начните с задачи и своих материалов. Короткие подсказки покажут запуск, редактор, версии и экспорт. Знакомство можно пропустить и повторить в настройках.', link: 'tour', action: 'Открыть обучение' },
     { title: "Создание аккаунта", text: "Укажите имя, электронную почту и пароль. Затем откройте письмо и подтвердите адрес, чтобы перейти к работе.", link: "signup", action: "Создать аккаунт" },
     { title: "Письмо не пришло", text: "Проверьте адрес и папку со спамом, затем запросите новое письмо. Используйте ссылку из последнего полученного письма.", link: "verify", action: "Запросить письмо" },
     { title: "Забыли пароль", text: "Запросите ссылку на адрес, с которым создавали аккаунт. После смены пароля нужно войти снова; остальные сеансы завершатся.", link: "reset", action: "Восстановить доступ" },
@@ -70,9 +76,12 @@ const ru: PublicCopy = {
 };
 
 const en: PublicCopy = {
+  mechanismIllustration: 'A source price list in a folder is connected to a prepared proposal. Reviewed changes carry into the result.', mechanismSource: 'A price changes in the source', mechanismResult: 'Calculation updated, your wording kept',
+  ownTaskTitle: 'Start with your own task', ownTaskDescription: 'Describe the result you need. Then add a price list, a client request or other materials to your project.',
+  ownTaskLabel: 'What do you need to prepare?', ownTaskPlaceholder: 'An estimate and customer proposal using my price list. Show delivery and deadlines separately.', ownTaskAction: 'Continue with my task', ownTaskError: 'Could not continue. Your text is still here. Please try again.', ownTaskAccount: 'After signing in, your task will open in your project.', ownTaskSignedIn: 'Choose a workspace and add your materials.', exampleAction: 'Try an example', useScenario: 'Start this kind of task',
   tagline: "Everything for your business",
   work: "Open workspace",
-  description: "An AI workspace for calculations, documents, creative materials and plans. Built around your materials, with decisions in your hands.",
+  description: "Turn a price list and client request into an estimate and proposal. Edit the result, update prices and keep your own wording.",
   home: "Home", scenarios: "Business tasks", process: "How it works", start: "Get started", signIn: "Sign in", account: "My account", explore: "Explore the scenarios", language: "Language",
   illustration: "An illustration of business materials: worksheets, a folder and product photographs.",
   introTitle: "Start with the work you need to do",
@@ -102,6 +111,7 @@ const en: PublicCopy = {
   team: "Open team", footerText: "Business materials and everyday work. The decisions remain yours.", help: "Help", privacy: "Data and privacy", repository: "Project source", back: "Back to home",
   helpTitle: "Account help", helpIntro: "Signing in, verifying your email and getting started with your team.",
   helpSections: [
+    { title: 'Your first result', text: 'Start with your task and materials. Brief guidance shows you how to start work, edit results, review versions and export. Skip it or replay it in settings.', link: 'tour', action: 'Open getting started' },
     { title: "Create an account", text: "Enter your name, email and password. Open the email and verify your address to start working.", link: "signup", action: "Create an account" },
     { title: "An email has not arrived", text: "Check the address and spam folder, then request a new email. Use the link in the most recent message.", link: "verify", action: "Request an email" },
     { title: "Forgotten password", text: "Request a link for the email used to create your account. After changing your password, sign in again. Other sessions will end.", link: "reset", action: "Recover access" },
@@ -120,9 +130,12 @@ const en: PublicCopy = {
 };
 
 const kk: PublicCopy = {
+  mechanismIllustration: 'Қалтадағы бастапқы бағалар тізімі дайын ұсыныспен байланысты. Тексерілген өзгерістер нәтижеге өтеді.', mechanismSource: 'Бастапқы материалдағы баға өзгерді', mechanismResult: 'Есеп жаңартылды, өз мәтініңіз сақталды',
+  ownTaskTitle: 'Өз тапсырмаңыздан бастаңыз', ownTaskDescription: 'Қажетті нәтижені сипаттаңыз. Содан кейін жобаңызға бағалар тізімін, клиент сұрауын немесе басқа материалдарды қосыңыз.',
+  ownTaskLabel: 'Не дайындау керек?', ownTaskPlaceholder: 'Менің бағалар тізімім бойынша клиентке смета мен ұсыныс. Жеткізу мен мерзімдерді бөлек көрсету.', ownTaskAction: 'Өз тапсырмаммен жалғастыру', ownTaskError: 'Жалғастыру мүмкін болмады. Мәтініңіз осында қалды. Қайталап көріңіз.', ownTaskAccount: 'Кіргеннен кейін тапсырмаңыз жобаңызда ашылады.', ownTaskSignedIn: 'Жұмыс кеңістігін таңдап, материалдарыңызды қосыңыз.', exampleAction: 'Мысалмен байқап көру', useScenario: 'Осындай тапсырманы бастау',
   tagline: "Бизнесіңізге қажеттінің бәрі",
   work: "Жұмысқа өту",
-  description: "Есептеулерге, құжаттарға, жарнама материалдары мен жоспарларға арналған ЖИ жұмыс ортасы. Негізінде өз материалдарыңыз, ал шешім өз қолыңызда.",
+  description: "Бағалар тізімі мен клиент сұрауынан смета және ұсыныс дайындаңыз. Нәтижені өңдеп, бағаларды жаңартыңыз және өз мәтініңізді сақтаңыз.",
   home: "Басты бет", scenarios: "Қандай міндеттерге", process: "Қалай жұмыс істейді", start: "Жұмысты бастау", signIn: "Кіру", account: "Менің аккаунтым", explore: "Сценарийлерді қарау", language: "Тіл",
   illustration: "Жұмыс материалдарының иллюстрациясы: кестелер, бума және өнім фотосуреттері.",
   introTitle: "Жұмыс өз міндетіңізден басталады", intro: "Ұсыныс дайындау, шығындарды талдау немесе акция материалдарын жинау. Әр сценарийдің негізінде өз файлдарыңыз бен бизнеске қажет нәтиже бар.",
@@ -150,6 +163,7 @@ const kk: PublicCopy = {
   team: "Команданы ашу", footerText: "Бизнес материалдары мен күнделікті жұмыс. Шешім өз қолыңызда.", help: "Көмек", privacy: "Деректер және құпиялылық", repository: "Жоба коды", back: "Басты бетке оралу",
   helpTitle: "Аккаунт бойынша көмек", helpIntro: "Кіру, поштаны растау және командамен жұмысты бастау.",
   helpSections: [
+    { title: 'Алғашқы нәтиже', text: 'Тапсырмаңыз бен материалдарыңыздан бастаңыз. Қысқа кеңестер іске қосуды, редакторды, нұсқалар мен экспортты көрсетеді. Танысуды өткізіп жіберуге немесе баптаулардан қайталауға болады.', link: 'tour', action: 'Бастау нұсқаулығын ашу' },
     { title: "Аккаунт ашу", text: "Атыңызды, электрондық поштаңызды және құпиясөзді енгізіңіз. Жұмысты бастау үшін хатты ашып, мекенжайды растаңыз.", link: "signup", action: "Аккаунт ашу" },
     { title: "Хат келмеді", text: "Мекенжай мен спам бумасын тексеріп, жаңа хат сұраңыз. Соңғы келген хаттағы сілтемені пайдаланыңыз.", link: "verify", action: "Хат сұрау" },
     { title: "Құпиясөз ұмытылды", text: "Аккаунт ашқан поштаңызға сілтеме сұраңыз. Құпиясөз өзгергеннен кейін қайта кіру керек. Басқа сеанстар аяқталады.", link: "reset", action: "Кіруді қалпына келтіру" },

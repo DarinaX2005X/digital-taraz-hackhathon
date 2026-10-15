@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CalendarDateSchema, DecimalStringSchema, ElementIdSchema, IdSchema, InstantSchema } from '../../../contracts/primitives';
+import { CalculationSpecSchema } from '../../../contracts/calculations';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export interface DocumentNode {
@@ -24,13 +25,31 @@ export const TableCellSchema = z.strictObject({
   s: z.union([z.string().max(128), z.record(z.string().max(80), z.json())]).optional(),
   p: z.record(z.string().max(80), z.json()).optional(),
 });
+export const TableFreezeSchema = z.strictObject({
+  xSplit: z.number().int().min(0).max(100), ySplit: z.number().int().min(0).max(20000),
+  startRow: z.number().int().min(-1).max(19999), startColumn: z.number().int().min(-1).max(99),
+});
+export const TableChartSchema = z.strictObject({
+  id: ElementIdSchema, title: z.string().trim().min(1).max(240), type: z.enum(['bar', 'line']),
+  labelColumnId: ElementIdSchema, valueColumnIds: z.array(ElementIdSchema).min(1).max(8), rowIds: z.array(ElementIdSchema).min(1).max(500),
+});
 export const TableSheetSchema = z.strictObject({
   id: ElementIdSchema, name: z.string().min(1).max(240), rowCount: z.number().int().min(1).max(20000), columnCount: z.number().int().min(1).max(100),
   cellData: z.record(z.string().regex(/^(0|[1-9]\d*)$/), z.record(z.string().regex(/^(0|[1-9]\d*)$/), TableCellSchema)),
   rowData: z.record(z.string().regex(/^(0|[1-9]\d*)$/), z.record(z.string().max(80), z.json())).optional(),
   columnData: z.record(z.string().regex(/^(0|[1-9]\d*)$/), z.record(z.string().max(80), z.json())).optional(),
   mergeData: z.array(z.strictObject({ startRow: z.number().int().nonnegative(), endRow: z.number().int().nonnegative(), startColumn: z.number().int().nonnegative(), endColumn: z.number().int().nonnegative() })).max(10000).optional(),
+  freeze: TableFreezeSchema.optional(), charts: z.array(TableChartSchema).max(20).optional(), calculation: CalculationSpecSchema.optional(),
 });
+/** A bounded metadata update; cells and stable axes remain separate checked operations. */
+export const TableSheetSettingsSchema = z.strictObject({
+  kind: z.literal('sheet-settings'), name: z.string().min(1).max(240).optional(),
+  freeze: TableFreezeSchema.nullable().optional(), charts: z.array(TableChartSchema).max(20).nullable().optional(),
+  calculation: CalculationSpecSchema.nullable().optional(),
+  mergeData: TableSheetSchema.shape.mergeData.unwrap().nullable().optional(),
+  rowData: TableSheetSchema.shape.rowData.unwrap().nullable().optional(),
+  columnData: TableSheetSchema.shape.columnData.unwrap().nullable().optional(),
+}).refine((value) => Object.keys(value).length > 1);
 export const TableWorkbookSchema = z.strictObject({
   id: ElementIdSchema, name: z.string().min(1).max(240), appVersion: z.string().max(40), locale: z.string().max(20),
   sheetOrder: z.array(ElementIdSchema).min(1).max(100), sheets: z.record(ElementIdSchema, TableSheetSchema),
@@ -39,14 +58,17 @@ export const TableWorkbookSchema = z.strictObject({
 
 export interface DesignLayer {
   id: string; type: 'text' | 'image' | 'shape' | 'group';
+  name?: string;
   transform: { x: number; y: number; width: number; height: number; rotation: number };
   style: Record<string, JsonValue>;
-  text?: string; assetId?: string; shape?: 'rect' | 'ellipse' | 'line'; hidden?: boolean; layers?: DesignLayer[];
+  text?: string; assetId?: string; fontAssetId?: string; crop?: { x: number; y: number; width: number; height: number }; shape?: 'rect' | 'ellipse' | 'line'; hidden?: boolean; layers?: DesignLayer[];
 }
 export const DesignLayerSchema: z.ZodType<DesignLayer> = z.lazy(() => z.strictObject({
   id: ElementIdSchema, type: z.enum(['text', 'image', 'shape', 'group']),
+  name: z.string().trim().min(1).max(240).optional(),
   transform: z.strictObject({ x: z.number().finite(), y: z.number().finite(), width: z.number().finite().nonnegative(), height: z.number().finite().nonnegative(), rotation: z.number().finite() }),
   style: z.record(z.string().max(80), z.json()), text: z.string().max(100000).optional(), assetId: IdSchema.optional(),
+  fontAssetId: IdSchema.optional(), crop: z.strictObject({ x: z.number().finite().min(0).max(1), y: z.number().finite().min(0).max(1), width: z.number().finite().positive().max(1), height: z.number().finite().positive().max(1) }).optional(),
   shape: z.enum(['rect', 'ellipse', 'line']).optional(), hidden: z.boolean().optional(), layers: z.array(DesignLayerSchema).max(10000).optional(),
 }));
 export const PlanEntrySchema = z.strictObject({

@@ -9,6 +9,10 @@ export * from './source-asset-schema';
 export * from './workspace-view-schema';
 export * from './artifact-schema';
 export * from './run-schema';
+export * from './material-schema';
+export * from './onboarding-schema';
+export * from './export-schema';
+export * from './dependency-schema';
 
 export const demoTemplates = pgTable('demo_templates', {
   id: uuid('id').defaultRandom().primaryKey(),

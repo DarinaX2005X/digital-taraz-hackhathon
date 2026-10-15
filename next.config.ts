@@ -24,7 +24,7 @@ writeFileSync(generatedConfig, JSON.stringify({
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  serverExternalPackages: ["pg"],
+  serverExternalPackages: ["pg", "@napi-rs/canvas"],
   distDir,
   typescript: { tsconfigPath: path.relative(process.cwd(), generatedConfig) },
 };

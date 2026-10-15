@@ -26,11 +26,11 @@ export async function listSourceLibrary(pool: Pool, principal: SessionPrincipal,
       SELECT s.id,s.updated_at,to_char(s.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_time,
       json_build_object('id',s.id,'workspaceId',s.workspace_id,'projectId',s.project_id,'title',d.title,'accessClass',s.access_class,
         'revision',s.current_revision,'currentVersionId',s.current_version_id,'status',u.status,'format',u.format,'fileName',u.file_name,
-        'byteSize',COALESCE(u.byte_size,u.declared_size),'createdAt',s.created_at,'updatedAt',s.updated_at) AS summary
+        'byteSize',COALESCE(u.byte_size,u.declared_size),'thumbnailUploadId',CASE WHEN u.format IN ('png','jpeg','webp') AND u.byte_hash IS NOT NULL THEN u.id ELSE NULL END,'createdAt',s.created_at,'updatedAt',s.updated_at) AS summary
       FROM sources s JOIN source_details d ON d.workspace_id=s.workspace_id AND d.source_id=s.id
       JOIN projects p ON p.workspace_id=s.workspace_id AND p.id=s.project_id
       LEFT JOIN identity_project_grants g ON g.workspace_id=s.workspace_id AND g.project_id=s.project_id AND g.user_id=$2
-      JOIN LATERAL (SELECT status,format,file_name,byte_size,declared_size FROM source_uploads
+      JOIN LATERAL (SELECT id,status,format,file_name,byte_size,declared_size,byte_hash FROM source_uploads
         WHERE workspace_id=s.workspace_id AND source_id=s.id ORDER BY created_at DESC,id DESC LIMIT 1) u ON true
       WHERE s.workspace_id=$1 AND s.state<>'trashed' AND p.status<>'trashed'
         AND ($3::boolean OR 'read'=ANY(g.scopes))

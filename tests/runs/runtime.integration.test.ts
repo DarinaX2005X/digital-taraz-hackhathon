@@ -22,7 +22,7 @@ beforeAll(() => { pool = isolatedRunPool(); });
 afterAll(async () => { await pool?.end(); });
 beforeEach(async () => {
   // The guard above admits only the disposable runner's database, never the primary app.
-  await pool.query('TRUNCATE agent_model_endpoints,agent_model_outputs,agent_run_operations,agent_run_events,agent_tool_receipts,agent_run_usage,agent_run_contexts,agent_run_steps,agent_runs,agent_budget_days,agent_budget_authorizations,agent_queue_workspaces');
+  await pool.query('TRUNCATE agent_run_continuations,agent_model_endpoints,agent_model_outputs,agent_run_operations,agent_run_events,agent_tool_receipts,agent_run_usage,agent_run_contexts,agent_run_steps,agent_runs,agent_budget_days,agent_budget_authorizations,agent_queue_workspaces');
   await pool.query('UPDATE agent_queue_clock SET sequence=0');
   await pool.query("INSERT INTO agent_budget_authorizations(id,provider,state,limit_usd,key_fingerprint,authority_ref,activated_at) VALUES($1,'openrouter','active','10',$2,'isolated-synthetic-test',now())", [grantId, keyFingerprint]);
   currentPrice = price();

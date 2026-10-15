@@ -1,23 +1,25 @@
 # 09 Возврат к работе, коллеги и повторение рутины
-Status: todo
+Status: active
 
 Разовая генерация не оправдывает отдельный продукт. Сохраняем принятые правила, помогаем коллеге принять результат и повторяем работу на новых данных без стирания прошлой версии.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 09.1 Сохранить контекст бизнеса и проверенные рабочие блоки
-Status: todo
+Status: active
 Requirements: R10, R25, R32, R35, R36, R44, R45, R91, R103
-Depends on: 08.2, 06.1
-Owner: SUBAGENT to assign
-Paths: src/features/business-context/, tests/business-context/
+Depends on: 03.1, 02.1
+Owner: SUBAGENT to assign (передача; прежний автор: business_context)
+Paths: src/features/business-context/, tests/business-context/, src/app/api/business-context/, src/app/app/business/, src/contracts/business-context.ts, src/server/db/business-context-schema.ts
+
+15октября fresh GPT-5.6 Sol owner начинает подтверждённые сведения/бренд/условия/повторные блоки на принятых artifact/identity/source contracts. До RELEASE текущегоCP1 пишет только ignoredscratch. Полная09.1приёмка сохраняет08.2/06.1: linked/detached reuse, review изменений иединыйBrandKit должны быть подключены креальнымредакторам. Canonical material facts/privateassets переиспользуются, не создаётся вторая библиотека. При необходимой новой metadata persistence зарезервирована0018_business_context.sql.draft/final после reviewintegration; sourceheads/общиесхемы/routeshell исключительноихowners.
 
 **Контракт и результат.** C3, C10. Versioned BusinessContext facts/terms/brand kit/reusable approved docblocks and procedures. Explicit confirm vs extracted suggestion; effective dates/source evidence/owner/access. Free-form business notes not forced sector form, no model memory of secrets without stored permission. Scoped search and selectors reused by tool context; superseded prices/terms not silently strongest. Add/remove reuse block copies with provenance, choose linked vs detached; business setting change shows affected projects rather than rewriting all.
 
 **Вход в работу и состояния.** Бизнес: компактные sections «Сведения», «Бренд», «Условия», «Сохранённое»; create from existing selected block via «Сохранить для повторного использования». Empty profile optional. Conflict dates/duplicates and permission error retain edit; all locales/user text preserved.
 
 ### 09.1.1 Подтверждённый контекст
-Status: todo
+Status: active
 
 Storage effective date precedence, permission filtering, suggestions not facts, version revert safe; tool context receives only selected allowed items.
 

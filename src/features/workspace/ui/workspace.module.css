@@ -48,7 +48,20 @@
 .editorRail { min-width: 0; }
 .editorRail a[aria-current="page"] { background: #e6f2f1; padding-inline: 10px; border-radius: 6px; }
 .editorMain { min-width: 0; }
+.editorFailure { display: grid; justify-items: start; gap: 16px; padding: 32px; background: white; border-radius: 14px; }
+.editorFailure h2, .editorFailure p { margin: 0; }
 .mobileOnly { display: none; }
+.taskComposer { padding: 24px; background: #edf5f2; border-radius: 16px; display: grid; gap: 16px; }
+.taskComposer .sectionHeading { margin: 0; align-items: baseline; }
+.taskComposer h2 { font-size: 17px; }
+.sourceChoices { display: grid; gap: 6px; padding: 0; margin: 0; border: 0; min-width: 0; }
+.sourceChoice { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 12px; background: white; border: 1px solid #d6e4de; border-radius: 9px; cursor: pointer; }
+.sourceChoice input { accent-color: #086a70; width: 18px; height: 18px; flex-shrink: 0; }
+.sourceChoice > span:first-of-type { flex: 1; overflow-wrap: anywhere; }
+.sourceChoice:has(input:checked) { border-color: #387d75; background: #f7fffc; }
+.sourceChoice:has(input:focus-visible) { outline: 2px solid #086a70; outline-offset: 2px; }
+.projectDetails summary { width: fit-content; min-height: 44px; display: flex; align-items: center; cursor: pointer; color: #086a70; }
+.projectDetails[open] summary { margin-bottom: 10px; }
 .editorToolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
 .sheet { background: white; width: min(100%, 880px); margin-inline: auto; min-height: 60vh; padding: 40px; border: 1px solid #d6ddda; }
 .paragraph { display: block; width: 100%; resize: vertical; border: 1px solid transparent; border-radius: 4px; padding: 8px; margin: 0 0 12px; min-height: 120px; color: #202624; background: transparent; font: inherit; line-height: 1.7; }

@@ -61,6 +61,17 @@ describe('runtime exact pricing and private boundary', () => {
   });
 });
 describe('single model gateway', () => {
+  it('honors a pinned per-call ceiling before reservation and replays settled output after pricing expires', async () => {
+    const fixture = ledgerFixture(), send = vi.fn(async () => response());
+    const pricing = vi.fn(async () => syntheticPrice());
+    const gateway = createModelGateway({ ledger: fixture.ledger, apiKey: 'synthetic', authorizationId: 'synthetic', pricing, fetch: send });
+    await expect(gateway.complete({ ...request(), maxReservedUsd: '0.01' })).rejects.toMatchObject({ failure: 'run_budget' });
+    expect(fixture.reserve).not.toHaveBeenCalled(); expect(send).not.toHaveBeenCalled();
+    const input = { ...request(), maxReservedUsd: '0.0101' };
+    const output = await gateway.complete(input);
+    pricing.mockRejectedValue(new Error('PRICE_REFRESH_UNAVAILABLE'));
+    expect(await gateway.complete(input)).toEqual(output); expect(send).toHaveBeenCalledOnce();
+  });
   it('records dispatch first, pins the route, settles exact actual cost, and replays without another request', async () => {
     const fixture = ledgerFixture();
     const send = vi.fn(async (_url, init) => { expect(fixture.dispatch).toHaveBeenCalledOnce(); const body = JSON.parse(init!.body as string); expect(body.provider).toEqual({ only: ['synthetic/provider'], allow_fallbacks: false, require_parameters: true, max_price: { prompt: 0.1, completion: 1 }, quantizations: ['fp8'] }); return response(); });

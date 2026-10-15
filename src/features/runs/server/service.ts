@@ -3,7 +3,7 @@ import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { CreateRunSchema, CancelRunSchema, ResumeRunSchema, RunEventsPageSchema, RunResultRefSchema, RunListCursorSchema, RunListPageSchema, ToolReceiptSchema, type CreateRun, type RunEventsPage, type RunPolicy, type RunState } from '../../../contracts/runs';
 import { IdSchema } from '../../../contracts/primitives';
-import { identityTransaction, lockProjectAccess, withWorkspaceAccess, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
+import { identityTransaction, lockProjectAccess, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { hasScope } from '../../identity/domain/policy';
 import { IdentityError } from '../../identity/server/http';
 import { RunError } from '../domain/errors';
@@ -35,14 +35,16 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     }
     await tx.query('UPDATE agent_runs SET step_count=step_count+$2 WHERE id=$1', [runId, plans.length]);
   }
-  async function create(principal: IdentityPrincipal, raw: CreateRun, key: string, options: { trusted?: boolean; privateInput?: JsonObject } = {}) {
+  async function create(principal: IdentityPrincipal, raw: CreateRun, key: string, options: { trusted?: boolean; privateInput?: JsonObject; confidential?: boolean; transaction?: PoolClient } = {}) {
     const input = CreateRunSchema.parse(raw);
     const capability = registry.capability(input.capabilityId, input.capabilityVersion);
     if (!options.trusted && !capability.publicStart) throw new RunError('access_changed', 'FORBIDDEN');
+    if (!options.trusted && (options.privateInput !== undefined || options.confidential !== undefined || options.transaction !== undefined)) throw new RunError('access_changed', 'FORBIDDEN');
     const privateInput = boundedObject(options.privateInput ?? {});
-    const requestHash = hash({ input, privateInput });
+    const requestHash = hash({ input, privateInput, ...(options.confidential ? { trustedConfidential: true } : {}) });
     const keyHash = requestKey(key);
-    return withWorkspaceAccess(pool, principal, { workspaceId: input.workspaceId, projectId: input.projectId ?? undefined, ...capability.policy }, async (tx, authorized) => {
+    const request = { workspaceId: input.workspaceId, projectId: input.projectId ?? undefined, ...capability.policy, confidential: capability.policy.confidential || options.confidential === true };
+    const effect = async (tx: PoolClient, authorized: WorkspaceAccess) => {
       // Serializes concurrent identical keys without taking a whole-workspace write lock.
       await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`run-create:${input.workspaceId}:${authorized.userId}:${keyHash}`]);
       const previous = (await tx.query<RunRow>('SELECT * FROM agent_runs WHERE workspace_id=$1 AND created_by=$2 AND request_key_hash=$3', [input.workspaceId, authorized.userId, keyHash])).rows[0];
@@ -50,7 +52,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
       const initial = capability.initialize(input, privateInput);
       const context = boundedObject(initial.context);
       if (!initial.steps.length) throw new RunError('configuration');
-      let confidential = capability.policy.confidential;
+      let confidential = capability.policy.confidential || options.confidential === true;
       for (const ref of input.inputRefs) {
         if (!input.projectId) throw new RunError('access_changed', 'NOT_FOUND');
         const row = ref.kind === 'artifact'
@@ -70,7 +72,8 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
       await tx.query('INSERT INTO agent_queue_workspaces(workspace_id) VALUES($1) ON CONFLICT DO NOTHING', [input.workspaceId]);
       await emitEvent(tx, runId, { kind: 'run_state' });
       return snapshot(tx, await loadRun(tx, runId));
-    });
+    };
+    return options.transaction ? withWorkspaceAccessInTransaction(options.transaction, principal, request, effect) : withWorkspaceAccess(pool, principal, request, effect);
   }
   async function read(principal: IdentityPrincipal, runId: string) {
     const run = await peek(runId);
@@ -81,7 +84,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     const scoped = run.project_id && authorized.membership.role !== 'owner'
       ? await lockProjectAccess(tx, authorized, { projectId: run.project_id, scope: 'read', confidential: run.confidential }) : authorized;
     if (!hasScope({ ...scoped.membership, projectScopes: scoped.projectScopes, confidential: run.confidential }, run.required_scope)) {
-      value.actions = { cancel: false, resume: false, retryStepIds: [] };
+      value.actions = { cancel: false, resume: false, revise: false, retryStepIds: [] };
     }
     return value;
   }
@@ -125,9 +128,40 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     const inputHash = hash({ kind, input });
     return access(principal, known, { scope: known.required_scope, confidential: known.confidential }, async (tx) => {
       const run = await loadRun(tx, runId, true);
+      if (kind === 'resume') {
+        const prior = (await tx.query<{ child_run_id: string; input_hash: string }>('SELECT child_run_id,input_hash FROM agent_run_continuations WHERE parent_run_id=$1 AND created_by=$2 AND request_key_hash=$3', [runId, principal.userId, keyHash])).rows[0];
+        if (prior) { if (prior.input_hash !== inputHash) throw new RunError('conflict'); return snapshot(tx, await loadRun(tx, prior.child_run_id)); }
+      }
       const operation = (await tx.query<{ input_hash: string; kind: string }>('SELECT input_hash,kind FROM agent_run_operations WHERE run_id=$1 AND actor_id=$2 AND key_hash=$3', [runId, principal.userId, keyHash])).rows[0];
       if (operation) { if (operation.input_hash !== inputHash || operation.kind !== kind) throw new RunError('conflict'); return snapshot(tx, run); }
       if (run.execution_epoch !== input.expectedEpoch) throw new RunError('conflict');
+      if (kind === 'resume') {
+        const change = ResumeRunSchema.parse(input), capability = registry.capability(run.capability_id, run.capability_version);
+        const expired = run.deadline_at !== null && run.deadline_at <= new Date();
+        const childNeeded = change.goal !== undefined || change.plan !== undefined || expired || ['completed', 'review_ready'].includes(run.state);
+        if (childNeeded && capability.continue) {
+          if (run.state === 'cancelled' || run.failure_code === 'access_changed') throw new RunError('conflict');
+          const unsafe = await tx.query("SELECT id FROM agent_run_usage WHERE run_id=$1 AND state IN ('reserved','dispatched','ambiguous') LIMIT 1", [runId]);
+          if (unsafe.rowCount) throw new RunError('ambiguous_charge');
+          if ((await tx.query('SELECT child_run_id FROM agent_run_continuations WHERE parent_run_id=$1', [runId])).rowCount) throw new RunError('conflict');
+          const ancestors = (await tx.query<{ depth: number }>(`WITH RECURSIVE chain AS (
+            SELECT parent_run_id,1 AS depth FROM agent_run_continuations WHERE child_run_id=$1
+            UNION ALL SELECT c.parent_run_id,p.depth+1 FROM agent_run_continuations c JOIN chain p ON c.child_run_id=p.parent_run_id WHERE p.depth<5)
+            SELECT COALESCE(MAX(depth),0)::integer AS depth FROM chain`, [runId])).rows[0];
+          if ((ancestors?.depth ?? 0) >= 5) throw new RunError('branch_limit');
+          const state = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1 FOR UPDATE', [runId])).rows[0]).state;
+          const nextInput: CreateRun = { workspaceId: run.workspace_id, projectId: run.project_id, capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: change.goal ?? run.goal, locale: run.locale, inputRefs: run.input_refs };
+          const continuation = capability.continue(nextInput, state, change);
+          const child = await create(principal, nextInput, `continuation_${keyHash}`, { trusted: true, confidential: run.confidential, privateInput: { continuation: boundedObject(continuation.context) }, transaction: tx });
+          if (!terminal(run.state)) {
+            await tx.query("UPDATE agent_runs SET state='cancelled',failure_code='cancelled',execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=now() WHERE id=$1", [runId]);
+            await tx.query("UPDATE agent_run_steps SET state='skipped',retryable=false,finished_at=now() WHERE run_id=$1 AND state IN ('planned','claimed')", [runId]);
+            await emitEvent(tx, runId, { kind: 'run_state', failure: 'cancelled' });
+          }
+          await tx.query('INSERT INTO agent_run_continuations(workspace_id,parent_run_id,child_run_id,created_by,request_key_hash,input_hash,reason) VALUES($1,$2,$3,$4,$5,$6,$7)', [run.workspace_id, runId, child.id, principal.userId, keyHash, inputHash, change.goal !== undefined || change.plan !== undefined ? 'goal-change' : expired ? 'deadline' : 'follow-up']);
+          return snapshot(tx, await loadRun(tx, child.id));
+        }
+      }
       if (kind === 'cancel') {
         if (terminal(run.state)) throw new RunError('conflict');
         await tx.query("UPDATE agent_runs SET state='cancelled',failure_code='cancelled',execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=now() WHERE id=$1", [runId]);
@@ -136,12 +170,23 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
         if (!['waiting_input', 'failed'].includes(run.state) || (run.deadline_at && run.deadline_at <= new Date())) throw new RunError('conflict');
         const unsafe = await tx.query("SELECT id FROM agent_run_usage WHERE run_id=$1 AND state IN ('dispatched','ambiguous','reserved') LIMIT 1", [runId]);
         if (unsafe.rowCount) throw new RunError('ambiguous_charge');
+        const change = ResumeRunSchema.parse(input);
+        if (change.answers !== undefined || (registry.capability(run.capability_id, run.capability_version).continue && run.state === 'waiting_input' && run.failure_code === null)) {
+          const capability = registry.capability(run.capability_id, run.capability_version);
+          if (!capability.continue || run.state !== 'waiting_input' || run.failure_code !== null || change.stepId) throw new RunError('conflict');
+          const stored = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1 FOR UPDATE', [runId])).rows[0]);
+          const next = capability.continue({ workspaceId: run.workspace_id, projectId: run.project_id, capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale, inputRefs: run.input_refs }, stored.state, change);
+          await tx.query("UPDATE agent_run_steps SET state='skipped',retryable=false,finished_at=now() WHERE run_id=$1 AND state='planned'", [runId]);
+          await appendSteps(tx, runId, run.step_count, next.steps);
+          await tx.query('UPDATE agent_run_contexts SET state=$2,revision=revision+1,updated_at=now() WHERE run_id=$1', [runId, boundedObject(next.context)]);
+        } else {
         const stepId = 'stepId' in input ? input.stepId : undefined;
         const retried = await tx.query("UPDATE agent_run_steps SET state='planned',retryable=false,failure_code=NULL,finished_at=NULL WHERE run_id=$1 AND state='failed' AND retryable=true AND ($2::uuid IS NULL OR id=$2)", [runId, stepId ?? null]);
         if (!retried.rowCount) {
           const continuation = run.state === 'waiting_input' && run.failure_code === null
             ? await tx.query("SELECT id FROM agent_run_steps WHERE run_id=$1 AND state='planned' AND ($2::uuid IS NULL OR id=$2) ORDER BY ordinal LIMIT 1", [runId, stepId ?? null]) : null;
           if (!continuation?.rowCount) throw new RunError('conflict');
+        }
         }
         await tx.query("UPDATE agent_runs SET state='queued',failure_code=NULL,execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=NULL,workflow_state='pending',workflow_run_id=NULL,workflow_dispatched_at=NULL WHERE id=$1", [runId]);
       }

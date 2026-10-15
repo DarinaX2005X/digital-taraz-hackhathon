@@ -11,6 +11,7 @@ import { Button, EmptyState, LoadingState, LocaleSelect, ProductHeader } from '@
 import { WorkspaceRequestError } from '../client/transport';
 import { workspaceCopies } from '../locales';
 import styles from './workspace.module.css';
+import { requestStatus } from '../domain/request-attempt';
 
 export function useWorkspaceCopy() { const { locale } = useLocale(); return workspaceCopies[locale]; }
 
@@ -48,7 +49,7 @@ export function useWorkspaceAccess(ownerId: string) {
       return result;
     } catch (error) {
       if (!controller.signal.aborted && isCurrent(ownerId, epoch)) {
-        const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined;
+        const status = requestStatus(error);
         if (status === 401) invalidate(ownerId, epoch);
         if (purge && (status === 403 || status === 404)) setDenied(true);
         if (status === 409) void refresh().catch(() => undefined);

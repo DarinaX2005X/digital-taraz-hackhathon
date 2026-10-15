@@ -17,6 +17,13 @@ export function safeReturnTo(input: unknown): string {
       result.set('workspace', workspaces[0]!);
     }
     const projectPathId = /^\/app\/projects\/([^/]+)$/.exec(url.pathname)?.[1];
+    if (projectPathId && z.uuid().safeParse(projectPathId).success && (url.searchParams.has('sourceId') || url.searchParams.has('sourceVersionId'))) {
+      for (const key of ['sourceId', 'sourceVersionId']) {
+        const values = url.searchParams.getAll(key);
+        if (values.length !== 1 || !z.uuid().safeParse(values[0]).success) return '/app';
+        result.set(key, values[0]!);
+      }
+    }
     if (projectPathId && z.uuid().safeParse(projectPathId).success && url.searchParams.has('resume')) {
       const resume = url.searchParams.getAll('resume');
       if (resume.length !== 1 || resume[0] !== '1') return '/app';
@@ -27,7 +34,7 @@ export function safeReturnTo(input: unknown): string {
     const sourceKeys = url.pathname === '/app/materials'
       ? ['workspaceId', 'projectId', 'sourceId', 'sourceVersionId']
       : url.pathname === '/app/materials/add' ? ['workspaceId', 'projectId', 'sourceId']
-        : sourcePathId && z.uuid().safeParse(sourcePathId).success ? ['workspaceId']
+        : sourcePathId && z.uuid().safeParse(sourcePathId).success ? ['workspaceId', 'uploadId', 'sourceVersionId']
           : collectionPathId && z.uuid().safeParse(collectionPathId).success ? ['workspaceId', 'importId'] : [];
     for (const key of sourceKeys) {
       const values = url.searchParams.getAll(key);

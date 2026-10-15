@@ -14,6 +14,9 @@ import '@univerjs/sheets-numfmt/facade';
 import { inspectFormula, type FormulaDiagnostic, type FormulaReference } from '../domain/formulas';
 import { columnUnit, requireTable, type CellAddress, type TableContent } from '../domain/model';
 import { findFormulaCycles, formulaKey } from './cycles';
+import Decimal from 'decimal.js';
+import { recalculateEstimate } from '@/features/commercial/domain/calculation';
+import { stableCellId } from '../domain/model';
 
 export type CalculationResult = { content: TableContent; diagnostics: FormulaDiagnostic[]; formulaCount: number };
 
@@ -34,6 +37,8 @@ export function createDataEngine(content: TableContent) {
 export async function calculateWorkbook(input: TableContent, options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<CalculationResult> {
   const content = requireTable(structuredClone(input));
   const temporary = structuredClone(content);
+  const exact = recalculateEstimate(content);
+  const exactOutputs = new Map(Object.values(exact.results).filter((result) => result.state !== 'modified').flatMap((result) => Object.entries(result.values)));
   const diagnostics: FormulaDiagnostic[] = [];
   const formulas = new Map<string, { address: CellAddress; references: FormulaReference[] }>();
   let formulaCount = 0, referencedCells = 0;
@@ -43,6 +48,15 @@ export async function calculateWorkbook(input: TableContent, options: { timeoutM
       if (!cell.f) continue;
       formulaCount++;
       const address = { sheetId, row: Number(row), column: Number(column) };
+      const targetId = stableCellId(content, address);
+      if (exactOutputs.has(targetId)) {
+        const value = exactOutputs.get(targetId)!;
+        delete cell.f; delete cell.v; delete cell.t;
+        if (value === null) { cell.v = ''; cell.t = 1; }
+        else if (Number.isFinite(Number(value)) && new Decimal(String(Number(value))).eq(value)) { cell.v = Number(value); cell.t = 2; }
+        else { cell.f = '=#NUM!'; diagnostics.push({ ...address, formula: content.workbook.sheets[sheetId]!.cellData[row]![column]!.f!, code: 'calculation', detail: '#NUM!' }); }
+        continue;
+      }
       const inspection = inspectFormula(cell.f, content, sheetId);
       let issue = inspection.issue;
       const units = new Set<string>();
@@ -80,6 +94,7 @@ export async function calculateWorkbook(input: TableContent, options: { timeoutM
     cell.f = '=#CYCLE!';
     delete cell.v; delete cell.t;
   }
+  if (!Object.values(temporary.workbook.sheets).some((sheet) => Object.values(sheet.cellData).some((row) => Object.values(row).some((cell) => !!cell.f)))) return { content: exact.content, diagnostics, formulaCount };
   const { univer, api } = createDataEngine(temporary);
   try {
     const formula = api.getFormula();
@@ -104,6 +119,6 @@ export async function calculateWorkbook(input: TableContent, options: { timeoutM
         }
       }
     }
-    return { content, diagnostics, formulaCount };
+    return { content: recalculateEstimate(content).content, diagnostics, formulaCount };
   } finally { univer.dispose(); }
 }

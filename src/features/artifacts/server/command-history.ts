@@ -2,14 +2,17 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import type { SourceRef } from '../../../contracts/artifacts';
+import type { DependencyEdge, DependencyTarget } from '../../../contracts/dependency-edges';
+import { applyDependencyEffectsInTransaction, canReplayDependencyEffects, dependencyEffectProjectIds, historyDependencyEffectsInTransaction } from '../../dependencies/server/effects';
+import { graphLock } from '../../dependencies/server/register';
 import { hasScope } from '../../identity/domain/policy';
 import { identityTransaction, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
 import { ArtifactCommandRequestSchema, ArtifactHistoryActionSchema, ArtifactHistoryGroupSchema, CommandReceiptSchema, type ArtifactCommandRequest, type ArtifactHistoryAction, type ArtifactHistoryGroup, type CommandReceipt } from '../contracts';
 import { collectSourceRefs } from '../domain/content-state';
-import { assertBoundedJson } from '../domain/canonical';
+import { assertBoundedJson, ContentValidationError } from '../domain/canonical';
 import type { JsonValue } from '../domain/content-models';
-import { ArtifactDraft, inverseInputs, type ReversibleOperation } from '../domain/operations';
+import { ArtifactDraft, TargetConflictError, inverseInputs, type ReversibleOperation } from '../domain/operations';
 import type { ArtifactState } from '../domain/targets';
 import { createChunkStore } from './chunk-store';
 import { ArtifactConflict, artifactColumns, assertMutationEpoch, assertRevision, assertSources, authorizeProject, editableStatus, loadArtifact, mapTargetConflict, nextVersion, operationBodyHash, operationLock, receipt, requireActiveProject, saveReceipt, sourceVector, type ArtifactRow } from './service-support';
@@ -47,19 +50,19 @@ export async function describeHistoryGroup(tx: PoolClient, access: WorkspaceAcce
   let eligible = eligibility && !unavailable && group.action === 'apply' && visible.every((row) => scopeCanEdit(granted.get(row.id)!, row));
   let expectedSourceRevisions: Record<string, number> | undefined;
   if (eligible) {
+    try { eligible = await canReplayDependencyEffects(tx, access, group.id, group.is_active ? 'undo' : 'redo'); }
+    catch (error) { if (error instanceof IdentityError && ['NOT_FOUND', 'FORBIDDEN'].includes(error.code)) eligible = false; else throw error; }
     const candidates = await candidateCommands(tx, access.workspace.id, group);
-    eligible = candidates.length === ids.length;
+    eligible = eligible && candidates.length === ids.length;
     const refs: SourceRef[] = [];
     for (const row of visible) {
       const command = candidates.find((item) => item.artifact_id === row.id);
       if (!command) { eligible = false; continue; }
       const store = createChunkStore(tx, access.workspace.id), draft = new ArtifactDraft(store.graph, row.content_hash);
-      const seen = new Set<string>();
-      for (const inverse of command.inverse_operations) {
-        if (seen.has(inverse.operation.targetId)) continue;
-        seen.add(inverse.operation.targetId);
-        if ((await draft.target(inverse.operation.targetId))?.hash !== inverse.operation.beforeHash && !((await draft.target(inverse.operation.targetId)) === null && inverse.operation.beforeHash === null)) eligible = false;
-      }
+      // Apply to the transient graph only: the same guards used by real history
+      // include cross-sheet formulas, settings, merges and restored metadata.
+      try { await draft.apply(inverseInputs(command.inverse_operations), { actorId: access.userId, at: new Date().toISOString(), reason: group.reason, origin: 'history' }, command.inverse_operations); }
+      catch (error) { if (error instanceof TargetConflictError || error instanceof ContentValidationError) eligible = false; else throw error; }
       const bindings = await store.graph.get(row.content_hash, ['bindings']) as unknown as ArtifactState['bindings'];
       const direct = await store.graph.get(row.content_hash, ['sourceRefs']) as unknown as SourceRef[];
       refs.push(...collectSourceRefs({ bindings, sourceRefs: direct }));
@@ -77,6 +80,18 @@ export async function readHistoryGroups(tx: PoolClient, access: WorkspaceAccess,
   return output;
 }
 function uniqueRefs(refs: SourceRef[]) { return [...new Map(refs.map((ref) => [operationBodyHash(ref), ref])).values()]; }
+/** All graph users take project graph locks before artifact rows. Reject a
+ * concurrent move after the row lock rather than acquiring a second graph late. */
+async function lockArtifactProjects(tx: PoolClient, access: WorkspaceAccess, ids: string[], additionalProjects: string[] = []) {
+  const rows = (await tx.query<Pick<ArtifactRow, 'id' | 'project_id' | 'access_class'>>('SELECT id,project_id,access_class FROM artifacts WHERE workspace_id=$1 AND id=ANY($2::uuid[]) ORDER BY project_id,id', [access.workspace.id, ids])).rows;
+  if (rows.length !== ids.length) throw new IdentityError('NOT_FOUND', 'artifacts.errors.notFound');
+  for (const row of rows) await authorizeProject(tx, access, row.project_id, 'edit', row.access_class === 'confidential');
+  for (const projectId of [...new Set([...rows.map((row) => row.project_id), ...additionalProjects])].sort()) {
+    await authorizeProject(tx, access, projectId, 'edit');
+    await graphLock(tx, access.workspace.id, projectId);
+  }
+  return new Map(rows.map((row) => [row.id, row.project_id]));
+}
 async function loadGroup(tx: PoolClient, workspaceId: string, id: string, lock = false): Promise<GroupRow | undefined> {
   return (await tx.query<GroupRow>(`${groupSql} WHERE g.workspace_id=$1 AND g.id=$2${lock ? ' FOR UPDATE OF g' : ''}`, [workspaceId, id])).rows[0];
 }
@@ -115,10 +130,12 @@ export function createCommandHistory(pool: Pool) {
     const body: ArtifactCommandRequest = validate(ArtifactCommandRequestSchema, input);
     const id = body.group.commandGroupId, hash = operationBodyHash({ body, origin });
     return withWorkspaceAccessInTransaction(transaction, principal, { workspaceId: body.workspaceId, scope: 'edit' }, async (tx, access) => {
+      const projects = await lockArtifactProjects(tx, access, body.group.commands.map((command) => command.artifactId));
       await operationLock(tx, body.workspaceId, id);
       const authorized = new Map<string, ArtifactRow>();
       for (const command of [...body.group.commands].sort((a, b) => a.artifactId.localeCompare(b.artifactId))) {
         const { row } = await loadArtifact(tx, access, command.artifactId, { scope: 'edit', lock: true }); authorized.set(row.id, row);
+        if (row.project_id !== projects.get(row.id)) throw new ArtifactConflict();
       }
       const replay = await receipt<CommandReceipt>(tx, access, id, 'commands', hash);
       if (replay) return CommandReceiptSchema.parse(replay);
@@ -126,7 +143,8 @@ export function createCommandHistory(pool: Pool) {
       await requireNoGroupCollision(tx, access.workspace.id, id);
       const commandIds = body.group.commands.map((command) => command.commandId);
       if ((await tx.query('SELECT id FROM artifact_commands WHERE workspace_id=$1 AND id=ANY($2::uuid[])', [access.workspace.id, commandIds])).rowCount) throw new ArtifactConflict();
-      const refs: SourceRef[] = [], pending: CommitCommand[] = [];
+      const refs: SourceRef[] = [], afterRefs: SourceRef[] = [], pending: CommitCommand[] = [];
+      const metadataAt = body.group.metadataAt ?? new Date().toISOString();
       for (const command of body.group.commands) {
         const row = authorized.get(command.artifactId)!;
         if (command.kind !== row.kind) throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
@@ -138,14 +156,37 @@ export function createCommandHistory(pool: Pool) {
         const direct = await store.graph.get(row.content_hash, ['sourceRefs']) as unknown as SourceRef[];
         refs.push(...collectSourceRefs({ bindings: beforeBindings, sourceRefs: direct }));
         let applied;
-        try { applied = await draft.apply(command.operations, { actorId: access.userId, at: new Date().toISOString(), reason: command.reason, origin }); }
+        try { applied = await draft.apply(command.operations, { actorId: access.userId, at: metadataAt, reason: command.reason, origin }); }
         catch (error) { mapTargetConflict(error, row); }
         const afterBindings = await store.graph.get(draft.root, ['bindings']) as unknown as ArtifactState['bindings'];
-        refs.push(...collectSourceRefs({ bindings: afterBindings, sourceRefs: direct }));
+        const after = collectSourceRefs({ bindings: afterBindings, sourceRefs: direct });
+        refs.push(...after); afterRefs.push(...after);
         pending.push({ id: command.commandId, row, store, draft, operations: command.operations as unknown as JsonValue[], inverse: applied.inverse, beforeHashes: applied.beforeHashes, afterHashes: applied.afterHashes });
       }
-      await assertSources(tx, access, uniqueRefs(refs), body.group.expectedSourceRevisions, origin !== 'human');
+      // Removed/replaced provenance still participates in ACL and current-head race checks.
+      await assertSources(tx, access, uniqueRefs(refs), body.group.expectedSourceRevisions);
+      if (origin !== 'human') {
+        // Trusted updates may replace stale bindings, but may not leave stale inputs in the result.
+        const currentRefs = uniqueRefs(afterRefs);
+        const currentVector = Object.fromEntries(currentRefs.map((ref) => [ref.sourceId, body.group.expectedSourceRevisions[ref.sourceId]!]));
+        await assertSources(tx, access, currentRefs, currentVector, true);
+      }
       const result = await commitGroup(tx, access, { id, hash, origin, action: 'apply', reason: body.group.commands[0]!.reason, changesetId: body.group.changesetId, sourceRevisions: body.group.expectedSourceRevisions, commands: pending });
+      const graphChanges = new Map<string, { projectId: string; edges: DependencyEdge[]; removeTargets: DependencyTarget[] }>();
+      const projectChanges = (projectId: string) => {
+        if (!graphChanges.has(projectId)) graphChanges.set(projectId, { projectId, edges: [], removeTargets: [] });
+        return graphChanges.get(projectId)!;
+      };
+      for (const edge of body.group.dependencyEdges ?? []) {
+        const command = body.group.commands.find((item) => item.artifactId === edge.target.artifactId);
+        if (!command || !command.operations.some((operation) => operation.targetId === edge.target.targetElementId)) throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
+        projectChanges(authorized.get(command.artifactId)!.project_id).edges.push(edge);
+      }
+      for (const command of body.group.commands) for (const operation of command.operations) if (operation.op === 'unbind') projectChanges(authorized.get(command.artifactId)!.project_id).removeTargets.push({ artifactId: command.artifactId, targetElementId: operation.targetId });
+      if (graphChanges.size) {
+        await applyDependencyEffectsInTransaction(tx, access, { commandGroupId: id, projects: [...graphChanges.values()] });
+        result.historyGroup = (await describeHistoryGroup(tx, access, (await loadGroup(tx, access.workspace.id, id))!))!;
+      }
       await saveReceipt(tx, access, id, 'commands', hash, result);
       return result;
     });
@@ -153,11 +194,17 @@ export function createCommandHistory(pool: Pool) {
   async function historyAction(principal: IdentityPrincipal, action: 'undo' | 'redo', input: z.input<typeof ArtifactHistoryActionSchema>): Promise<CommandReceipt> {
     const body: ArtifactHistoryAction = validate(ArtifactHistoryActionSchema, input), id = body.commandGroupId, hash = operationBodyHash({ body, action });
     return withWorkspaceAccess(pool, principal, { workspaceId: body.workspaceId, scope: 'edit' }, async (tx, access) => {
+      const initial = await loadGroup(tx, body.workspaceId, body.targetCommandGroupId);
+      if (!initial || initial.action !== 'apply') throw new IdentityError('NOT_FOUND', 'artifacts.errors.notFound');
+      const ids = Object.keys(initial.committed_revisions).sort(), rows = new Map<string, ArtifactRow>();
+      const projects = await lockArtifactProjects(tx, access, ids, await dependencyEffectProjectIds(tx, body.workspaceId, initial.id));
       for (const key of [id, body.targetCommandGroupId].sort()) await operationLock(tx, body.workspaceId, key);
-      const target = await loadGroup(tx, body.workspaceId, body.targetCommandGroupId, true);
-      if (!target || target.action !== 'apply') throw new IdentityError('NOT_FOUND', 'artifacts.errors.notFound');
-      const ids = Object.keys(target.committed_revisions).sort(), rows = new Map<string, ArtifactRow>();
-      for (const artifactId of ids) rows.set(artifactId, (await loadArtifact(tx, access, artifactId, { scope: 'edit', lock: true })).row);
+      const target = (await loadGroup(tx, body.workspaceId, body.targetCommandGroupId, true))!;
+      for (const artifactId of ids) {
+        const { row } = await loadArtifact(tx, access, artifactId, { scope: 'edit', lock: true });
+        if (row.project_id !== projects.get(row.id)) throw new ArtifactConflict();
+        rows.set(artifactId, row);
+      }
       const replay = await receipt<CommandReceipt>(tx, access, id, action, hash);
       if (replay) return CommandReceiptSchema.parse(replay);
       assertMutationEpoch(access, body.expectedAuthzVersion);
@@ -191,6 +238,8 @@ export function createCommandHistory(pool: Pool) {
       }
       await assertSources(tx, access, uniqueRefs(refs), body.expectedSourceRevisions);
       const result = await commitGroup(tx, access, { id, hash, origin: 'human', action, reason: `${action}: ${target.reason}`.slice(0, 1000), targetGroupId: target.id, sourceRevisions: body.expectedSourceRevisions, commands: pending });
+      await historyDependencyEffectsInTransaction(tx, access, { commandGroupId: id, targetCommandGroupId: target.id, action });
+      result.historyGroup = (await describeHistoryGroup(tx, access, (await loadGroup(tx, access.workspace.id, id))!))!;
       await saveReceipt(tx, access, id, action, hash, result);
       return result;
     });

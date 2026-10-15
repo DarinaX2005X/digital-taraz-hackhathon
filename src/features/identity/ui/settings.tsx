@@ -5,6 +5,8 @@ import { useEffect, useRef, useState, useSyncExternalStore, type Dispatch, type 
 import { Activity, KeyRound, Languages, LogIn, LogOut, Monitor, RefreshCw, Save, Smartphone, Trash2, UserRound, Users } from "lucide-react";
 import { Button, Dialog, DialogClose, IconButton, InputField, LoadingState, LocaleSelect, ProductHeader } from "@/ui";
 import { useLocale } from "@/i18n/provider";
+import { TourSettings } from '@/features/onboarding/tour';
+import { tourCopy } from '@/features/onboarding/copy';
 import { formatInstant } from "@/i18n/format";
 import type { AccountDeletionResult, IdentityMutationResult, IdentitySession, IdentityUser, IdentityViewer } from "../contracts";
 import { authHref, OperationError, PasswordField, PrivateSessionState, SuccessNotice } from "./common";
@@ -39,9 +41,10 @@ const initialView = (): SettingsView => "profile";
 
 function SettingsNavigation({ view }: { view: SettingsView }) {
   const t = useIdentityTranslations();
+  const { locale } = useLocale();
   return <nav className={styles.settingsNav} aria-label={t("identity.navigation.settings")}>
     <div className={styles.settingsNavGroup}>{viewItems.map(({ view: target, label, icon: Icon }) => <a key={target} href={`#${target}`} aria-current={view === target ? "page" : undefined}><Icon size={18} aria-hidden="true" /><span>{t(label)}</span></a>)}</div>
-    <div className={styles.settingsNavGroup}><Link href="/settings/team"><Users size={18} aria-hidden="true" /><span>{t("identity.team.manage")}</span></Link><Link href="/app/runs"><Activity size={18} aria-hidden="true" /><span>{t("identity.navigation.activity")}</span></Link></div>
+    <div className={styles.settingsNavGroup}><a href="#tour" aria-current={view === 'tour' ? 'page' : undefined}>{tourCopy[locale].settings}</a><Link href="/settings/team"><Users size={18} aria-hidden="true" /><span>{t("identity.team.manage")}</span></Link><Link href="/app/runs"><Activity size={18} aria-hidden="true" /><span>{t("identity.navigation.activity")}</span></Link></div>
     <div className={styles.settingsNavGroup}><a href="#delete-account" className={styles.settingsDangerLink} aria-current={view === "delete-account" ? "page" : undefined}><Trash2 size={18} aria-hidden="true" /><span>{t("identity.deletion.title")}</span></a></div>
   </nav>;
 }
@@ -185,6 +188,7 @@ function SettingsContent({ viewer, onDeleted, onDirtyChange }: { viewer: Identit
         <section className={styles.section} id="language" tabIndex={-1} hidden={view !== "language"} aria-labelledby="language-title"><h2 id="language-title">{t("identity.profile.languageTitle")}</h2><p className={styles.muted}>{t("identity.profile.languageDescription")}</p><LocaleSelect className={styles.locale} /></section>
         <section className={styles.section} id="security" tabIndex={-1} hidden={view !== "security"} aria-labelledby="security-title"><h2 id="security-title">{t("identity.password.title")}</h2><p className={styles.muted}>{t("identity.password.description")}</p><ChangePasswordForm guard={guard} userId={viewer.user.id} onDirtyChange={setPasswordDirty} onChanged={() => setSessionsVersion((value) => value + 1)} /></section>
         {view === "sessions" && <SessionsSection version={sessionsVersion} guard={guard} userId={viewer.user.id} onSignIn={() => setAuthOpen(true)} onSignOut={() => setSignOutOpen(true)} />}
+        {view === 'tour' && <TourSettings ownerId={viewer.user.id} />}
         {view === "delete-account" && <AccountDeletionSection userId={viewer.user.id} guard={guard} authVersion={sessionsVersion} uncertain={deletionUncertain} onUncertainChange={setDeletionUncertain} onDeleted={onDeleted} />}
       </div>
     </div> : <div className={styles.stack}><PrivateSessionState phase={access.phase} onSignIn={() => setAuthOpen(true)} onResume={access.resume} />{deletionUncertain && <p role="alert">{t("identity.deletion.sessionUnavailable")}</p>}</div>}

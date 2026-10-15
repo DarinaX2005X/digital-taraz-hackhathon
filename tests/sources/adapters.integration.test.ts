@@ -9,6 +9,7 @@ import { createSourceService } from '../../src/features/sources/server/service';
 import { createSourceDocumentAdapter } from '../../src/features/sources/server/document-input';
 import { createSourceOriginalAdapter } from '../../src/features/sources/server/original-input';
 import { readPinnedSource, readPinnedSourceChunk } from '../../src/features/sources/server/pinned-source';
+import { assertSourceReadAccess, createPendingSource, markSourceUnavailable, publishSourceVersion } from '../../src/features/sources/server/source-heads';
 import { LocalSourceStorage } from '../../src/features/sources/server/storage';
 import { artifactFixture, artifactTestPool } from '../artifacts/server/test-fixture';
 
@@ -28,6 +29,32 @@ async function fixture() {
 }
 
 describe('canonical source consumers', () => {
+  it('authorizes retained native versions independently of freshness while denying missing, confidential and trashed sources', async () => {
+    const f = await artifactFixture(pool), sourceId = randomUUID(), versionId = randomUUID();
+    await withWorkspaceAccess(pool, f.owner, { workspaceId: f.workspaceId, scope: 'edit' }, async (tx, access) => {
+      await createPendingSource(tx, access, { sourceId, projectId: f.projectId, accessClass: 'internal' });
+      await publishSourceVersion(tx, access, { sourceId, versionId, expectedRevision: 0, snapshotHash: 'a'.repeat(64) });
+      await publishSourceVersion(tx, access, { sourceId, versionId: randomUUID(), expectedRevision: 1, snapshotHash: 'b'.repeat(64) });
+    });
+    expect((await pool.query('SELECT source_id FROM source_details WHERE source_id=$1', [sourceId])).rowCount).toBe(0);
+    const ref = { sourceId, sourceVersionId: versionId, revision: 1 };
+    const read = (principal = f.owner, refs = [ref]) => withWorkspaceAccess(pool, principal, { workspaceId: f.workspaceId, scope: 'read' }, (tx, access) => assertSourceReadAccess(tx, access, refs));
+    await expect(read()).resolves.toBeUndefined();
+    await expect(read(f.member)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await f.projects.setGrant(f.owner, randomUUID(), { workspaceId: f.workspaceId, projectId: f.projectId, userId: f.member.userId, scopes: ['read'], expectedAuthzVersion: 1 });
+    await withWorkspaceAccess(pool, f.owner, { workspaceId: f.workspaceId, scope: 'edit' }, (tx, access) => markSourceUnavailable(tx, access, sourceId));
+    await expect(read(f.member)).resolves.toBeUndefined();
+    await expect(read(f.owner, [{ ...ref, revision: 2 }])).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(read(f.owner, [{ ...ref, sourceVersionId: randomUUID() }])).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await pool.query("UPDATE sources SET access_class='confidential' WHERE id=$1", [sourceId]);
+    await expect(read(f.member)).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    await expect(read()).resolves.toBeUndefined();
+    await pool.query("UPDATE sources SET state='trashed' WHERE id=$1", [sourceId]);
+    await expect(read()).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await pool.query("UPDATE sources SET state='unavailable' WHERE id=$1", [sourceId]);
+    await pool.query("UPDATE projects SET status='trashed' WHERE id=$1", [f.projectId]);
+    await expect(read()).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
   it('returns the selected original after replacement and refuses foreign readers or unpublished versions', async () => {
     const f = await fixture(), bytes = Buffer.from('sku,price\n001,1250');
     const first = await f.upload(bytes);

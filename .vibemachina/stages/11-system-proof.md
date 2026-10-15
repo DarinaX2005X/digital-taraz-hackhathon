@@ -7,12 +7,12 @@ Status: todo
 
 ## 11.1 Пройти все деловые пути и состояния через реальные границы
 Status: todo
-Requirements: R06, R07, R10, R11, R13, R14, R15, R16, R39, R40, R41, R42, R43, R44, R45, R60, R82, R83, R84, R90, R91, R92, R93, R94, R95, R96, R97, R98, R99, R100, R102, R103, R104
+Requirements: R06, R07, R10, R11, R13, R14, R15, R16, R39, R40, R41, R42, R43, R44, R45, R60, R82, R83, R84, R90, R91, R92, R93, R94, R95, R96, R97, R98, R99, R100, R102, R103, R104, R106
 Depends on: 09.3, 10.3, 07.3
 Owner: SUBAGENT to assign
-Paths: tests/journeys/, evals/suite/, scripts/eval-live.mjs
+Paths: tests/journeys/, evals/suite/
 
-**Контракт и результат.** C1 J1-J5, C13. HTTP/API and domain matrix three business models/all artifact kinds/owner-editor-reviewer. Sources -> actual tools -> result -> direct edit -> undo -> sourcechange -> selective review -> exports -> new session -> repeat. Live economical eval unseen tasks, contradictory context, malformed provider output, cancellation and missingkey; results not hand-authored fixtures pretending live. Static route/action/locale parity includes emails/exports/errors/tour/accessibility semantics and narrow CSS constraints. User visual findings consumed in original TESTING, never browser automation.
+**Контракт и результат.** C1 J1-J5, C13. HTTP/API and domain matrix three business models/all artifact kinds/owner-editor-reviewer. Visible assistant session -> free goal -> actual tools -> consequential decision -> live result components -> direct edit -> undo -> source change -> selective review -> exports -> new session -> repeat. At least J1 proves a financial or operational consequence that is not reducible to generic chat or ordinary editing. Live economical eval unseen tasks, contradictory context, malformed provider output, cancellation and missingkey; results not hand-authored fixtures pretending live. Static route/action/locale parity includes emails/exports/errors/tour/accessibility semantics and narrow CSS constraints. User visual findings consumed in original TESTING, never browser automation.
 
 **Вход в работу и состояния.** MAIN publishes actual local/preview URLs and compact user-check routes for each capability, desktop/mobile and languages. Pending visual checks remain needs-user-check, unrelated successful domain tests retained. No universal happiness from allroutes200.
 

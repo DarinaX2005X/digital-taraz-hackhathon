@@ -11,8 +11,10 @@ import { extractSource, SOURCE_MEDIA, validateSourceMagic } from './parser';
 import { LocalSourceStorage, sourceHash } from './storage';
 import { listSourceLibrary } from './library';
 import type { SourceLibraryQuery } from '../../../contracts/sources';
+import { readPinnedSource } from './pinned-source';
+import { prepareOriginalVisualAsset, registerOriginalVisualAsset } from './visual-assets';
 
-interface UploadRow {
+export interface UploadRow {
   id: string; workspace_id: string; source_id: string; actor_id: string; operation_id: string; body_hash: string;
   expected_revision: number; reserved_version_id: string; published_version_id: string | null;
   file_name: string; declared_size: number; media_type: string; format: SourceFormat; options: unknown;
@@ -27,7 +29,7 @@ const uploadDto = (row: UploadRow) => ({ id: row.id, sourceId: row.source_id, ve
 const summaryDto = (source: SourceRow, upload: UploadRow) => ({ id: source.id, workspaceId: source.workspace_id, projectId: source.project_id, title: source.title, accessClass: source.access_class, revision: source.current_revision, currentVersionId: source.current_version_id, status: upload.status, format: upload.format, fileName: upload.file_name, byteSize: upload.byte_size ?? upload.declared_size, createdAt: source.created_at.toISOString(), updatedAt: source.updated_at.toISOString() });
 const sourceColumns = 's.id,s.workspace_id,s.project_id,d.title,s.state,s.current_revision,s.current_version_id,s.access_class,s.created_at,s.updated_at';
 
-async function authorizedSource(tx: PoolClient, access: WorkspaceAccess, sourceId: string, scope: 'read' | 'edit') {
+export async function authorizedSource(tx: PoolClient, access: WorkspaceAccess, sourceId: string, scope: 'read' | 'edit') {
   const source = (await tx.query<SourceRow>(`SELECT ${sourceColumns} FROM sources s JOIN source_details d ON d.source_id=s.id AND d.workspace_id=s.workspace_id WHERE s.workspace_id=$1 AND s.id=$2`, [access.workspace.id, sourceId])).rows[0];
   if (!source || source.state === 'trashed') throw fail('notFound', 'NOT_FOUND');
   await lockProjectAccess(tx, access, { projectId: source.project_id, scope, confidential: source.access_class === 'confidential' });
@@ -37,7 +39,7 @@ async function authorizedSource(tx: PoolClient, access: WorkspaceAccess, sourceI
   }
   return source;
 }
-async function authorizedUpload(tx: PoolClient, access: WorkspaceAccess, uploadId: string, scope: 'read' | 'edit', lock = false) {
+export async function authorizedUpload(tx: PoolClient, access: WorkspaceAccess, uploadId: string, scope: 'read' | 'edit', lock = false) {
   const upload = (await tx.query<UploadRow>(`SELECT * FROM source_uploads WHERE workspace_id=$1 AND id=$2${lock ? ' FOR UPDATE' : ''}`, [access.workspace.id, uploadId])).rows[0];
   if (!upload) throw fail('notFound', 'NOT_FOUND');
   const source = await authorizedSource(tx, access, upload.source_id, scope);
@@ -52,6 +54,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
   };
   async function init(principal: SessionPrincipal, operationId: string, input: InitSourceUpload) {
     const body = validate(InitSourceUploadSchema, input), key = validate(IdSchema, operationId);
+    if (['ttf', 'otf', 'woff'].includes(body.format) && body.size > 5 * 1024 * 1024) throw fail('font', 'VALIDATION_FAILED');
     if (/[\x00-\x1f]/.test(body.fileName)) throw fail('fileName', 'VALIDATION_FAILED');
     const bodyHash = sourceHash(JSON.stringify(body));
     return access(principal, body.workspaceId, 'edit', async (tx, auth) => {
@@ -118,6 +121,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
       const bytes = await storage.read(claimed.upload.original_key!);
       if (sourceHash(bytes) !== claimed.upload.byte_hash || bytes.length !== claimed.upload.byte_size) throw fail('integrity');
       const extracted = await extractSource(bytes, claimed.upload.format, SourceOptionsSchema.parse(claimed.upload.options));
+      const visualAsset = extracted.manifest.complete ? await prepareOriginalVisualAsset(claimed.upload, bytes) : null;
       return await access(principal, workspaceId, 'edit', async (tx, auth) => {
         const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
         if (upload.status !== 'processing' || upload.lease_until?.getTime() !== lease.getTime() || lease <= new Date()) throw fail('conflict');
@@ -128,7 +132,10 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
         }
         await tx.query('DELETE FROM source_pages WHERE upload_id=$1', [uploadId]);
         if (extracted.pages.length) await tx.query('INSERT INTO source_pages(upload_id,page,state) SELECT $1,page,state FROM jsonb_to_recordset($2::jsonb) AS x(page integer,state text)', [uploadId, JSON.stringify(extracted.pages)]);
-        if (extracted.manifest.complete) await publishSourceVersion(tx, auth, { sourceId: upload.source_id, versionId: upload.reserved_version_id, expectedRevision: upload.expected_revision, snapshotHash: extracted.snapshotHash });
+        if (extracted.manifest.complete) {
+          await publishSourceVersion(tx, auth, { sourceId: upload.source_id, versionId: upload.reserved_version_id, expectedRevision: upload.expected_revision, snapshotHash: extracted.snapshotHash });
+          await registerOriginalVisualAsset(tx, auth, upload, visualAsset);
+        }
         const row = (await tx.query<UploadRow>("UPDATE source_uploads SET status=$3,manifest=$4,published_version_id=$5,lease_until=NULL,error_code=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 RETURNING *", [workspaceId, uploadId, extracted.manifest.complete ? 'ready' : 'partial', JSON.stringify(extracted.manifest), extracted.manifest.complete ? upload.reserved_version_id : null])).rows[0]!;
         return { upload: uploadDto(row) };
       });
@@ -157,12 +164,17 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
       return SourceListSchema.parse({ sources: page.map((row) => summaryDto(row, { ...row.upload, created_at: new Date(row.upload.created_at), updated_at: new Date(row.upload.updated_at) })), nextCursor: rows.length > limit ? page.at(-1)!.id : null });
     });
   }
-  async function read(principal: SessionPrincipal, workspaceId: string, sourceId: string) {
-    validate(IdSchema, sourceId);
+  async function read(principal: SessionPrincipal, workspaceId: string, sourceId: string, selectedUploadId?: string) {
+    validate(IdSchema, sourceId); if (selectedUploadId) validate(IdSchema, selectedUploadId);
     return access(principal, workspaceId, 'read', async (tx, auth) => {
       const source = await authorizedSource(tx, auth, sourceId, 'read');
       const uploads = (await tx.query<UploadRow>('SELECT * FROM source_uploads WHERE workspace_id=$1 AND source_id=$2 ORDER BY created_at DESC,id DESC LIMIT 100', [workspaceId, sourceId])).rows;
       if (!uploads[0]) throw fail('notFound', 'NOT_FOUND');
+      if (selectedUploadId && !uploads.some((upload) => upload.id === selectedUploadId)) {
+        const pinned = (await tx.query<UploadRow>('SELECT * FROM source_uploads WHERE workspace_id=$1 AND source_id=$2 AND id=$3', [workspaceId, sourceId, selectedUploadId])).rows[0];
+        if (!pinned) throw fail('notFound', 'NOT_FOUND');
+        if (uploads.length === 100) uploads.pop(); uploads.push(pinned);
+      }
       const editable = await canEdit(tx, auth, source);
       return { source: summaryDto(source, uploads[0]), uploads: uploads.map(uploadDto), canEdit: editable, editableUploadIds: editable ? uploads.filter((upload) => upload.actor_id === auth.userId).map((upload) => upload.id) : [] };
     });
@@ -193,7 +205,8 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
     return { bytes, fileName: selected.file_name, mediaType: selected.media_type };
   }
   const listLibrary = (principal: SessionPrincipal, input: SourceLibraryQuery) => listSourceLibrary(pool, principal, input);
-  return { init, put, finalize, cancel, list, listLibrary, read, preview, download };
+  const readVersion = (principal: SessionPrincipal, workspaceId: string, sourceId: string, sourceVersionId: string) => access(principal, workspaceId, 'read', (tx, auth) => readPinnedSource(tx, auth, { sourceId, sourceVersionId }));
+  return { init, put, finalize, cancel, list, listLibrary, read, readVersion, preview, download };
 }
 
 async function canEdit(tx: PoolClient, auth: WorkspaceAccess, source: SourceRow) {

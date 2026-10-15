@@ -6,17 +6,19 @@ import { hashJson } from '@/features/artifacts/domain/canonical';
 import { documentCommand } from '../domain/commands';
 import { asJson, readDocument, type DocumentContent } from '../domain/document';
 
-type Phase = 'ready' | 'dirty' | 'saving' | 'conflict' | 'failed' | 'recovery' | 'hidden';
+type Phase = 'ready' | 'dirty' | 'saving' | 'applying' | 'conflict' | 'failed' | 'recovery' | 'hidden';
 export type DocumentControllerState = Readonly<{ content: DocumentContent; phase: Phase; localSaved: boolean; error?: unknown }>;
 type Flight = { id: string; revision: number; generation: number; content: DocumentContent };
 const equal = (a: DocumentContent, b: DocumentContent) => hashJson(asJson(a)) === hashJson(asJson(b));
 
 /** Один подтверждённый baseRevision на отправку; последующий ввод остаётся отдельным черновиком. */
 export function createDocumentController(session: ArtifactSession, reason: () => string) {
+  let currentReason = reason;
   let snapshot = session.getSnapshot().snapshot!;
   let state: DocumentControllerState = { content: readDocument(snapshot.content), phase: 'ready', localSaved: true };
   let generation = 0, acknowledged = 0, readySeen = false, disposed = false, building = false;
   let flight: Flight | undefined;
+  let commandBusy = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let persistence = Promise.resolve();
   const listeners = new Set<() => void>();
@@ -51,14 +53,17 @@ export function createDocumentController(session: ArtifactSession, reason: () =>
   }
   async function submit(prepared?: CommandGroupDraft) {
     cancelTimer();
-    if (disposed || building || flight || !['dirty', 'ready'].includes(state.phase)) return;
+    if (disposed || building || flight || !['dirty', 'ready', ...(prepared ? ['applying'] : [])].includes(state.phase)) return;
     building = true;
     const base = snapshot, content = state.content, currentGeneration = generation;
     try {
       await persistence;
       if (state.phase === 'failed' || state.phase === 'hidden') return;
-      const draft = prepared ?? await documentCommand(base, content, reason());
-      if (snapshot.artifact.currentRevision !== base.artifact.currentRevision) { schedule(0); return; }
+      const draft = prepared ?? await documentCommand(base, content, currentReason());
+      if (snapshot.artifact.currentRevision !== base.artifact.currentRevision) {
+        if (prepared) publish({ phase: 'conflict' }); else schedule(0);
+        return;
+      }
       if (!draft) {
         if (currentGeneration !== generation) { schedule(); return; }
         if (generation !== acknowledged) {
@@ -124,6 +129,7 @@ export function createDocumentController(session: ArtifactSession, reason: () =>
   }
   return {
     getSnapshot: () => state,
+    setReason(next: () => string) { currentReason = next; },
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     mount() {
       const mine = ++mountGeneration;
@@ -132,7 +138,7 @@ export function createDocumentController(session: ArtifactSession, reason: () =>
       return () => { queueMicrotask(() => { if (mine === mountGeneration) dispose(); }); };
     },
     change(content: DocumentContent, boundary: 'typing' | 'format' | 'paste' = 'typing') {
-      if (disposed || !readySeen || !['ready', 'dirty', 'saving'].includes(state.phase) || !session.getSnapshot().snapshot?.permissions.edit) return false;
+      if (disposed || commandBusy || !readySeen || !['ready', 'dirty', 'saving'].includes(state.phase) || !session.getSnapshot().snapshot?.permissions.edit) return false;
       const validated = readDocument(content);
       if (equal(validated, state.content)) return true;
       generation += 1;
@@ -142,11 +148,22 @@ export function createDocumentController(session: ArtifactSession, reason: () =>
       return true;
     },
     flush,
-    async command(build: (base: ArtifactSnapshot) => Promise<CommandGroupDraft>) {
-      if (!await flush()) return false;
-      generation += 1; publish({ phase: 'dirty', localSaved: false });
-      await persist(state.content, snapshot.artifact.currentRevision, generation);
-      await submit(await build(snapshot)); return flush();
+    async command(build: (base: ArtifactSnapshot) => Promise<CommandGroupDraft>, desired?: DocumentContent) {
+      if (commandBusy || !session.getSnapshot().snapshot?.permissions.edit) return false;
+      commandBusy = true;
+      try {
+        if (!await flush()) return false;
+        publish({ phase: 'applying' });
+        const baseRevision = snapshot.artifact.currentRevision;
+        const prepared = await build(snapshot);
+        if (snapshot.artifact.currentRevision !== baseRevision) throw new Error('document-command-base-changed');
+        const content = desired ? readDocument(desired) : state.content;
+        generation += 1; publish({ content, localSaved: false });
+        await persist(state.content, snapshot.artifact.currentRevision, generation);
+        await submit(prepared);
+        return await flush();
+      } catch (error) { publish({ phase: generation === acknowledged ? 'ready' : 'failed', error }); throw error; }
+      finally { commandBusy = false; }
     },
     async retry() { await session.retrySave(); receive(); if (!flight && state.phase === 'failed' && !session.getSnapshot().pending.length) { publish({ phase: 'dirty', error: undefined }); await submit(); } },
     dispose,

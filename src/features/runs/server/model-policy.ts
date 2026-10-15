@@ -45,3 +45,14 @@ export async function readRegisteredPricing(pool: Pool, route: ModelRoute, allow
   if (!price.success || hash(price.data) !== row.pricing_hash) throw new RunError('price_unknown');
   return price.data;
 }
+/** Non-charged availability check; dispatch still rechecks policy under its ledger transaction. */
+export async function readEnabledPricing(pool: Pool, route: ModelRoute, allowedRoutes?: readonly ModelRoute[]): Promise<PricingSnapshot> {
+  assertModelRoute(route, allowedRoutes);
+  const row = (await pool.query<ModelEndpointRow>('SELECT * FROM agent_model_endpoints WHERE model=$1 AND endpoint=$2 AND kind=$3', [route.model, route.endpoint, route.kind])).rows[0];
+  if (!row || row.policy_revision !== MODEL_POLICY_REVISION) throw new RunError('model_forbidden');
+  if (row.state === 'quarantined') throw new RunError('price_exceeded');
+  if (row.state !== 'enabled' || row.proof_state !== 'passed' || !row.proof_ref) throw new RunError('model_unproven');
+  const parsed = PricingSnapshotSchema.safeParse(row.pricing_snapshot);
+  if (!parsed.success || hash(parsed.data) !== row.pricing_hash || parsed.data.proof !== row.proof_state || parsed.data.proofRef !== row.proof_ref) throw new RunError('price_unknown');
+  return parsed.data;
+}

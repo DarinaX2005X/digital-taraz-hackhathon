@@ -1,23 +1,25 @@
 # 07 Законченные деловые задачи вместо набора AI-кнопок
-Status: todo
+Status: active
 
 Связываем инструменты в самостоятельные полезные работы. Предложение, рекламная кампания, закупка и план команды используют свои исходники и могут быть нужны бизнесу по отдельности.
 
 Общий договор исполнения, локализации, передачи и проверок: [PLAN](../PLAN.md). Полные предметные контракты: [PROJECT](../PROJECT.md). Это запланированные задачи, не разрешение начать до approval.
 
 ## 07.1 Подготовить предложение, смету и согласованные условия
-Status: todo
-Requirements: R01, R04, R10, R12, R15, R16, R82, R90, R91, R96, R99
-Depends on: 04.2, 05.1
-Owner: /root/agent_execution
+Status: active
+Requirements: R01, R04, R10, R12, R15, R16, R82, R90, R91, R96, R99, R106
+Depends on: 03.1, 01.3
+Owner: SUBAGENT to assign (передача; прежний автор: agent_execution)
 Paths: src/features/commercial/, tests/commercial/, evals/commercial/
 
-**Контракт и результат.** C1 J1, C8. Request-to-offer procedure extracts requirements, quantities, deliverables, exclusions and deadlines from free text/doc; maps catalog/prices with provenance and questions for unresolved terms. Build commercially distinct feasible variants using actual services/items, exact estimate formulas and editable document, not predefined three template answers. Track each request requirement answered/question/excluded-with-reason; amounts include valid discounts/tax only supplied rule. Client names are optional protected imported facts, no customer portal. Quote and estimate share bindings, approval tied to versions.
+Раннее начало J1 после аудита15октября использует принятый artifact/source boundary иfixtures, чтобы04.1/04.2 проверяли настоящий предметный результат. Полная07.1приёмка сохраняет04.2/05.1, точные authoritative calculations, живую модель, варианты ивсе форматы. Текущий estimate/offer builder иsynthetic DB proof — промежуточный результат, не полная коммерческая процедура.
+
+**Контракт и результат.** C1 J1, C8. Request-to-decision procedure extracts requirements, quantities, deliverables, exclusions and deadlines from free text/doc; maps catalog/prices, rules and available capacity with provenance and questions for unresolved terms. Build commercially distinct feasible variants using actual services/items, exact estimate formulas and schedule constraints, not predefined three template answers. Compare margin, completion risk, scope and customer-facing conditions so the owner makes a consequential choice before the assistant creates the editable offer/estimate/plan. Track each request requirement answered/question/excluded-with-reason; amounts include valid discounts/tax only supplied rule. Client names are optional protected imported facts, no customer portal. Quote, estimate and plan share bindings, approval tied to versions.
 
 **Вход в работу и состояния.** Project goal or «Подготовить предложение» in selected materials; result tabs document/estimate/requirements/variants. User edits line quantities/prices/text and explicitly chooses conditions; margin visibility restricted. Missing price prevents fabricated total, still allows working draft/questions. Export to own channel with no external sending automation.
 
 ### 07.1.1 Предметная процедура и контроль полноты
-Status: todo
+Status: active
 
 Live service request with custom constraints creates useful deliverables and meaningful alternatives; golden estimate deterministic. Every requirement traces to source or explicit unanswered item.
 
@@ -69,18 +71,20 @@ Status: todo
 Real import -> query -> comparison -> manual override -> reopen -> XLSX/DOCX export. Supplier update preserves historical decision; no network send/purchase side effect.
 
 ## 07.4 Организовать работу команды в редактируемом плане
-Status: todo
+Status: active
 Requirements: R01, R11, R14, R16, R34, R35, R40, R91, R92, R93, R94, R95
-Depends on: 03.1, 04.1, 01.2
-Owner: SUBAGENT to assign
+Depends on: 03.1, 01.2
+Owner: SUBAGENT to assign (передача; прежний автор: operations_delivery)
 Paths: src/features/operations/, tests/operations/, evals/operations/
+
+Уточнение исполнения15октября: ручной planner/resource/availability путь начинается на принятом03.1 иобщемUI;04.1 остаётся обязательным для финальнойAIпроцедуры иполной07.4приёмки. Это тот же approved сценарий, без изменения объёма. Fresh GPT-5.6 Sol owner получает весь07.4, включая list/calendar/checklist, ресурсы безаккаунта, реальные save/reopen/history иICS/XLSX/PDF adapters. Exact loans: src/app/api/operations/,src/server/db/operations-schema.ts,migrations/0017_operations.sql.draft/final. Shared PlanModel/commands/events/package/rootexports только recovery_inventory; mainartifactroute только journey_delivery; exporterregistry только exports_delivery. Пока текущий интеграционный checkpoint проверяется, новый код готовится в ignored scratch, без изменения общих inputs.
 
 **Контракт и результат.** C1 J4, C7, C9. Plan entries stable IDs/title/description/localdate or UTCrange/resource assignment/dependencies/status/sourceRefs. List/calendar/checklist views, edit/move/duplicate/bulk changes. WorkResource имеет необязательный membershipId: сотрудник без аккаунта тоже включается в рабочий план, доступ к Tirlik при этом не создаётся. AvailabilityVersion хранит интервалы/исключения/effective dates/source; effort отдельно от duration. Проверить доступные часы, отсутствие, суммарную трудоёмкость и пересечения; неизвестная доступность явно unknown, не40 часов по умолчанию. AI derives steps from own instructions and desired outcome; missing duration/assignee remains unassigned assumption, not fake optimization. Plans internal, not authoritative external booking/inventory. ICS stableUID/timezone/sequence, XLSX/PDF via export registration.
 
 **Вход в работу и состояния.** Project -> plan, «Добавить задачу», direct date/owner/status controls and dependencies detail. Выбор ресурса поиском по разрешённым WorkResource; «Доступность» открывает обычные поля рабочих интервалов/исключений с единицами. Invite отдельное действие, не требование назначения. Calendar drag has keyboard/date input equivalent; phone list primary. Show conflicts at affected entry, proposed alternatives not silent movement. Return to linked document/creative; unauthorized resource rejected server-side, scope проверки явно ограничен доступными данными.
 
 ### 07.4.1 Модель плана и выполнимость
-Status: todo
+Status: active
 
 Domain dependencycycle/overlap/weekday/timezone/missingduration, undo and stableID reorder; calendar dates not shifted by UTC conversion. Fixtures: недоступный день, превышение доступных часов, неизвестная доступность, сотрудник без аккаунта,1 час duration с2 человеко-часами effort. Изменение availability version показывает последствия, не переносит задания молча. No false optimality claim.
 

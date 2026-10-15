@@ -11,6 +11,15 @@
 .heroDescription { max-width: 480px; margin: 0; font-size: 18px; line-height: 1.65; color: var(--color-muted); }
 .heroActions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-top: 32px; max-width: 520px; }
 .heroActions > :global(.tl-button) { min-height: 48px; padding-inline: 22px; }
+.startWork { padding: 40px; display: grid; grid-template-columns: minmax(240px, .8fr) minmax(0, 1.2fr); gap: 48px; background: #eef5f2; scroll-margin-top: 24px; }
+.startWork > div p { max-width: 44ch; color: var(--color-muted); line-height: 1.65; margin-bottom: 0; }
+.startWork form { display: grid; gap: 18px; min-width: 0; }
+.startWork textarea { background: white; min-height: 118px; border-radius: 12px; }
+.startActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
+.startActions p { flex: 1 1 200px; font-size: 14px; color: var(--color-muted); line-height: 1.5; margin: 0; }
+.startError { color: var(--color-danger, #9c3030); margin: 0; }
+@media (max-width: 760px) { .startWork { grid-template-columns: minmax(0, 1fr); padding: 32px 24px; gap: 24px; } }
+@media (max-width: 390px) { .startWork { padding-inline: 16px; } }
 .explore { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; font-weight: 500; text-decoration: none; }
 .scenarios, .process { padding: 72px 40px; scroll-margin-top: 24px; }
 .sectionLead { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 80px; align-items: start; margin-bottom: 40px; }
@@ -36,6 +45,12 @@
 .controlSection { background: var(--color-text); color: var(--color-surface); padding: 64px 40px; }
 .controlIntro { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 80px; margin-bottom: 44px; }
 .controlIntro p { color: #d6ddda; }
+.controlIntro > div { align-self: center; }
+.controlIntro > div p { margin-top: 24px; max-width: 49ch; }
+.connectedScene { margin: -24px 0 0; min-width: 0; }
+.connectedScene svg { width: 100%; height: auto; display: block; }
+.connectedScene figcaption { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size: 14px; line-height: 1.5; text-align: center; color: #dceee6; }
+.connectedScene figcaption span:last-child { color: #b9ddcb; }
 .controlItems { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; }
 .controlItems svg { color: #b3d5ce; }
 .controlItems h3 { font-size: 18px; line-height: 1.4; margin: 16px 0 12px; }

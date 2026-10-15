@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { ErrorEnvelopeSchema, type ErrorCode } from '../../../contracts/errors';
 import { IdSchema } from '../../../contracts/primitives';
-import { CancelRunSchema, CreateRunSchema, ResumeRunSchema, RunEventsPageSchema, RunListPageSchema, RunSchema, type CreateRun } from '../../../contracts/runs';
+import { CancelRunSchema, CreateRunSchema, ResumeRunSchema, RunEventsPageSchema, RunListPageSchema, RunSchema, type CreateRun, type ResumeRun } from '../../../contracts/runs';
 
 export class RunClientError extends Error {
   constructor(readonly code: ErrorCode | 'NETWORK' | 'INVALID_RESPONSE', readonly status: number, readonly messageKey?: string) { super(code); }
@@ -48,6 +48,7 @@ export function createRunClient(fetcher: typeof fetch = fetch) {
     create: (input: CreateRun, key: string, options: RunRequestOptions) => request('/api/runs', RunSchema, options, CreateRunSchema.parse(input), key),
     cancel: (runId: string, expectedEpoch: number, key: string, options: RunRequestOptions) => request(`/api/runs/${IdSchema.parse(runId)}/cancel`, RunSchema, options, CancelRunSchema.parse({ expectedEpoch }), key),
     resume: (runId: string, expectedEpoch: number, key: string, options: RunRequestOptions, stepId?: string) => request(`/api/runs/${IdSchema.parse(runId)}/resume`, RunSchema, options, ResumeRunSchema.parse({ expectedEpoch, ...(stepId ? { stepId } : {}) }), key),
+    continue: (runId: string, input: ResumeRun, key: string, options: RunRequestOptions) => request(`/api/runs/${IdSchema.parse(runId)}/resume`, RunSchema, options, ResumeRunSchema.parse(input), key),
   };
 }
 export const runClient = createRunClient();

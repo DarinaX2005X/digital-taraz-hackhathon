@@ -20,14 +20,14 @@ export function runErrorText(error: unknown, text: RunCopy) {
   }
 }
 export function resultLink(run: Run, result: RunResultRef): string | null {
-  if (result.kind === 'artifact' && run.projectId) return `/app/projects/${run.projectId}/artifacts/${result.id}/history?workspace=${run.workspaceId}`;
+  if (result.kind === 'artifact' && run.projectId) return `/app/projects/${run.projectId}/artifacts/${result.id}?workspace=${run.workspaceId}`;
   if (result.kind === 'source') return `/app/materials/sources/${result.id}?workspaceId=${run.workspaceId}`;
   // Export owners supply their mounted destination when that capability registers.
   return null;
 }
 export function runResults(run: Run) {
   const seen = new Set<string>();
-  return run.steps.flatMap((step) => step.resultRefs).filter((result) => {
+  return [...run.steps.flatMap((step) => step.resultRefs), ...run.progress.results].filter((result) => {
     const key = `${result.kind}:${result.id}:${result.revision ?? ''}`;
     if (seen.has(key)) return false;
     seen.add(key); return true;

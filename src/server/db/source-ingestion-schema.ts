@@ -23,6 +23,14 @@ export const sourceUploads = pgTable('source_uploads', {
 export const sourceChunks = pgTable('source_chunks', {
   uploadId: uuid('upload_id').notNull().references(() => sourceUploads.id), ordinal: integer('ordinal').notNull(), hash: text('hash').notNull(), content: jsonb('content').notNull(),
 }, (t) => [primaryKey({ columns: [t.uploadId, t.ordinal] })]);
+export const sourceOcrBatches = pgTable('source_ocr_batches', {
+  id: uuid('id').primaryKey(), workspaceId: uuid('workspace_id').notNull(), sourceId: uuid('source_id').notNull(), uploadId: uuid('upload_id').notNull(),
+  actorId: uuid('actor_id').notNull().references(() => identityUsers.id), operationId: uuid('operation_id').notNull(), bodyHash: text('body_hash').notNull(),
+  sourceVersionId: uuid('source_version_id').notNull(), byteHash: text('byte_hash').notNull(), locale: text('locale').notNull(), pages: jsonb('pages').notNull(), request: jsonb('request').notNull(), maximumPageUsd: text('maximum_page_usd').notNull(), runId: uuid('run_id'), createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [unique().on(t.workspaceId, t.actorId, t.operationId), unique().on(t.workspaceId, t.uploadId, t.id), foreignKey({ columns: [t.workspaceId, t.sourceId, t.uploadId], foreignColumns: [sourceUploads.workspaceId, sourceUploads.sourceId, sourceUploads.id] })]);
 export const sourcePages = pgTable('source_pages', {
   uploadId: uuid('upload_id').notNull().references(() => sourceUploads.id), page: integer('page').notNull(), state: text('state').notNull(), runId: uuid('run_id'), diagnostics: jsonb('diagnostics').notNull().default([]),
+  reviewRevision: integer('review_revision').notNull().default(0), originalContent: jsonb('original_content'), correctedContent: jsonb('corrected_content'),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }), reviewedBy: uuid('reviewed_by').references(() => identityUsers.id),
+  batchId: uuid('batch_id').references(() => sourceOcrBatches.id),
 }, (t) => [primaryKey({ columns: [t.uploadId, t.page] })]);

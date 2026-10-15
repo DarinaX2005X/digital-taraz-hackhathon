@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { publicCopy } from "../../src/features/public-site/copy";
+import { publicWorkDestination } from '../../src/features/public-site/entry';
+import { authReturnTo } from '../../src/features/identity/domain/return-to';
 
 const root = new URL("../../", import.meta.url);
 const source = (path: string) => readFileSync(new URL(path, root), "utf8");
@@ -24,7 +26,7 @@ describe("public-site contracts without browser rendering", () => {
 
   it("keeps help actions connected to real account journeys", () => {
     for (const copy of Object.values(publicCopy)) {
-      expect(copy.helpSections.filter((section) => section.link).map((section) => section.link)).toEqual(["signup", "verify", "reset", "team"]);
+      expect(copy.helpSections.filter((section) => section.link).map((section) => section.link)).toEqual(['tour', "signup", "verify", "reset", "team"]);
       for (const section of copy.helpSections) if (section.link) expect(section.action).toBeTruthy();
     }
     for (const path of ["sign-up", "auth/verify", "auth/reset", "settings/team"]) {
@@ -32,8 +34,12 @@ describe("public-site contracts without browser rendering", () => {
     }
   });
 
-  it("routes signed-in primary actions into the mounted work area", () => {
-    expect(source("src/features/public-site/public-site.tsx").match(/signedIn \? "\/app\/work" : "\/sign-up"/g)).toHaveLength(2);
+  it("carries the same opaque goal through guest signup and signed-in entry", () => {
+    const token = 'a'.repeat(64);
+    const guest = new URL(publicWorkDestination(false, token), 'https://tirlik.invalid');
+    expect(guest.pathname).toBe('/sign-up');
+    expect(authReturnTo(guest.searchParams.get('returnTo'), guest.searchParams.get('intentToken')!)).toBe(publicWorkDestination(true, token));
+    expect(publicWorkDestination(true, token)).toBe(`/app/work?intent=${token}`);
     expect(existsSync(fileURLToPath(new URL("src/app/app/work/page.tsx", root)))).toBe(true);
   });
 

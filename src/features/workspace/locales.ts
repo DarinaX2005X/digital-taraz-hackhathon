@@ -1,6 +1,14 @@
 import type { Locale } from '@/i18n';
 
 const ru = {
+  loadingEditor: 'Открываем редактор', editorUnavailable: 'Редактор не удалось открыть', editorReloadHint: 'Сохранённая работа остаётся в проекте. Перезагрузите редактор или откройте версии для восстановления черновика.', reloadEditor: 'Перезагрузить редактор',
+  page: 'Страница',
+  draftNotSaved: 'Черновик не сохранён на этом устройстве. Не закрывайте страницу до завершения работы.',
+  personalWorkspace: 'Моя работа', optionalProjectName: 'Название проекта, если нужно',
+  taskMaterials: 'Использовать в задаче', taskMaterialsHint: 'Выберите нужные исходники', taskWithoutFiles: 'Можно начать с описания задачи. Файлы добавляются рядом, когда они нужны.',
+  taskSourceChanged: 'Версия добавленного материала изменилась или недоступна. Выберите нужный исходник ниже.', sourceVersion: 'Версия',
+  taskStart: 'Подготовить результат', taskCheck: 'Проверить запуск', taskUncertain: 'Ответ о запуске не получен. Проверим ту же задачу, чтобы не создать повторную.',
+  taskReview: 'Расчёты и формулировки можно проверить и отредактировать.', renameProject: 'Изменить название проекта',
   work: 'Работа', materials: 'Материалы', settings: 'Настройки', projects: 'Проекты', workspace: 'Пространство', activity: 'Задачи',
   chooseWorkspace: 'Выберите пространство', chooseWorkspaceDescription: 'В каком пространстве начать эту работу?',
   checkCreation: 'Проверить создание', uncertainCreation: 'Ответ не получен. Работа могла сохраниться. Проверьте создание, чтобы продолжить без копии.',
@@ -30,6 +38,14 @@ const ru = {
 };
 type Copy = { [K in keyof typeof ru]: string };
 const en: Copy = {
+  loadingEditor: 'Opening the editor', editorUnavailable: 'The editor could not open', editorReloadHint: 'Your saved work is still in the project. Reload the editor or open versions to recover a draft.', reloadEditor: 'Reload editor',
+  page: 'Page',
+  draftNotSaved: 'The draft could not be saved on this device. Keep this page open until your work is saved.',
+  personalWorkspace: 'My work', optionalProjectName: 'Project name, if needed',
+  taskMaterials: 'Use in this task', taskMaterialsHint: 'Choose the sources you need', taskWithoutFiles: 'Start with your task description. Add files alongside it when needed.',
+  taskSourceChanged: 'The added material’s version has changed or is unavailable. Choose the source you need below.', sourceVersion: 'Version',
+  taskStart: 'Prepare the result', taskCheck: 'Check task', taskUncertain: 'The task response was not received. Check the same request to avoid starting it twice.',
+  taskReview: 'Review and edit the calculations and wording.', renameProject: 'Rename project',
   work: 'Work', materials: 'Materials', settings: 'Settings', projects: 'Projects', workspace: 'Workspace', activity: 'Tasks',
   chooseWorkspace: 'Choose a workspace', chooseWorkspaceDescription: 'Which workspace should contain this work?',
   checkCreation: 'Check creation', uncertainCreation: 'No response was received. Your work may have been saved. Check creation to continue without a duplicate.',
@@ -58,6 +74,14 @@ const en: Copy = {
   leaveDescription: 'Changes on this page have not been saved. Leave and discard them?', stay: 'Stay', discardAndLeave: 'Leave without saving',
 };
 const kk: Copy = {
+  loadingEditor: 'Редактор ашылуда', editorUnavailable: 'Редакторды ашу мүмкін болмады', editorReloadHint: 'Сақталған жұмыс жобаңызда қалды. Редакторды қайта жүктеңіз немесе нобайды қалпына келтіру үшін нұсқаларды ашыңыз.', reloadEditor: 'Редакторды қайта жүктеу',
+  page: 'Бет',
+  draftNotSaved: 'Нобай бұл құрылғыда сақталмады. Жұмыс сақталғанша бетті жаппаңыз.',
+  personalWorkspace: 'Менің жұмысым', optionalProjectName: 'Қажет болса, жоба атауы',
+  taskMaterials: 'Тапсырмада пайдалану', taskMaterialsHint: 'Қажетті бастапқы материалдарды таңдаңыз', taskWithoutFiles: 'Тапсырманы сипаттаудан бастауға болады. Қажет болғанда файлдарды қасына қосыңыз.',
+  taskSourceChanged: 'Қосылған материалдың нұсқасы өзгерді немесе қолжетімсіз. Төменнен қажетті материалды таңдаңыз.', sourceVersion: 'Нұсқа',
+  taskStart: 'Нәтиже дайындау', taskCheck: 'Іске қосылуын тексеру', taskUncertain: 'Тапсырманы іске қосу жауабы алынбады. Қайталамау үшін сол сұрауды тексеріңіз.',
+  taskReview: 'Есептеулер мен мәтінді тексеріп, өңдеуге болады.', renameProject: 'Жоба атауын өзгерту',
   work: 'Жұмыс', materials: 'Материалдар', settings: 'Баптаулар', projects: 'Жобалар', workspace: 'Жұмыс кеңістігі', activity: 'Тапсырмалар',
   chooseWorkspace: 'Кеңістікті таңдаңыз', chooseWorkspaceDescription: 'Бұл жұмысты қай кеңістікте бастайсыз?',
   checkCreation: 'Құрылғанын тексеру', uncertainCreation: 'Жауап алынбады. Жұмыс сақталған болуы мүмкін. Қайталама көшірме жасамай жалғастыру үшін тексеріңіз.',

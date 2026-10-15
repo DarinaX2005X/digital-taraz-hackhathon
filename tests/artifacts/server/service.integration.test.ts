@@ -4,6 +4,9 @@ import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ArtifactCommandRequest, ArtifactSnapshot } from '../../../src/features/artifacts/contracts';
 import type { JsonValue } from '../../../src/features/artifacts/domain/content-models';
+import { createArtifactState } from '../../../src/features/artifacts/domain/content-state';
+import { MerkleJson } from '../../../src/features/artifacts/domain/merkle-json';
+import { ArtifactDraft } from '../../../src/features/artifacts/domain/operations';
 import { createArtifactTargetResolver } from '../../../src/features/artifacts/domain/targets';
 import { createArtifactService } from '../../../src/features/artifacts/server/service';
 import { createPendingSource, publishSourceVersion } from '../../../src/features/sources/server/source-heads';
@@ -31,7 +34,9 @@ describe('durable artifacts in real PostgreSQL', () => {
       await tx.query('BEGIN');
       const created = await f.service.createInTransaction(tx, { kind: 'job', userId: f.owner.userId, authzVersion: 1 }, operationId, input);
       artifactId = created.artifact.id;
-      const snapshot: ArtifactSnapshot = { ...created, content: input.content, permissions: { edit: true, rename: true, duplicate: true, move: true, archive: true, trash: true, restore: false, purge: false }, sourceFreshness: [], history: [] };
+      const snapshot = await f.service.readInTransaction(tx, f.owner, { workspaceId: f.workspaceId, artifactId });
+      expect(snapshot.content).toEqual(input.content);
+      expect((await f.service.versionInTransaction(tx, f.owner, { workspaceId: f.workspaceId, artifactId, revision: 0 })).content).toEqual(input.content);
       const applied = await f.service.applyInTransaction(tx, { kind: 'job', userId: f.owner.userId, authzVersion: 1 }, command(snapshot, 'Generated result'), 'ai');
       expect(applied.committedRevisionVector).toEqual({ [artifactId]: 1 });
       expect((await tx.query('SELECT count(*)::int AS count FROM artifact_operation_receipts WHERE workspace_id=$1', [f.workspaceId])).rows[0]?.count).toBe(2);
@@ -219,5 +224,60 @@ describe('durable artifacts in real PostgreSQL', () => {
     await f.service.apply(f.owner, command(stale, 'Conscious manual note'));
     expect(text(await f.read(created.artifact.id), 'p1')).toEqual(paragraph('p1', 'Conscious manual note'));
     expect(await currentArtifactAuthz(pool, f.workspaceId)).toBe(1);
+  });
+  it('refreshes stale provenance only when the trusted result uses current inputs and preserves manual targets', async () => {
+    const f = await artifactFixture(pool), sourceId = randomUUID(), firstVersion = randomUUID(), secondVersion = randomUUID();
+    const firstRef = { sourceId, sourceVersionId: firstVersion, revision: 1 }, secondRef = { sourceId, sourceVersionId: secondVersion, revision: 2 };
+    const firstBinding = { targetElementId: 'p1', sourceRef: firstRef, transformId: 'copy', updateMode: 'propose' as const };
+    await withWorkspaceAccess(pool, f.owner, { workspaceId: f.workspaceId, projectId: f.projectId, scope: 'edit' }, async (tx, access) => {
+      await createPendingSource(tx, access, { sourceId, projectId: f.projectId, accessClass: 'internal' });
+      await publishSourceVersion(tx, access, { sourceId, versionId: firstVersion, expectedRevision: 0, snapshotHash: '1'.repeat(64) });
+    });
+    const created = await f.service.create(f.owner, randomUUID(), { workspaceId: f.workspaceId, projectId: f.projectId, expectedAuthzVersion: 1, title: 'Bound price', content: testDocument('Price 100', 'Agreed manual delivery'), sourceRefs: [firstRef], bindings: [firstBinding] });
+    await withWorkspaceAccess(pool, f.owner, { workspaceId: f.workspaceId, projectId: f.projectId, scope: 'edit' }, (tx, access) => publishSourceVersion(tx, access, { sourceId, versionId: secondVersion, expectedRevision: 1, snapshotHash: '2'.repeat(64) }));
+    const stale = await f.read(created.artifact.id);
+    await expect(f.service.apply(f.owner, command(stale, 'Must not use stale price'), 'ai')).rejects.toMatchObject({ code: 'CONFLICT' });
+    const nextBinding = { ...firstBinding, sourceRef: secondRef }, refresh = command(stale, 'Price 120');
+    const changedTarget = createArtifactTargetResolver(stale.content, [nextBinding], stale.locks)('p1')!;
+    refresh.group.commands[0]!.operations = [
+      { targetId: 'p1', op: 'bind', beforeHash: refresh.group.commands[0]!.operations[0]!.beforeHash, value: { sourceRef: secondRef, transformId: 'copy', updateMode: 'propose' } },
+      { targetId: 'p1', op: 'set', beforeHash: changedTarget.hash, value: paragraph('p1', 'Price 120') },
+    ];
+    const receipt = await identityTransaction(pool, (tx) => f.service.applyInTransaction(tx, f.owner, refresh, 'ai'));
+    expect(await f.service.apply(f.owner, refresh, 'ai')).toEqual(receipt);
+    const current = await f.read(created.artifact.id);
+    expect(current.artifact.sourceRefs).toEqual([secondRef]);
+    expect(text(current, 'p1')).toEqual(paragraph('p1', 'Price 120'));
+    expect(text(current, 'p2')).toEqual(paragraph('p2', 'Agreed manual delivery'));
+    const raced = command(current, 'Must reject advanced head');
+    await withWorkspaceAccess(pool, f.owner, { workspaceId: f.workspaceId, projectId: f.projectId, scope: 'edit' }, (tx, access) => publishSourceVersion(tx, access, { sourceId, versionId: randomUUID(), expectedRevision: 2, snapshotHash: '3'.repeat(64) }));
+    await expect(f.service.apply(f.owner, raced, 'ai')).rejects.toMatchObject({ code: 'CONFLICT', conflictRefs: [{ kind: 'source', reason: 'source-changed' }] });
+    expect((await f.read(created.artifact.id)).artifact.currentRevision).toBe(1);
+  });
+  it('reproduces bound multi-operation hashes with one logical timestamp while preserving server audit and authorization', async () => {
+    const f = await artifactFixture(pool), sourceId = randomUUID(), versionId = randomUUID();
+    const sourceRef = { sourceId, sourceVersionId: versionId, revision: 1 };
+    await withWorkspaceAccess(pool, f.owner, { workspaceId: f.workspaceId, projectId: f.projectId, scope: 'edit' }, async (tx, access) => {
+      await createPendingSource(tx, access, { sourceId, projectId: f.projectId, accessClass: 'internal' });
+      await publishSourceVersion(tx, access, { sourceId, versionId, expectedRevision: 0, snapshotHash: 'a'.repeat(64) });
+    });
+    const created = await f.service.create(f.owner, randomUUID(), { workspaceId: f.workspaceId, projectId: f.projectId, expectedAuthzVersion: 1, title: 'Manual bound text', content: testDocument(), sourceRefs: [sourceRef], bindings: [{ targetElementId: 'p1', sourceRef, transformId: 'copy', updateMode: 'manual' }] });
+    const snapshot = await f.read(created.artifact.id), input = command(snapshot, 'First edit');
+    const metadataAt = '2001-01-01T00:00:00.000Z';
+    input.group.metadataAt = metadataAt;
+    const graph = new MerkleJson(), local = new ArtifactDraft(graph, graph.encode(createArtifactState(snapshot.content, snapshot.artifact.sourceRefs, snapshot.artifact.bindings, snapshot.locks) as unknown as JsonValue));
+    const operations = input.group.commands[0]!.operations;
+    await local.apply(operations, { actorId: f.owner.userId, at: metadataAt, reason: input.group.commands[0]!.reason, origin: 'human' });
+    operations.push({ targetId: 'p1', op: 'set', value: paragraph('p1', 'Second edit'), beforeHash: (await local.target('p1'))!.hash });
+    await expect(f.service.apply(f.member, input)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await expect(f.service.apply({ kind: 'job', userId: f.owner.userId, authzVersion: 2 }, input)).rejects.toMatchObject({ code: 'CONFLICT' });
+    const before = Date.now(), receipt = await f.service.apply(f.owner, input);
+    expect(await f.service.apply(f.owner, input)).toEqual(receipt);
+    const opened = await f.read(created.artifact.id);
+    expect(text(opened, 'p1')).toEqual(paragraph('p1', 'Second edit'));
+    expect(opened.artifact.bindings[0]!.override).toMatchObject({ actorId: f.owner.userId, at: metadataAt });
+    const audit = (await pool.query<{ created_at: Date }>('SELECT created_at FROM artifact_command_groups WHERE workspace_id=$1 AND id=$2', [f.workspaceId, input.group.commandGroupId])).rows[0]!;
+    expect(audit.created_at.getTime()).toBeGreaterThanOrEqual(before - 1000);
+    expect(new Date(receipt.historyGroup.createdAt).getTime()).toBe(audit.created_at.getTime());
   });
 });

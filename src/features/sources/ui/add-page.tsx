@@ -25,6 +25,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
   const [title, setTitle] = useState(previous?.title ?? ''), [pasteFormat, setPasteFormat] = useState<SourceFormat>('text');
   const [encoding, setEncoding] = useState<SourceOptions['encoding']>('utf-8'), [delimiter, setDelimiter] = useState('');
   const [confidential, setConfidential] = useState(previous?.accessClass === 'confidential');
+  const [imagePurpose, setImagePurpose] = useState<'visual' | 'text'>('visual'), [embeddingAllowed, setEmbeddingAllowed] = useState(false), [licenseLabel, setLicenseLabel] = useState('');
   const [stage, setStage] = useState<'preparing' | 'uploading' | 'processing'>(), [upload, setUpload] = useState<SourceUpload>();
   const [error, setError] = useState<unknown>(), [dragging, setDragging] = useState(false), [cancelling, setCancelling] = useState(false);
   const [discarded, setDiscarded] = useState(false);
@@ -34,6 +35,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
   const dirty = !completed && Boolean(file || text || title);
   const navigation = useIdentityNavigationGuard(dirty);
   const format = mode === 'file' ? file && sourceFileFormat(file.name) : pasteFormat;
+  const visual = format && ['png', 'jpeg', 'webp'].includes(format), font = format && ['ttf', 'otf', 'woff'].includes(format);
   const loadProjects = useCallback<OptionLoader>(async (query, signal) => {
     if (!workspaceId) return [];
     const result = await run((inner) => workspaceClient.list({ workspaceId, query, limit: 30 }, { userId: ownerId, signal: inner }), signal);
@@ -47,6 +49,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
     if (!file || stage) return;
     setError(undefined); setUpload(undefined); pendingUpload.current = undefined; operation.current = undefined;
     if (file.size > SOURCE_MAX_BYTES) { setError(t.tooLarge); return; }
+    if (['ttf', 'otf', 'woff'].includes(sourceFileFormat(file.name) ?? '') && file.size > 5 * 1024 * 1024) { setError(t.fontLimit); return; }
     if (!sourceFileFormat(file.name)) { setError(t.unsupported); return; }
     setFile(file); if (!title.trim()) setTitle(file.name.replace(/\.[^.]+$/, ''));
   }
@@ -58,7 +61,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
     const input: InitSourceUpload = {
       workspaceId, projectId: project.id, title: title.trim(), fileName: mode === 'file' ? file!.name : `${title.trim().slice(0, 220)}.${pasteFormat === 'text' ? 'txt' : pasteFormat}`,
       size: bytes.size, format, expectedRevision: previous?.revision ?? 0, ...(previous ? { sourceId: previous.id } : {}),
-      accessClass: confidential ? 'confidential' : 'internal', options: { encoding: mode === 'paste' ? 'utf-8' : encoding, ...(delimiter ? { delimiter: delimiter as ',' | ';' | '\t' } : {}) },
+      accessClass: confidential ? 'confidential' : 'internal', options: { encoding: mode === 'paste' ? 'utf-8' : encoding, ...(delimiter ? { delimiter: delimiter as ',' | ';' | '\t' } : {}), ...(visual ? { purpose: imagePurpose } : {}), ...(visual || font || format === 'docx' ? { assetLicense: { permission: embeddingAllowed ? 'confirmed' as const : 'unknown' as const, canEmbed: embeddingAllowed, ...(licenseLabel.trim() ? { label: licenseLabel.trim() } : {}) } } : {}) },
     };
     const body = JSON.stringify(input);
     if (operation.current?.body !== body) operation.current = { body, key: crypto.randomUUID() };
@@ -89,7 +92,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
     } catch (failure) { setError(failure); }
     finally { setCancelling(false); setStage(undefined); }
   }
-  const returnTo = `/app/materials/add?${new URLSearchParams({ ...(workspaceId ? { workspaceId } : {}), ...(project ? { projectId: project.id } : {}) })}`;
+  const returnTo = `/app/materials/add?${new URLSearchParams({ ...(workspaceId ? { workspaceId } : {}), ...(project ? { projectId: project.id } : {}), ...(previous ? { sourceId: previous.id } : {}) })}`;
   if (access.phase !== 'active') return <WorkspaceShell workspaceId={workspaceId}><WorkspaceAccessState access={access} returnTo={returnTo} /></WorkspaceShell>;
   return <WorkspaceShell workspaceId={workspaceId}><main className={styles.main} onClickCapture={navigation.onClickCapture}>
     <Link className={styles.back} href={project ? `/app/projects/${project.id}` : '/app/work'}><ArrowLeft size={18} aria-hidden="true" />{project ? t.back : t.work}</Link>
@@ -97,14 +100,14 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
     {completed ? <div className={styles.stack}>
       <div className={styles.notice} role="status"><CheckCircle2 size={24} aria-hidden="true" /><div><strong>{t.saved}</strong><p>{title}</p><SourceStatus status={upload.status} /></div></div>
       {upload.status === 'partial' && <p>{t.vision}</p>}
-      <div className={styles.actions}><Link className="tl-button tl-button--primary" href={`/app/materials/sources/${upload.sourceId}?workspaceId=${workspaceId}`}><ArrowRight size={20} aria-hidden="true" />{t.open}</Link><Link className="tl-button tl-button--secondary" href={`/app/projects/${project?.id}`}>{t.back}</Link></div>
+      <div className={styles.actions}>{upload.versionId && project && <Link className="tl-button tl-button--primary" href={`/app/projects/${project.id}?${new URLSearchParams({ sourceId: upload.sourceId, sourceVersionId: upload.versionId })}`}><ArrowRight size={20} aria-hidden="true" />{t.useInTask}</Link>}<Link className={`tl-button ${upload.versionId ? 'tl-button--secondary' : 'tl-button--primary'}`} href={`/app/materials/sources/${upload.sourceId}?${new URLSearchParams({ workspaceId, uploadId: upload.id, ...(upload.versionId ? { sourceVersionId: upload.versionId } : {}) })}`}>{t.open}</Link><Link className="tl-button tl-button--quiet" href={`/app/projects/${project?.id}`}>{t.back}</Link></div>
     </div> : <form onSubmit={submit} className={styles.form}>
       <div className={styles.inputArea}>
         <Tabs label={t.add} value={mode} onChange={(next) => { if (!stage) { setMode(next); setError(undefined); } }} appearance="segmented" items={[
           { id: 'file', label: t.file, disabled: Boolean(stage), content: <div className={styles.drop} data-dragging={dragging} onDragOver={(event) => { event.preventDefault(); if (!stage) setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); choose(event.dataTransfer.files[0]); }}>
             <FileUp size={44} strokeWidth={1.5} className={styles.dropIcon} aria-hidden="true" />
             <strong>{file?.name ?? t.drop}</strong><p>{file ? `${formatNumber(locale, file.size / 1024, { maximumFractionDigits: 1 })} KB` : t.formats}</p>
-            <input className={styles.filePicker} ref={fileInput} type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.md" tabIndex={-1} aria-label={t.choose} onChange={(event) => choose(event.target.files?.[0])} />
+            <input className={styles.filePicker} ref={fileInput} type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.ttf,.otf,.woff" tabIndex={-1} aria-label={t.choose} onChange={(event) => choose(event.target.files?.[0])} />
             <Button icon={Upload} disabled={Boolean(stage)} onClick={() => fileInput.current?.click()}>{t.choose}</Button>
           </div> },
           { id: 'paste', label: t.paste, disabled: Boolean(stage), content: <div className={styles.stack}><TextareaField label={t.text} rows={14} value={text} disabled={Boolean(stage)} onChange={(event) => { setText(event.target.value); operation.current = undefined; }} required={mode === 'paste'} /><SelectField label={t.file} value={pasteFormat} disabled={Boolean(stage)} onChange={(event) => setPasteFormat(event.target.value as SourceFormat)}><option value="text">{t.paste}</option><option value="csv">CSV</option><option value="tsv">TSV</option></SelectField></div> },
@@ -117,6 +120,8 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
         {memberships.length > 1 && !previous && <SelectField label={t.work} value={workspaceId} disabled={Boolean(stage)} onChange={(event) => { setSelectedWorkspace(event.target.value); setProject(null); }} >{memberships.map((item) => <option key={item.workspaceId} value={item.workspaceId}>{item.name}</option>)}</SelectField>}
         <Combobox label={t.project} value={project} onChange={setProject} loadOptions={loadProjects} required disabled={Boolean(stage) || Boolean(previous)} placeholder={t.chooseProject} />
         <InputField label={t.title} value={title} maxLength={240} required disabled={Boolean(stage)} onChange={(event) => setTitle(event.target.value)} />
+        {visual && <SelectField label={t.imagePurpose} value={imagePurpose} disabled={Boolean(stage)} onChange={(event) => setImagePurpose(event.target.value as 'visual' | 'text')}><option value="visual">{t.asVisual}</option><option value="text">{t.asText}</option></SelectField>}
+        {(visual || font || format === 'docx') && <div className={styles.stack}><CheckboxField label={t.embeddingPermission} hint={t.embeddingHint} checked={embeddingAllowed} disabled={Boolean(stage)} onChange={(event) => setEmbeddingAllowed(event.target.checked)} /><InputField label={t.licenseLabel} value={licenseLabel} maxLength={240} disabled={Boolean(stage)} onChange={(event) => setLicenseLabel(event.target.value)} />{font && <p className={styles.meta}>{t.fontLimit}</p>}</div>}
         {(format === 'csv' || format === 'tsv') && <div className={styles.fieldRow}><SelectField label={t.delimiter} value={delimiter} disabled={Boolean(stage)} onChange={(event) => setDelimiter(event.target.value)}><option value="">{t.automatic}</option><option value=",">{t.comma}</option><option value=";">{t.semicolon}</option><option value={'\t'}>{t.tab}</option></SelectField>{mode === 'file' && <SelectField label={t.encoding} value={encoding} disabled={Boolean(stage)} onChange={(event) => setEncoding(event.target.value as SourceOptions['encoding'])}><option value="utf-8">UTF-8</option><option value="windows-1251">Windows-1251</option></SelectField>}</div>}
         <CheckboxField label={t.confidential} hint={t.confidentialHint} checked={confidential} disabled={Boolean(stage) || Boolean(previous)} onChange={(event) => setConfidential(event.target.checked)} />
       </div>

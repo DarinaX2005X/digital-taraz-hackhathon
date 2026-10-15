@@ -13,7 +13,8 @@ async function within(promise, milliseconds) {
   } finally { clearTimeout(timer); }
 }
 
-export async function startAppProcess(root, { port, env, logFile }) {
+export async function startAppProcess(root, { port, env, logFile, mode = "development" }) {
+  if (!["development", "production"].includes(mode)) throw new CliError("APP_MODE_INVALID", "Unsupported local application mode.", "Use development or a previously compiled production build.");
   await mkdir(path.dirname(logFile), { recursive: true });
   const log = createWriteStream(logFile, { flags: "a", mode: 0o600 });
   const redact = createRedactor(env);
@@ -22,8 +23,9 @@ export async function startAppProcess(root, { port, env, logFile }) {
   let spawnError;
   let logError;
   let logBytes = 0;
-  const child = spawn(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), "dev", root, "--webpack", "--hostname", "127.0.0.1", "--port", String(port)], {
-    cwd: root, env: { ...env, NODE_ENV: "development" }, windowsHide: true, shell: false,
+  const command = mode === "production" ? ["start", root] : ["dev", root, "--webpack"];
+  const child = spawn(process.execPath, [path.join(root, "node_modules", "next", "dist", "bin", "next"), ...command, "--hostname", "127.0.0.1", "--port", String(port)], {
+    cwd: root, env: { ...env, NODE_ENV: mode }, windowsHide: true, shell: false,
     detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
   });
   log.on("error", () => { logError = true; });

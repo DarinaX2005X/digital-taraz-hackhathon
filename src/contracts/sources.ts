@@ -2,9 +2,10 @@ import { z } from 'zod';
 import { IdSchema, InstantSchema, HashSchema } from './primitives';
 
 export const SOURCE_MAX_BYTES = 20 * 1024 * 1024;
-export const SourceFormatSchema = z.enum(['text', 'csv', 'tsv', 'xlsx', 'docx', 'pdf', 'png', 'jpeg', 'webp']);
+export const SourceFormatSchema = z.enum(['text', 'csv', 'tsv', 'xlsx', 'docx', 'pdf', 'png', 'jpeg', 'webp', 'ttf', 'otf', 'woff']);
 export const SourceUploadStatusSchema = z.enum(['pending', 'uploading', 'uploaded', 'processing', 'ready', 'partial', 'failed', 'cancelled']);
-export const SourceOptionsSchema = z.strictObject({ delimiter: z.enum([',', ';', '\t']).optional(), encoding: z.enum(['utf-8', 'windows-1251']).default('utf-8') });
+export const SourceAssetLicenseSchema = z.strictObject({ permission: z.enum(['unknown', 'confirmed']), label: z.string().trim().min(1).max(240).optional(), reference: z.string().url().max(2048).optional(), canEmbed: z.boolean() }).refine((value) => !value.canEmbed || value.permission === 'confirmed');
+export const SourceOptionsSchema = z.strictObject({ delimiter: z.enum([',', ';', '\t']).optional(), encoding: z.enum(['utf-8', 'windows-1251']).default('utf-8'), purpose: z.enum(['visual', 'text']).optional(), assetLicense: SourceAssetLicenseSchema.optional() });
 export const InitSourceUploadSchema = z.strictObject({
   workspaceId: IdSchema, projectId: IdSchema, sourceId: IdSchema.optional(),
   expectedRevision: z.number().int().nonnegative().default(0),
@@ -16,6 +17,7 @@ export const SourceSummarySchema = z.strictObject({
   id: IdSchema, workspaceId: IdSchema, projectId: IdSchema, title: z.string(), accessClass: z.enum(['internal', 'confidential']),
   revision: z.number().int().nonnegative(), currentVersionId: IdSchema.nullable(),
   status: SourceUploadStatusSchema, format: SourceFormatSchema, fileName: z.string(), byteSize: z.number().int(),
+  thumbnailUploadId: IdSchema.nullable().optional(),
   createdAt: InstantSchema, updatedAt: InstantSchema,
 });
 export const SourceListSchema = z.strictObject({ sources: z.array(SourceSummarySchema), nextCursor: z.string().nullable() });
@@ -56,3 +58,26 @@ export const SourcePreviewSchema = z.strictObject({ upload: SourceUploadSchema, 
 export type SourceUpload = z.infer<typeof SourceUploadSchema>;
 export type SourceDetail = z.infer<typeof SourceDetailSchema>;
 export type SourcePreview = z.infer<typeof SourcePreviewSchema>;
+
+export const SourceVersionSchema = z.strictObject({ sourceRef: z.strictObject({ sourceId: IdSchema, sourceVersionId: IdSchema, revision: z.number().int().positive() }), projectId: IdSchema, accessClass: z.enum(['internal', 'confidential']), title: z.string(), uploadId: IdSchema, manifest: SourceManifestSchema, chunkCount: z.number().int().nonnegative() });
+export const SourceFontMetadataSchema = z.strictObject({ family: z.string().max(240), subfamily: z.string().max(240), postscriptName: z.string().max(240), unitsPerEm: z.number().int().positive(), codePoints: z.array(z.number().int().min(0).max(0x10ffff)).max(200000), embedding: z.enum(['installable', 'restricted', 'preview-print', 'editable']), noSubsetting: z.boolean(), bitmapOnly: z.boolean() });
+export const SourceVisualAssetSchema = z.strictObject({ id: IdSchema, sourceId: IdSchema, sourceVersionId: IdSchema, name: z.string().max(240), kind: z.enum(['image', 'font']), mediaType: z.string(), sha256: HashSchema, byteSize: z.number().int().positive(), width: z.number().int().positive().nullable(), height: z.number().int().positive().nullable(), font: SourceFontMetadataSchema.omit({ codePoints: true }).nullable(), license: SourceAssetLicenseSchema });
+export const SourceVisualAssetListSchema = z.strictObject({ items: z.array(SourceVisualAssetSchema).max(50), nextCursor: IdSchema.nullable() });
+export const SourceVisualAssetQuerySchema = z.strictObject({ workspaceId: IdSchema, projectId: IdSchema, kind: z.enum(['image', 'font']).optional(), after: IdSchema.optional(), limit: z.number().int().min(1).max(50).default(30) });
+export type SourceVisualAsset = z.infer<typeof SourceVisualAssetSchema>;
+export type SourceVisualAssetQuery = z.input<typeof SourceVisualAssetQuerySchema>;
+export type SourceAssetLicense = z.infer<typeof SourceAssetLicenseSchema>;
+export type SourceFontMetadata = z.infer<typeof SourceFontMetadataSchema>;
+
+export const SourceRecognizedBlockSchema = z.strictObject({ text: z.string().max(16000).optional(), values: z.array(z.string().max(4000)).min(1).max(100).optional() }).refine((value) => (value.text !== undefined) !== (value.values !== undefined));
+export const SourcePageContentSchema = z.strictObject({ blocks: z.array(SourceRecognizedBlockSchema).max(500), warnings: z.array(z.string().max(400)).max(30) }).refine((value) => new TextEncoder().encode(JSON.stringify(value)).length <= 50000);
+export const SourcePageReviewSchema = z.strictObject({ page: z.number().int().min(1).max(100), state: z.enum(['pending', 'ready', 'needs-review', 'failed']), runId: IdSchema.nullable(), revision: z.number().int().nonnegative(), original: SourcePageContentSchema.nullable(), corrected: SourcePageContentSchema.nullable(), reviewedAt: InstantSchema.nullable() });
+export const SourcePendingRecognitionSchema = z.strictObject({ operationId: IdSchema, locale: z.enum(['ru', 'kk', 'en']), pageLimit: z.number().int().min(1).max(10), expectedPages: z.array(z.number().int().min(1).max(100)).min(1).max(10), maximumUsd: z.string() });
+export const SourceReviewSchema = z.strictObject({ uploadId: IdSchema, pages: z.array(SourcePageReviewSchema).max(100), pendingPages: z.number().int().min(0).max(100), readyPages: z.number().int().min(0).max(100), reviewPages: z.number().int().min(0).max(100), pendingStart: SourcePendingRecognitionSchema.nullable() });
+export const AcceptSourcePageSchema = z.strictObject({ workspaceId: IdSchema, page: z.number().int().min(1).max(100), expectedRevision: z.number().int().nonnegative(), content: SourcePageContentSchema });
+export const SourceOcrSelectionSchema = z.strictObject({ workspaceId: IdSchema, locale: z.enum(['ru', 'kk', 'en']), pageLimit: z.number().int().min(1).max(10).default(3) });
+export const StartSourceOcrSchema = SourceOcrSelectionSchema.extend({ expectedPages: z.array(z.number().int().min(1).max(100)).min(1).max(10), maximumUsd: z.string().max(30).regex(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,12})?$/) });
+export const SourceOcrQuoteSchema = z.strictObject({ available: z.boolean(), reason: z.string().nullable(), pages: z.array(z.number().int().min(1).max(100)).max(10), remainingPages: z.number().int().min(0).max(100), maximumUsd: z.string().nullable() });
+export type SourcePageContent = z.infer<typeof SourcePageContentSchema>;
+export type SourceReview = z.infer<typeof SourceReviewSchema>;
+export type SourceOcrQuote = z.infer<typeof SourceOcrQuoteSchema>;

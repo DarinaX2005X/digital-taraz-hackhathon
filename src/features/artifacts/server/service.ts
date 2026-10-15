@@ -42,8 +42,12 @@ export function createArtifactService(pool: Pool) {
     });
   }
   async function read(principal: IdentityPrincipal, input: z.input<typeof ReadArtifactSchema>): Promise<ArtifactSnapshot> {
+    return identityTransaction(pool, (tx) => readInTransaction(tx, principal, input));
+  }
+  /** Reads the same authorized snapshot under the caller's transaction and locks. */
+  async function readInTransaction(transaction: PoolClient, principal: IdentityPrincipal, input: z.input<typeof ReadArtifactSchema>): Promise<ArtifactSnapshot> {
     const body = validate(ReadArtifactSchema, input);
-    return withWorkspaceAccess(pool, principal, { workspaceId: body.workspaceId, scope: 'read' }, async (tx, access) => {
+    return withWorkspaceAccessInTransaction(transaction, principal, { workspaceId: body.workspaceId, scope: 'read' }, async (tx, access) => {
       const cursor = await readCursor(tx, access);
       const authorized = await loadArtifact(tx, access, body.artifactId, { expectedProjectId: body.expectedProjectId });
       const { row } = authorized, { state } = await loadState(tx, row), version = await loadVersion(tx, row);
@@ -101,8 +105,12 @@ export function createArtifactService(pool: Pool) {
     });
   }
   async function version(principal: IdentityPrincipal, input: z.input<typeof VersionDetailSchema>) {
+    return identityTransaction(pool, (tx) => versionInTransaction(tx, principal, input));
+  }
+  /** Retained versions are authorized against the artifact's current project in this transaction. */
+  async function versionInTransaction(transaction: PoolClient, principal: IdentityPrincipal, input: z.input<typeof VersionDetailSchema>) {
     const body = validate(VersionDetailSchema, input);
-    return withWorkspaceAccess(pool, principal, { workspaceId: body.workspaceId, scope: 'read' }, async (tx, access) => {
+    return withWorkspaceAccessInTransaction(transaction, principal, { workspaceId: body.workspaceId, scope: 'read' }, async (tx, access) => {
       const { row } = await loadArtifact(tx, access, body.artifactId, { expectedProjectId: body.expectedProjectId }), selected = await loadVersion(tx, row, body.revision);
       const historical = { ...row, project_id: selected.project_id, current_revision: selected.revision, content_id: selected.content_id, content_hash: selected.content_hash, schema_version: selected.schema_version, title: selected.title, status: selected.status, updated_at: selected.created_at };
       // The artifact's current project is the access authority, including its retained versions.
@@ -110,6 +118,6 @@ export function createArtifactService(pool: Pool) {
       return ArtifactVersionDetailSchema.parse({ viewer: viewer(access), artifact: envelope(historical, state), version: { ...versionDto(selected), ...await branchParent(tx, access, row.id) }, content: state.content, sourceFreshness: await readSourceFreshness(tx, access, collectSourceRefs(state)), locks: state.locks, missingTargets: missingTargets(state), headRevision: row.current_revision });
     });
   }
-  return { create, createInTransaction, read, readRoute, access, history, versions, version, list: createArtifactCatalog(pool), ...createCommandHistory(pool), ...createArtifactLifecycle(pool) };
+  return { create, createInTransaction, read, readInTransaction, readRoute, access, history, versions, version, versionInTransaction, list: createArtifactCatalog(pool), ...createCommandHistory(pool), ...createArtifactLifecycle(pool) };
 }
 export type ArtifactService = ReturnType<typeof createArtifactService>;

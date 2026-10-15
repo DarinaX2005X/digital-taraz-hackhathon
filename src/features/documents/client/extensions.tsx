@@ -5,7 +5,28 @@ import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from '@tip
 import { Plugin } from '@tiptap/pm/state';
 import { useEffect, useState } from 'react';
 import { ImageOff } from 'lucide-react';
+import StarterKit from '@tiptap/starter-kit';
+import { TableKit } from '@tiptap/extension-table';
+import TextAlign from '@tiptap/extension-text-align';
 import { documentFindPlugin } from './find';
+import { safeDocumentLink } from '../domain/import-html';
+import { useLocale } from '@/i18n/provider';
+import { documentCopies } from '../locales';
+
+export function documentExtensions(options: ImageOptions, history: (action: 'undo' | 'redo') => void = () => undefined) {
+  return [
+    StarterKit.configure({ undoRedo: false, codeBlock: false, horizontalRule: false, trailingNode: false, link: { openOnClick: false, autolink: false, linkOnPaste: false, isAllowedUri: safeDocumentLink } }),
+    TableKit.configure({ table: { resizable: false, renderWrapper: true } }),
+    TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    StableDocumentIds, DocumentTextStyle, PageBreak, DataField, PrivateImage.configure(options),
+    Extension.create({ name: 'canonicalDocumentHistory', addKeyboardShortcuts() { return {
+      'Mod-z': () => { history('undo'); return true; },
+      'Mod-Shift-z': () => { history('redo'); return true; },
+      'Mod-y': () => { history('redo'); return true; },
+    }; } }),
+    Extension.create({ name: 'documentLinkTitle', addGlobalAttributes: () => [{ types: ['link'], attributes: { title: { default: null, parseHTML: (element) => element.getAttribute('title') } } }] }),
+  ];
+}
 
 const identified = ['doc', 'paragraph', 'heading', 'bulletList', 'orderedList', 'listItem', 'blockquote', 'table', 'tableRow', 'tableCell', 'tableHeader', 'image', 'pageBreak', 'dataField'];
 export const StableDocumentIds = Extension.create({
@@ -37,14 +58,14 @@ export const DocumentTextStyle = Mark.create({
     return {
       color: { default: null, parseHTML: (element) => element.style.color || null },
       backgroundColor: { default: null, parseHTML: (element) => element.style.backgroundColor || null },
-      fontSize: { default: null, parseHTML: (element) => element.style.fontSize.endsWith('px') ? Number.parseFloat(element.style.fontSize) : null },
+      fontSize: { default: null, parseHTML: (element) => element.style.fontSize.endsWith('pt') ? Number.parseFloat(element.style.fontSize) : element.style.fontSize.endsWith('px') ? Number.parseFloat(element.style.fontSize) * 0.75 : null },
       fontFamily: { default: null, parseHTML: (element) => element.style.fontFamily.replace(/["']/g, '') || null },
     };
   },
   parseHTML() { return [{ tag: 'span[style]' }]; },
   renderHTML({ mark }) {
     const attrs = mark.attrs;
-    const style = [attrs.color ? `color:${attrs.color}` : '', attrs.backgroundColor ? `background-color:${attrs.backgroundColor}` : '', attrs.fontSize ? `font-size:${attrs.fontSize}px` : '', attrs.fontFamily ? `font-family:${attrs.fontFamily}` : ''].filter(Boolean).join(';');
+    const style = [attrs.color ? `color:${attrs.color}` : '', attrs.backgroundColor ? `background-color:${attrs.backgroundColor}` : '', attrs.fontSize ? `font-size:${attrs.fontSize}pt` : '', attrs.fontFamily ? `font-family:${attrs.fontFamily}` : ''].filter(Boolean).join(';');
     return ['span', { style }, 0];
   },
 });
@@ -62,25 +83,27 @@ export const DataField = Node.create({
   renderText: ({ node }) => String(node.attrs.value),
 });
 
-type ImageOptions = { workspaceId: string; userId: string; unavailable: string };
+type ImageOptions = { workspaceId: string; userId: string; unavailable: string; allowFetch?: boolean };
 function PrivateImageView({ node, selected, extension }: NodeViewProps) {
+  const unavailable = documentCopies[useLocale().locale].imageUnavailable;
   const options = extension.options as ImageOptions;
   const [image, setImage] = useState<{ assetId: string; url: string } | null>(null);
   const assetId = String(node.attrs.assetId);
   useEffect(() => {
+    if (options.allowFetch === false) return;
     const controller = new AbortController(); let objectUrl: string | undefined;
     void fetch(`/api/sources/assets/${encodeURIComponent(assetId)}?workspaceId=${encodeURIComponent(options.workspaceId)}`, { credentials: 'same-origin', cache: 'no-store', signal: controller.signal, headers: { 'X-Tirlik-User-Id': options.userId } })
       .then(async (response) => { if (!response.ok || !['image/png', 'image/jpeg', 'image/webp'].includes(response.headers.get('content-type')?.split(';')[0] ?? '')) throw new Error('image-unavailable'); return response.blob(); })
       .then((blob) => { if (controller.signal.aborted) return; objectUrl = URL.createObjectURL(blob); setImage({ assetId, url: objectUrl }); })
       .catch(() => { if (!controller.signal.aborted) setImage(null); });
     return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [assetId, options.workspaceId, options.userId]);
+  }, [assetId, options.workspaceId, options.userId, options.allowFetch]);
   return <NodeViewWrapper as="figure" data-selected={selected || undefined} className="document-image" contentEditable={false}>
     {image?.assetId === assetId ?
       // Private image URLs are short-lived browser blobs, not public optimization URLs.
       // eslint-disable-next-line @next/next/no-img-element
       <img src={image.url} alt={String(node.attrs.alt ?? '')} width={typeof node.attrs.width === 'number' ? node.attrs.width : undefined} height={typeof node.attrs.height === 'number' ? node.attrs.height : undefined} /> :
-      <span role="status"><ImageOff aria-hidden="true" size={24} />{options.unavailable}</span>}
+      <span role="status"><ImageOff aria-hidden="true" size={24} />{unavailable}</span>}
   </NodeViewWrapper>;
 }
 export const PrivateImage = Node.create<ImageOptions>({

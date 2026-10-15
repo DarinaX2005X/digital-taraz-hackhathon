@@ -9,7 +9,7 @@ Status: active
 Status: active
 Requirements: R12, R13, R14, R35, R36, R40, R44, R45, R91, R92, R93, R94, R95, R105
 Depends on: 03.1, 01.2
-Owner: /root/sheets_finish
+Owner: SUBAGENT to assign (передача; прежний автор: sheets_finish)
 Paths: src/features/sheets/, tests/sheets/, src/app/api/sheets/
 
 После independently accepted03.1 и checkpoint8b1b864 ручной table editor/engine/command adapter начинается параллельно02.4, как документный03.3. Format gate01.4.1 уже подтвердил выбранный engine subset. Это вход по готовому shared persistence контракту, не снятие полной02.4: окончательная05.1 acceptance требует настоящего materials query/mapping/source lineage и всех импортных сценариев. Fresh sheets_delivery получает весь05.1, не отдельный grid component. Existing canonical artifact types/history не дублировать; любые shared изменения через integration/ихowner.
@@ -26,23 +26,27 @@ Status: active
 Golden SUM/IF/SUMIFS/inter-sheet, cycles/errors/rounding, unit mismatch, filters and coverage. Chart point maps to aggregate source query, no model-generated numbers.
 
 ### 05.1.2 Редактор и XLSX/CSV
-Status: todo
+Status: active
+
+15октября sheets_finish перенёс editor/controllers/import-export/API и shared structural adapter;22focused tests иscopedlint PASS, в том числе exact CalculationSpec. Mounted источник→таблица→правка→reopen/export HTTP готовится общимrunner. Aggregate/query/chart provenance, большие bulk operations и полный набор grid controls ещё выполняются,05.1 не принят целиком.
 
 Persistence/undo/insert stable refs, data-only export recalc and reimport golden formulas. Forbidden external links/functions rejected. User checks grid gestures, formulas and opens actual file.
 
 ## 05.2 Сравнивать денежные сценарии и календарь обязательств
-Status: todo
+Status: active
 Requirements: R01, R12, R13, R14, R16, R91, R92, R99
-Depends on: 05.1, 04.1
-Owner: SUBAGENT to assign
-Paths: src/features/finance/, tests/finance/, evals/finance/
+Depends on: 03.1, 01.3
+Owner: SUBAGENT to assign (передача; прежний автор: finance_delivery)
+Paths: src/features/finance/, tests/finance/, evals/finance/, src/app/api/finance/
+
+15октября отдельный GPT-5.6 Sol worker начинает точную предметную модель и цельный финансовый путь на принятом versioned artifact boundary и fixtures. До RELEASE текущего editorcheckpoint пишет только ignored scratch. Полная приёмка05.2 сохраняет зависимости05.1/04.1: authoritative server calculations, настоящий materials query, AI tool invocation, workbook/report, direct edit/reopen/export. Начало независимой модели не объявляет готовыми таблицы или финансовые результаты. Canonical CalculationSpec принадлежит runtime owner; shared artifact/model changes только integration, editor mount только sheet/workspace owners. Нет второго хранилища артефактов или формульного движка.
 
 **Контракт и результат.** C1 J3, C3, C9. Finance tools create versioned scenario models from observed transactions, dated receivables/payables and explicit assumptions; no double-count sale+payment, returns separate, unknown costs not0. Money decimal/unit normalization and dated FX source. User-defined variables and formulas support unit economics, break-even, price/volume sensitivity, cash calendar and custom variants; no mandatory optimistic/base/pessimistic labels or generated uplift. Scenario carries sourceVersions, assumption provenance, derived formula graph, exclusions. Compare same dimensions and show missing evidence, not winner by narrative.
 
 **Вход в работу и состояния.** Result opens table with editable assumptions and adjacent scenario/actual chart, not hidden chat. «Добавить вариант», inspect formula, change date/amount, switch cash/accrual clearly. Missing starting balance/terms shows exact gap; preserve model until explicit apply/recalc, source update becomes change set.
 
 ### 05.2.1 Точные расчёты и варианты
-Status: todo
+Status: active
 
 Golden costs/returns/FX/receivables timing and negative cash cases; sensitivity independent recalculation, no tax rate invention. Scenario changed one assumption retains original branch.
 
@@ -52,11 +56,13 @@ Status: todo
 Tool creates workbook and annotated report, direct edits/export and fresh GET match model. Comparative outputs cite coverage; invalid units block only affected calculation, not entire project.
 
 ## 05.3 Строить прогноз только с исторической проверкой
-Status: todo
+Status: active
 Requirements: R12, R13, R14, R15, R91, R104
-Depends on: 05.2, 01.3
-Owner: SUBAGENT to assign
-Paths: src/features/forecast/, tests/forecast/, evals/forecast/
+Depends on: 03.1, 01.3
+Owner: SUBAGENT to assign (передача; прежний автор: forecast_delivery)
+Paths: src/features/forecast/, tests/forecast/, evals/forecast/, src/app/api/forecast/, src/server/db/forecast-schema.ts
+
+15октября независимое статистическое ядро/валидация/история прогноза начинается наготовых03.1/01.3 ипринятомCTSA formatproof. До RELEASE текущегоCP1 только ignoredscratch. Полная05.3приёмка сохраняет05.2 иреальныйmaterials/query/runtime/editor/export путь; самостоятельный domainпрогноз ещё не продуктоваяприёмка. Никакихоблачныхcompute/paidcalls; canonicalRun/Artifact используются черезowners. Если нужен ForecastRun metadata store,0019forecast зарезервирована только после precisecontractreviewintegration; второйjobexecutor запрещён.
 
 Локальная реализация использует принятый CTSA/licence proof01.4.1. Отложенный remote01.4.2 не блокирует локальную domain-проверку, но не считается выполненным; cloud execution limits остаются acceptance11.2/13.2.
 
@@ -65,7 +71,7 @@ Paths: src/features/forecast/, tests/forecast/, evals/forecast/
 **Вход в работу и состояния.** Chart labels fact/forecast/range with date boundary and baseline toggle; editable horizon/exclusions require rerun new version. Insufficient history shows why and «Рассчитать сценарий» preserving input, never fake forecast. Table of points available for access/export; ru/kk/en terms, phone chart+scroll table.
 
 ### 05.3.1 Eligibility, baseline и отсутствие утечки
-Status: todo
+Status: active
 
 Deterministic short/constant/seasonal/noisy/zero series; no future values in train, wrong frequency rejected; weak model loses to baseline. Model library failures return recoverable state.
 

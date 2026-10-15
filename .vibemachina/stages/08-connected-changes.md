@@ -9,7 +9,7 @@ Status: active
 Status: active
 Requirements: R10, R14, R16, R25, R102, R103, R105
 Depends on: 03.1
-Owner: /root/connected_delivery
+Owner: SUBAGENT to assign (передача; прежний автор: connected_delivery)
 Paths: src/features/dependencies/, tests/dependencies/
 
 Уточнение2026-10-15: общий binding/graph/invalidation механизм начинается на принятом03.1 и canonical source/fact adapters, не ждёт всех07. Первые реальные adapters таблицы/документа подключаются вместе с05.1/03.3/02.4; раннее доказательство price -> formula -> document с сохранением ручной фразы входит в первый J1. Полная08.1 приёмка по-прежнему требует05.1/06.1/07.1/07.2/07.3/07.4 и всех описанных типов, включая plan/design и отсутствие пересечений прав. Исчезновение конечных зависимостей из условия старта не означает их принятие. Не делать отдельный fake demo engine; общий публичный пример использует те же pure domain transformations.
@@ -19,9 +19,13 @@ Paths: src/features/dependencies/, tests/dependencies/
 **Вход в работу и состояния.** «Изменился источник» badge with source/revision/count and contextual impact list. No mandatory graph view. User may open source, keep local override with rationale or request patch. New source with schema drift returns to02.4; unrelated material remains current.
 
 ### 08.1.1 Граф и адресная инвалидация
-Status: todo
+Status: active
+
+15октября graph/change-set service иcanonical per-target effects перенесены;11domain tests иscopedlint PASS. Integration подключил атомарные apply/undo/redo hooks;0015 reviewed, реальная SQL приёмка нового набора ещё не завершена. Demo иreview UI продолжаются; никакого окончательного08acceptance по однимdomain tests.
 
 Golden price->formula->doc/design and independent page; cycles/removed IDs/largefanout/ACLdenial. One-source change touches exactly expected target set, not whole workspace.
+
+Дополнительная подтверждённая граница15октября: geometry-only изменение связанного слоя не создаёт value override; price text иbrand fill в одномслое должны независимо адресоваться. Shared additive targeting/legacy compatibility уintegration, graph/proposals уconnected_delivery, UIbinding уdesigns_finish. Это обязательное продолжение полной06/08приёмки после текущегоeditorcheckpoint.
 
 ### 08.1.2 Безопасное обновление фактов
 Status: todo
@@ -32,7 +36,7 @@ Real new source snapshot computes draft diff, preserves locked/manual content, i
 Status: todo
 Requirements: R16, R32, R33, R39, R40, R92, R93, R94, R96, R102
 Depends on: 08.1, 03.2
-Owner: /root/connected_delivery
+Owner: SUBAGENT to assign (передача; прежний автор: connected_delivery)
 Paths: src/features/change-review/, tests/change-review/
 
 **Контракт и результат.** C4, C6. ChangeSet target operations with before/after/source reason/dependency group/baseRevision; causal group closure prevents accepttotal/rejectlines inconsistency. Preview is computed from same apply validation, no separate optimistic interpretation. Accept/reject selected groups/whole, human edits before apply create new validation; 409 beforeHash/source drift preserves selection and shows recomputed diff. Compare table cells/doc blocks/layers geometry+text/plan fields by stable IDs. Version approval hash invalidated on material change; restore creates newversion; branch merge explicit conflicts.

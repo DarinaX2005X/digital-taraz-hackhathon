@@ -23,11 +23,11 @@ export function documentDraft(snapshot: ArtifactSnapshot): ArtifactDraft {
 }
 
 /** Structural edits use an atomic ancestor replacement only when reparenting cannot be split safely. */
-export async function documentOperations(snapshot: ArtifactSnapshot, desired: DocumentContent, reason: string): Promise<ArtifactOperation[]> {
+export async function documentOperations(snapshot: ArtifactSnapshot, desired: DocumentContent, reason: string, metadataAt = new Date().toISOString()): Promise<ArtifactOperation[]> {
   const before = readDocument(snapshot.content), after = readDocument(desired);
   if (nodeId(before.document) !== nodeId(after.document)) throw new ContentValidationError('cannot-change-stable-id');
   const draft = documentDraft(snapshot), operations: ArtifactOperation[] = [];
-  const context = { actorId: snapshot.viewer.userId, at: new Date().toISOString(), origin: 'human' as const, reason };
+  const context = { actorId: snapshot.viewer.userId, at: metadataAt, origin: 'human' as const, reason };
   async function add(targetId: string, op: ArtifactOperation['op'], value?: JsonValue) {
     const target = await draft.target(targetId);
     const operation: ArtifactOperation = { targetId, op, beforeHash: target?.hash ?? null, ...(value !== undefined ? { value } : {}) };
@@ -73,14 +73,15 @@ export async function documentOperations(snapshot: ArtifactSnapshot, desired: Do
 }
 
 export async function documentCommand(snapshot: ArtifactSnapshot, desired: DocumentContent, reason: string): Promise<CommandGroupDraft | null> {
-  const operations = await documentOperations(snapshot, desired, reason);
-  return operations.length ? commandForOperations(snapshot, operations, reason) : null;
+  const metadataAt = new Date().toISOString();
+  const operations = await documentOperations(snapshot, desired, reason, metadataAt);
+  return operations.length ? commandForOperations(snapshot, operations, reason, [], [], metadataAt) : null;
 }
 
-export function commandForOperations(snapshot: ArtifactSnapshot, operations: ArtifactOperation[], reason: string, afterSourceRefs: readonly SourceRef[] = [], additionalFreshness: readonly SourceFreshness[] = []): CommandGroupDraft {
+export function commandForOperations(snapshot: ArtifactSnapshot, operations: ArtifactOperation[], reason: string, afterSourceRefs: readonly SourceRef[] = [], additionalFreshness: readonly SourceFreshness[] = [], metadataAt = new Date().toISOString()): CommandGroupDraft {
   const expectedSourceRevisions = currentSourceRevisions(snapshot, afterSourceRefs, additionalFreshness);
   return {
-    expectedArtifactRevisions: { [snapshot.artifact.id]: snapshot.artifact.currentRevision }, expectedSourceRevisions,
+    expectedArtifactRevisions: { [snapshot.artifact.id]: snapshot.artifact.currentRevision }, expectedSourceRevisions, metadataAt,
     commands: [{ artifactId: snapshot.artifact.id, baseRevision: snapshot.artifact.currentRevision, kind: 'document', operations, expectedSourceRevisions, reason }],
   };
 }

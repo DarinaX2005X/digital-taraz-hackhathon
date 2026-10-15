@@ -32,8 +32,17 @@ export const CreateRunSchema = z.strictObject({
 });
 export const ResumeRunSchema = z.strictObject({
   expectedEpoch: z.number().int().nonnegative(), stepId: IdSchema.optional(),
+  answers: z.array(z.strictObject({ questionId: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/), answer: z.string().trim().min(1).max(4000) })).max(10).optional(),
+  goal: z.string().trim().min(1).max(12000).optional(),
+  plan: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional(),
 });
 export const CancelRunSchema = z.strictObject({ expectedEpoch: z.number().int().nonnegative() });
+export const RunQuestionSchema = z.strictObject({ id: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/), text: z.string().min(1).max(1000), required: z.boolean() });
+export const RunProgressSchema = z.strictObject({
+  plan: z.array(z.string().min(1).max(500)).max(10), questions: z.array(RunQuestionSchema).max(10), summary: z.string().max(3000),
+  results: z.array(RunResultRefSchema.extend({ title: z.string().max(240) })).max(40),
+  parentRunId: IdSchema.nullable(), continuationRunId: IdSchema.nullable(),
+});
 
 export const RunStepSchema = z.strictObject({
   id: IdSchema, runId: IdSchema, ordinal: z.number().int().min(1).max(40), action: RunActionSchema,
@@ -59,7 +68,8 @@ export const RunSchema = z.strictObject({
   failure: RunFailureSchema.nullable(), createdAt: InstantSchema, updatedAt: InstantSchema,
   startedAt: InstantSchema.nullable(), deadlineAt: InstantSchema.nullable(),
   budget: RunBudgetSchema, steps: z.array(RunStepSchema).max(40),
-  actions: z.strictObject({ cancel: z.boolean(), resume: z.boolean(), retryStepIds: z.array(IdSchema).max(40) }),
+  progress: RunProgressSchema.default({ plan: [], questions: [], summary: '', results: [], parentRunId: null, continuationRunId: null }),
+  actions: z.strictObject({ cancel: z.boolean(), resume: z.boolean(), revise: z.boolean().default(false), retryStepIds: z.array(IdSchema).max(40) }),
 });
 export const RunListCursorSchema = z.string().min(1).max(200).regex(/^[A-Za-z0-9_-]+$/);
 export const RunListPageSchema = z.strictObject({ runs: z.array(RunSchema).max(30), nextCursor: RunListCursorSchema.nullable() });
@@ -87,6 +97,7 @@ export type RunUsageState = z.infer<typeof RunUsageStateSchema>;
 export type RunAction = z.infer<typeof RunActionSchema>;
 export type RunFailure = z.infer<typeof RunFailureSchema>;
 export type CreateRun = z.infer<typeof CreateRunSchema>;
+export type ResumeRun = z.infer<typeof ResumeRunSchema>;
 export type Run = z.infer<typeof RunSchema>;
 export type RunListPage = z.infer<typeof RunListPageSchema>;
 export type RunStep = z.infer<typeof RunStepSchema>;

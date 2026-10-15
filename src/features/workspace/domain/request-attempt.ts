@@ -6,7 +6,13 @@ export function retainRequestAttempt<T>(previous: RequestAttempt<T> | undefined,
   return previous?.intent === fingerprint ? previous : { intent: fingerprint, key: key(), input: structuredClone(input()) };
 }
 
+export function requestStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return;
+  if ('status' in error && typeof error.status === 'number') return error.status;
+  if ('failure' in error && error.failure && typeof error.failure === 'object' && 'status' in error.failure && typeof error.failure.status === 'number') return error.failure.status;
+}
+
 export function isDefiniteRequestRejection(error: unknown) {
-  const status = error && typeof error === 'object' && 'status' in error ? error.status : undefined;
+  const status = requestStatus(error);
   return status === 400 || status === 409 || status === 422;
 }

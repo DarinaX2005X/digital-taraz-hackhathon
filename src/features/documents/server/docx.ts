@@ -20,6 +20,7 @@ export async function importDocx(bytes: Buffer, options: { storeImage?: StoreDoc
         if (['w:p', 'w:tbl', 'w:tr', 'w:tc', 'w:r'].includes(tag.name) && ++structuralNodes > 20000) throw new ContentValidationError('document-too-complex');
         if (['w:ins', 'w:del', 'w:moveFrom', 'w:moveTo'].includes(tag.name)) note('tracked-changes');
         if (['w:object', 'w:altChunk', 'w:fldChar'].includes(tag.name)) note('embedded-object');
+        if (['w:rFonts', 'w:color', 'w:highlight', 'w:shd', 'w:sz', 'w:jc', 'w:ind', 'w:spacing', 'w:tblBorders', 'w:tcBorders'].includes(tag.name)) note('formatting');
       }
     } });
     if (/^word\/(?:header|footer)\d*\.xml$/.test(name)) note('headers-footers');
@@ -37,7 +38,7 @@ export async function importDocx(bytes: Buffer, options: { storeImage?: StoreDoc
       const content = await image.readAsBuffer();
       if (content.length > 20 * 1024 * 1024) throw new ContentValidationError('image-too-large');
       const asset = await options.storeImage(content, image.contentType);
-      assets.add(asset.id); return { src: `tirlik-asset:${asset.id}` };
+      assets.add(asset.id); return { src: `tirlik-asset:${asset.id}`, width: String(asset.width), height: String(asset.height) };
     }),
   });
   for (const message of result.messages) note(message.type === 'error' ? 'unsupported-content' : 'formatting');
