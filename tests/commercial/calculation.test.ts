@@ -55,6 +55,16 @@ describe('exact commercial calculations', () => {
     expect(modified.results[sheetId]?.state).toBe('modified');
     expect(modified.content.workbook.sheets[sheetId]!.cellData[1]![3]).toMatchObject({ f: '=7', v: '7' });
   });
+  it('uses the ISO currency scale instead of assuming two decimal places', () => {
+    const jpy = offer(); jpy.currency = 'JPY'; jpy.lines[0]!.quantity = observed('2'); jpy.lines[0]!.price = observed('101');
+    const yen = buildOffer(jpy, { goal: '2 hours at 101 JPY', sources: [], locale: 'en', id: randomUUID });
+    expect(yen.calculation.total).toBe('202');
+    expect(yen.table.workbook.sheets[yen.table.workbook.sheetOrder[0]!]!.calculation?.scale).toBe(0);
+    const kwd = offer(); kwd.currency = 'KWD'; kwd.lines[0]!.quantity = observed('2'); kwd.lines[0]!.price = observed('1.234');
+    const dinar = buildOffer(kwd, { goal: '2 hours at 1.234 KWD', sources: [], locale: 'en', id: randomUUID });
+    expect(dinar.calculation.total).toBe('2.468');
+    expect(dinar.table.workbook.sheets[dinar.table.workbook.sheetOrder[0]!]!.calculation?.scale).toBe(3);
+  });
 });
 
 describe('numeric provenance', () => {

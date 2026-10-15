@@ -17,6 +17,7 @@ export function safeReturnTo(input: unknown): string {
       result.set('workspace', workspaces[0]!);
     }
     const projectPathId = /^\/app\/projects\/([^/]+)$/.exec(url.pathname)?.[1];
+    const artifactPath = /^\/app\/projects\/([^/]+)\/artifacts\/([^/]+)$/.exec(url.pathname);
     if (projectPathId && z.uuid().safeParse(projectPathId).success && (url.searchParams.has('sourceId') || url.searchParams.has('sourceVersionId'))) {
       for (const key of ['sourceId', 'sourceVersionId']) {
         const values = url.searchParams.getAll(key);
@@ -28,6 +29,11 @@ export function safeReturnTo(input: unknown): string {
       const resume = url.searchParams.getAll('resume');
       if (resume.length !== 1 || resume[0] !== '1') return '/app';
       result.set('resume', '1');
+    }
+    if ((projectPathId && z.uuid().safeParse(projectPathId).success || artifactPath && artifactPath.slice(1).every((id) => z.uuid().safeParse(id).success)) && url.searchParams.has('run')) {
+      const runs = url.searchParams.getAll('run');
+      if (runs.length !== 1 || !z.uuid().safeParse(runs[0]).success) return '/app';
+      result.set('run', runs[0]!);
     }
     const sourcePathId = /^\/app\/materials\/sources\/([^/]+)$/.exec(url.pathname)?.[1];
     const collectionPathId = /^\/app\/materials\/collections\/([^/]+)$/.exec(url.pathname)?.[1];

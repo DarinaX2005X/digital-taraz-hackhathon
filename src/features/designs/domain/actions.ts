@@ -1,4 +1,4 @@
-import type { SourceRef } from '@/contracts/artifacts';
+import type { BindingTargetProperty, SourceRef } from '@/contracts/artifacts';
 import type { CommandGroupDraft } from '@/features/artifacts/client/grouping';
 import { createEditorArtifactState, expectedSourceRevisions as currentSourceRevisions } from '@/features/artifacts/client/snapshot-state';
 import type { ArtifactSnapshot, SourceFreshness } from '@/features/artifacts/contracts';
@@ -28,7 +28,7 @@ export type DesignAction =
   | { type: 'visibility'; ids: string[]; hidden: boolean }
   | { type: 'bind'; id: string; sourceRef: SourceRef; transformId: string; value: string }
   | { type: 'bind-color'; id: string; sourceRef: SourceRef; value: string }
-  | { type: 'unbind'; id: string }
+  | { type: 'unbind'; id: string; targetProperty: BindingTargetProperty }
   | { type: 'insert-page'; page: DesignPage; beforeId?: string | null }
   | { type: 'update-page'; id: string; patch: Partial<Omit<DesignPage, 'id' | 'layers'>> }
   | { type: 'duplicate-page'; id: string }
@@ -69,16 +69,19 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
     if (sameParent && items.some((item) => item.parentId !== items[0]!.parentId)) throw new DesignActionError('mixed-parents');
     return items.sort((a, b) => a.index - b.index);
   }
-  async function operation(targetId: string, op: ArtifactOperation['op'], value?: unknown) {
+  async function operation(targetId: string, op: ArtifactOperation['op'], value?: unknown, targetProperty?: BindingTargetProperty) {
     if (operations.length >= 1000) throw new DesignActionError('too-many');
-    const command: ArtifactOperation = { targetId, op, ...(value === undefined ? {} : { value: json(value) }), beforeHash: (await draft.target(targetId))?.hash ?? null };
+    const command: ArtifactOperation = { targetId, ...(targetProperty ? { targetProperty } : {}), op, ...(value === undefined ? {} : { value: json(value) }), beforeHash: (await draft.target(targetId, targetProperty))?.hash ?? null };
     await draft.apply([command], options.context); operations.push(command);
   }
   async function set(layer: DesignLayer) { await operation(layer.id, 'set', layer); }
   async function duplicateMetadata(idMap: Map<string, string>) {
     for (const [oldId, newId] of idMap) {
-      const binding = state.bindings[oldId], lock = state.locks[oldId] ?? binding?.lock;
-      if (binding) await operation(newId, 'bind', { sourceRef: binding.sourceRef, transformId: binding.transformId, updateMode: binding.updateMode, ...(binding.override ? { overrideReason: binding.override.reason } : {}) });
+      const bindings = Object.values(state.bindings).filter((binding) => binding.targetElementId === oldId), lock = state.locks[oldId] ?? bindings.find((binding) => binding.lock)?.lock;
+      for (const binding of bindings) {
+        const property = binding.targetProperty;
+        await operation(newId, 'bind', { sourceRef: binding.sourceRef, transformId: binding.transformId, updateMode: binding.updateMode, ...(property ? { targetProperty: property } : {}), ...(binding.override ? { overrideReason: binding.override.reason } : {}) }, property);
+      }
       if (lock) await operation(newId, 'lock', { locked: true, reason: lock.reason });
     }
   }
@@ -130,7 +133,7 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
       const items = roots(action.ids);
       for (const item of items) {
         // A locked group cannot accept new children, but duplicating a locked layer is safe.
-        if (item.ancestors.some((id) => state.locks[id] || state.bindings[id]?.lock)) throw new DesignActionError('locked');
+        if (item.ancestors.some((id) => state.locks[id] || Object.values(state.bindings).some((binding) => binding.targetElementId === id && !!binding.lock))) throw new DesignActionError('locked');
         const idMap = new Map<string, string>(), copy = translateLayer(cloneLayer(item.layer, makeId, idMap), action.offset ?? 24, action.offset ?? 24);
         await operation(copy.id, 'insert', { parentId: item.parentId, beforeId: null, node: copy });
         await duplicateMetadata(idMap); selection.push(copy.id);
@@ -195,13 +198,13 @@ export async function applyDesignAction(state: ArtifactState, action: DesignActi
       const item = location(action.id); unlocked([item]);
       if(action.type==='bind-color') {
         if(!['text','shape'].includes(item.layer.type)||!/^#[\da-f]{6}$/i.test(action.value))throw new DesignActionError('invalid');
-        await operation(item.layer.id,'style',{fill:action.value});
-        await operation(item.layer.id,'bind',{sourceRef:action.sourceRef,transformId:'brand-color',updateMode:'propose'});
+        await operation(item.layer.id,'set',action.value,'fill');
+        await operation(item.layer.id,'bind',{sourceRef:action.sourceRef,transformId:'brand-color',updateMode:'propose',targetProperty:'fill'},'fill');
       } else if (action.type === 'bind') {
         if (item.layer.type !== 'text') throw new DesignActionError('selection');
-        await set({ ...item.layer, text: action.value });
-        await operation(item.layer.id, 'bind', { sourceRef: action.sourceRef, transformId: action.transformId, updateMode: 'propose' });
-      } else await operation(item.layer.id, 'unbind');
+        await operation(item.layer.id, 'set', action.value, 'text');
+        await operation(item.layer.id, 'bind', { sourceRef: action.sourceRef, transformId: action.transformId, updateMode: 'propose', targetProperty: 'text' }, 'text');
+      } else await operation(item.layer.id, 'unbind', undefined, action.targetProperty === 'value' ? undefined : action.targetProperty);
       selection = [item.layer.id]; break;
     }
     case 'insert-page':

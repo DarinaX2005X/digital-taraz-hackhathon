@@ -66,6 +66,9 @@ export function createMaterialHandlers(options: { pool: Pool; origin: string; ge
         if (parts.join('/') === 'imports') return json(await imports.begin(principal, idempotencyKey(request), body), 201);
         if (parts.join('/') === 'datasets/query') return json(await datasets.query(principal, body));
         if (parts.join('/') === 'datasets/aggregate') return json(await datasets.aggregate(principal, body));
+        if (parts.join('/') === 'datasets/facet') return json(await datasets.facet(principal, body));
+        if (parts.join('/') === 'datasets/group') return json(await datasets.group(principal, body));
+        if (parts.join('/') === 'context/read') return json(await datasets.context(principal, body));
         if (parts.join('/') === 'facts/read') return json(await facts.read(principal, body));
         if (parts[0] === 'collections' && parts.length === 3) {
           const id = validate(IdSchema, parts[1]);

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IdSchema, InstantSchema, HashSchema } from './primitives';
+import { RunFailureSchema, RunStateSchema } from './runs';
 
 export const SOURCE_MAX_BYTES = 20 * 1024 * 1024;
 export const SourceFormatSchema = z.enum(['text', 'csv', 'tsv', 'xlsx', 'docx', 'pdf', 'png', 'jpeg', 'webp', 'ttf', 'otf', 'woff']);
@@ -71,9 +72,17 @@ export type SourceFontMetadata = z.infer<typeof SourceFontMetadataSchema>;
 
 export const SourceRecognizedBlockSchema = z.strictObject({ text: z.string().max(16000).optional(), values: z.array(z.string().max(4000)).min(1).max(100).optional() }).refine((value) => (value.text !== undefined) !== (value.values !== undefined));
 export const SourcePageContentSchema = z.strictObject({ blocks: z.array(SourceRecognizedBlockSchema).max(500), warnings: z.array(z.string().max(400)).max(30) }).refine((value) => new TextEncoder().encode(JSON.stringify(value)).length <= 50000);
-export const SourcePageReviewSchema = z.strictObject({ page: z.number().int().min(1).max(100), state: z.enum(['pending', 'ready', 'needs-review', 'failed']), runId: IdSchema.nullable(), revision: z.number().int().nonnegative(), original: SourcePageContentSchema.nullable(), corrected: SourcePageContentSchema.nullable(), reviewedAt: InstantSchema.nullable() });
+export const SourcePageReviewSchema = z.strictObject({
+  page: z.number().int().min(1).max(100), state: z.enum(['pending', 'ready', 'needs-review', 'failed']),
+  runId: IdSchema.nullable(), runState: RunStateSchema.nullable(), failure: RunFailureSchema.nullable(),
+  revision: z.number().int().nonnegative(), original: SourcePageContentSchema.nullable(), corrected: SourcePageContentSchema.nullable(), reviewedAt: InstantSchema.nullable(),
+});
 export const SourcePendingRecognitionSchema = z.strictObject({ operationId: IdSchema, locale: z.enum(['ru', 'kk', 'en']), pageLimit: z.number().int().min(1).max(10), expectedPages: z.array(z.number().int().min(1).max(100)).min(1).max(10), maximumUsd: z.string() });
-export const SourceReviewSchema = z.strictObject({ uploadId: IdSchema, pages: z.array(SourcePageReviewSchema).max(100), pendingPages: z.number().int().min(0).max(100), readyPages: z.number().int().min(0).max(100), reviewPages: z.number().int().min(0).max(100), pendingStart: SourcePendingRecognitionSchema.nullable() });
+export const SourceReviewSchema = z.strictObject({
+  uploadId: IdSchema, pages: z.array(SourcePageReviewSchema).max(100),
+  pendingPages: z.number().int().min(0).max(100), failedPages: z.number().int().min(0).max(100),
+  readyPages: z.number().int().min(0).max(100), reviewPages: z.number().int().min(0).max(100), pendingStart: SourcePendingRecognitionSchema.nullable(),
+});
 export const AcceptSourcePageSchema = z.strictObject({ workspaceId: IdSchema, page: z.number().int().min(1).max(100), expectedRevision: z.number().int().nonnegative(), content: SourcePageContentSchema });
 export const SourceOcrSelectionSchema = z.strictObject({ workspaceId: IdSchema, locale: z.enum(['ru', 'kk', 'en']), pageLimit: z.number().int().min(1).max(10).default(3) });
 export const StartSourceOcrSchema = SourceOcrSelectionSchema.extend({ expectedPages: z.array(z.number().int().min(1).max(100)).min(1).max(10), maximumUsd: z.string().max(30).regex(/^(?:0|[1-9]\d{0,11})(?:\.\d{1,12})?$/) });

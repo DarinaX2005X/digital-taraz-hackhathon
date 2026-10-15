@@ -8,6 +8,7 @@ import { IdentityError, validate } from '../../identity/server/http';
 import type { RunService } from '../../runs/server/service';
 import { applicationModelQuote } from '../../runs/server/model-runtime';
 import { RUN_LIMITS } from '../../runs/domain/limits';
+import type { RunFailure, RunState } from '../../../contracts/runs';
 import { authorizedUpload, type UploadRow } from './service';
 import { buildExtraction } from './parser';
 import { publishSourceVersion } from './source-heads';
@@ -17,8 +18,11 @@ import { hash } from '../../runs/server/data';
 
 export const OCR_MAX_OUTPUT_TOKENS = 6000;
 export interface SourcePageRow { page: number; state: 'pending' | 'ready' | 'needs-review' | 'failed'; run_id: string | null; batch_id: string | null; review_revision: number; original_content: SourcePageContent | null; corrected_content: SourcePageContent | null; reviewed_at: Date | null }
+interface SourcePageStatusRow extends SourcePageRow { run_state: RunState | null; failure_code: RunFailure | null }
 export interface SourceOcrBatch { id: string; workspace_id: string; source_id: string; upload_id: string; actor_id: string; operation_id: string; body_hash: string; source_version_id: string; byte_hash: string; locale: 'ru' | 'kk' | 'en'; pages: number[]; request: unknown; maximum_page_usd: string; run_id: string | null }
 const conflict = () => new IdentityError('CONFLICT', 'sources.errors.conflict');
+const terminalWithoutPageResult = (page: SourcePageStatusRow) => page.state === 'pending' && page.run_id !== null && ['completed', 'failed', 'cancelled'].includes(page.run_state ?? '');
+const reviewState = (page: SourcePageStatusRow) => terminalWithoutPageResult(page) ? 'failed' as const : page.state;
 export const recognizedFragments = (page: number, content: SourcePageContent, reviewed = false): SourceFragment[] => content.blocks.map((block, index) => ({ id: `recognized:${page}:${index + 1}`, page, ...(block.values ? { row: index + 1, values: block.values } : { text: block.text! }), review: reviewed ? 'observed' : 'needs-review' }));
 
 /** Rebuilds the unpublished derived manifest; original bytes and OCR observations stay immutable. */
@@ -49,7 +53,7 @@ export function createSourceRecognitionService(pool: Pool, runtime?: { service: 
     validate(IdSchema, uploadId);
     return access(principal, workspaceId, async (tx, auth) => {
       await authorizedUpload(tx, auth, uploadId, 'read');
-      const pages = (await tx.query<SourcePageRow>('SELECT * FROM source_pages WHERE upload_id=$1 ORDER BY page', [uploadId])).rows;
+      const pages = (await tx.query<SourcePageStatusRow>('SELECT p.*,r.state AS run_state,r.failure_code FROM source_pages p LEFT JOIN agent_runs r ON r.id=p.run_id WHERE p.upload_id=$1 ORDER BY p.page', [uploadId])).rows;
       const pending = (await tx.query<SourceOcrBatch>('SELECT * FROM source_ocr_batches WHERE workspace_id=$1 AND upload_id=$2 AND actor_id=$3 AND run_id IS NULL ORDER BY created_at LIMIT 1', [workspaceId, uploadId, auth.userId])).rows[0];
       let pendingStart = null;
       if (pending) {
@@ -57,7 +61,16 @@ export function createSourceRecognitionService(pool: Pool, runtime?: { service: 
         if (request.workspaceId !== workspaceId || hash({ ...request, uploadId }) !== pending.body_hash) throw conflict();
         pendingStart = { operationId: pending.operation_id, locale: request.locale, pageLimit: request.pageLimit, expectedPages: request.expectedPages, maximumUsd: request.maximumUsd };
       }
-      return SourceReviewSchema.parse({ uploadId, pages: pages.map((page) => ({ page: page.page, state: page.state, runId: page.run_id, revision: page.review_revision, original: page.original_content, corrected: page.corrected_content, reviewedAt: page.reviewed_at?.toISOString() ?? null })), pendingPages: pages.filter((page) => page.state === 'pending' || page.state === 'failed').length, readyPages: pages.filter((page) => page.state === 'ready').length, reviewPages: pages.filter((page) => page.state === 'needs-review').length, pendingStart });
+      const effective = pages.map((page) => ({ ...page, effectiveState: reviewState(page) }));
+      return SourceReviewSchema.parse({
+        uploadId,
+        pages: effective.map((page) => ({ page: page.page, state: page.effectiveState, runId: page.run_id, runState: page.run_state, failure: page.failure_code, revision: page.review_revision, original: page.original_content, corrected: page.corrected_content, reviewedAt: page.reviewed_at?.toISOString() ?? null })),
+        pendingPages: effective.filter((page) => page.effectiveState === 'pending').length,
+        failedPages: effective.filter((page) => page.effectiveState === 'failed').length,
+        readyPages: effective.filter((page) => page.effectiveState === 'ready').length,
+        reviewPages: effective.filter((page) => page.effectiveState === 'needs-review').length,
+        pendingStart,
+      });
     });
   }
   async function quote(principal: SessionPrincipal, workspaceId: string, uploadId: string, pageLimit = 3): Promise<SourceOcrQuote> {
@@ -65,7 +78,9 @@ export function createSourceRecognitionService(pool: Pool, runtime?: { service: 
     const pending = await access(principal, input.workspaceId, async (tx, auth) => {
       const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit');
       if (upload.status !== 'partial') return [];
-      return (await tx.query<{ page: number }>("SELECT page FROM source_pages WHERE upload_id=$1 AND state='pending' AND batch_id IS NULL ORDER BY page", [uploadId])).rows.map((row) => row.page);
+      return (await tx.query<{ page: number }>(`SELECT p.page FROM source_pages p LEFT JOIN agent_runs r ON r.id=p.run_id
+        WHERE p.upload_id=$1 AND ((p.state='failed' AND (p.run_id IS NULL OR r.state IN ('completed','failed','cancelled'))) OR (p.state='pending' AND (p.batch_id IS NULL OR r.state IN ('completed','failed','cancelled'))))
+        ORDER BY p.page`, [uploadId])).rows.map((row) => row.page);
     }, true);
     if (!pending.length) return { available: false, reason: 'no-pages', pages: [], remainingPages: 0, maximumUsd: null };
     try {
@@ -94,12 +109,14 @@ export function createSourceRecognitionService(pool: Pool, runtime?: { service: 
       if (batch && batch.body_hash !== bodyHash) throw conflict();
       if (!batch) {
         if (upload.status !== 'partial' || !upload.byte_hash || !estimate?.pages.length) throw conflict();
-        const selected = (await tx.query<{ page: number }>("SELECT page FROM source_pages WHERE upload_id=$1 AND state='pending' AND batch_id IS NULL AND page=ANY($2::integer[]) ORDER BY page FOR UPDATE", [uploadId, estimate.pages])).rows.map((row) => row.page);
+        const selected = (await tx.query<{ page: number }>(`SELECT p.page FROM source_pages p LEFT JOIN agent_runs r ON r.id=p.run_id
+          WHERE p.upload_id=$1 AND p.page=ANY($2::integer[]) AND ((p.state='failed' AND (p.run_id IS NULL OR r.state IN ('completed','failed','cancelled'))) OR (p.state='pending' AND (p.batch_id IS NULL OR r.state IN ('completed','failed','cancelled'))))
+          ORDER BY p.page FOR UPDATE OF p`, [uploadId, estimate.pages])).rows.map((row) => row.page);
         if (selected.length !== estimate.pages.length) throw conflict();
         const id = randomUUID();
         const maximumPageUsd = new Decimal(input.maximumUsd).div(selected.length).toDecimalPlaces(12, Decimal.ROUND_DOWN).toFixed();
         batch = (await tx.query<SourceOcrBatch>('INSERT INTO source_ocr_batches(id,workspace_id,source_id,upload_id,actor_id,operation_id,body_hash,source_version_id,byte_hash,locale,pages,maximum_page_usd,request) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *', [id, input.workspaceId, upload.source_id, uploadId, principal.userId, operationId, bodyHash, upload.reserved_version_id, upload.byte_hash, input.locale, JSON.stringify(selected), maximumPageUsd, JSON.stringify(input)])).rows[0]!;
-        await tx.query('UPDATE source_pages SET batch_id=$2 WHERE upload_id=$1 AND page=ANY($3::integer[])', [uploadId, id, selected]);
+        await tx.query("UPDATE source_pages SET state='pending',batch_id=$2,run_id=NULL WHERE upload_id=$1 AND page=ANY($3::integer[])", [uploadId, id, selected]);
       }
       return { batch, projectId: source.project_id, confidential: source.access_class === 'confidential' };
     }, true);

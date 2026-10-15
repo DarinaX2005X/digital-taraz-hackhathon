@@ -6,7 +6,7 @@ import { loadEnvironment, assertNodeVersion } from './dev/environment.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const { values } = parseArgs({ options: { action: { type: 'string' }, user: { type: 'string' }, workspace: { type: 'string' }, key: { type: 'string' }, run: { type: 'string' } }, strict: true });
-const actions = ['inspect', 'candidate', 'activate', 'start', 'status', 'enable', 'refresh'];
+const actions = ['inspect', 'readiness', 'candidate', 'activate', 'start', 'status', 'enable', 'refresh'];
 if (!actions.includes(values.action)) throw new Error(`Use --action ${actions.join('|')}. Mutating actions require an independently reviewed release.`);
 assertNodeVersion();
 Object.assign(process.env, await loadEnvironment(root));
@@ -21,6 +21,7 @@ try {
   if (values.action === 'inspect') result = await admin.inspectProofPricing();
   else {
     pool = getDatabasePool();
+    if (values.action === 'readiness') result = await admin.modelProofReadiness(pool);
     if (values.action === 'candidate') result = await admin.registerProofCandidate(pool, await admin.inspectProofPricing());
     if (values.action === 'activate') result = await admin.activateProofAuthorization(pool);
     if (values.action === 'start') result = await admin.startModelProof(pool, { userId: values.user, workspaceId: values.workspace, key: values.key });

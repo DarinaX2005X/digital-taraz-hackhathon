@@ -2,22 +2,24 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Activity, ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, Clock3, ExternalLink, FileCheck2, LoaderCircle, LogIn, PauseCircle, Play, RefreshCw, Settings, Square, XCircle } from 'lucide-react';
+import { Activity, ArrowLeft, ArrowRight, Check, CheckCircle2, Circle, Clock3, ExternalLink, FileCheck2, LoaderCircle, LogIn, PauseCircle, Play, RefreshCw, Square, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale } from '../../../i18n/provider';
 import { formatDecimal, formatInstant, formatNumber } from '../../../i18n/format';
-import type { Run, RunListPage, RunState, RunStepState } from '../../../contracts/runs';
+import type { Run, RunListPage, RunStepState } from '../../../contracts/runs';
 import type { IdentityViewer } from '../../identity/contracts';
 import { useIdentityAccount } from '../../identity/ui/identity-locale-provider';
-import { AccountMenu } from '../../identity/ui/account-menu';
 import { AuthDialog } from '../../identity/ui/credentials';
-import { Button, Combobox, Dialog, DialogClose, EmptyState, IconButton, LoadingState, LocaleSelect, ProductHeader } from '../../../ui';
-import { runCatalog, type RunCopy } from '../locales';
+import { Button, Combobox, Dialog, DialogClose, EmptyState, IconButton, LoadingState } from '../../../ui';
+import { assistantSessionCatalog, runCatalog, type RunCopy } from '../locales';
 import { runClient, RunClientError, type RunRequestOptions } from '../client/transport';
 import { openRunEvents } from '../client/events';
 import { activeRun, observableRun, lostAccess, resultLink, runErrorText, runResults } from '../client/state';
 import styles from './runs.module.css';
 import { RunContinuation, type RunChange } from './run-continuation';
+import { WorkspaceShell } from '../../workspace/ui/shell';
+import { assistantSessionState, sessionResultHref } from './session-state';
+import { DecisionPanel } from './decision-panel';
 
 const stateIcons = { queued: Clock3, running: LoaderCircle, waiting_input: PauseCircle, review_ready: FileCheck2, completed: CheckCircle2, failed: XCircle, cancelled: Square };
 const stepIcons = { planned: Circle, claimed: LoaderCircle, succeeded: Check, failed: XCircle, skipped: Square };
@@ -27,9 +29,10 @@ function compactAmount(value: string) {
   const trimmed = fraction?.replace(/0+$/, '');
   return trimmed ? `${whole}.${trimmed}` : whole;
 }
-function RunStatus({ state, text }: { state: RunState; text: RunCopy }) {
-  const Icon = stateIcons[state];
-  return <span className={styles.status} data-state={state}><Icon aria-hidden="true" size={18} className={state === 'running' ? 'tl-spin' : undefined} />{text.states[state]}</span>;
+function RunStatus({ run }: { run: Run }) {
+  const { locale } = useLocale();
+  const Icon = stateIcons[run.state], state = assistantSessionState(run);
+  return <span className={styles.status} data-state={state}><Icon aria-hidden="true" size={18} className={run.state === 'running' ? 'tl-spin' : undefined} />{assistantSessionCatalog[locale].states[state]}</span>;
 }
 function StepStatus({ state, text }: { state: RunStepState; text: RunCopy }) {
   const Icon = stepIcons[state];
@@ -114,7 +117,7 @@ function RunList({ workspaceId, projectId, guard, text }: { workspaceId: string;
     {data && data.runs.length > 0 && <ul className={styles.runList}>
       {data.runs.map((run) => <li key={run.id}>
         <Link href={`/app/runs/${run.id}`} className={styles.runLink}>
-          <div className={styles.runHeading}><h2>{run.goal}</h2><RunStatus state={run.state} text={text} /></div>
+          <div className={styles.runHeading}><h2>{run.goal}</h2><RunStatus run={run} /></div>
           <div className={styles.runMeta}><time dateTime={run.updatedAt}>{formatInstant(locale, run.updatedAt)}</time><span>{text.stepsDone}: {formatNumber(locale, run.steps.filter((step) => step.state === 'succeeded').length)} / {formatNumber(locale, run.steps.length)}</span><ArrowRight aria-hidden="true" size={18} /></div>
           {run.failure && <p className={styles.rowFailure}>{text.failures[run.failure]}</p>}
         </Link>
@@ -232,17 +235,18 @@ function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: 
     {error !== undefined && <ErrorNotice error={error} text={text} retry={refresh} />}
     {!data && error === undefined && <LoadingState label={text.loading} />}
     {data && <article className={styles.detail}>
-      <div className={styles.detailHeading}><h2>{data.goal}</h2><RunStatus state={data.state} text={text} /></div>
+      <div className={styles.detailHeading}><h2>{data.goal}</h2><RunStatus run={data} /></div>
       {data.capabilityId.startsWith('runtime.') && <div className={styles.synthetic}><strong>{text.synthetic}</strong><p>{text.syntheticText}</p></div>}
       <div className={styles.detailMeta}><span>{text.started}: <time dateTime={data.startedAt ?? data.createdAt}>{formatInstant(locale, data.startedAt ?? data.createdAt)}</time></span><span>{text.updated}: <time dateTime={data.updatedAt}>{formatInstant(locale, data.updatedAt)}</time></span></div>
       <div className={styles.actions}>
-        {data.actions.resume && !data.progress.questions.length && <Button icon={Play} variant="primary" pending={pending} pendingLabel={text.sending} onClick={() => { void mutate('resume'); }}>{text.resume}</Button>}
+        {data.actions.resume && !data.progress.questions.length && !(data.progress.decision && data.progress.decision.selectedOptionId === null) && <Button icon={Play} variant="primary" pending={pending} pendingLabel={text.sending} onClick={() => { void mutate('resume'); }}>{text.resume}</Button>}
         {data.actions.cancel && <Button icon={Square} disabled={pending} onClick={() => setCancelOpen(true)}>{text.cancel}</Button>}
       </div>
       {data.failure && <p className={styles.failure} role="status">{text.failures[data.failure]}</p>}
       {commandError !== undefined && <ErrorNotice error={commandError} text={text} retry={refresh} />}
       {connection && <p className={styles.connection} role="status">{text.connectionLost}</p>}
-      <RunContinuation key={data.id} run={data} locale={locale} pending={pending} onContinue={(change) => { void mutate('resume', undefined, change); }} />
+      {data.progress.decision && <DecisionPanel decision={data.progress.decision} locale={locale} workspaceId={data.workspaceId} copy={assistantSessionCatalog[locale]} canChoose={data.actions.resume && data.progress.decision.selectedOptionId === null} pending={pending} pendingConditions={data.progress.questions.filter((question) => question.id.startsWith('accept_conditions_'))} onChoose={(selectedOptionId) => { void mutate('resume', undefined, { selectedOptionId }); }} onAcceptConditions={(acceptedConditionIds) => { void mutate('resume', undefined, { acceptedConditionIds }); }} />}
+      <RunContinuation key={data.id} run={data} locale={locale} pending={pending} structuredDecision onContinue={(change) => { void mutate('resume', undefined, change); }} />
       <div className={styles.detailColumns}>
         <section aria-labelledby="run-progress"><h3 id="run-progress">{text.steps}</h3><ol className={styles.steps}>
           {data.steps.map((step) => <li key={step.id} className={styles.step}>
@@ -257,7 +261,7 @@ function RunDetail({ runId, guard, text }: { runId: string; guard: Guard; text: 
         <aside className={styles.summary}>
           <section aria-labelledby="run-cost"><h3 id="run-cost">{text.budget}</h3><dl className={styles.cost}><div><dt>{text.spent}</dt><dd>{formatDecimal(locale, compactAmount(data.budget.spentUsd))} {text.dollars}</dd></div><div><dt>{text.reserved}</dt><dd>{formatDecimal(locale, compactAmount(data.budget.reservedUsd))} {text.dollars}</dd></div></dl></section>
           <section aria-labelledby="run-results"><h3 id="run-results">{text.results}</h3>{results.length ? <ul className={styles.results}>{results.map((result) => {
-            const href = resultLink(data, result);
+            const href = sessionResultHref(data, result) ?? resultLink(data, result);
             const title = data.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? text[result.kind];
             return <li key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{href ? <Link href={href}>{title}<ExternalLink size={16} aria-hidden="true" /></Link> : <span>{title}{result.revision !== undefined && ` ${formatNumber(locale, result.revision)}`}</span>}</li>;
           })}</ul> : <p className={styles.muted}>{text.noResult}</p>}</section>
@@ -287,11 +291,10 @@ export function RunsPage({ initialWorkspaceId, projectId, runId }: { initialWork
   const account = useIdentityAccount();
   const [authOpen, setAuthOpen] = useState(false);
   const returnTo = runId ? `/app/runs/${runId}` : initialWorkspaceId ? `/app/runs?workspace=${initialWorkspaceId}` : '/app/runs';
-  return <div className={styles.page}>
-    <ProductHeader homeLabel={text.home}><Link href="/settings" className={styles.settingsLink} aria-label={text.settings}><Settings aria-hidden="true" size={18} /><span>{text.settings}</span></Link><LocaleSelect compact /><AccountMenu /></ProductHeader>
+  return <WorkspaceShell workspaceId={initialWorkspaceId}><div className={styles.page}>
     <main className={styles.main}><h1>{runId ? text.detail : text.title}</h1>
       {!account.ready ? <LoadingState label={text.loading} /> : account.viewer ? <RunsPrivate key={`${account.viewer.user.id}:${account.viewer.session.id}:${account.authEpoch}`} viewer={account.viewer} authEpoch={account.authEpoch} initialWorkspaceId={initialWorkspaceId} projectId={projectId} runId={runId} text={text} /> : <EmptyState title={text.signInText} action={<Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{text.signIn}</Button>} />}
     </main>
     <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={returnTo} onAuthenticated={() => { setAuthOpen(false); void account.refresh().catch(() => undefined); }} />
-  </div>;
+  </div></WorkspaceShell>;
 }

@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { DependencyGraphSchema, type DependencyGraph } from '../../../contracts/dependencies';
-import type { DependencyEdge, DependencyTarget } from '../../../contracts/dependency-edges';
+import { dependencyTargetProperty, type DependencyEdge, type DependencyTarget } from '../../../contracts/dependency-edges';
 import { ArtifactConflict, authorizeProject, requireActiveProject, sourceVector } from '../../artifacts/server/service-support';
 import type { WorkspaceAccess } from '../../identity/server/access';
 import { compileDependencies, targetKey } from '../domain/graph';
@@ -31,8 +31,8 @@ export async function registerEdgesInTransaction(tx: PoolClient, access: Workspa
   compileDependencies(graph.edges);
   const artifacts = await loadDependencyArtifacts(tx, access, graph, true), drafts = new Map(artifacts.map((artifact) => [artifact.id, artifactDraft(artifact)]));
   for (const edge of body.edges) {
-    if (!await drafts.get(edge.target.artifactId)?.target(edge.target.targetElementId)) throw new ArtifactConflict();
-    for (const { ref } of edge.inputs) if (ref.kind === 'artifact' && !await drafts.get(ref.artifactId)?.target(ref.targetElementId)) throw new ArtifactConflict();
+    if (!await drafts.get(edge.target.artifactId)?.target(edge.target.targetElementId, dependencyTargetProperty(edge.target))) throw new ArtifactConflict();
+    for (const { ref } of edge.inputs) if (ref.kind === 'artifact' && !await drafts.get(ref.artifactId)?.target(ref.targetElementId, dependencyTargetProperty(ref))) throw new ArtifactConflict();
   }
   if (!await sourceVector(tx, access, graphSourceRefs(graph, artifacts))) throw new ArtifactConflict();
   await tx.query('INSERT INTO dependency_graphs(workspace_id,project_id,revision,edges,updated_by) VALUES($1,$2,$3,$4,$5) ON CONFLICT(workspace_id,project_id) DO UPDATE SET revision=EXCLUDED.revision,edges=EXCLUDED.edges,updated_by=EXCLUDED.updated_by,updated_at=clock_timestamp()', [body.workspaceId, body.projectId, graph.revision, JSON.stringify(graph.edges), access.userId]);

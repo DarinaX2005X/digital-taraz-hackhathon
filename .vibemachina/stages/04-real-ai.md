@@ -7,9 +7,9 @@ Status: active
 
 ## 04.1 Выбирать инструменты под свободную деловую задачу
 Status: active
-Requirements: R03, R04, R05, R14, R15, R16, R83, R84, R96, R100, R106
+Requirements: R03, R04, R05, R14, R15, R16, R83, R84, R96, R100, R106, R107
 Depends on: 02.1, 03.1
-Owner: SUBAGENT to assign (передача; прежний автор: agent_execution)
+Owner: /root/business_assistant
 Paths: src/features/agent-tools/, tests/agent-tools/, evals/agent-tools/
 
 Фактический аудит2026-10-15: существующий02.2 runtime имеет только test synthetic и private model-proof registrations; они не исполняют цель бизнеса и не создают пользовательские artifacts. Успешный proofMiMo2.6 не закрывает04.1. Следующий feature owner должен поставить настоящую public capability свободной задачи с source retrieval/provenance, typed tools и сохранёнными artifact refs. UI запуск монтирует workspace owner по одному согласованному DTO, не новая форма internal capabilities. Реестр runtime/эффекты/ledger переиспользуются. Подготовка начинается на принятых interfaces02.2/03.1/02.3, пока03.3/02.4 монтируются; окончательное принятие04.1 требует всех указанных зависимостей. Первым рабочим предметным путём является J1 из нового PROJECT, остальные предметные capabilities подключаются по плану. Никакого скрытого canned result или автоматического вызова модели при входе.
@@ -19,11 +19,13 @@ Paths: src/features/agent-tools/, tests/agent-tools/, evals/agent-tools/
 **Вход в работу и состояния.** Free-form goal with attached sources and optional constraints is the primary work entry. Assistant surface shows editable plan, concrete question when blocked, actual operation receipts and live result components, not fixed answer buttons or a secondary hidden panel. User may edit goal/plan, answer freely, inspect sources, open and change the result, lock it and accept changes. A conversational answer without a verified operation or usable artifact does not complete the task. Prompt injection in files stays data; schema-valid hallucinated facts still fail source/numeric validation.
 
 ### 04.1.1 Контекст и предметные процедуры
-Status: active
+Status: done
 
 15октября public business.goal иtyped source/query/calculation/artifact tools перенесены;33focused tests+lint иsynthetic runtime/business DB scenarios PASS. Настоящий workspace запуск использует selected pinned sources иатомарный editable estimate/offer result. Это synthetic proof; первыйliveJ1 требует исправления server calculation authority иобщей интеграционной приёмки. Следующийscratch пакет включает адреснуюAIправку документа с before/after review, stable selection/revision иsame-key recovery.
 
 Prompts per job include source precedence, units, unknowns, locks, selection criteria; tools validate tenant/permissions and cannot claim external action. Tests malicious source/inaccessible fragment/oversized context.
+
+Принято: versioned `business-assistant-v1` procedure содержит source precedence, ordered tools, conditional branches, invariants, permissions, unknowns, recovery и completion contract. Decision `can/can-with-conditions/cannot-confirm`, material context, canonical human selection/condition consent, three-artifact atomic bundle и finite RU/KK/EN reason mapping прошли26/26 unit/eval,4/4 J1 PostgreSQL и3/3 production operations adapter.04.1.2 остаётся active до bounded live tool loop.
 
 ### 04.1.2 Адаптивный цикл с реальными результатами
 Status: active
@@ -32,7 +34,7 @@ Live novel goal, incomplete input and changed constraint: different necessary to
 
 ## 04.2 Доказать первый полезный путь от своего файла до результата
 Status: todo
-Requirements: R08, R10, R15, R56, R76, R83, R90, R99, R106
+Requirements: R08, R10, R15, R56, R76, R83, R90, R99, R106, R107
 Depends on: 04.1, 03.4, 03.2, 01.3
 Owner: SUBAGENT to assign
 Paths: tests/early-journey/, evals/early-journey/

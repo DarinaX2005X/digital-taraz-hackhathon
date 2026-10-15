@@ -47,7 +47,11 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
   useEffect(() => { if (access.phase === 'discarded') { pendingUpload.current = undefined; operation.current = undefined; } }, [access.phase]);
   function choose(file: File | undefined) {
     if (!file || stage) return;
-    setError(undefined); setUpload(undefined); pendingUpload.current = undefined; operation.current = undefined;
+    setError(undefined); setUpload(undefined);
+    // Keep a failed first upload as the same draft material. An unchanged retry
+    // reuses its operation key; corrected bytes get a new operation on that
+    // pending source instead of leaving an unreachable empty source behind.
+    if (!pendingUpload.current) operation.current = undefined;
     if (file.size > SOURCE_MAX_BYTES) { setError(t.tooLarge); return; }
     if (['ttf', 'otf', 'woff'].includes(sourceFileFormat(file.name) ?? '') && file.size > 5 * 1024 * 1024) { setError(t.fontLimit); return; }
     if (!sourceFileFormat(file.name)) { setError(t.unsupported); return; }
@@ -58,12 +62,16 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
     if (!title.trim() || !project || !workspaceId || !format || (mode === 'file' ? !file : !text.trim())) { setError(t.required); return; }
     const bytes = mode === 'file' ? file! : new Blob([text], { type: 'text/plain' });
     if (bytes.size > SOURCE_MAX_BYTES || bytes.size < 1) { setError(t.tooLarge); return; }
-    const input: InitSourceUpload = {
+    let input: InitSourceUpload = {
       workspaceId, projectId: project.id, title: title.trim(), fileName: mode === 'file' ? file!.name : `${title.trim().slice(0, 220)}.${pasteFormat === 'text' ? 'txt' : pasteFormat}`,
       size: bytes.size, format, expectedRevision: previous?.revision ?? 0, ...(previous ? { sourceId: previous.id } : {}),
       accessClass: confidential ? 'confidential' : 'internal', options: { encoding: mode === 'paste' ? 'utf-8' : encoding, ...(delimiter ? { delimiter: delimiter as ',' | ';' | '\t' } : {}), ...(visual ? { purpose: imagePurpose } : {}), ...(visual || font || format === 'docx' ? { assetLicense: { permission: embeddingAllowed ? 'confirmed' as const : 'unknown' as const, canEmbed: embeddingAllowed, ...(licenseLabel.trim() ? { label: licenseLabel.trim() } : {}) } } : {}) },
     };
-    const body = JSON.stringify(input);
+    let body = JSON.stringify(input);
+    if (!previous && pendingUpload.current && operation.current && operation.current.body !== body) {
+      input = { ...input, sourceId: pendingUpload.current.sourceId, expectedRevision: 0 };
+      body = JSON.stringify(input);
+    }
     if (operation.current?.body !== body) operation.current = { body, key: crypto.randomUUID() };
     const request = new AbortController(); controller.current = request;
     setError(undefined); setStage('preparing');
@@ -110,7 +118,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
             <input className={styles.filePicker} ref={fileInput} type="file" accept=".csv,.tsv,.xlsx,.docx,.pdf,.png,.jpg,.jpeg,.webp,.txt,.md,.ttf,.otf,.woff" tabIndex={-1} aria-label={t.choose} onChange={(event) => choose(event.target.files?.[0])} />
             <Button icon={Upload} disabled={Boolean(stage)} onClick={() => fileInput.current?.click()}>{t.choose}</Button>
           </div> },
-          { id: 'paste', label: t.paste, disabled: Boolean(stage), content: <div className={styles.stack}><TextareaField label={t.text} rows={14} value={text} disabled={Boolean(stage)} onChange={(event) => { setText(event.target.value); operation.current = undefined; }} required={mode === 'paste'} /><SelectField label={t.file} value={pasteFormat} disabled={Boolean(stage)} onChange={(event) => setPasteFormat(event.target.value as SourceFormat)}><option value="text">{t.paste}</option><option value="csv">CSV</option><option value="tsv">TSV</option></SelectField></div> },
+          { id: 'paste', label: t.paste, disabled: Boolean(stage), content: <div className={styles.stack}><TextareaField label={t.text} rows={14} value={text} disabled={Boolean(stage)} onChange={(event) => { setText(event.target.value); if (!pendingUpload.current) operation.current = undefined; }} required={mode === 'paste'} /><SelectField label={t.file} value={pasteFormat} disabled={Boolean(stage)} onChange={(event) => setPasteFormat(event.target.value as SourceFormat)}><option value="text">{t.paste}</option><option value="csv">CSV</option><option value="tsv">TSV</option></SelectField></div> },
         ]} />
         <SourceError error={error} />
         {upload && <div role="status"><SourceStatus status={upload.status} /></div>}

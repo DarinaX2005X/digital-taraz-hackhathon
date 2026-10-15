@@ -1,17 +1,17 @@
 import { z } from 'zod';
-import { FieldBindingSchema, SourceRefSchema, type FieldBinding } from '../../../contracts/artifacts';
+import { BindingTargetPropertySchema, FieldBindingSchema, SourceRefSchema, fieldBindingIdentity, fieldBindingProperty, fieldBindingStateKey, type BindingTargetProperty, type FieldBinding } from '../../../contracts/artifacts';
 import { CommandOperationSchema } from '../../../contracts/commands';
 import { ElementIdSchema } from '../../../contracts/primitives';
 import { ContentValidationError, CONTENT_LIMITS, assertBoundedJson, hashJson, measureJson, jsonBytes } from './canonical';
 import { collectSourceRefs, countTreeNodes, measureArtifactContent } from './content-state';
 import { TableSheetSettingsSchema, type ArtifactContent, type DesignLayer, type DocumentNode, type JsonValue, type TableCell, type TableSheet } from './content-models';
 import { MerkleJson, type JsonPath } from './merkle-json';
-import { buildTargetIndex, describeTarget, locateTarget, parseCellTargetId, readPath, tableColumnTargetId, tableRowTargetId, tableSheetTargetId, targetValue, type ArtifactState, type ArtifactTarget, type TargetLocator, type TargetLock } from './targets';
+import { buildTargetIndex, describeTarget, locateTarget, parseCellTargetId, readPath, replaceTargetPropertyValue, tableColumnTargetId, tableRowTargetId, tableSheetTargetId, targetPropertyValue, targetValue, type ArtifactState, type ArtifactTarget, type TargetLocator, type TargetLock } from './targets';
 import { validateArtifactContent, validateDesignLayer, validateDocumentNode, validateTableCell, parseJsonValue } from './semantic-validation';
 
 export type ArtifactOperation = z.infer<typeof CommandOperationSchema>;
 export interface OperationContext { actorId: string; at: string; reason: string; origin: 'human' | 'ai' | 'import' | 'history' }
-export interface MetadataRestore { binding: FieldBinding | null; lock: TargetLock | null }
+export interface MetadataRestore { binding: FieldBinding | null; lock: TargetLock | null; targetElementId?: string; targetProperty?: BindingTargetProperty }
 export interface ReversibleOperation {
   operation: ArtifactOperation; metadata: Record<string, MetadataRestore>; metadataExpectedHashes?: Record<string, string | null>;
   sheetMerges?: { sheetId: string; value: JsonValue | null; expectedHash: string };
@@ -27,10 +27,13 @@ export class TargetConflictError extends Error {
 const PlacementSchema = z.strictObject({ parentId: ElementIdSchema.optional(), beforeId: ElementIdSchema.nullable() });
 const InsertSchema = PlacementSchema.extend({ node: z.json() });
 const TableInsertSchema = z.strictObject({ sheetId: ElementIdSchema, axis: z.enum(['row', 'column']), id: ElementIdSchema, beforeId: ElementIdSchema.nullable(), cells: z.record(ElementIdSchema, z.json()).default({}), data: z.record(z.string(), z.json()).optional() });
-const BindSchema = z.strictObject({ sourceRef: SourceRefSchema, transformId: ElementIdSchema, updateMode: z.enum(['deterministic', 'propose', 'manual']), overrideReason: z.string().trim().min(1).max(1000).optional() });
+const BindSchema = z.strictObject({ sourceRef: SourceRefSchema, transformId: ElementIdSchema, updateMode: z.enum(['deterministic', 'propose', 'manual']), targetProperty: BindingTargetPropertySchema.optional(), overrideReason: z.string().trim().min(1).max(1000).optional() });
 const LockSchema = z.strictObject({ locked: z.boolean(), reason: z.string().trim().min(1).max(1000).optional() }).refine((value) => !value.locked || !!value.reason);
 
 function asJson(value: unknown): JsonValue { return value as JsonValue; }
+function operationTargetKey(operation: Pick<ArtifactOperation, 'targetId' | 'targetProperty'>): string {
+  return operation.targetProperty ? fieldBindingStateKey(operation.targetId, operation.targetProperty) : operation.targetId;
+}
 function safeSet(content: ArtifactContent, path: JsonPath, value: unknown): void {
   if (!path.length) throw new ContentValidationError('cannot-replace-kind-envelope');
   let current = content as unknown as Record<string | number, unknown>;
@@ -236,8 +239,13 @@ export class ArtifactDraft {
   constructor(readonly graph: MerkleJson, public root: string) {}
 
   async state(): Promise<ArtifactState> { return await this.graph.materialize(this.root) as unknown as ArtifactState; }
-  async metadata(targetId: string): Promise<MetadataRestore> {
-    return { binding: (await this.graph.get(this.root, ['bindings', targetId]) ?? null) as FieldBinding | null, lock: (await this.graph.get(this.root, ['locks', targetId]) ?? null) as TargetLock | null };
+  async metadata(targetId: string, targetProperty?: BindingTargetProperty): Promise<MetadataRestore> {
+    return {
+      binding: (await this.graph.get(this.root, ['bindings', fieldBindingStateKey(targetId, targetProperty ?? 'value')]) ?? null) as FieldBinding | null,
+      lock: (await this.graph.get(this.root, ['locks', targetId]) ?? null) as TargetLock | null,
+      targetElementId: targetId,
+      ...(targetProperty ? { targetProperty } : {}),
+    };
   }
   async locator(targetId: string): Promise<TargetLocator | undefined> {
     const direct = await this.graph.get(this.root, ['index', 'targets', targetId]);
@@ -250,14 +258,19 @@ export class ArtifactDraft {
     if (typeof sheetId !== 'string' || !row || !column) return undefined;
     return { kind: 'table-cell', path: ['workbook', 'sheets', sheetId, 'cellData', String(row.index), String(column.index)], sheetId, rowId: row.id, columnId: column.id };
   }
-  async target(targetId: string): Promise<ArtifactTarget | null> {
+  async target(targetId: string, targetProperty?: BindingTargetProperty): Promise<ArtifactTarget | null> {
     const locator = await this.locator(targetId);
     if (!locator) return null;
-    const metadata = await this.metadata(targetId);
+    const metadata = await this.metadata(targetId, targetProperty);
     let value: JsonValue;
     if (locator.kind === 'table-row' || locator.kind === 'table-column') value = targetValue((await this.state()).content, locator);
     else value = await this.graph.get(this.root, ['content', ...locator.path]) ?? null;
-    return describeTarget(targetId, locator, value, metadata.binding, metadata.lock ?? metadata.binding?.lock ?? null);
+    return describeTarget(targetId, locator, value, metadata.binding, metadata.lock ?? metadata.binding?.lock ?? null, targetProperty);
+  }
+
+  private async targetBindings(targetId: string): Promise<FieldBinding[]> {
+    const bindings = (await this.graph.get(this.root, ['bindings']) ?? {}) as unknown as Record<string, FieldBinding>;
+    return Object.values(bindings).filter((binding) => binding.targetElementId === targetId);
   }
 
   private async protectedTarget(operation: ArtifactOperation, locator: TargetLocator | undefined): Promise<string | null> {
@@ -274,7 +287,11 @@ export class ArtifactDraft {
       if (typeof value.parentId === 'string') await addAncestors(value.parentId);
       if (typeof value.sheetId === 'string') ids.add(tableSheetTargetId(value.sheetId));
     }
-    for (const id of ids) { const metadata = await this.metadata(id); if (metadata.lock || metadata.binding?.lock || metadata.binding?.override) return id; }
+    for (const id of ids) {
+      const metadata = await this.metadata(id, operation.targetProperty);
+      const bindings = operation.targetProperty && id === operation.targetId ? [metadata.binding].filter(Boolean) as FieldBinding[] : await this.targetBindings(id);
+      if (metadata.lock || bindings.some((binding) => binding.lock || binding.override)) return id;
+    }
     // Adding protection to a parent does not mutate its protected descendants.
     // Direct and ancestor protection is still checked above for lock commands.
     if (operation.op !== 'lock' && locator && !['table-cell', 'plan-entry'].includes(locator.kind)) {
@@ -289,8 +306,8 @@ export class ArtifactDraft {
     return null;
   }
 
-  private async setMetadata(targetId: string, metadata: MetadataRestore): Promise<void> {
-    this.root = await this.graph.set(this.root, ['bindings', targetId], metadata.binding ? asJson(metadata.binding) : undefined);
+  private async setMetadata(targetId: string, metadata: MetadataRestore, targetProperty: BindingTargetProperty = metadata.targetProperty ?? fieldBindingProperty(metadata.binding ?? {})): Promise<void> {
+    this.root = await this.graph.set(this.root, ['bindings', fieldBindingStateKey(targetId, targetProperty)], metadata.binding ? asJson(metadata.binding) : undefined);
     this.root = await this.graph.set(this.root, ['locks', targetId], metadata.lock ? asJson(metadata.lock) : undefined);
   }
   private async adjustMetrics(previous: JsonValue | undefined, next: JsonValue | undefined, path: JsonPath, kind?: 'document-node' | 'design-layer'): Promise<void> {
@@ -312,6 +329,8 @@ export class ArtifactDraft {
   private async setValue(operation: ArtifactOperation, locator: TargetLocator, before: ArtifactTarget, context: OperationContext): Promise<ArtifactOperation> {
     const previous = before.value;
     let value = operation.value;
+    const previousProperty = operation.targetProperty ? targetPropertyValue(locator.kind, previous, operation.targetProperty) : undefined;
+    if (operation.targetProperty) value = replaceTargetPropertyValue(locator.kind, previous, operation.targetProperty, value ?? null);
     if (locator.kind === 'table-cell') {
       const rowPath = ['content', ...locator.path.slice(0, -1)];
       const oldRow = await this.graph.get(this.root, rowPath);
@@ -371,6 +390,7 @@ export class ArtifactDraft {
       if (locator.kind === 'table-row' || locator.kind === 'table-column') throw new ContentValidationError('use-cell-or-structural-command');
       safeSet(state.content, locator.path, value); this.replaceState(state, context);
     }
+    if (operation.targetProperty) return { targetId: operation.targetId, targetProperty: operation.targetProperty, op: 'set', value: previousProperty ?? null, beforeHash: null };
     return { targetId: operation.targetId, op: previous === null && locator.kind === 'table-cell' ? 'remove' : 'set', ...(previous === null && locator.kind === 'table-cell' ? {} : { value: previous }), beforeHash: null };
   }
 
@@ -394,7 +414,7 @@ export class ArtifactDraft {
     const inverse: ReversibleOperation[] = [], beforeHashes: Record<string, string | null> = {}, afterHashes: Record<string, string | null> = {};
     try {
       for (let i = 0; i < operations.length; i++) {
-        const operation = operations[i]!, before = await this.target(operation.targetId), locator = await this.locator(operation.targetId);
+        const operation = operations[i]!, before = await this.target(operation.targetId, operation.targetProperty), locator = await this.locator(operation.targetId);
         const hash = before?.hash ?? null;
         if (operation.beforeHash !== hash) throw new TargetConflictError(operation.targetId, 'before-hash', operation.beforeHash, hash);
         if (operation.op === 'insert' ? before !== null : before === null) throw new TargetConflictError(operation.targetId, 'target-missing', operation.beforeHash, hash);
@@ -405,12 +425,15 @@ export class ArtifactDraft {
           // It cannot remove or rewrite existing protection, or give AI lock authority.
           if (operation.op === 'lock' && (context.origin === 'ai' || !parseJsonValue(LockSchema, operation.value!).locked)) throw new ContentValidationError('only-human-may-change-lock');
         }
-        if (!Object.hasOwn(beforeHashes, operation.targetId)) beforeHashes[operation.targetId] = hash;
-        const metadata = await this.metadata(operation.targetId);
-        const savedMetadata: Record<string, MetadataRestore> = { [operation.targetId]: metadata };
-        for (const id of Object.keys(restores?.[i]?.metadata ?? {})) savedMetadata[id] = await this.metadata(id);
+        const operationKey = operationTargetKey(operation);
+        if (!Object.hasOwn(beforeHashes, operationKey)) beforeHashes[operationKey] = hash;
+        const metadata = await this.metadata(operation.targetId, operation.targetProperty);
+        const metadataKey = fieldBindingStateKey(operation.targetId, operation.targetProperty ?? 'value');
+        const savedMetadata: Record<string, MetadataRestore> = { [metadataKey]: metadata };
+        for (const [id, saved] of Object.entries(restores?.[i]?.metadata ?? {})) savedMetadata[id] = await this.metadata(saved.targetElementId ?? id, saved.targetProperty ?? saved.binding?.targetProperty);
         for (const [id, expected] of Object.entries(restores?.[i]?.metadataExpectedHashes ?? {})) {
-          const current = (await this.target(id))?.hash ?? null;
+          const saved = restores?.[i]?.metadata[id];
+          const current = (await this.target(saved?.targetElementId ?? id, saved?.targetProperty))?.hash ?? null;
           if (current !== expected) throw new TargetConflictError(id, 'before-hash', expected, current);
         }
         const formulaRestores = restores?.[i]?.tableFormulas ?? [];
@@ -426,13 +449,14 @@ export class ArtifactDraft {
         const savedFormulas = new Map<string, TableCell>();
         const savedFormulaHashes = new Map<string, string | null>();
         const savedSettings: { sheetId: string; key: 'freeze' | 'calculation'; value: JsonValue | null }[] = [];
-        const boundBefore = new Map<string, string | null>();
+        const boundBefore = new Map<string, { hash: string | null; binding: FieldBinding }>();
         if (context.origin === 'human' && ['set', 'style', 'remove'].includes(operation.op)) {
           const bindings = (await this.graph.get(this.root, ['bindings']) ?? {}) as unknown as Record<string, FieldBinding>;
-          for (const id of Object.keys(bindings)) {
-            const child = await this.locator(id);
+          for (const binding of Object.values(bindings)) {
+            const id = binding.targetElementId, property = binding.targetProperty, child = await this.locator(id);
             if (id === operation.targetId || (locator && child && locator.path.every((key, index) => child.path[index] === key)) || (locator?.sheetId && child?.sheetId === locator.sheetId && locator.kind === 'table-column' && child.columnId === locator.columnId)) {
-              const target = await this.target(id); boundBefore.set(id, target ? hashJson(target.value) : null); savedMetadata[id] = await this.metadata(id);
+              const target = await this.target(id, property), key = fieldBindingIdentity(binding);
+              boundBefore.set(key, { hash: target ? hashJson(target.value) : null, binding }); savedMetadata[key] = await this.metadata(id, property);
             }
           }
         }
@@ -448,10 +472,12 @@ export class ArtifactDraft {
         if (operation.op === 'bind' || operation.op === 'unbind') {
           if (operation.op === 'bind') {
             const value = parseJsonValue(BindSchema, operation.value!);
-            const binding = FieldBindingSchema.parse({ targetElementId: operation.targetId, sourceRef: value.sourceRef, transformId: value.transformId, updateMode: value.updateMode, ...(value.overrideReason ? { override: { reason: value.overrideReason, actorId: context.actorId, at: context.at } } : {}) });
-            await this.setMetadata(operation.targetId, { ...metadata, binding });
-          } else await this.setMetadata(operation.targetId, { ...metadata, binding: null });
-          reverse = metadata.binding ? { targetId: operation.targetId, op: 'bind', value: { sourceRef: asJson(metadata.binding.sourceRef), transformId: metadata.binding.transformId, updateMode: metadata.binding.updateMode }, beforeHash: null } : { targetId: operation.targetId, op: 'unbind', beforeHash: null };
+            const property = operation.targetProperty ?? value.targetProperty ?? 'value';
+            if (operation.targetProperty && value.targetProperty && operation.targetProperty !== value.targetProperty) throw new ContentValidationError('binding-property-mismatch');
+            const binding = FieldBindingSchema.parse({ targetElementId: operation.targetId, ...(property === 'value' ? {} : { targetProperty: property }), sourceRef: value.sourceRef, transformId: value.transformId, updateMode: value.updateMode, ...(value.overrideReason ? { override: { reason: value.overrideReason, actorId: context.actorId, at: context.at } } : {}) });
+            await this.setMetadata(operation.targetId, { ...metadata, binding }, property);
+          } else await this.setMetadata(operation.targetId, { ...metadata, binding: null }, operation.targetProperty ?? 'value');
+          reverse = metadata.binding ? { targetId: operation.targetId, ...(fieldBindingProperty(metadata.binding) === 'value' ? {} : { targetProperty: fieldBindingProperty(metadata.binding) }), op: 'bind', value: { sourceRef: asJson(metadata.binding.sourceRef), transformId: metadata.binding.transformId, updateMode: metadata.binding.updateMode, ...(fieldBindingProperty(metadata.binding) === 'value' ? {} : { targetProperty: fieldBindingProperty(metadata.binding) }) }, beforeHash: null } : { targetId: operation.targetId, ...(operation.targetProperty ? { targetProperty: operation.targetProperty } : {}), op: 'unbind', beforeHash: null };
         } else if (operation.op === 'lock') {
           const value = parseJsonValue(LockSchema, operation.value!);
           const binding = metadata.binding && { ...metadata.binding }; if (binding) delete binding.lock;
@@ -495,21 +521,25 @@ export class ArtifactDraft {
             }
           }
           this.replaceState(state, context);
-        } else reverse = await this.setValue(operation, locator!, before!, context);
-        for (const [id, previousValue] of boundBefore) {
-          const target = await this.target(id), value = target ? hashJson(target.value) : null;
-          if (value !== previousValue) {
-            const saved = await this.metadata(id);
-            if (saved.binding) await this.setMetadata(id, { ...saved, binding: { ...saved.binding, override: { reason: context.reason, actorId: context.actorId, at: context.at } } });
+        } else {
+          const fullBefore = operation.targetProperty ? await this.target(operation.targetId) : before;
+          reverse = await this.setValue(operation, locator!, fullBefore!, context);
+        }
+        for (const previous of boundBefore.values()) {
+          const property = previous.binding.targetProperty, id = previous.binding.targetElementId;
+          const target = await this.target(id, property), value = target ? hashJson(target.value) : null;
+          if (value !== previous.hash) {
+            const saved = await this.metadata(id, property);
+            if (saved.binding) await this.setMetadata(id, { ...saved, binding: { ...saved.binding, override: { reason: context.reason, actorId: context.actorId, at: context.at } } }, property ?? 'value');
           }
         }
-        if (restores?.[i]) for (const [id, saved] of Object.entries(restores[i]!.metadata)) await this.setMetadata(id, saved);
+        if (restores?.[i]) for (const [id, saved] of Object.entries(restores[i]!.metadata)) await this.setMetadata(saved.targetElementId ?? id, saved, saved.targetProperty ?? saved.binding?.targetProperty);
         if (restoreMerges) this.root = await this.graph.set(this.root, ['content', 'workbook', 'sheets', restoreMerges.sheetId, 'mergeData'], restoreMerges.value ?? undefined);
-        const after = await this.target(operation.targetId);
+        const after = await this.target(operation.targetId, operation.targetProperty);
         reverse.beforeHash = after?.hash ?? null;
         const sheetMerges = oldMerges !== undefined && sheetId ? { sheetId, value: oldMerges, expectedHash: hashJson(await this.graph.get(this.root, ['content', 'workbook', 'sheets', sheetId, 'mergeData']) ?? null) } : undefined;
         const metadataExpectedHashes: Record<string, string | null> = {};
-        for (const id of Object.keys(savedMetadata)) metadataExpectedHashes[id] = (await this.target(id))?.hash ?? null;
+        for (const [id, saved] of Object.entries(savedMetadata)) metadataExpectedHashes[id] = (await this.target(saved.targetElementId ?? id, saved.targetProperty))?.hash ?? null;
         const tableFormulas: NonNullable<ReversibleOperation['tableFormulas']> = [];
         for (const [targetId, value] of savedFormulas) {
           tableFormulas.push({ targetId, value, expectedHash: (await this.target(targetId))?.hash ?? null });
@@ -519,7 +549,7 @@ export class ArtifactDraft {
         const tableSettings: NonNullable<ReversibleOperation['tableSettings']> = [];
         for (const saved of savedSettings) tableSettings.push({ ...saved, expectedHash: hashJson(await this.graph.get(this.root, ['content', 'workbook', 'sheets', saved.sheetId, saved.key]) ?? null) });
         inverse.unshift({ operation: reverse, metadata: savedMetadata, metadataExpectedHashes, ...(sheetMerges ? { sheetMerges } : {}), ...(tableFormulas.length ? { tableFormulas } : {}), ...(tableSettings.length ? { tableSettings } : {}) });
-        afterHashes[operation.targetId] = after?.hash ?? null;
+        afterHashes[operationKey] = after?.hash ?? null;
       }
       const bindings = (await this.graph.get(this.root, ['bindings']) ?? {}) as unknown as Record<string, FieldBinding>;
       const sourceRefs = (await this.graph.get(this.root, ['sourceRefs']) ?? []) as unknown as ArtifactState['sourceRefs'];

@@ -7,7 +7,7 @@ import { hasScope } from '../../identity/domain/policy';
 import { withWorkspaceAccess, lockProjectAccess, type SessionPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
 import { createPendingSource, publishSourceVersion } from './source-heads';
-import { extractSource, SOURCE_MEDIA, validateSourceMagic } from './parser';
+import { extractSourceToSink, SOURCE_MEDIA, validateSourceMagic, type SourceChunkEmission } from './parser';
 import { LocalSourceStorage, sourceHash } from './storage';
 import { listSourceLibrary } from './library';
 import type { SourceLibraryQuery } from '../../../contracts/sources';
@@ -28,6 +28,7 @@ const fail = (key: string, code: 'CONFLICT' | 'NOT_FOUND' | 'VALIDATION_FAILED' 
 const uploadDto = (row: UploadRow) => ({ id: row.id, sourceId: row.source_id, versionId: row.published_version_id, status: row.status, format: row.format, fileName: row.file_name, byteSize: row.byte_size ?? row.declared_size, byteHash: row.byte_hash, manifest: row.manifest, errorCode: row.error_code, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() });
 const summaryDto = (source: SourceRow, upload: UploadRow) => ({ id: source.id, workspaceId: source.workspace_id, projectId: source.project_id, title: source.title, accessClass: source.access_class, revision: source.current_revision, currentVersionId: source.current_version_id, status: upload.status, format: upload.format, fileName: upload.file_name, byteSize: upload.byte_size ?? upload.declared_size, createdAt: source.created_at.toISOString(), updatedAt: source.updated_at.toISOString() });
 const sourceColumns = 's.id,s.workspace_id,s.project_id,d.title,s.state,s.current_revision,s.current_version_id,s.access_class,s.created_at,s.updated_at';
+export const SOURCE_CHUNK_WRITE_BATCH = 4;
 
 export async function authorizedSource(tx: PoolClient, access: WorkspaceAccess, sourceId: string, scope: 'read' | 'edit') {
   const source = (await tx.query<SourceRow>(`SELECT ${sourceColumns} FROM sources s JOIN source_details d ON d.source_id=s.id AND d.workspace_id=s.workspace_id WHERE s.workspace_id=$1 AND s.id=$2`, [access.workspace.id, sourceId])).rows[0];
@@ -74,6 +75,10 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
       if (previous && (previous.original_key || previous.status === 'cancelled' || previous.lease_until && previous.lease_until > new Date())) return { upload: uploadDto(previous), token: null };
       const token = randomBytes(32).toString('base64url'), expiry = new Date(Date.now() + 15 * 60_000);
       if (previous) {
+        // A process may have stopped after linking verified-size bytes but before
+        // recording the key. Such bytes are not an immutable original yet and
+        // must not make the same idempotent upload impossible to retry.
+        await storage.remove(`${body.workspaceId}/${previous.id}/original`);
         await tx.query("UPDATE source_uploads SET token_hash=$3,token_expires_at=$4,status='pending',lease_until=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2", [body.workspaceId, previous.id, sourceHash(token), expiry]);
         previous.status = 'pending'; return { upload: uploadDto(previous), token };
       }
@@ -85,6 +90,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
   async function put(principal: SessionPrincipal, workspaceId: string, uploadId: string, token: string, stream: ReadableStream<Uint8Array>, signal?: AbortSignal) {
     validate(IdSchema, uploadId);
     const lease = new Date(Date.now() + 5 * 60_000);
+    let writtenKey: string | undefined;
     const claimed = await access(principal, workspaceId, 'edit', async (tx, auth) => {
       const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
       if (upload.status !== 'pending' || upload.token_expires_at <= new Date() || !token || !timingSafeEqual(Buffer.from(upload.token_hash, 'hex'), Buffer.from(sourceHash(token), 'hex'))) throw fail('uploadExpired');
@@ -93,6 +99,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
     });
     try {
       const original = await storage.write(workspaceId, uploadId, stream, claimed.declared_size, signal);
+      writtenKey = original.key;
       const bytes = await storage.read(original.key); validateSourceMagic(bytes, claimed.format);
       return await access(principal, workspaceId, 'edit', async (tx, auth) => {
         const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
@@ -102,13 +109,17 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
       });
     } catch (error) {
       await pool.query("UPDATE source_uploads SET status='failed',lease_until=NULL,error_code=$4,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND status='uploading' AND lease_until=$3", [workspaceId, uploadId, lease, error instanceof IdentityError ? error.messageKey : 'sources.errors.upload']);
+      if (writtenKey) {
+        const persisted = (await pool.query<{ original_key: string | null }>('SELECT original_key FROM source_uploads WHERE workspace_id=$1 AND id=$2', [workspaceId, uploadId])).rows[0];
+        if (!persisted?.original_key) await storage.remove(writtenKey);
+      }
       throw error;
     }
   }
 
   async function finalize(principal: SessionPrincipal, workspaceId: string, uploadId: string) {
     validate(IdSchema, uploadId);
-    const lease = new Date(Date.now() + 2 * 60_000);
+    let lease = new Date(Date.now() + 2 * 60_000);
     const claimed = await access(principal, workspaceId, 'edit', async (tx, auth) => {
       const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
       if (upload.status === 'ready' || upload.status === 'partial') return { upload, work: false };
@@ -120,16 +131,34 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
     try {
       const bytes = await storage.read(claimed.upload.original_key!);
       if (sourceHash(bytes) !== claimed.upload.byte_hash || bytes.length !== claimed.upload.byte_size) throw fail('integrity');
-      const extracted = await extractSource(bytes, claimed.upload.format, SourceOptionsSchema.parse(claimed.upload.options));
+      await access(principal, workspaceId, 'edit', async (tx, auth) => {
+        const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
+        if (upload.status !== 'processing' || upload.lease_until?.getTime() !== lease.getTime() || lease <= new Date()) throw fail('conflict');
+        await tx.query('DELETE FROM source_chunks WHERE upload_id=$1', [uploadId]);
+      });
+      const staged: SourceChunkEmission[] = [];
+      const flush = async () => {
+        if (!staged.length) return;
+        const batch = staged.splice(0, SOURCE_CHUNK_WRITE_BATCH), nextLease = new Date(Date.now() + 2 * 60_000);
+        await access(principal, workspaceId, 'edit', async (tx, auth) => {
+          const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
+          if (upload.status !== 'processing' || upload.lease_until?.getTime() !== lease.getTime() || lease <= new Date()) throw fail('conflict');
+          await tx.query('INSERT INTO source_chunks(upload_id,ordinal,hash,content) SELECT $1,ordinal,hash,content FROM jsonb_to_recordset($2::jsonb) AS x(ordinal integer,hash text,content jsonb)', [uploadId, JSON.stringify(batch.map(({ ordinal, hash, content }) => ({ ordinal, hash, content })))]);
+          await tx.query('UPDATE source_uploads SET lease_until=$3,updated_at=now() WHERE workspace_id=$1 AND id=$2', [workspaceId, uploadId, nextLease]);
+        });
+        lease = nextLease;
+      };
+      const extracted = await extractSourceToSink(bytes, claimed.upload.format, SourceOptionsSchema.parse(claimed.upload.options), async (chunk) => {
+        staged.push(chunk);
+        if (staged.length === SOURCE_CHUNK_WRITE_BATCH) await flush();
+      });
+      await flush();
       const visualAsset = extracted.manifest.complete ? await prepareOriginalVisualAsset(claimed.upload, bytes) : null;
       return await access(principal, workspaceId, 'edit', async (tx, auth) => {
         const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
         if (upload.status !== 'processing' || upload.lease_until?.getTime() !== lease.getTime() || lease <= new Date()) throw fail('conflict');
-        await tx.query('DELETE FROM source_chunks WHERE upload_id=$1', [uploadId]);
-        for (let index = 0; index < extracted.chunks.length; index += 100) {
-          const batch = extracted.chunks.slice(index, index + 100);
-          await tx.query('INSERT INTO source_chunks(upload_id,ordinal,hash,content) SELECT $1,ordinal,hash,content FROM jsonb_to_recordset($2::jsonb) AS x(ordinal integer,hash text,content jsonb)', [uploadId, JSON.stringify(batch.map((content, offset) => ({ ordinal: index + offset, hash: extracted.manifest.chunkHashes[index + offset], content })))]);
-        }
+        const persisted = (await tx.query<{ ordinal: number; hash: string }>('SELECT ordinal,hash FROM source_chunks WHERE upload_id=$1 ORDER BY ordinal', [uploadId])).rows;
+        if (persisted.length !== extracted.manifest.chunkHashes.length || persisted.some((row, ordinal) => row.ordinal !== ordinal || row.hash !== extracted.manifest.chunkHashes[ordinal])) throw fail('integrity');
         await tx.query('DELETE FROM source_pages WHERE upload_id=$1', [uploadId]);
         if (extracted.pages.length) await tx.query('INSERT INTO source_pages(upload_id,page,state) SELECT $1,page,state FROM jsonb_to_recordset($2::jsonb) AS x(page integer,state text)', [uploadId, JSON.stringify(extracted.pages)]);
         if (extracted.manifest.complete) {
@@ -140,7 +169,10 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
         return { upload: uploadDto(row) };
       });
     } catch (error) {
-      await pool.query("UPDATE source_uploads SET status='failed',lease_until=NULL,error_code=$4,updated_at=now() WHERE workspace_id=$1 AND id=$2 AND status='processing' AND lease_until=$3", [workspaceId, uploadId, lease, error instanceof IdentityError ? error.messageKey : 'sources.errors.parse']);
+      await pool.query(`WITH failed AS (
+        UPDATE source_uploads SET status='failed',lease_until=NULL,error_code=$4,updated_at=now()
+        WHERE workspace_id=$1 AND id=$2 AND status='processing' AND lease_until=$3 RETURNING id
+      ) DELETE FROM source_chunks c USING failed WHERE c.upload_id=failed.id`, [workspaceId, uploadId, lease, error instanceof IdentityError ? error.messageKey : 'sources.errors.parse']);
       throw error;
     }
   }

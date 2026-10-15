@@ -4,10 +4,15 @@ type InformationSection = { title: string; text: string; link?: "signup" | "veri
 
 export type PublicCopy = {
   mechanismIllustration: string; mechanismSource: string; mechanismResult: string;
-  ownTaskTitle: string; ownTaskDescription: string; ownTaskLabel: string; ownTaskPlaceholder: string; ownTaskAction: string; ownTaskError: string; ownTaskAccount: string; ownTaskSignedIn: string; exampleAction: string; useScenario: string;
-  tagline: string; description: string; home: string; scenarios: string; process: string;
+  ownTaskTitle: string; ownTaskDescription: string; ownTaskLabel: string; ownTaskPlaceholder: string; ownTaskAction: string; ownTaskError: string; ownTaskAccount: string; ownTaskSignedIn: string; useScenario: string;
+  tagline: string; heroTitle: string; description: string; heroPath: string; processAction: string; resumeWork: string; home: string; scenarios: string; process: string;
   start: string; signIn: string; account: string; work: string; explore: string; language: string;
   illustration: string; introTitle: string; intro: string;
+  proof: {
+    title: string; intro: string; goalLabel: string; goal: string; planLabel: string; plan: { title: string; text: string }[];
+    findingLabel: string; findings: string[]; decisionLabel: string; decision: string;
+    resultLabel: string; results: { title: string; text: string }[]; continuation: string;
+  };
   scenarioItems: { title: string; task: string; input: string; output: string; detail: string }[];
   inputLabel: string; outputLabel: string;
   controlTitle: string; controlBody: string; controlItems: { title: string; text: string }[];
@@ -20,24 +25,41 @@ export type PublicCopy = {
 };
 
 const ru: PublicCopy = {
-  mechanismIllustration: 'Исходный прайс в папке связан с подготовленным предложением. Проверенные изменения переходят в результат.', mechanismSource: 'Цена изменилась в исходнике', mechanismResult: 'Расчёт обновлён, ваша фраза сохранена',
-  ownTaskTitle: 'Начните со своей задачи', ownTaskDescription: 'Опишите нужный результат. Затем добавьте прайс, запрос клиента или другие материалы в свой проект.',
-  ownTaskLabel: 'Что нужно подготовить?', ownTaskPlaceholder: 'Смету и предложение для клиента по моему прайсу. Отдельно показать доставку и сроки.', ownTaskAction: 'Продолжить с моей задачей', ownTaskError: 'Не удалось продолжить. Ваш текст остался здесь. Попробуйте ещё раз.', ownTaskAccount: 'После входа ваша задача откроется в проекте.', ownTaskSignedIn: 'Выберите рабочее пространство и добавьте материалы.', exampleAction: 'Попробовать на примере', useScenario: 'Начать такую задачу',
+  mechanismIllustration: 'После решения смета, предложение и план остаются связанными живыми материалами.', mechanismSource: 'Новая цена или условие', mechanismResult: 'Показаны только затронутые изменения',
+  ownTaskTitle: 'Поставьте реальную задачу', ownTaskDescription: 'Опишите цель своими словами. В рабочей сессии можно добавить запрос, прайс, правила расчёта и данные о загрузке.',
+  ownTaskLabel: 'Что нужно решить?', ownTaskPlaceholder: 'Проверь, сможем ли мы выполнить этот заказ к открытию без убыточных условий, и подготовь ответ.', ownTaskAction: 'Начать задачу', ownTaskError: 'Не удалось продолжить. Ваш текст остался здесь. Попробуйте ещё раз.', ownTaskAccount: 'После входа эта цель откроется в рабочей сессии и не потеряется.', ownTaskSignedIn: 'Выберите рабочее пространство и добавьте материалы.', useScenario: 'Начать такую задачу',
   tagline: "Всё для вашего бизнеса",
+  heroTitle: "Понять, брать ли заказ, до того как обещать цену и срок",
   work: "Перейти к работе",
-  description: "Превратите прайс и запрос клиента в смету и предложение. Отредактируйте результат, обновите цены и сохраните свои формулировки.",
+  description: "Tirlik работает как AI-ассистент малого и среднего бизнеса по финансовым и операционным задачам. Он превращает цель в изменяемый план, проверяет его по вашим материалам и показывает последствия до вашего решения.",
+  heroPath: "Цель → план и инструменты AI → ваше решение → смета, предложение и план работ",
+  processAction: "Как принимается решение", resumeWork: "Продолжить работу",
   home: "На главную", scenarios: "Для каких задач", process: "Как это работает", start: "Начать работу", signIn: "Войти", account: "Мой аккаунт", explore: "Посмотреть сценарии", language: "Язык",
-  illustration: "Иллюстрация рабочих материалов: таблицы, папка и фотографии продукта.",
+  illustration: "Предметная иллюстрация рабочих материалов бизнеса.",
+  proof: {
+    title: "Не написать ответ, а помочь принять решение",
+    intro: "На нестандартном заказе Tirlik сначала проверяет экономику и выполнимость. Документы появляются после содержательного выбора, а не вместо него.",
+    goalLabel: "Деловая цель", goal: "«Можем ли выполнить этот заказ к открытию без убыточных условий?»",
+    planLabel: "Изменяемый план AI", plan: [
+      { title: "Разобрать запрос", text: "Ассистент выделяет состав, условия, дату и недостающий факт. Вопрос появляется, только если ответ влияет на решение." },
+      { title: "Проверить экономику и загрузку", text: "Точные инструменты сверяют прайс, правила расчёта, сроки и доступную мощность. Неизвестное не заменяется выдуманным числом." },
+      { title: "Сравнить варианты", text: "Выполнимые варианты сравниваются по марже, сроку и нагрузке. Ассистент готовит материалы после вашего выбора, а не вместо него." }
+    ],
+    findingLabel: "Что нашёл ассистент", findings: ["Срок запроса конфликтует с текущей загрузкой", "Одно условие нужно уточнить до расчёта", "Часть вариантов не подходит по марже или сроку"],
+    decisionLabel: "Ваше решение", decision: "Изменить состав, перенести срок или пересчитать условия. Каждый вариант показан вместе с последствиями.",
+    resultLabel: "Живые результаты после выбора", results: [{ title: "Смета", text: "Точные строки, формулы и допущения" }, { title: "Предложение", text: "Проверенные условия и ваши формулировки" }, { title: "План работ", text: "Сроки, нагрузка и точки контроля" }],
+    continuation: "Каждый результат можно исправить прямо в сессии, а затем выгрузить и использовать на своём сайте, в почте или мессенджере."
+  },
   introTitle: "Работа начинается с вашей задачи",
-  intro: "Подготовить предложение, разобраться в расходах или собрать материалы для акции. В основе каждого сценария лежат ваши файлы и конкретный результат для бизнеса.",
+  intro: "Ассистент выбирает проверяемые операции под цель, а не заставляет искать нужную AI-кнопку. Вы видите план, исходные факты, вопросы и живые результаты.",
   scenarioItems: [
-    { title: "Предложение для клиента", task: "«Собрать предложение по этому запросу и проверить стоимость»", input: "Запрос клиента, прайс, условия", output: "Смета и коммерческое предложение", detail: "Цены, объём и условия нужны и в расчёте, и в документе. Связь между ними помогает увидеть, что нужно обновить после правки." },
+    { title: "Нестандартный заказ", task: "«Проверь, можем ли мы выполнить этот заказ к открытию без убыточных условий»", input: "Запрос, прайс, правила и загрузка", output: "Решение, смета, предложение и план", detail: "Tirlik находит конфликт срока и загрузки, отделяет неизвестное от фактов и сравнивает варианты до вашего решения." },
     { title: "Расходы и закупки", task: "«Сравнить предложения поставщиков с учётом доставки»", input: "Прайсы поставщиков, объёмы, сроки", output: "Таблица сравнения и план закупки", detail: "Сопоставляйте одинаковые позиции и единицы. Неизвестная стоимость доставки или неполные условия должны оставаться видимыми при выборе." },
     { title: "Материалы для акции", task: "«Подготовить материалы по нашим товарам и новым ценам»", input: "Фото, описание товара, цены, стиль", output: "Текст предложения, макет и план публикаций", detail: "Фотографии, текст и условия работают вместе. Покупатели по-прежнему обращаются к вам в привычном канале." },
   ],
   inputLabel: "Ваши материалы", outputLabel: "Готовый результат",
-  controlTitle: "Правка не должна начинать работу заново",
-  controlBody: "Расчёты, документы и визуальные материалы связаны в одной задаче. Меняйте детали, сравнивайте варианты и доводите работу до результата, который подходит вашему бизнесу.",
+  controlTitle: "После решения работа остаётся живой",
+  controlBody: "Смета, предложение и план открываются как полноценные рабочие компоненты. Прямая правка нужна, чтобы управлять уже принятым деловым решением, а не заменять его текстовым ответом.",
   controlItems: [
     { title: "Редактируйте по месту", text: "Меняйте текст в документе, значение в таблице или объект в макете. Самостоятельно или вместе с ИИ." },
     { title: "Управляйте изменениями", text: "Обновите исходную цену и проверьте связанные материалы. Вы выбираете, какие изменения принять, сохраняя собственные правки." },
@@ -55,9 +77,9 @@ const ru: PublicCopy = {
   accessTitle: "Что нужно сделать сегодня?",
   accessText: "Предложение клиенту, расчёт закупки или материалы для новой акции. Соберите исходные файлы, опишите задачу и начните работу в Tirlik.",
   team: "Открыть команду", footerText: "Рабочие материалы и повседневные задачи бизнеса. Решения остаются за вами.", help: "Помощь", privacy: "Данные и конфиденциальность", repository: "Код проекта", back: "Вернуться на главную",
-  helpTitle: "Помощь с аккаунтом", helpIntro: "Вход, подтверждение почты и начало работы с командой.",
+  helpTitle: "Как начать работу", helpIntro: "От деловой цели и своих материалов к решению, живым результатам и возврату к сохранённой работе.",
   helpSections: [
-    { title: 'Первый результат', text: 'Начните с задачи и своих материалов. Короткие подсказки покажут запуск, редактор, версии и экспорт. Знакомство можно пропустить и повторить в настройках.', link: 'tour', action: 'Открыть обучение' },
+    { title: 'Первый результат', text: 'Начните с цели и добавьте только нужные материалы. Проверьте план AI, ответьте на существенный вопрос и примите решение. После этого смета, документ или план откроются для прямой правки и экспорта. Обучение можно пропустить и повторить.', link: 'tour', action: 'Открыть обучение' },
     { title: "Создание аккаунта", text: "Укажите имя, электронную почту и пароль. Затем откройте письмо и подтвердите адрес, чтобы перейти к работе.", link: "signup", action: "Создать аккаунт" },
     { title: "Письмо не пришло", text: "Проверьте адрес и папку со спамом, затем запросите новое письмо. Используйте ссылку из последнего полученного письма.", link: "verify", action: "Запросить письмо" },
     { title: "Забыли пароль", text: "Запросите ссылку на адрес, с которым создавали аккаунт. После смены пароля нужно войти снова; остальные сеансы завершатся.", link: "reset", action: "Восстановить доступ" },
@@ -76,24 +98,41 @@ const ru: PublicCopy = {
 };
 
 const en: PublicCopy = {
-  mechanismIllustration: 'A source price list in a folder is connected to a prepared proposal. Reviewed changes carry into the result.', mechanismSource: 'A price changes in the source', mechanismResult: 'Calculation updated, your wording kept',
-  ownTaskTitle: 'Start with your own task', ownTaskDescription: 'Describe the result you need. Then add a price list, a client request or other materials to your project.',
-  ownTaskLabel: 'What do you need to prepare?', ownTaskPlaceholder: 'An estimate and customer proposal using my price list. Show delivery and deadlines separately.', ownTaskAction: 'Continue with my task', ownTaskError: 'Could not continue. Your text is still here. Please try again.', ownTaskAccount: 'After signing in, your task will open in your project.', ownTaskSignedIn: 'Choose a workspace and add your materials.', exampleAction: 'Try an example', useScenario: 'Start this kind of task',
+  mechanismIllustration: 'After the decision, the estimate, proposal and work plan remain connected live materials.', mechanismSource: 'A new price or condition', mechanismResult: 'Only affected changes are proposed',
+  ownTaskTitle: 'Bring a real business decision', ownTaskDescription: 'Describe the goal in your own words. In the work session, add the request, price list, calculation rules and current capacity.',
+  ownTaskLabel: 'What do you need to decide?', ownTaskPlaceholder: 'Check whether we can complete this order by opening day without unprofitable terms, and prepare a response.', ownTaskAction: 'Start a task', ownTaskError: 'Could not continue. Your text is still here. Please try again.', ownTaskAccount: 'After sign-in, this goal opens in your work session and is not lost.', ownTaskSignedIn: 'Choose a workspace and add your materials.', useScenario: 'Start this kind of task',
   tagline: "Everything for your business",
+  heroTitle: "Know whether to take the order before promising a price and date",
   work: "Open workspace",
-  description: "Turn a price list and client request into an estimate and proposal. Edit the result, update prices and keep your own wording.",
+  description: "Tirlik is an AI assistant for the financial and operational work of small and medium businesses. It turns a free-form goal into an editable plan, checks it against your materials and shows the consequences before you decide.",
+  heroPath: "Goal → AI plan and grounded tools → your decision → estimate, proposal and work plan",
+  processAction: "See how the decision is made", resumeWork: "Continue working",
   home: "Home", scenarios: "Business tasks", process: "How it works", start: "Get started", signIn: "Sign in", account: "My account", explore: "Explore the scenarios", language: "Language",
-  illustration: "An illustration of business materials: worksheets, a folder and product photographs.",
+  illustration: "An authored illustration of a business's working materials.",
+  proof: {
+    title: "Not a written answer, but a decision you can use",
+    intro: "For a non-standard order, Tirlik checks economics and feasibility first. Documents appear after a consequential choice, not in place of one.",
+    goalLabel: "Business goal", goal: "Can we complete this order by opening day without unprofitable terms?",
+    planLabel: "Editable AI plan", plan: [
+      { title: "Understand the request", text: "The assistant extracts scope, terms, date and the missing fact. It asks a question only when the answer changes the decision." },
+      { title: "Check economics and capacity", text: "Exact tools check the price list, calculation rules, dates and available capacity. An unknown is never replaced with an invented number." },
+      { title: "Compare the options", text: "Feasible options are aligned by margin, deadline and load. The assistant prepares working materials after your choice, not instead of it." }
+    ],
+    findingLabel: "What the assistant found", findings: ["The requested date conflicts with current capacity", "One condition must be clarified before calculation", "Some options fail the margin or deadline constraint"],
+    decisionLabel: "Your decision", decision: "Change the scope, move the date or recalculate the terms. Every option is shown with its consequences.",
+    resultLabel: "Live results after the choice", results: [{ title: "Estimate", text: "Exact lines, formulas and assumptions" }, { title: "Proposal", text: "Reviewed terms and your own wording" }, { title: "Work plan", text: "Dates, capacity and control points" }],
+    continuation: "Edit every result inside the session, then export it for your website, email or messenger. Your customers do not need a Tirlik account."
+  },
   introTitle: "Start with the work you need to do",
-  intro: "Prepare a proposal, understand expenses or put together a promotion. Each scenario starts with your files and a useful business result.",
+  intro: "The assistant chooses verifiable operations for the goal instead of asking you to find the right AI button. You see its plan, source facts, questions and live results.",
   scenarioItems: [
-    { title: "A client proposal", task: "“Prepare a proposal for this request and check the cost”", input: "Client request, price list, terms", output: "Estimate and business proposal", detail: "Prices, quantities and terms belong in both the calculation and the document. Connecting them makes it easier to see what needs updating after a change." },
+    { title: "A non-standard order", task: "“Check whether we can complete this order by opening day without unprofitable terms”", input: "Request, price list, rules and capacity", output: "Decision, estimate, proposal and plan", detail: "Tirlik finds the deadline and capacity conflict, separates unknowns from facts and compares options before you decide." },
     { title: "Expenses and purchasing", task: "“Compare suppliers, including delivery costs”", input: "Supplier prices, quantities, deadlines", output: "Comparison table and purchasing plan", detail: "Compare the same items and units. Unknown delivery costs and incomplete terms should remain visible when you decide." },
     { title: "A promotion", task: "“Prepare materials for our products and new prices”", input: "Photos, product details, prices, brand style", output: "Offer copy, design and publishing plan", detail: "Photos, copy and terms work together. Customers still reach you through the channels they already use." },
   ],
   inputLabel: "Your materials", outputLabel: "Your finished work",
-  controlTitle: "A change should not mean starting over",
-  controlBody: "Calculations, documents and visual materials stay connected within your task. Adjust the details, compare alternatives and shape the result around your business.",
+  controlTitle: "The work stays live after the decision",
+  controlBody: "The estimate, proposal and plan open as complete working components. Direct editing lets you control a business decision already made instead of replacing that decision with generated prose.",
   controlItems: [
     { title: "Edit where the work is", text: "Change text in a document, a value in a table or an object in a design. On your own or together with AI." },
     { title: "Control each change", text: "Update a source price and review the related materials. Choose which changes to accept while keeping your own edits." },
@@ -109,9 +148,9 @@ const en: PublicCopy = {
   boundaryItems: ["Reach customers on your website, in messengers and through your existing channels.", "Check calculations against source data and make your own decisions.", "Work with colleagues in one space and choose who can access your materials."],
   accessTitle: "What needs doing today?", accessText: "A client proposal, a purchasing estimate or materials for your next promotion. Bring your files, describe the task and get to work in Tirlik.",
   team: "Open team", footerText: "Business materials and everyday work. The decisions remain yours.", help: "Help", privacy: "Data and privacy", repository: "Project source", back: "Back to home",
-  helpTitle: "Account help", helpIntro: "Signing in, verifying your email and getting started with your team.",
+  helpTitle: "How to start working", helpIntro: "From a business goal and your own materials to a decision, live results and a saved work session.",
   helpSections: [
-    { title: 'Your first result', text: 'Start with your task and materials. Brief guidance shows you how to start work, edit results, review versions and export. Skip it or replay it in settings.', link: 'tour', action: 'Open getting started' },
+    { title: 'Your first result', text: 'Start with a goal and only the materials it needs. Review the AI plan, answer a consequential question and make the decision. The estimate, document or plan then opens for direct editing and export. Skip the guidance or replay it later.', link: 'tour', action: 'Open getting started' },
     { title: "Create an account", text: "Enter your name, email and password. Open the email and verify your address to start working.", link: "signup", action: "Create an account" },
     { title: "An email has not arrived", text: "Check the address and spam folder, then request a new email. Use the link in the most recent message.", link: "verify", action: "Request an email" },
     { title: "Forgotten password", text: "Request a link for the email used to create your account. After changing your password, sign in again. Other sessions will end.", link: "reset", action: "Recover access" },
@@ -130,22 +169,39 @@ const en: PublicCopy = {
 };
 
 const kk: PublicCopy = {
-  mechanismIllustration: 'Қалтадағы бастапқы бағалар тізімі дайын ұсыныспен байланысты. Тексерілген өзгерістер нәтижеге өтеді.', mechanismSource: 'Бастапқы материалдағы баға өзгерді', mechanismResult: 'Есеп жаңартылды, өз мәтініңіз сақталды',
-  ownTaskTitle: 'Өз тапсырмаңыздан бастаңыз', ownTaskDescription: 'Қажетті нәтижені сипаттаңыз. Содан кейін жобаңызға бағалар тізімін, клиент сұрауын немесе басқа материалдарды қосыңыз.',
-  ownTaskLabel: 'Не дайындау керек?', ownTaskPlaceholder: 'Менің бағалар тізімім бойынша клиентке смета мен ұсыныс. Жеткізу мен мерзімдерді бөлек көрсету.', ownTaskAction: 'Өз тапсырмаммен жалғастыру', ownTaskError: 'Жалғастыру мүмкін болмады. Мәтініңіз осында қалды. Қайталап көріңіз.', ownTaskAccount: 'Кіргеннен кейін тапсырмаңыз жобаңызда ашылады.', ownTaskSignedIn: 'Жұмыс кеңістігін таңдап, материалдарыңызды қосыңыз.', exampleAction: 'Мысалмен байқап көру', useScenario: 'Осындай тапсырманы бастау',
+  mechanismIllustration: 'Шешімнен кейін смета, ұсыныс және жұмыс жоспары өзара байланысқан жанды материалдар болып қалады.', mechanismSource: 'Жаңа баға немесе шарт', mechanismResult: 'Тек өзгерген бөліктер ұсынылады',
+  ownTaskTitle: 'Нақты бизнес шешімін қойыңыз', ownTaskDescription: 'Мақсатты өз сөзіңізбен жазыңыз. Жұмыс сеансында сұрауды, бағаларды, есептеу ережелерін және ағымдағы жүктемені қосуға болады.',
+  ownTaskLabel: 'Қандай шешім қабылдау керек?', ownTaskPlaceholder: 'Бұл тапсырысты ашылу күніне дейін тиімсіз шарттарсыз орындай аламыз ба, тексеріп, жауап дайында.', ownTaskAction: 'Тапсырманы бастау', ownTaskError: 'Жалғастыру мүмкін болмады. Мәтініңіз осында қалды. Қайталап көріңіз.', ownTaskAccount: 'Кіргеннен кейін бұл мақсат жұмыс сеансында ашылып, жоғалмайды.', ownTaskSignedIn: 'Жұмыс кеңістігін таңдап, материалдарыңызды қосыңыз.', useScenario: 'Осындай тапсырманы бастау',
   tagline: "Бизнесіңізге қажеттінің бәрі",
+  heroTitle: "Баға мен мерзімді уәде етпей тұрып, тапсырысты қабылдау керек пе екенін біліңіз",
   work: "Жұмысқа өту",
-  description: "Бағалар тізімі мен клиент сұрауынан смета және ұсыныс дайындаңыз. Нәтижені өңдеп, бағаларды жаңартыңыз және өз мәтініңізді сақтаңыз.",
+  description: "Tirlik шағын және орта бизнестің қаржылық және операциялық міндеттеріне арналған AI ассистенті ретінде жұмыс істейді. Ол еркін мақсатты өзгертуге болатын жоспарға айналдырып, оны сіздің материалдарыңызбен тексереді және шешімге дейін салдарын көрсетеді.",
+  heroPath: "Мақсат → AI жоспары мен нақты құралдар → сіздің шешіміңіз → смета, ұсыныс және жұмыс жоспары",
+  processAction: "Шешім қалай қабылданады", resumeWork: "Жұмысты жалғастыру",
   home: "Басты бет", scenarios: "Қандай міндеттерге", process: "Қалай жұмыс істейді", start: "Жұмысты бастау", signIn: "Кіру", account: "Менің аккаунтым", explore: "Сценарийлерді қарау", language: "Тіл",
-  illustration: "Жұмыс материалдарының иллюстрациясы: кестелер, бума және өнім фотосуреттері.",
-  introTitle: "Жұмыс өз міндетіңізден басталады", intro: "Ұсыныс дайындау, шығындарды талдау немесе акция материалдарын жинау. Әр сценарийдің негізінде өз файлдарыңыз бен бизнеске қажет нәтиже бар.",
+  illustration: "Бизнестің жұмыс материалдарының авторлық иллюстрациясы.",
+  proof: {
+    title: "Мәтіндік жауап емес, қолдануға болатын шешім",
+    intro: "Стандарттан тыс тапсырыс үшін Tirlik алдымен экономика мен орындалу мүмкіндігін тексереді. Құжаттар маңызды таңдаудан кейін ғана пайда болады.",
+    goalLabel: "Бизнес мақсаты", goal: "«Бұл тапсырысты ашылу күніне дейін тиімсіз шарттарсыз орындай аламыз ба?»",
+    planLabel: "Өзгертуге болатын AI жоспары", plan: [
+      { title: "Сұрауды түсіну", text: "Ассистент құрамды, шарттарды, күнді және жетіспейтін деректі бөледі. Сұрақ жауап шешімге әсер еткенде ғана қойылады." },
+      { title: "Экономика мен жүктемені тексеру", text: "Нақты құралдар бағаны, есептеу ережелерін, мерзімді және бос қуатты тексереді. Белгісіз мән ойдан шығарылған санмен ауыстырылмайды." },
+      { title: "Нұсқаларды салыстыру", text: "Орындалатын нұсқалар маржа, мерзім және жүктеме бойынша салыстырылады. Ассистент материалдарды сіздің таңдауыңыздан кейін ғана дайындайды." }
+    ],
+    findingLabel: "Ассистент нені тапты", findings: ["Сұралған мерзім ағымдағы жүктемемен қақтығысады", "Есептеуден бұрын бір шартты нақтылау керек", "Кейбір нұсқа маржаға немесе мерзімге сәйкес емес"],
+    decisionLabel: "Сіздің шешіміңіз", decision: "Құрамды өзгерту, мерзімді жылжыту немесе шарттарды қайта есептеу. Әр нұсқа өз салдарымен бірге көрсетіледі.",
+    resultLabel: "Таңдаудан кейінгі жанды нәтижелер", results: [{ title: "Смета", text: "Нақты жолдар, формулалар және болжамдар" }, { title: "Ұсыныс", text: "Тексерілген шарттар мен өз мәтініңіз" }, { title: "Жұмыс жоспары", text: "Мерзімдер, жүктеме және бақылау нүктелері" }],
+    continuation: "Әр нәтижені сеанс ішінде түзетіп, содан кейін экспорттап, сайтта, поштада немесе мессенджерде қолдануға болады. Клиенттерге Tirlik аккаунты қажет емес."
+  },
+  introTitle: "Жұмыс өз міндетіңізден басталады", intro: "Ассистент сізді қажетті AI батырмасын іздеуге мәжбүрлемей, мақсатқа сәйкес тексерілетін әрекеттерді таңдайды. Сіз жоспарды, деректерді, сұрақтарды және жанды нәтижелерді көресіз.",
   scenarioItems: [
-    { title: "Клиентке ұсыныс", task: "«Осы сұранысқа ұсыныс дайындап, құнын тексеру»", input: "Клиент сұранысы, бағалар, шарттар", output: "Смета және коммерциялық ұсыныс", detail: "Баға, көлем және шарттар есепте де, құжатта да қажет. Олардың байланысы түзетуден кейін нені жаңарту керегін көруге көмектеседі." },
+    { title: "Стандарттан тыс тапсырыс", task: "«Бұл тапсырысты ашылу күніне дейін тиімсіз шарттарсыз орындай аламыз ба?»", input: "Сұрау, баға, ережелер және жүктеме", output: "Шешім, смета, ұсыныс және жоспар", detail: "Tirlik мерзім мен жүктеме қақтығысын табады, белгісізді фактіден бөледі және сіз шешім қабылдағанға дейін нұсқаларды салыстырады." },
     { title: "Шығындар мен сатып алу", task: "«Жеткізуді ескеріп, жеткізушілерді салыстыру»", input: "Жеткізуші бағалары, көлем, мерзім", output: "Салыстыру кестесі және сатып алу жоспары", detail: "Бірдей тауарлар мен өлшем бірліктерін салыстырыңыз. Белгісіз жеткізу құны мен толық емес шарттар шешім қабылдағанда көрініп тұруы керек." },
     { title: "Акция материалдары", task: "«Тауарларымыз бен жаңа бағаларға материал дайындау»", input: "Фото, тауар сипаттамасы, баға, стиль", output: "Ұсыныс мәтіні, макет және жариялау жоспары", detail: "Фотосурет, мәтін және шарттар бірге қолданылады. Клиенттер сізге бұрынғы таныс арналар арқылы хабарласа береді." },
   ],
   inputLabel: "Өз материалдарыңыз", outputLabel: "Дайын нәтиже",
-  controlTitle: "Түзету жұмысты қайта бастатпауы керек", controlBody: "Есептеулер, құжаттар мен көрнекі материалдар бір міндет аясында байланысады. Мәліметтерді өзгертіңіз, нұсқаларды салыстырыңыз және нәтижені бизнесіңізге бейімдеңіз.",
+  controlTitle: "Шешімнен кейін жұмыс жанды күйде қалады", controlBody: "Смета, ұсыныс және жоспар толыққанды жұмыс компоненттері ретінде ашылады. Тікелей өңдеу шешімді жасанды мәтінмен алмастыру үшін емес, оны басқару үшін қажет.",
   controlItems: [
     { title: "Орнында өңдеңіз", text: "Құжаттағы мәтінді, кестедегі мәнді немесе макеттегі объектіні өзгертіңіз. Өз бетіңізше немесе ЖИ көмегімен." },
     { title: "Өзгерістерді басқарыңыз", text: "Бастапқы бағаны жаңартып, байланысты материалдарды тексеріңіз. Өз түзетулеріңізді сақтай отырып, қай өзгерістерді қабылдауды таңдаңыз." },
@@ -161,9 +217,9 @@ const kk: PublicCopy = {
   boundaryItems: ["Клиенттермен сайтыңызда, мессенджерлерде және таныс арналарда байланысыңыз.", "Есептеулерді бастапқы деректермен тексеріп, шешімді өзіңіз қабылдаңыз.", "Әріптестермен бір кеңістікте жұмыс істеп, материалдарға кім кіре алатынын таңдаңыз."],
   accessTitle: "Бүгін не істеу керек?", accessText: "Клиентке ұсыныс, сатып алу есебі немесе жаңа акция материалдары. Файлдарыңызды жинап, міндетті сипаттаңыз және Tirlik-те жұмысты бастаңыз.",
   team: "Команданы ашу", footerText: "Бизнес материалдары мен күнделікті жұмыс. Шешім өз қолыңызда.", help: "Көмек", privacy: "Деректер және құпиялылық", repository: "Жоба коды", back: "Басты бетке оралу",
-  helpTitle: "Аккаунт бойынша көмек", helpIntro: "Кіру, поштаны растау және командамен жұмысты бастау.",
+  helpTitle: "Жұмысты қалай бастауға болады", helpIntro: "Бизнес мақсаты мен өз материалдарыңыздан шешімге, жанды нәтижелерге және сақталған сеансқа дейін.",
   helpSections: [
-    { title: 'Алғашқы нәтиже', text: 'Тапсырмаңыз бен материалдарыңыздан бастаңыз. Қысқа кеңестер іске қосуды, редакторды, нұсқалар мен экспортты көрсетеді. Танысуды өткізіп жіберуге немесе баптаулардан қайталауға болады.', link: 'tour', action: 'Бастау нұсқаулығын ашу' },
+    { title: 'Алғашқы нәтиже', text: 'Мақсаттан бастап, қажетті материалдарды ғана қосыңыз. AI жоспарын тексеріп, маңызды сұраққа жауап беріңіз және шешім қабылдаңыз. Содан кейін смета, құжат немесе жоспар тікелей өңдеу мен экспортқа ашылады. Нұсқаулықты өткізіп жіберуге немесе кейін қайталауға болады.', link: 'tour', action: 'Бастау нұсқаулығын ашу' },
     { title: "Аккаунт ашу", text: "Атыңызды, электрондық поштаңызды және құпиясөзді енгізіңіз. Жұмысты бастау үшін хатты ашып, мекенжайды растаңыз.", link: "signup", action: "Аккаунт ашу" },
     { title: "Хат келмеді", text: "Мекенжай мен спам бумасын тексеріп, жаңа хат сұраңыз. Соңғы келген хаттағы сілтемені пайдаланыңыз.", link: "verify", action: "Хат сұрау" },
     { title: "Құпиясөз ұмытылды", text: "Аккаунт ашқан поштаңызға сілтеме сұраңыз. Құпиясөз өзгергеннен кейін қайта кіру керек. Басқа сеанстар аяқталады.", link: "reset", action: "Кіруді қалпына келтіру" },

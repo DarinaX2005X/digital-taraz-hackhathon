@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { IdSchema } from '../../../contracts/primitives';
+import { fieldBindingProperty } from '../../../contracts/artifacts';
 import { withWorkspaceAccess, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
 import { ArtifactMutationResultSchema, ArtifactMutationSchema, ArtifactPurgeResultSchema, BranchArtifactSchema, DuplicateArtifactSchema, MoveArtifactSchema, PurgeArtifactSchema, RenameArtifactSchema, RestoreArtifactVersionSchema, type ArtifactMutation, type ArtifactMutationResult } from '../contracts';
 import { assertBoundedJson, hashJson } from '../domain/canonical';
 import { collectSourceRefs, createArtifactState } from '../domain/content-state';
 import type { ArtifactContent, JsonValue } from '../domain/content-models';
-import { locateTarget, targetValue, type ArtifactState } from '../domain/targets';
+import { locateTarget, targetPropertyValue, targetValue, type ArtifactState } from '../domain/targets';
 import { createChunkStore } from './chunk-store';
 import { ArtifactConflict, artifactColumns, assertMutationEpoch, assertRevision, authorizeProject, branchParent, editableStatus, envelope, insertVersion, loadArtifact, loadState, loadVersion, nextVersion, operationBodyHash, operationLock, receipt, requireActiveProject, saveReceipt, sourceVector, versionDto, viewer, type ArtifactRow } from './service-support';
 import { appendWorkspaceEvents, type WorkspaceEventInput } from './workspace-events';
@@ -19,9 +20,12 @@ function changedBranchState(selected: ArtifactState, content: ArtifactContent, a
   state.sourceRefs = structuredClone(selected.sourceRefs); state.bindings = structuredClone(selected.bindings); state.locks = structuredClone(selected.locks); state.retiredTargets = { ...selected.retiredTargets };
   for (const id of Object.keys(selected.index.targets)) if (!locateTarget(state.index, id)) state.retiredTargets[id] = true;
   for (const id of Object.keys(state.index.targets)) if (!locateTarget(selected.index, id) && selected.retiredTargets[id]) throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
-  for (const [id, binding] of Object.entries(state.bindings)) {
-    const before = locateTarget(selected.index, id), after = locateTarget(state.index, id);
-    const beforeHash = before ? hashJson(targetValue(selected.content, before)) : null, afterHash = after ? hashJson(targetValue(state.content, after)) : null;
+  for (const binding of Object.values(state.bindings)) {
+    const before = locateTarget(selected.index, binding.targetElementId), after = locateTarget(state.index, binding.targetElementId);
+    const property = fieldBindingProperty(binding);
+    const beforeValue = before ? targetValue(selected.content, before) : null, afterValue = after ? targetValue(state.content, after) : null;
+    const beforeHash = before ? hashJson(binding.targetProperty ? targetPropertyValue(before.kind, beforeValue!, property) : beforeValue) : null;
+    const afterHash = after ? hashJson(binding.targetProperty ? targetPropertyValue(after.kind, afterValue!, property) : afterValue) : null;
     if (beforeHash !== afterHash) binding.override = { reason: 'Recovered local draft', actorId: access.userId, at: new Date().toISOString() };
   }
   return state;

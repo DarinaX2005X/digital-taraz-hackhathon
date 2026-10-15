@@ -6,28 +6,29 @@ Active task: 04.1
 
 ## Сейчас
 
-Полный Tirlik v4 утверждён пользователем 2026-10-13 ответом «подтверждаю!», утверждённая содержательная версия `f5f1da6230454c3d04aef02f6142bf40e37e3d8f`. Сохраняются C1-C14, J1-J5, 15 этапов, 43 задачи, 86 checkpoints и теперь 106 требований. Существенного сокращения объёма или новой концепции нет.
+Полный Tirlik v4 утверждён пользователем 2026-10-13 ответом «подтверждаю!», утверждённая содержательная версия `f5f1da6230454c3d04aef02f6142bf40e37e3d8f`. Сохраняются C1-C14, J1-J5, 15 этапов, 43 задачи, 86 checkpoints и теперь 108 требований. Существенного сокращения объёма или новой концепции нет.
 
-Первый приоритет изменён прямыми F008/F009. Пользователь не принимает обычное редактирование и связанную правку цены как убедительную причину перейти из Word/Excel. AI должен быть видимой основой рабочей сессии и ассистентом по финансовым и операционным задачам; внутри этой сессии открываются полноценные предметные компоненты и редакторы. Первый proof начинается со свободной цели, показывает изменяемый план AI, несколько реальных инструментальных операций, существенный вопрос, финансовое или операционное решение человека и применимые результаты. Generic chat, скрытый AI, редактор сам по себе и одна автоматическая правка proof не закрывают.
+Первый приоритет изменён прямыми F008/F009/F011. Пользователь не принимает обычное редактирование и связанную правку цены как убедительную причину перейти из Word/Excel. AI должен быть видимой основой рабочей сессии и ассистентом по финансовым и операционным задачам; внутри этой сессии открываются полноценные предметные компоненты и редакторы. Первый proof начинается со свободной цели, потоково показывает изменяемый план AI, реальные инструменты и только обоснованные параллельные ветви, существенный вопрос, финансовое или операционное решение человека и применимые результаты. Hidden chain-of-thought не показывается; generic chat, театральные сабагенты, редактор сам по себе и одна автоматическая правка proof не закрывают. Весь public/workspace UI получает interaction-pass по R108.
 
-Новый VibeMachina plan contract применён: PLAN содержит обещание, общие контракты и граф; stage files содержат task/checkpoint status и evidence; PLAN-HUMAN объясняет те же ID без статусов; этот STATE является коротким recovery cursor. `check-plan.mjs` после изменения проходит: 15 stages, 43 tasks, 86 checkpoints, 106 requirements, без конфликтов путей.
+Новый VibeMachina plan contract применён: PLAN содержит обещание, общие контракты и граф; stage files содержат task/checkpoint status и evidence; PLAN-HUMAN объясняет те же ID без статусов; этот STATE является коротким recovery cursor. `check-plan.mjs` после R107-R108 проходит:15 stages,43 tasks,86 checkpoints,108 requirements, без ошибок/предупреждений.
 
-Git остаётся на `8aa783453935c0e2553e81a7ba7c58488b223120` (`origin/main`). Поверх него находится большой незакоммиченный, но ранее проверявшийся WIP: sources/materials, workspace, documents, sheets, designs, exports, runtime/tools, demo/onboarding и миграции 0011-0016. Старый MAIN не завершил обещанный handoff checkpoint. Никаких прежних workers не восстановлено; source writers сейчас отсутствуют.
+Checkpoint `d6ac5ff938e15d2f08a4d582387ede1306037007` сохранил и отправил в `origin/main` весь проверенный handoff WIP: sources/materials, workspace, documents, sheets, designs, exports, runtime/tools, demo/onboarding, миграции 0011-0016 и обновлённую каноническую память. Это WIP boundary, не принятие всех активных задач. Приватные BRIEF/TESTING/runtime/env, `.local-data`, obsolete NEXT-CHAT-PROMPT и `.codex/config.toml` не включены.
+
+Fresh read-only review завершён. Он подтвердил пять конкретных разрывов A15-13..A15-17: demo hardcoded/no AI; server не авторитетен для formula recalculation; source fact не связан с price/quantity/formula chain; AI UI является отдельным техническим журналом; commercial procedure пока не проверяет margin/capacity/deadline. Работающие основания сохраняются: atomic editable artifacts, numeric provenance, отделённые data fields, changeset/apply/undo и fixed-revision export.
 
 ## Следующие шаги
 
-1. Завершить свежий read-only value/code review по исходному BRIEF/TESTING и F008/F009. Он проверяет реальный committed+WIP путь без чтения планового оправдания на первом проходе и не пишет файлы.
-2. Сохранить существующий WIP отдельным честным checkpoint через штатный `checkpoint.mjs` после plan/privacy/code/build checks. До этого source writers не запускаются, чтобы не менять validation inputs. Это WIP boundary, не принятие всех активных задач.
-3. После checkpoint назначить свежего integration owner на общий prerequisite package: server-authoritative prepared calculations с immutable input/content hash и transactional revision/ACL revalidation; корректный currency scale для разных валют; property-scoped binding targets без geometry-as-value override; совместимый additive PlanEntry; затем BusinessContext provenance union. Не копировать целиком ignored scratch.
-4. Параллельно назначить свежих whole-journey owners на assistant-first 03.2/04.1/07.1 и на реальные предметные компоненты по непересекающимся путям. Главный пользовательский пакет: цель -> AI plan/tools -> решение по экономике/сроку/нагрузке -> estimate/offer/plan -> direct edit -> fixed export/reopen -> новая вводная и review изменений.
-5. Выполнить bounded live J1 только после server calculation authority, runtime ledger/readiness и HTTP integration. Реальный provider proof не повторяет старый connectivity test и не запускается при неопределённой цене/резерве.
+1. Зафиксировать quiescent integration snapshot через штатный checkpoint с explicit paths и push. В память внести только evidence/границы, не объявлять весь продукт завершённым.
+2. После checkpoint назначить strong demo owner на10.2: isolated replay той же реальной assistant procedure, no personal writes/fake streaming/local-only business logic. Это главный оставшийся product-value gap против Word/Excel.
+3. Выполнить bounded live J1 только после demo/assistant HTTP readiness, runtime ledger и отдельного paid release. Предварительная readiness PASS, provider calls не выполнялись.
+4. Затем 11.1/12.1 full independent review, 13.1 README/clean launch и дальнейшие presentation/video tasks. Hosting/cloud остаются отложены пользователем.
 
 ## Проверено
 
-- Новый плановый контракт: `node C:/Users/user/.codex/skills/vibemachina/scripts/check-plan.mjs C:/Users/user/Desktop/digitaltaraz` PASS после R106 и исправления write-path graph.
-- Последний принятый baseline `999e1e25951569e7ceff6fecb69b9b3438dce89f` и dependency checkpoint `8aa783453935c0e2553e81a7ba7c58488b223120` pushed в `origin/main`.
-- Перед передачей старый общий runner проходил type, lint и 771/771 unit tests; production build был успешен до последующих bounded changes. Эти результаты не подтверждают текущий dirty snapshot.
-- В текущем WIP есть focused/DB/HTTP evidence по materials, sources, editors, exports, runtime и demo, записанное в соответствующих stage tasks. Полная новая сборка, вся HTTP-матрица и live J1 ещё не приняты.
+- Свежий плановый контракт PASS после R107-R108 и исправления write-path graph; source-preservation/plan consistency также PASS на108 requirements.
+- Checkpoint `d6ac5ff`: все 6 configured checks PASS и push PASS. Включены `check-plan`, source-preservation/plan consistency, `git diff --check`, privacy/Git hygiene, `scripts/check.mjs` и свежий `scripts/check-build.mjs` на выбранном snapshot.
+- Fresh review: 33/33 focused unit/domain, 17/17 canonical isolated PostgreSQL integration и `npm run typecheck` PASS. Это доказывает существующие части и воспроизводит разрывы, но не full HTTP/live J1.
+- Детальные focused/DB/HTTP evidence по materials, sources, editors, exports, runtime и demo остаются в соответствующих stage tasks. Quiescent HTTP matrix на fresh production builds: `http-identity`, `http-artifacts`, `http-workspace`, `http-demo`, `http-sources`, `http-runtime`, `http-sheets` (4/4), `http-materials` и combined `http-product` PASS. Root unknown paths теперь semantic404 без redirect/error shell; `/ru/missing` и `/kk` recovery локализованы. `scripts/check.mjs` после последнего repair PASS. Live J1/provider calls ещё не выполнялись.
 - Критические известные границы до live/financial acceptance: не доверять client cached formula value; не использовать универсальное minor/100; geometry/style-only change не создаёт value override; text/fill bindings независимы.
 - Внешний вид, ясность AI-first композиции, 3–5 секунд понимания и 2–3 минуты знакомства не проверены агентами и остаются пользовательской проверкой.
 
@@ -35,14 +36,27 @@ Git остаётся на `8aa783453935c0e2553e81a7ba7c58488b223120` (`origin/ma
 
 Dashboard: http://127.0.0.1:4177/
 
-Последняя проверка handoff показала продукт `http://127.0.0.1:59676/` недоступным; прежние PID исторические. PostgreSQL `54329` и Mailpit `8029` не считать текущими без новой штатной health-проверки. Продукт восстанавливается после checkpoint через `node scripts/dev/start.mjs --port 59676`, без открытия вкладок; данные/volumes не удалять.
+Mailpit: http://127.0.0.1:8029/
+
+После checkpoint штатный `node scripts/dev/start.mjs --port 59676` успешно поднимал product/PostgreSQL/Mailpit, и `/`, `/api/health`, Mailpit info возвращали200. Во время одновременной перекомпиляции активных feature-пакетов product health завис; `node scripts/dev/stop.mjs` вернул STOP_TIMEOUT, но owned supervisor/app PID фактически завершились, данные сохранены. `59676` сейчас не объявляется доступным до quiescent restart и новой health-проверки. PostgreSQL54329 и Mailpit8029 продолжают работать; Mailpit info200. Логи `.local-data/dev/start-1792063110129.log`, `app-ec1f6859-258f-4e8e-ac99-15aa32f77668.log`, `supervisor-ec1f6859-258f-4e8e-ac99-15aa32f77668.log`. Вкладки агентами не открывались.
 
 ## Работники
 
-- `/root/value_evidence_review`: свежий GPT-5.6 Sol, xhigh, read-only. Полный BRIEF/TESTING и новое сообщение F009 переданы дословно. Проверяет ценность против Word/Excel/generic chat и фактическую AI-assistant цепочку. Paths: none; Git/memory edits/provider calls/browser automation запрещены.
-- Активных source writers нет. Имена старых работников в stage evidence и ignored scratch обозначают только историческое авторство, не ownership.
+- `/root/core_authority` (GPT-5.6 Sol xhigh):05.1+08.1; `src/features/sheets/`, `src/features/dependencies/`, их tests/APIs/contracts/schema; exclusive artifact loans: server command-history/service/service-support/lifecycle + integration test, contracts artifacts/commands, domain content-models/operations/semantic-validation/targets/content-state + focused tests and necessary client snapshot consumers for property-scoped bindings; exact compatibility loans designs/domain/actions, designs/ui/design-editor + focused tests and demo/domain/store + focused test. Bounded loan `vitest.integration.config.ts` only for exact database classification of new sheet/operations/business tests. Shared root/migrations Git handover только MAIN.
+- `/root/business_assistant` (GPT-5.6 Sol xhigh):04.1+07.1; `src/features/agent-tools/`, `src/features/commercial/`, их tests/evals. Runtime/workspace/operations consume-only.
+- `/root/assistant_session` (GPT-5.6 Sol xhigh):03.2 AI-first work session; `src/features/workspace/`, runs UI/locales, workspace tests, exact work/project/artifact/runs page loans. Bounded F010/privacy loans: identity UI settings/account-menu/entry/private-tab-drafts, identity domain return-to and focused tests only for Work-vs-Settings navigation, validated assistant `run` context, preserved returnTo and owner-scoped session draft cleanup. Runtime server read-only.
+- `/root/operations_delivery` (GPT-5.6 Sol high):07.4; operations feature/tests/evals/API, operations schema и0017 draft loan. Shared PlanEntry change requests to core owner.
+- `/root/runtime_completion` (GPT-5.6 Sol high):02.2; runs client/domain/server, tests, API, runs contract/schema, immutable0016, forward-only exact loan `migrations/0020_run_event_kinds.sql` for F011 branch/projection events, and eval script. Runs UI/locales belong assistant_session;0017/0018/0019 reservations untouched.
+- `/root/source_completion` (GPT-5.6 Sol high):02.3 source paths/routes/tests/contracts/schema; paid OCR only through accepted runtime ledger.
+- `/root/materials_completion` (GPT-5.6 Sol high):02.4 materials paths/routes/tests/contracts/schema; canonical sources consume-only.
+- `/root/export_completion` (GPT-5.6 Sol high):03.4 exports paths/tests; selectively review ignored CP2, fixed-revision DOCX+XLSX/package boundary. Exact compatibility loan `src/features/demo/server/export.ts` only to pass stable synthetic artifactId and `exclude-internal` into the new RenderInput; no demo behavior/copy redesign.
+- `/root/public_ai_story` (GPT-5.6 Sol high):10.1 public-site feature/assets/tests and exact locale/public page loans; после первого handover возобновлён только для F011 interaction/craft pass, no workspace/runtime writes.
+- `/root/not_found_repair_v2` (GPT-5.6 Sol high): bounded R41 Next16 repair; exact loans `next.config.ts` only for `experimental.globalNotFound`, `src/app/global-not-found.tsx`, `src/proxy.ts` only for direct semantic 404 of unknown first-segment public paths, focused identity route tests. Proxy excludes assets/API/app/auth/settings/supported locales; no redirects/auth bypass. No other config/app changes; no Git.
+- `/root/runtime_integration_review` (GPT-5.6 Sol high): read-only review of `/root/runtime_completion` handover and scoped runtime checks; Paths:none, no source/Git/memory changes.
+- `/root/operations_integration` (GPT-5.6 Sol high): review stable07.4 handover; exclusive shared loans only `migrations/0017_operations.sql.draft` -> reviewed final `0017_operations.sql` and `src/server/db/schema.ts` export. Runtime/export/workspace integrations read-only until their owners hand over.
+- `/root/value_evidence_review`: done read-only, no paths retained.
 
-После WIP checkpoint новые самостоятельные области получают новых GPT-5.6 Sol workers с medium/high/xhigh по сложности. Каждый читает полный BRIEF, TESTING и требуемые VibeMachina references; UI workers дополнительно читают DESIGN, foundation, anti-slop, UX, copy/system/art и полный F009.
+Все новые workers читают полный BRIEF, TESTING и требуемые VibeMachina references; UI workers дополнительно читают DESIGN, foundation, anti-slop, UX, copy/system/art и полный F009. Имена старых работников в stage evidence и ignored scratch обозначают только историческое авторство.
 
 ## Передача
 

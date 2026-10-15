@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import { z } from 'zod';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createRunRegistry, type RunTool } from '../../src/features/runs/server/registry';
+import { createRunRegistry, type RunCapability, type RunTool } from '../../src/features/runs/server/registry';
 import { createRunService } from '../../src/features/runs/server/service';
 import { createBudgetLedger } from '../../src/features/runs/server/budget';
 import { hash, hashKey, type RunFence } from '../../src/features/runs/server/data';
@@ -10,7 +10,7 @@ import type { PricingSnapshot } from '../../src/features/runs/server/pricing';
 import { MODEL_POLICY_REVISION, MODEL_PROOF_CAPABILITY, type ModelRoute } from '../../src/features/runs/server/model-policy';
 import { isolatedRunPool, syntheticWorkspace } from './database';
 import { createRunHandlers } from '../../src/features/runs/server/handlers';
-import { activateProofAuthorization, enableProvenModel, refreshProvenPricing, registerProofCandidate, startModelProof } from '../../src/features/runs/server/proof-admin';
+import { activateProofAuthorization, enableProvenModel, modelProofReadiness, refreshProvenPricing, registerProofCandidate, startModelProof } from '../../src/features/runs/server/proof-admin';
 import { CURRENT_MODEL_AUTHORIZATION, CURRENT_TEXT_ROUTE } from '../../src/features/runs/server/model-runtime';
 
 let pool: Pool;
@@ -38,6 +38,50 @@ function registry(overrides: Partial<RunTool> = {}) {
     name: 'synthetic.calculate', version: 1, purpose: 'Synthetic isolated effect', input: z.strictObject({ value: z.number() }), output: z.strictObject({ total: z.number() }), policy: { scope: 'edit', confidential: false }, costClass: 'local', deadlineMs: 30_000, idempotency: 'receipt',
     execute: async (_tx, input, _prepared, context) => ({ output: { total: (input as { value: number }).value }, context: { ...context.context, total: (input as { value: number }).value } }), ...overrides,
   }]);
+}
+function assistantRegistry() {
+  const policy = { scope: 'edit' as const, confidential: false };
+  const ask = { tool: 'assistant.ask', version: 1, action: 'continue' as const, input: {} };
+  const finish = { tool: 'assistant.finish', version: 1, action: 'save' as const, input: {} };
+  const sourceRef = { sourceId: '11111111-1111-4111-8111-111111111111', sourceVersionId: '22222222-2222-4222-8222-222222222222', revision: 1 };
+  const branch = { id: 'delivery_check', title: 'Check delivery feasibility', purposeKey: 'runs.branches.deliveryCheck', state: 'planned' as const, parentStepId: null, resultRefs: [] };
+  const decision = {
+    outcome: 'conditional' as const, selectedOptionId: null,
+    options: ['standard', 'later'].map((id, index) => ({
+      id, title: index ? 'Later delivery' : 'Standard delivery', outcome: 'conditional' as const,
+      sourceRefs: [sourceRef],
+      commercial: { currency: 'KZT', quotedTotal: index ? '1100' : '1200', directCost: '700', contribution: index ? '400' : '500', contributionRate: index ? '36.36' : '41.67' },
+      deadline: { requestedDate: '2026-10-30', openingDate: '2026-10-29', earliestCompletionDate: index ? '2026-10-31' : '2026-10-30' },
+      capacity: [], factors: [],
+    })),
+    differences: [{ leftOptionId: 'standard', rightOptionId: 'later', dimensions: ['price' as const, 'deadline' as const] }],
+  };
+  const capability: RunCapability = {
+    id: 'business.goal', version: 1, publicStart: true, policy,
+    initialize: (input, privateInput) => {
+      const continuation = privateInput.continuation as Record<string, unknown> | undefined;
+      return { context: continuation ?? { goal: input.goal, plan: ['Check the material unknown'], questions: [], summary: '', results: [], decision, branches: [branch], privateEvidence: 'must-never-leave-the-server', answers: [{ questionId: 'private', answer: 'private answer' }], messages: [{ role: 'assistant', content: 'private model text' }] }, steps: [ask] };
+    },
+    continue: (input, context, change) => {
+      if (change.answers?.length) {
+        if (!change.answers.some((answer) => answer.questionId === 'delivery_date')) throw new Error('missing answer');
+        return { context: { ...context, goal: input.goal, questions: [], answers: change.answers, branches: [{ ...branch, state: 'running' as const }] }, steps: [finish] };
+      }
+      return { context: { ...context, goal: input.goal, plan: change.plan ?? [], questions: [], summary: '', results: [] }, steps: [ask] };
+    },
+    projectProgress: (raw) => {
+      const context = raw as { plan?: unknown; questions?: unknown; summary?: unknown; results?: unknown; decision?: unknown; branches?: unknown };
+      return { plan: context.plan as string[], questions: context.questions as never[], summary: context.summary as string, results: context.results as never[], decision: context.decision as typeof decision, branches: context.branches as never[] };
+    },
+  };
+  const tools: RunTool[] = [{
+    name: 'assistant.ask', version: 1, purpose: 'Pause for one material business answer', input: z.strictObject({}), output: z.strictObject({ asked: z.literal(true) }), policy, costClass: 'local', deadlineMs: 30_000, idempotency: 'receipt',
+    execute: async (_tx, _input, _prepared, context) => ({ output: { asked: true }, context: { ...context.context, questions: [{ id: 'delivery_date', text: 'What delivery date is required?', required: true }], branches: [{ ...branch, state: 'waiting_input' as const, parentStepId: context.fence.stepId }] }, nextSteps: [finish], state: 'waiting_input' }),
+  }, {
+    name: 'assistant.finish', version: 1, purpose: 'Finish the synthetic assistant continuation', input: z.strictObject({}), output: z.strictObject({ saved: z.literal(true) }), policy, costClass: 'local', deadlineMs: 30_000, idempotency: 'receipt',
+    execute: async (_tx, _input, _prepared, context) => ({ output: { saved: true }, context: { ...context.context, questions: [], summary: 'Saved a reviewed result.', branches: [{ ...branch, state: 'completed' as const, parentStepId: context.fence.stepId }] }, state: 'completed' }),
+  }];
+  return createRunRegistry([capability], tools);
 }
 async function scope() {
   const tx = await pool.connect();
@@ -68,6 +112,31 @@ async function claimedFixture() {
 }
 
 describe('transactional runtime service', () => {
+  it('reports an exact non-charging release gate for an already proven current endpoint', async () => {
+    const providerKey = 'synthetic-test-key-not-provider';
+    vi.stubEnv('OPENROUTER_API_KEY', providerKey);
+    try {
+      await pool.query('UPDATE agent_budget_authorizations SET id=$1,key_fingerprint=$2 WHERE id=$3', [CURRENT_MODEL_AUTHORIZATION, hashKey(providerKey), grantId]);
+      const proofRef = randomUUID();
+      const inspected: PricingSnapshot = { ...price(), ...CURRENT_TEXT_ROUTE, canonicalModel: 'xiaomi/mimo-v2.6-flash-20260921', maxOutputTokens: 100_000, contextTokens: 1_048_576, inputUsd: '0.00000014', outputUsd: '0.00000028', requestUsd: '0', supportedParameters: ['max_tokens', 'tools', 'tool_choice', 'response_format', 'structured_outputs'], proof: 'unproven', proofRef: null, vision: true, jsonMode: 'json_schema' };
+      const proven = { ...inspected, proof: 'passed' as const, proofRef };
+      await registerPrice(proven);
+      const readiness = await modelProofReadiness(pool, inspected);
+      expect(readiness).toMatchObject({ paidReleaseRequired: true, paidProofRequired: false, readyForPaidProof: false, readyForRuntimeCalls: true, nextAction: 'release-runtime-call' });
+      expect(readiness.quote).toMatchObject({ maximumPerRequestUsd: '0.14694064', maximumTwoRequestProofUsd: '0.29388128', requiredReservationUsd: '0.14694064', currentPricingFailure: null });
+      expect(readiness.authorization).toMatchObject({ limitUsd: '10.000000000000', reservedUsd: '0.000000000000', spentUsd: '0.000000000000', keyMatches: true });
+      expect(readiness.route).not.toHaveProperty('apiKey');
+
+      await pool.query("UPDATE agent_model_endpoints SET state='candidate',proof_state='unproven',proof_ref=NULL,pricing_snapshot=$2,pricing_hash=$3 WHERE model=$1", [inspected.model, inspected, hash(inspected)]);
+      await pool.query('UPDATE agent_budget_authorizations SET spent_usd=$2 WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION, '9.70611872']);
+      expect(await modelProofReadiness(pool, inspected)).toMatchObject({ paidProofRequired: true, readyForPaidProof: true, readyForRuntimeCalls: false, nextAction: 'release-and-run-proof-once', quote: { requiredReservationUsd: '0.29388128' }, checks: { authorizationHeadroom: true, candidateRegistered: true } });
+      await pool.query('UPDATE agent_budget_authorizations SET spent_usd=$2 WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION, '9.706118720001']);
+      expect(await modelProofReadiness(pool, inspected)).toMatchObject({ readyForPaidProof: false, nextAction: 'insufficient-authorization-headroom', checks: { authorizationHeadroom: false } });
+
+      const expired = { ...inspected, modelExpiresAt: new Date(0).toISOString() };
+      expect(await modelProofReadiness(pool, expired)).toMatchObject({ readyForPaidProof: false, readyForRuntimeCalls: false, nextAction: 'register-candidate', quote: { maximumPerRequestUsd: null, requiredReservationUsd: null, currentPricingFailure: 'model_expired' }, checks: { currentPricingFresh: false } });
+    } finally { vi.unstubAllEnvs(); }
+  });
   it('refreshes an expired proven price without changing proof, liabilities or model identity', async () => {
     const proofRef = randomUUID();
     const previous: PricingSnapshot = { ...price(), ...CURRENT_TEXT_ROUTE, canonicalModel: 'xiaomi/mimo-v2.6-flash-20260921', maxOutputTokens: 1000, supportedParameters: ['max_tokens', 'tools', 'tool_choice', 'response_format', 'structured_outputs'], proofRef, vision: true, jsonMode: 'json_schema', checkedAt: new Date(Date.now() - 86_500_000).toISOString(), expiresAt: new Date(Date.now() - 100_000).toISOString() };
@@ -244,6 +313,43 @@ describe('transactional runtime service', () => {
     const complete = await service.read(owner.principal, run.id);
     expect(complete.state).toBe('completed'); expect(complete.steps).toHaveLength(2); expect(complete.budget.requestCount).toBe(12);
     expect(complete.budget.spentUsd).toBe('0.400000000000'); expect(complete.deadlineAt).toBe(paused.deadlineAt);
+  });
+  it('persists assistant questions and answers, then supersedes changed goals with a bounded continuation chain', async () => {
+    const owner = await scope();
+    const service = createRunService(pool, assistantRegistry());
+    const input = { workspaceId: owner.workspaceId, projectId: null, capabilityId: 'business.goal', capabilityVersion: 1, goal: 'Prepare a viable delivery offer', locale: 'en' as const, inputRefs: [] };
+    const created = await service.create(owner.principal, input, randomUUID());
+    const firstClaim = await service.claim(); if (!firstClaim) throw new Error('claim missing');
+    await service.executeStep(firstClaim);
+    const waiting = await service.read(owner.principal, created.id);
+    expect(waiting).toMatchObject({ state: 'waiting_input', progress: { questions: [{ id: 'delivery_date', required: true }], decision: { outcome: 'conditional', options: [{ id: 'standard' }, { id: 'later' }] }, branches: [{ id: 'delivery_check', state: 'waiting_input' }] }, actions: { resume: true, revise: true } });
+    expect(JSON.stringify(waiting)).not.toContain('must-never-leave-the-server');
+    expect(JSON.stringify(waiting)).not.toContain('private answer');
+    expect(JSON.stringify(waiting)).not.toContain('private model text');
+    const waitingEvents = await service.events(owner.principal, created.id);
+    expect(waitingEvents.events.filter((event) => event.kind === 'branch_state').map((event) => event.branchState)).toEqual(['planned', 'waiting_input']);
+    expect(waitingEvents.events.filter((event) => event.kind === 'projection_changed').map((event) => event.projectionRevision)).toEqual([0, 1]);
+    expect(JSON.stringify(waitingEvents)).not.toContain('must-never-leave-the-server');
+    const outsider = await scope();
+    await expect(service.events(outsider.principal, created.id, waitingEvents.cursor)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    await service.resume(owner.principal, created.id, { expectedEpoch: waiting.epoch, answers: [{ questionId: 'delivery_date', answer: '2026-10-30' }] }, randomUUID());
+    const secondClaim = await service.claim(); if (!secondClaim) throw new Error('claim missing');
+    await service.executeStep(secondClaim);
+    const completed = await service.read(owner.principal, created.id);
+    expect(completed).toMatchObject({ state: 'completed', progress: { questions: [], summary: 'Saved a reviewed result.' }, actions: { resume: false, revise: true } });
+    const continuedEvents = await service.events(owner.principal, created.id, waitingEvents.cursor);
+    expect(continuedEvents.events.map((event) => event.sequence)).toEqual(continuedEvents.events.map((_event, index) => waitingEvents.cursor + index + 1));
+    expect(continuedEvents.events.filter((event) => event.kind === 'branch_state').map((event) => event.branchState)).toEqual(['running', 'completed']);
+    expect(continuedEvents.events.filter((event) => event.kind === 'projection_changed').map((event) => event.projectionRevision)).toEqual([2, 3]);
+
+    const child = await service.resume(owner.principal, created.id, { expectedEpoch: completed.epoch, goal: 'Prepare the same offer for a later date', plan: ['Recheck capacity'] }, randomUUID());
+    expect(child).toMatchObject({ state: 'queued', goal: 'Prepare the same offer for a later date', progress: { parentRunId: created.id } });
+    const parent = await service.read(owner.principal, created.id);
+    expect(parent.progress.continuationRunId).toBe(child.id); expect(parent.actions.revise).toBe(false);
+    const grandchild = await service.resume(owner.principal, child.id, { expectedEpoch: child.epoch, goal: 'Use a smaller order' }, randomUUID());
+    expect(grandchild.progress.parentRunId).toBe(child.id);
+    await expect(service.resume(owner.principal, grandchild.id, { expectedEpoch: grandchild.epoch, goal: 'Try another branch' }, randomUUID())).rejects.toMatchObject({ failure: 'continuation_limit', code: 'CONFLICT', message: 'runs.errors.continuationLimit' });
+    expect((await service.read(owner.principal, child.id)).state).toBe('cancelled');
   });
   it('fences cancellation while preparation is in flight and never commits the late result', async () => {
     let ready!: () => void; let release!: () => void; let effects = 0;

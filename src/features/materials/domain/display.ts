@@ -17,4 +17,11 @@ export function moneyFilterScalar(raw: string, currency: string): string | null 
   const unsigned = `${match[2]}${(match[3] ?? '').padEnd(digits,'0')}`.replace(/^0+(?=\d)/,'');
   return `${match[1] && /[1-9]/.test(unsigned) ? '-' : ''}${unsigned}`;
 }
+export function materialFilterValue(value: MaterialValue): string | null {
+  if (value.kind === 'unknown') return null;
+  if (value.kind === 'text') return value.text;
+  if (value.kind === 'date') return value.date;
+  if (value.kind === 'decimal' || value.kind === 'quantity') return value.decimal;
+  return valueText(value, '').slice(0, -(value.currency.length + 1));
+}
 

@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { currencyMinorUnitScale } from '../../../contracts/calculations';
 import type { DependencyTransform } from '../../../contracts/dependencies';
 import type { MaterialValue } from '../../../contracts/materials';
 import { ContentValidationError } from '../../artifacts/domain/canonical';
@@ -13,9 +14,13 @@ export function exactDecimal(value: DependencyScalar): Decimal {
   if (!result.isFinite()) throw new ContentValidationError('dependency-number-required');
   return result;
 }
+export function exactScalarEqual(left: DependencyScalar, right: DependencyScalar): boolean {
+  if (Object.is(left, right)) return true;
+  try { return exactDecimal(left).eq(exactDecimal(right)); } catch { return false; }
+}
 export function materialScalar(value: MaterialValue): DependencyScalar {
   switch (value.kind) {
-    case 'money': { const scale = new Intl.NumberFormat('en', { style: 'currency', currency: value.currency }).resolvedOptions().maximumFractionDigits ?? 2; return new Exact(value.minorUnits).div(new Exact(10).pow(scale)).toFixed(scale); }
+    case 'money': { const scale = currencyMinorUnitScale(value.currency); return new Exact(value.minorUnits).div(new Exact(10).pow(scale)).toFixed(scale); }
     case 'decimal': case 'quantity': return value.decimal;
     case 'text': return value.text;
     case 'date': return value.date;
@@ -23,10 +28,8 @@ export function materialScalar(value: MaterialValue): DependencyScalar {
   }
 }
 export function targetScalar(target: ArtifactTarget): DependencyScalar {
-  const value = target.value as Record<string, JsonValue> | null;
-  if (!value || Array.isArray(value)) throw new ContentValidationError('dependency-value-unknown');
-  const scalar = target.kind === 'table-cell' ? value.v : target.kind === 'document-node' && value.type === 'dataField' ? (value.attrs as Record<string, JsonValue> | undefined)?.value : target.kind === 'design-layer' && value.type === 'text' ? value.text : undefined;
-  if (scalar === undefined || typeof scalar === 'object') throw new ContentValidationError('dependency-value-unknown');
+  const scalar = target.value;
+  if (typeof scalar === 'object') throw new ContentValidationError('dependency-value-unknown');
   if (typeof scalar === 'string' && /^#(?:REF!|VALUE!|DIV\/0!|NAME\?|NUM!|N\/A|CYCLE!|ERROR!)/.test(scalar)) throw new ContentValidationError('dependency-formula-error');
   return scalar;
 }
@@ -55,21 +58,19 @@ export function formatMaterialValue(value: MaterialValue, locale: 'ru' | 'kk' | 
     case 'decimal': return value.decimal;
     case 'quantity': return `${value.decimal} ${value.unit}`;
     case 'date': return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(`${value.date}T00:00:00Z`));
-    case 'money': { const scale = new Intl.NumberFormat(locale, { style: 'currency', currency: value.currency }).resolvedOptions().maximumFractionDigits ?? 2; return String(transformValue({ kind: 'money-format', input: 'value', locale, currency: value.currency, scale, basis: 'minor' }, new Map([['value', value.minorUnits]]))); }
+    case 'money': { const scale = currencyMinorUnitScale(value.currency); return String(transformValue({ kind: 'money-format', input: 'value', locale, currency: value.currency, scale, basis: 'minor' }, new Map([['value', value.minorUnits]]))); }
     default: throw new ContentValidationError('dependency-value-unknown');
   }
 }
 
-/** Replace only the field value, retaining document words, cell formulas and layer geometry. */
+/** Convert an exact computed scalar to the selected semantic property. */
 export function replaceTargetScalar(target: ArtifactTarget, scalar: DependencyScalar): JsonValue {
-  const value = target.value as Record<string, JsonValue> | null;
-  if (target.kind === 'table-cell') {
-    const numeric = typeof scalar === 'string' && /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(scalar) ? Number(scalar) : scalar;
-    const safeNumber = typeof numeric === 'number' && Number.isFinite(numeric) && new Exact(numeric).eq(String(scalar));
-    const next = safeNumber ? numeric : scalar;
-    return { ...value ?? {}, v: next, t: typeof next === 'number' ? 2 : typeof next === 'boolean' ? 3 : 1 };
+  if (!target.targetProperty) throw new ContentValidationError('dependency-target-property-required');
+  if (target.targetProperty === 'value' && target.kind === 'table-cell') {
+    // Decimal strings remain strings so currency scale and values beyond the
+    // IEEE-754 safe range survive table, review and export unchanged.
+    return scalar as JsonValue;
   }
-  if (target.kind === 'document-node' && value?.type === 'dataField') return { ...value, attrs: { ...value.attrs as Record<string, JsonValue>, value: String(scalar ?? '') } };
-  if (target.kind === 'design-layer' && value?.type === 'text') return { ...value, text: String(scalar ?? '') };
+  if (target.targetProperty === 'value' || target.targetProperty === 'text' || target.targetProperty === 'fill') return (scalar ?? '') as JsonValue;
   throw new ContentValidationError('dependency-target-not-a-field');
 }

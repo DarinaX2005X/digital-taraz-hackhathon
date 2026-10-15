@@ -52,13 +52,20 @@ describe('mounted identity routes over HTTP', () => {
     await response.body?.cancel();
   });
 
-  it.each([['/missing-synthetic-page', 404], ['/settings/team?workspace=invalid', 200], ['/settings/team?workspace=a&workspace=b', 200]] as const)('returns a localized recovery state for %s', async (path, status) => {
-      const response = await request(path, 'en');
+  it.each([
+    ['/missing-synthetic-page', 404, 'en', 'Page not found', '/'],
+    ['/missing-synthetic-page-kk', 404, 'kk', 'Бет табылмады', '/'],
+    ['/ru/missing-synthetic-page', 404, 'ru', 'Страница не найдена', '/'],
+    ['/settings/team?workspace=invalid', 200, 'en', 'Workspace could not be opened', '/settings/team'],
+    ['/settings/team?workspace=a&workspace=b', 200, 'en', 'Workspace could not be opened', '/settings/team'],
+  ] as const)('returns a localized recovery state for %s', async (path, status, language, title, destination) => {
+      const response = await request(path, language);
       expect(response.status, path).toBe(status);
       const html = await response.text();
-      expect(html, path).toContain(status === 404 ? 'Page not found' : 'Workspace could not be opened');
-      expect(html, path).toContain(status === 404 ? 'href="/"' : 'href="/settings/team"');
-      expect(html, path).toContain('lang="en"');
+      expect(html, path).toContain(title);
+      expect(html, path).toContain(`href="${destination}"`);
+      expect(html, path).toContain(`lang="${language}"`);
       expect(html, path).not.toContain('id="__next_error__"');
+      if (status === 404) expect(response.headers.get('location'), path).toBeNull();
   });
 });

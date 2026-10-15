@@ -9,8 +9,10 @@ Status: active
 Status: active
 Requirements: R10, R14, R16, R25, R102, R103, R105
 Depends on: 03.1
-Owner: SUBAGENT to assign (передача; прежний автор: connected_delivery)
+Owner: /root/core_authority
 Paths: src/features/dependencies/, tests/dependencies/
+
+Тот же directly-related owner после checkpoint `d6ac5ff` соединяет source facts с table price/quantity, server calculation и downstream patches. Shared loan включает `src/contracts/dependencies.ts`, `src/contracts/dependency-edges.ts`, `src/server/db/dependency-schema.ts`, `src/features/artifacts/domain/content-models.ts`, `src/features/artifacts/domain/operations.ts`, `src/features/artifacts/domain/semantic-validation.ts`, `tests/artifacts/domain/content.test.ts`, `tests/artifacts/domain/operations.test.ts`. После bounded dependency review ему дополнительно выданы exact additive loans `src/contracts/artifacts.ts`, `src/contracts/commands.ts`, `src/features/artifacts/domain/targets.ts`, `src/features/artifacts/domain/content-state.ts`, `src/features/artifacts/server/service-support.ts`, `src/features/artifacts/server/lifecycle.ts` и необходимые focused tests/client snapshot consumers только для property-scoped binding compatibility. Последний consumer audit выдал точные compatibility loans `src/features/designs/domain/actions.ts`, `src/features/designs/ui/design-editor.tsx` и focused design tests, а также `src/features/demo/domain/store.ts` + focused demo store test: actions bind text/fill separately, unbind names the property, UI displays/unbinds them independently, all consumers use `targetElementId` and preserve `targetProperty`. Миграции и root exports передаются integration handover перед Git.
 
 Уточнение2026-10-15: общий binding/graph/invalidation механизм начинается на принятом03.1 и canonical source/fact adapters, не ждёт всех07. Первые реальные adapters таблицы/документа подключаются вместе с05.1/03.3/02.4; раннее доказательство price -> formula -> document с сохранением ручной фразы входит в первый J1. Полная08.1 приёмка по-прежнему требует05.1/06.1/07.1/07.2/07.3/07.4 и всех описанных типов, включая plan/design и отсутствие пересечений прав. Исчезновение конечных зависимостей из условия старта не означает их принятие. Не делать отдельный fake demo engine; общий публичный пример использует те же pure domain transformations.
 
@@ -19,13 +21,15 @@ Paths: src/features/dependencies/, tests/dependencies/
 **Вход в работу и состояния.** «Изменился источник» badge with source/revision/count and contextual impact list. No mandatory graph view. User may open source, keep local override with rationale or request patch. New source with schema drift returns to02.4; unrelated material remains current.
 
 ### 08.1.1 Граф и адресная инвалидация
-Status: active
+Status: done
 
 15октября graph/change-set service иcanonical per-target effects перенесены;11domain tests иscopedlint PASS. Integration подключил атомарные apply/undo/redo hooks;0015 reviewed, реальная SQL приёмка нового набора ещё не завершена. Demo иreview UI продолжаются; никакого окончательного08acceptance по однимdomain tests.
 
 Golden price->formula->doc/design and independent page; cycles/removed IDs/largefanout/ACLdenial. One-source change touches exactly expected target set, not whole workspace.
 
 Дополнительная подтверждённая граница15октября: geometry-only изменение связанного слоя не создаёт value override; price text иbrand fill в одномслое должны независимо адресоваться. Shared additive targeting/legacy compatibility уintegration, graph/proposals уconnected_delivery, UIbinding уdesigns_finish. Это обязательное продолжение полной06/08приёмки после текущегоeditorcheckpoint.
+
+Принято: finite property bindings `value/text/fill`, legacy compatibility, independent design text/fill, geometry-only no override, property-aware demo/client/server consumers и real stable fact→price/quantity→formula→document/design/plan proposal. Design actions19/19 иdurable design DB3/3 PASS; dependency DB6/6.08.1.2 остаётся active до полного user-facing source-update/review flow.
 
 ### 08.1.2 Безопасное обновление фактов
 Status: todo

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { SourceSummary } from '@/contracts/sources';
-import { prepareTaskRequest, readTaskRequest, selectedSourceRefs, taskRequestKey } from '@/features/workspace/domain/task-request';
+import { prepareTaskRequest, readTaskRequest, readTaskSelection, selectedSourceRefs, taskRequestKey, taskSelectionKey } from '@/features/workspace/domain/task-request';
 import { readEntryDraft } from '@/features/workspace/domain/entry-draft';
 import { suggestedProjectName } from '@/features/workspace/domain/project-name';
+import { projectSessionDraftKey, readProjectSessionDraft } from '@/features/workspace/domain/project-session-draft';
 
 const workspaceId = '00000000-0000-4000-8000-000000000001';
 const projectId = '00000000-0000-4000-8000-000000000002';
@@ -31,6 +32,12 @@ describe('own-task request continuity', () => {
     expect(selectedSourceRefs([source], [sourceId, sourceId])).toHaveLength(1);
     expect(selectedSourceRefs([{ ...source, revision: 9 }], [sourceId], [{ kind: 'source', id: sourceId, revision: 7 }])).toEqual([{ kind: 'source', id: sourceId, revision: 7 }]);
   });
+  it('keeps material selection and an unsaved goal across locale navigation without mixing owners', () => {
+    expect(readTaskSelection(JSON.stringify([sourceId, sourceId]))).toEqual([sourceId]);
+    expect(taskSelectionKey('owner-one', projectId)).not.toBe(taskSelectionKey('owner-two', projectId));
+    expect(readProjectSessionDraft(JSON.stringify({ title: 'Offer', goal: 'Keep this draft', baseRevision: 3 }))).toEqual({ title: 'Offer', goal: 'Keep this draft', baseRevision: 3 });
+    expect(projectSessionDraftKey('owner-one', projectId)).not.toBe(projectSessionDraftKey('owner-two', projectId));
+  });
   it('supports a real user text task with no source files', () => {
     expect(prepareTaskRequest({ workspaceId, projectId, goal: 'Draft a client question list', locale: 'en', sources: [], selected: [] }, key, 1).input.inputRefs).toEqual([]);
   });
@@ -41,6 +48,10 @@ describe('first-work recovery', () => {
     const draft = { title: '', goal: 'My client request', workspaceName: '', selectedWorkspace: workspaceId, projectRequest: { key, intent: 'original', input: { workspaceId, title: 'Client request', goal: 'My client request', expectedAuthzVersion: 8 } } };
     expect(readEntryDraft(JSON.stringify(draft))).toEqual(draft);
     expect(readEntryDraft(JSON.stringify({ ...draft, projectRequest: { ...draft.projectRequest, key: 'invalid' } }))).toBeUndefined();
+  });
+  it('retains the explicit manual material choice through authentication without creating it on read', () => {
+    const draft = { title: '', goal: '', workspaceName: '', selectedWorkspace: workspaceId, manualTitle: 'Weekly plan', manualKind: 'plan' as const };
+    expect(readEntryDraft(JSON.stringify(draft))).toEqual(draft);
   });
   it('makes a useful bounded name without requesting another mandatory input', () => {
     expect(suggestedProjectName('  Proposal for Darina\nInclude delivery', 'New work')).toBe('Proposal for Darina');

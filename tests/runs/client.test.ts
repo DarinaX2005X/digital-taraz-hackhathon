@@ -19,11 +19,12 @@ describe('run event client', () => {
     for (const state of ['failed', 'completed', 'cancelled'] as const) expect(observableRun({ state, steps: [{ retryable: false }] })).toBe(false);
   });
   it('reconstructs split CRLF messages and ignores duplicate replay events', async () => {
-    const first = event(1), second = event(2);
+    const first = event(1, { kind: 'projection_changed', projectionRevision: 1 }), second = event(2, { kind: 'branch_state', branchId: 'capacity_check', branchState: 'running' });
     const text = `: connected\r\n\r\n${block(first)}${block(first)}${block(second)}event: settled\r\ndata: {}\r\n\r\n`;
     const received = vi.fn();
     const result = await consumeRunEvents(response(Array.from(text)), runId, 0, received);
     expect(received.mock.calls.map(([value]) => value.sequence)).toEqual([1, 2]);
+    expect(received.mock.calls.map(([value]) => value.kind)).toEqual(['projection_changed', 'branch_state']);
     expect(result).toEqual({ cursor: 2, settled: true });
   });
   it('returns the last durable cursor after an interrupted incomplete message', async () => {

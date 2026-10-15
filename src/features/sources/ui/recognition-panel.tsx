@@ -10,6 +10,7 @@ import { Button, InputField, LoadingState, SelectField, TextareaField } from '@/
 import { sourceClient } from '../client/transport';
 import { SourceError, useSourceCopy } from './common';
 import { PrivateSourceImage } from './private-image';
+import { runCatalog } from '@/features/runs/locales';
 import styles from './sources.module.css';
 
 export type SourceRecognitionMemory = Map<string, { revision: number; content: SourcePageContent }>;
@@ -39,7 +40,7 @@ export function SourceRecognitionPanel({ workspaceId, uploadId, ownerId, editabl
     const request = new AbortController();
     void run((signal) => sourceClient.recognitionQuote(workspaceId, uploadId, pageLimit, { userId: ownerId, signal }), request.signal).then((value) => { if (!request.signal.aborted) setQuote(value); }).catch((failure) => { if (!request.signal.aborted) setError(failure); });
     return () => request.abort();
-  }, [workspaceId, uploadId, ownerId, editable, pageLimit, run, reload]);
+  }, [workspaceId, uploadId, ownerId, editable, pageLimit, run, reload, review?.pendingPages, review?.failedPages]);
   async function start() {
     const pending = review?.pendingStart;
     if (busy || (!pending && !quote?.available)) return;
@@ -56,12 +57,14 @@ export function SourceRecognitionPanel({ workspaceId, uploadId, ownerId, editabl
   if (!review.pages.length) return null;
   const selected = review.pages.find((page) => page.page === selectedPage) ?? review.pages.find((page) => page.state === 'needs-review') ?? review.pages.find((page) => page.original);
   const runIds = [...new Set(review.pages.flatMap((page) => page.runId ? [page.runId] : []))];
+  const failed = review.pages.filter((page) => page.state === 'failed');
   return <section className={styles.recognition} aria-label={t.recognition}>
     <div className={styles.previewHeader}><h2>{t.recognition}</h2><Button icon={RefreshCw} disabled={busy} onClick={() => setReload((value) => value + 1)}>{t.refresh}</Button></div>
     <p>{t.recognitionIntro}</p>
-    <dl className={styles.summary}><div><dt>{t.awaitingReview}</dt><dd>{formatNumber(locale, review.reviewPages)}</dd></div><div><dt>{t.pageAccepted}</dt><dd>{formatNumber(locale, review.readyPages)}</dd></div><div><dt>{t.remaining}</dt><dd>{formatNumber(locale, review.pendingPages)}</dd></div></dl>
+    <dl className={styles.summary}><div><dt>{t.awaitingReview}</dt><dd>{formatNumber(locale, review.reviewPages)}</dd></div><div><dt>{t.pageAccepted}</dt><dd>{formatNumber(locale, review.readyPages)}</dd></div><div><dt>{t.remaining}</dt><dd>{formatNumber(locale, review.pendingPages)}</dd></div><div><dt>{t.failedPages}</dt><dd>{formatNumber(locale, review.failedPages)}</dd></div></dl>
+    {failed.length > 0 && <div className={styles.diagnostics} role="alert"><p>{t.failedPages}: {failed.map((page) => page.page).join(', ')}</p>{failed.map((page) => page.failure ? <p key={page.page}>{t.page} {page.page}: {runCatalog[locale].failures[page.failure]}</p> : null)}</div>}
     <SourceError error={error} />
-    {editable && review.pendingPages > 0 && <div className={styles.recognitionStart}>
+    {editable && review.pendingPages + review.failedPages > 0 && <div className={styles.recognitionStart}>
       <SelectField label={t.pageBatch} value={String(pageLimit)} disabled={busy || Boolean(review.pendingStart)} onChange={(event) => { setPageLimit(Number(event.target.value)); setQuote(undefined); }}>{[1, 3, 5, 10].map((count) => <option key={count} value={count}>{formatNumber(locale, count)}</option>)}</SelectField>
       {review.pendingStart ? <><p>{t.pages}: {review.pendingStart.expectedPages.join(', ')}<br /><span className={styles.meta}>{t.maximumCost}: ${review.pendingStart.maximumUsd}</span></p><Button icon={RefreshCw} variant="primary" pending={busy} onClick={() => { void start(); }}>{t.retry}</Button></> : quote?.available ? <><p>{t.pages}: {quote.pages.join(', ')}<br /><span className={styles.meta}>{t.maximumCost}: ${quote.maximumUsd}</span></p><Button icon={ScanText} variant="primary" pending={busy} onClick={() => { void start(); }}>{t.recognizePages}</Button></> : quote && quote.reason !== 'no-pages' ? <p className={styles.meta}>{t.recognitionUnavailable}</p> : null}
     </div>}

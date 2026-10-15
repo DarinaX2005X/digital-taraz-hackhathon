@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { CurrencySchema, IdSchema, LocaleSchema } from '../../../contracts/primitives';
 import type { SourceRef, FieldBinding } from '../../../contracts/artifacts';
 import type { SourceFragment } from '../../../contracts/sources';
-import type { CalculationSpec } from '../../../contracts/calculations';
+import { currencyMinorUnitScale, type CalculationSpec } from '../../../contracts/calculations';
 import type { ArtifactContent, DocumentNode, TableCell } from '../../artifacts/domain/content-models';
 import { tableCellTargetId } from '../../artifacts/domain/targets';
 import { validateArtifactContent } from '../../artifacts/domain/semantic-validation';
@@ -61,6 +61,7 @@ const copy = {
 };
 export function buildOffer(raw: OfferInput, options: { goal: string; sources: EvidenceSource[]; artifacts?: EvidenceArtifact[]; locale: z.infer<typeof LocaleSchema>; id: () => string }) {
   const input = OfferSchema.parse(raw), { id } = options, text = copy[options.locale];
+  const scale = currencyMinorUnitScale(input.currency);
   const allText = [options.goal, ...options.sources.flatMap((source) => source.fragments.flatMap((fragment) => [fragment.text ?? '', ...(fragment.values ?? [])])), ...(options.artifacts ?? []).flatMap((artifact) => artifact.targets.map((target) => target.text))].join('\n');
   const currencyTokens: Record<string, string[]> = { KZT: ['KZT', '₸', 'тенге', 'теңге', 'тг'], USD: ['USD', '$'], EUR: ['EUR', '€'], RUB: ['RUB', '₽', 'руб'] };
   if (!(currencyTokens[input.currency] ?? [input.currency]).some((token) => allText.toLocaleLowerCase().includes(token.toLocaleLowerCase()))) throw new Error('commercial.errors.currencyEvidence');
@@ -72,7 +73,7 @@ export function buildOffer(raw: OfferInput, options: { goal: string; sources: Ev
     cells[cellId(row, column)] = { value, formula };
   };
   [text.item, text.quantity, text.price, text.amount, input.currency].forEach((value, column) => set(0, column, value));
-  const spec: CalculationSpec = { schemaVersion: 1, currency: input.currency, scale: 2, rounding: 'half-up', lines: [], subtotalCellId: cellId(count + 1, 3), subtotalFormula: `=IF(COUNT(D2:D${count + 1})=${count},SUM(D2:D${count + 1}),"")`, totalCellId: cellId(count + 4, 3), totalFormula: '' };
+  const spec: CalculationSpec = { schemaVersion: 1, currency: input.currency, scale, rounding: 'half-up', lines: [], subtotalCellId: cellId(count + 1, 3), subtotalFormula: `=IF(COUNT(D2:D${count + 1})=${count},SUM(D2:D${count + 1}),"")`, totalCellId: cellId(count + 4, 3), totalFormula: '' };
   const amountFields: { tableCellId: string; documentFieldId: string; sourceRef: SourceRef | null }[] = [];
   const sourceRefs = options.sources.map((source) => source.sourceRef);
   const includeRef = (ref: SourceRef | null) => { if (ref && !sourceRefs.some((item) => JSON.stringify(item) === JSON.stringify(ref))) sourceRefs.push(ref); };
@@ -80,7 +81,7 @@ export function buildOffer(raw: OfferInput, options: { goal: string; sources: Ev
     const row = index + 1, n = row + 1;
     const quantityRef = verifyObservedNumber(line.quantity, options.goal, options.sources, options.artifacts), priceRef = verifyObservedNumber(line.price, options.goal, options.sources, options.artifacts);
     includeRef(quantityRef); includeRef(priceRef);
-    const formula = `=IF(B${n}="","",IF(C${n}="","",ROUND(B${n}*C${n},2)))`;
+    const formula = `=IF(B${n}="","",IF(C${n}="","",ROUND(B${n}*C${n},${scale})))`;
     set(row, 0, `${line.label} (${line.unit})`); set(row, 1, line.quantity.value); set(row, 2, line.price.value); set(row, 3, null, formula);
     spec.lines.push({ id: id(), quantityCellId: cellId(row, 1), priceCellId: cellId(row, 2), amountCellId: cellId(row, 3), expectedFormula: formula });
     for (const [column, ref] of [[1, quantityRef], [2, priceRef]] as const) if (ref) tableBindings.push({ targetElementId: cellId(row, column), sourceRef: ref, transformId: 'source-number', updateMode: 'propose' });
@@ -93,7 +94,7 @@ export function buildOffer(raw: OfferInput, options: { goal: string; sources: Ev
     const ref = verifyObservedNumber(number, options.goal, options.sources, options.artifacts);
     includeRef(ref);
     if (number.value && new Decimal(number.value).greaterThan(100)) throw new Error('commercial.errors.rate');
-    const expectedFormula = `=IF(${base}="","",IF(B${row + 1}="","",ROUND(${base}*B${row + 1}/100,2)))`;
+    const expectedFormula = `=IF(${base}="","",IF(B${row + 1}="","",ROUND(${base}*B${row + 1}/100,${scale})))`;
     set(row, 0, label); set(row, 1, number.value); set(row, 3, null, expectedFormula);
     if (ref) tableBindings.push({ targetElementId: cellId(row, 1), sourceRef: ref, transformId: 'source-number', updateMode: 'propose' });
     return { rateCellId: cellId(row, 1), amountCellId: cellId(row, 3), expectedFormula };

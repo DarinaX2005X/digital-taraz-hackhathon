@@ -61,11 +61,11 @@ UI handover: worker STOP, все UI/locales/tests paths переданы MAIN. �
 Принятый A+privacy сохранён checkpoint37d4bd53177a0bfa90a1290c10d6a2451dd90c92, все7checks PASS, pushed origin/main. Interface_quality release на весь оставшийсяB/C пакет действующих settings/team/deletion/recovery screens в прежних paths с полными Design/reference требованиями. Новые публичные component contracts согласуются с потребителями; F002 остаётся in-progress, landing10.1 не подменён.
 
 ## 02.2 Управлять длительными задачами, ценой и отказами моделей
-Status: active
-Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105
+Status: done
+Requirements: R14, R17, R42, R43, R56, R83, R86, R96, R105, R107
 Depends on: 02.1
-Owner: SUBAGENT to assign (передача; прежний автор: agent_execution)
-Paths: src/features/runs/, tests/runs/, src/contracts/runs.ts, src/server/db/run-schema.ts, migrations/0007_runtime_budget.sql, src/app/api/runs/, src/app/app/runs/, scripts/eval-live.mjs
+Owner: /root/runtime_completion
+Paths: src/features/runs/client/, src/features/runs/domain/, src/features/runs/server/, tests/runs/, src/contracts/runs.ts, src/server/db/run-schema.ts, migrations/0007_runtime_budget.sql, migrations/0016_run_continuations.sql, migrations/0020_run_event_kinds.sql, src/app/api/runs/, scripts/eval-live.mjs
 
 Два P2 из independent runtime_execution_review исправлены и приняты integration: штатный price refresh сохраняет exact endpoint proof и ledger; waiting_input/retryablefailed наблюдаются bounded idle polling и получают remote resume/cancel.33 unit, scoped lint/typecheck и новый focused SQL price-refresh case PASS. Полный mounted HTTP/live runtime acceptance остаётся02.2.2; это не заявление о готовой модели.
 
@@ -78,6 +78,8 @@ Dispatch после a0f110c: preflight владеет целым runtime package
 Разрешение пользователя 2026-10-14 после dispatch: «Да, разрешаю до $0.30» на полный вопрос о двух synthetic запросах к MiMo2.6 Flash после готовности локального runtime, без повторов и Vercel. Это разрешает только конкретный bounded proof C14, не произвольные paid calls. MAIN отдельно release выполнение после проверки реализации/цены/резервирования; ранний implementation packet пока работает offline. Remote hosting/deploy всё ещё отложены.
 
 Новое разрешение того же дня заменяет предыдущий узкий лимит: общий максимум $10 новых расходов OpenRouter для автономной работы над всем продуктом, экономичные non-top модели допустимы. Runtime должен дать единый точный учёт, current price/capability check, reservations и сохранение ambiguous charges; proof выполнять после готовности этого пути, не обходным скриптом. Каждый запрос в пределах общего выделения не требует нового пользовательского подтверждения. Только локально, hosting search/deploy/probes запрещены по свежему ответу. Feature worker получает собственные реальные runtime routes/pages; общий root integration у integration agent.
+
+Для F011 finite `branch_state` и `projection_changed` events добавляются forward-only migration `0020_run_event_kinds.sql`.0016 уже applied/immutable и не переписывается;0017 operations,0018 business-context и0019 forecast reservations сохраняют номера. Новый event kind не содержит raw prompt/reasoning и остаётся bounded public projection.
 
 **Контракт и результат.** C3-C4, C8, C11-C12. Run/Receipt/Usage используют общие схемы01.1 и identity02.1, не требуют готового редактора03.1. Платный импорт первым подключает этот runtime; artifact adapters включаются позже с тем же idempotent effect protocol. Durable Run/Step/ToolReceipt/Usage ledger with Workflow adapter and DB authority. Claim lease+epoch fencing, idempotent tool receipt by run/step/call/inputhash, cancel/resume terminal rules. Atomic estimated worst-case reservation before provider call, priceTTL/max_tokens and daily workspace/deployment caps C8. Allowlisted economical text/vision/image model endpoints, no forbidden provider fallback. Ambiguous paid timeout retains reservation until reconcile, not blind retry; bounded safe retry. Concurrency fairness limits across tenants, restore pending work after process death/redeploy.
 
@@ -111,7 +113,9 @@ Runtime core после нескольких bounded safety repairs снова S
 Повтор helper завершён PASS по всем7checks;37d4bd53177a0bfa90a1290c10d6a2451dd90c92 pushed origin/main. В02.2 из него принят только legacy paid-path retirement, runtime WIP не закоммичен и не признан готовым. Preflight/integration RELEASE на все перечисленные review fixes и полный Workflow/API/run-page пакет. Integration может самостоятельно принять исправления, применить0007 после её окончательного handover, затем проверить readiness перед bounded synthetic live proof в общем$10ledger. MAIN не читает feature code; новые hosting операции не разрешены.
 
 ### 02.2.2 Реальные сбои и восстановление
-Status: active
+Status: done
+
+Финальная невизуальная приёмка текущего пакета: runtime/legacy unit41/41 PASS; runtime/schema PostgreSQL42/42 и business projection/selection4/4 PASS; mounted `http-runtime`1/1 PASS на quiescent production build. Readiness использует exact Decimal headroom, текущие price/lifecycle/expiry, сохраняет unresolved liabilities и запрещает blind retry/fallback. Durable continuation depth<=2, отдельный condition consent, finite provenance decision projection, branch/projection SSE events, cursor/reconnect/ACL и late-write fencing проверены. Forward-only0020 расширяет только event-kind constraint,0016-0019 immutable. Provider calls не повторялись: действующий exact endpoint proof уже принят; live предметный J1 остаётся04.2, не02.2.
 
 Live bounded call then simulated network/process interruption, replay receipts without duplicate persisted effects. HTTP events reconnect and permissions revoke; missing key honestly unavailable. На этой foundation-задаче effect fixture использует Run/Receipt; артефактный adapter подключается04.1 и проверяется04.2, когда уже готов03.1.
 
@@ -119,10 +123,10 @@ Fresh official inspect2026-10-14 обнаружил status=-2 у прежнег�
 
 
 ## 02.3 Сохранить оригиналы файлов и извлечь проверяемые источники
-Status: active
+Status: done
 Requirements: R10, R14, R16, R25, R39, R42, R43, R76, R105
 Depends on: 02.1
-Owner: SUBAGENT to assign (передача; прежний автор: sources_finish)
+Owner: /root/source_completion
 Paths: src/features/sources/, tests/sources/, src/contracts/sources.ts, src/server/db/source-schema.ts, src/server/db/source-ingestion-schema.ts, src/server/db/source-asset-schema.ts, migrations/0008_sources.sql, migrations/0010_source_assets.sql, migrations/0012_source_visual_assets.sql, migrations/0012_source_visual_assets.sql.draft, src/app/api/sources/, src/app/app/materials/add/
 
 Canonical fonts/image metadata для06.1 остаются у source owner, не в отдельном design store. Зарезервирована additive0012_source_visual_assets.sql: до stable handover только.sql.draft,0001..0010 immutable. Утверждён bounded TTF/OTF/WOFF subset без WOFF2/collections,5MB input/20MB decompressed, parsed metadata и OS/2 flags отдельно от explicit license permission; unknown не exportable. fontkit2.0.4 direct/types устанавливает integration после proof window. Source visible checkpoint не ждёт всех fonts/OCR; server asset ACL согласуется с artifact/design owners.
@@ -153,9 +157,11 @@ Storage prove finalize/reused token attack denied, ACL/hash mismatch/interruptio
 Independent acceptance2026-10-14:7SQL+1полныйHTTP PASS для настоящегоCSV upload→preview→byte-identical original, init/finalize idempotency, staging token/reuse, parsefailure сохраняет прежнийhead, cancellation, ACL/archive/revoke/CSRF/session expiry и corrupt storedoriginal hash mismatch. Owner8storage/parser tests включают oversize/undersize/pathtraversal иdifferentbytes samekey denial; отдельный frozen regression interrupted stream cleanup/retry также PASS. Все точные protectedoriginals acceptance закрыты,02.3.1done;0001..0010 primary applied/immutable. ВесьOCR/fullformats/02.3 остаётсяactive, source feature ещё ждёт своего coherent Gitcheckpoint.
 
 ### 02.3.2 Разбор с источниками и потерями
-Status: active
+Status: done
 
 15октября source intake/visual assets/OCR adapter прошли17focused tests+lint, соответствующие SQL cases из общего batch иmounted HTTPsources85.9s: pinned originals/preview/library, asset bytes+thumbnail, scan partial/review/quote/page PNG, expired-session gates. Pending-start recovery regression проверяется отдельно; paid live OCR ещё не выполнялся. Полный checkpoint остаётсяactive дооставшихся format/recovery/runtime proofs.
+
+Финальная local acceptance: source unit20/20, PostgreSQL21/21, actual100000-row persistence в400 chunks без truncation, materials consumer10/10 и mounted `http-sources`1/1 PASS. Parser backpressure ограничивает pending fragments до250; service staging до4chunks/transaction с lease renewal, hash/ordinal verification перед head publish и cleanup при parse failure/retry. OCR terminal/retry states, page-only repeat, all formats, immutable original, ACL/revoke и image-only PDF proof закрыты без платных вызовов. UI внешний вид/жесты остаются пользовательской проверкой, но data/server checkpoint выполнен.
 
 Golden все форматы, русский/казахский, multiple sheets, scan/malicious archive. Факты цитируют fragments, спорные числа needs-review. Download original hash equal.
 
@@ -163,7 +169,7 @@ Golden все форматы, русский/казахский, multiple sheets
 Status: active
 Requirements: R14, R16, R32, R34, R35, R36, R37, R39, R44, R45, R76, R92, R99, R103
 Depends on: 02.1, 01.2, 01.3
-Owner: SUBAGENT to assign (передача; прежний автор: materials_finish)
+Owner: /root/materials_completion
 Paths: src/features/materials/, tests/materials/, src/contracts/materials.ts, src/server/db/material-schema.ts, migrations/0011_material_collections.sql, migrations/0011_material_collections.sql.draft, src/app/api/materials/
 
 По приоритету основного функционала2026-10-14 вход разрешён на независимо принятом02.3.1 immutable originals/SourceVersion/CSVpreview boundary. Source owner подтвердил stable contracts CSV/TSV/paste; все chunks, raw values, координаты и pinned version обязательны. Полная02.4 acceptance по-прежнему требует всей02.3, включая остальные форматы/OCR; это условие начала независимой mapping/library реализации, не сокращение финального результата. Fresh materials_delivery сначала читает весь BRIEF/TESTING/Design/reference packet во время текущего GLOBALSTOP, пишет только после release MAIN.
@@ -177,11 +183,13 @@ Paths: src/features/materials/, tests/materials/, src/contracts/materials.ts, sr
 **Вход в работу и состояния.** Материалы: dataset table, photos thumbnails, search/type/date. Import sample rows с mapping/exceptions; «Применить сопоставление» показывает affected counts. Явно выбрать SourceCollection, режим replace-snapshot/append/upsert и recordKeySpec по C5. Preview показывает added/changed/unchanged/missing/ambiguous до записи. Selected bulk resolution с preview/undo; phone сохраняет row/column names. Можно использовать валидную часть без разметки всех колонок; неразрешённые записи не обновляют связанные материалы.
 
 ### 02.4.1 Сопоставление и неизвестное
-Status: active
+Status: done
 
 Partial2026-10-14: typed materials/mapping/import/dataset/facts DTO, mapping domain и collection prepare/preview/apply/partial/stable identities, dataset pages/aggregate server написаны;8 focused tests и typecheck PASS.0011 пока draft, SQL/API/facts corrections/undo и UI ещё не проверены, checkpoint остаётся active. Canonical pinned/library adapters согласованы с source owner, не используются latest100 fallback или вторая модель источников.
 
 Golden decimal comma, KZT, units, plausible duplicates/conflicting prices без silent merge. Mapping reapplies только при совместимой схеме. RecordIdentity/ResolutionVersion сохраняют stable recordId и fieldId между файлами независимо от порядка строк. Проверить перестановку без изменений, тот же файл, пересекающиеся периоды, одну новую цену, переименование без ключа и удалённую позицию. Replace missing только для полного подтверждённого snapshot; append overlap не удваивает продажи; upsert absence ничего не удаляет. Старые raw fragments и версии доступны.
+
+Принято по domain/DB:16/16 focused unit и10/10 PostgreSQL PASS, включая stable identity/reorder/same-file/new-price/append/upsert/replace/tombstone/history/correction/undo, nested AST/facets/groups/context и100000record keyset pages. `http-materials`5/5 и production build PASS.02.4.2 остаётся active до пользовательского UI review.
 
 ### 02.4.2 Библиотека и повторный импорт
 Status: active

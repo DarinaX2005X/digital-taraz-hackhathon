@@ -4,7 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { IdentityViewerSchema, WorkspaceResultSchema } from '../../src/features/identity/contracts';
 import { ProjectResultSchema } from '../../src/features/workspace/contracts';
 import { SourceInitResultSchema, SourceUploadResultSchema } from '../../src/contracts/sources';
-import { CollectionListSchema, CollectionResultSchema, CorrectionResultSchema, DatasetPageSchema, ImportMappingSchema, ImportPreviewSchema, ImportResultSchema, MaterialHistorySchema, ResolutionResultSchema, type DatasetRecord, type MaterialValue } from '../../src/contracts/materials';
+import { CollectionListSchema, CollectionResultSchema, CorrectionResultSchema, DatasetFacetSchema, DatasetGroupPageSchema, DatasetPageSchema, ImportMappingSchema, ImportPreviewSchema, ImportResultSchema, MaterialDecisionContextSchema, MaterialHistorySchema, ResolutionResultSchema, type DatasetRecord, type MaterialValue } from '../../src/contracts/materials';
 import { artifactTestPool } from '../artifacts/server/test-fixture';
 
 let pool: Pool, origin: string;
@@ -84,6 +84,19 @@ describe('mounted materials journey', () => {
     expect((await client.request(`/api/materials/collections/${collection.id}/undo`,'POST',{...base,expectedRevision:2,resolutionId:saved.resolutionId,reason:'Undo reviewed update'},{'idempotency-key':randomUUID()})).status).toBe(200);
     const current = DatasetPageSchema.parse(await (await client.request('/api/materials/datasets/query','POST',{workspaceId,collectionId:collection.id})).json());
     expect(current.records.find((item)=>item.recordId===record.recordId)!.cells.price!.value).toEqual(original);
+  },60000);
+  it('serves bounded facets, grouped analysis and decision context through the mounted ACL boundary', async () => {
+    const { client, workspace } = fixture, workspaceId = workspace.workspaceId;
+    const facet = DatasetFacetSchema.parse(await (await client.request('/api/materials/datasets/facet','POST',{workspaceId,collectionId,fieldId:'sku',limit:1})).json());
+    expect(facet.values).toHaveLength(1); expect(facet.nextCursor).not.toBeNull();
+    const measures = [{ id:'price_total',fieldId:'price',operation:'sum' }];
+    const grouped = DatasetGroupPageSchema.parse(await (await client.request('/api/materials/datasets/group','POST',{workspaceId,collectionId,dimensions:['sku'],measures,limit:1})).json());
+    expect(grouped.totalGroups).toBe(2); expect(grouped.rows).toHaveLength(1); expect(grouped.sourceRefs).toHaveLength(1);
+    const context = MaterialDecisionContextSchema.parse(await (await client.request('/api/materials/context/read','POST',{workspaceId,collectionId,sampleLimit:1,measures,grouping:{dimensions:[],limit:1}})).json());
+    expect(context).toMatchObject({matchedRecords:2,truncated:true,aggregates:[{measureId:'price_total',value:'30025',coverage:{included:2,excluded:0}}]});
+    expect(context.evidenceRefs.length).toBeGreaterThan(0);
+    const nested = DatasetPageSchema.parse(await (await client.request('/api/materials/datasets/query','POST',{workspaceId,collectionId,where:{type:'not',child:{type:'predicate',predicate:{fieldId:'sku',op:'eq',value:'missing'}}}})).json());
+    expect(nested.total).toBe(2);
   },60000);
   it('opens the mounted pages and enforces actor, origin and session gates', async () => {
     const { client, workspace, viewer } = fixture, workspaceId = workspace.workspaceId, collection = { id: collectionId };

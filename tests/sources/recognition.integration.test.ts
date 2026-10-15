@@ -17,6 +17,11 @@ import { artifactFixture, artifactTestPool } from '../artifacts/server/test-fixt
 
 let pool: Pool;
 beforeAll(() => { pool = artifactTestPool(); }); afterAll(async () => { await pool?.end(); });
+async function installOfflineVisionQuote() {
+  const pricing = { ...CURRENT_TEXT_ROUTE, provider: 'Synthetic offline quote', inputUsd: '0', outputUsd: '0', requestUsd: '0.05', imageUsd: '0', contextTokens: 1000, maxOutputTokens: 6000, supportedParameters: ['max_tokens', 'response_format'], checkedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60_000).toISOString(), modelExpiresAt: null, proof: 'passed', proofRef: randomUUID(), vision: true, jsonMode: 'json_schema' };
+  await pool.query('INSERT INTO agent_model_endpoints(model,endpoint,kind,state,policy_revision,pricing_snapshot,pricing_hash,proof_state,proof_ref) VALUES($1,$2,$3,\'enabled\',$4,$5,$6,\'passed\',$7) ON CONFLICT(model,endpoint,kind) DO UPDATE SET state=EXCLUDED.state,policy_revision=EXCLUDED.policy_revision,pricing_snapshot=EXCLUDED.pricing_snapshot,pricing_hash=EXCLUDED.pricing_hash,proof_state=EXCLUDED.proof_state,proof_ref=EXCLUDED.proof_ref', [pricing.model, pricing.endpoint, pricing.kind, MODEL_POLICY_REVISION, pricing, hash(pricing), pricing.proofRef]);
+  vi.stubEnv('OPENROUTER_API_KEY', 'offline-quote-no-provider-call');
+}
 async function fixture(accessClass: 'internal' | 'confidential' = 'internal') {
   const f = await artifactFixture(pool), storage = new LocalSourceStorage(path.join(process.env.TIRLIK_DATA_DIR!, 'source-ocr-tests', randomUUID())), sources = createSourceService(pool, storage);
   const bytes = await readFile('fixtures/business/services/product-photo.jpg');
@@ -33,6 +38,7 @@ async function fixture(accessClass: 'internal' | 'confidential' = 'internal') {
     await pool.query('UPDATE source_pages SET batch_id=$2 WHERE upload_id=$1', [init.upload.id, id]);
     const run = await runs.create(f.owner, { workspaceId: f.workspaceId, projectId: f.projectId, capabilityId: 'source.ocr', capabilityVersion: 1, goal: 'Synthetic OCR transport proof', locale: 'kk', inputRefs: [] }, operationId, { trusted: true, confidential: accessClass === 'confidential', privateInput: { batchId: id, uploadId: init.upload.id, sourceId: init.upload.sourceId, sourceVersionId: row.reserved_version_id, byteHash: sourceHash(bytes), maximumPageUsd: '0.05', pages: [1] } });
     await pool.query('UPDATE source_ocr_batches SET run_id=$2 WHERE id=$1', [id, run.id]);
+    await pool.query('UPDATE source_pages SET run_id=$2 WHERE upload_id=$1', [init.upload.id, run.id]);
     // Keep this disposable fixture ahead of unrelated queued fixtures without mutating them.
     await pool.query("UPDATE agent_runs SET created_at='2000-01-01T00:00:00Z' WHERE id=$1", [run.id]);
     const claim = await runs.claim(); if (!claim || claim.runId !== run.id) throw new Error('Synthetic OCR claim unavailable');
@@ -75,9 +81,7 @@ describe('durable recognized source review', () => {
   it('binds public start to reviewed quote, idempotent operation and selected page batch', async () => {
     const f = await fixture();
     await f.projects.setGrant(f.owner, randomUUID(), { workspaceId: f.workspaceId, projectId: f.projectId, userId: f.member.userId, scopes: ['read'], expectedAuthzVersion: 1 });
-    const pricing = { ...CURRENT_TEXT_ROUTE, provider: 'Synthetic offline quote', inputUsd: '0', outputUsd: '0', requestUsd: '0.05', imageUsd: '0', contextTokens: 1000, maxOutputTokens: 6000, supportedParameters: ['max_tokens', 'response_format'], checkedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60_000).toISOString(), modelExpiresAt: null, proof: 'passed', proofRef: randomUUID(), vision: true, jsonMode: 'json_schema' };
-    await pool.query('INSERT INTO agent_model_endpoints(model,endpoint,kind,state,policy_revision,pricing_snapshot,pricing_hash,proof_state,proof_ref) VALUES($1,$2,$3,\'enabled\',$4,$5,$6,\'passed\',$7) ON CONFLICT(model,endpoint,kind) DO UPDATE SET state=EXCLUDED.state,policy_revision=EXCLUDED.policy_revision,pricing_snapshot=EXCLUDED.pricing_snapshot,pricing_hash=EXCLUDED.pricing_hash,proof_state=EXCLUDED.proof_state,proof_ref=EXCLUDED.proof_ref', [pricing.model, pricing.endpoint, pricing.kind, MODEL_POLICY_REVISION, pricing, hash(pricing), pricing.proofRef]);
-    vi.stubEnv('OPENROUTER_API_KEY', 'offline-quote-no-provider-call');
+    await installOfflineVisionQuote();
     try {
       const quote = await f.review.quote(f.owner, f.workspaceId, f.upload.id, 3); expect(quote).toMatchObject({ available: true, pages: [1], maximumUsd: '0.05' });
       const input = { workspaceId: f.workspaceId, locale: 'kk', pageLimit: 3, expectedPages: [1], maximumUsd: '0.05' }, key = randomUUID();
@@ -92,6 +96,22 @@ describe('durable recognized source review', () => {
       expect((await f.review.quote(f.owner, f.workspaceId, f.upload.id, 3)).pages).toEqual([]);
       await expect(f.review.start(f.owner, f.upload.id, key, { ...input, pageLimit: 1 })).rejects.toMatchObject({ code: 'CONFLICT' });
       await f.runs.cancel(f.owner, run.id, { expectedEpoch: run.epoch }, randomUUID());
+    } finally { vi.unstubAllEnvs(); }
+    expect(f.model).not.toHaveBeenCalled();
+  });
+  it('surfaces a terminal page failure and starts a new quoted batch without repeating the old run', async () => {
+    const f = await fixture(), first = await f.startBatch();
+    await f.runs.cancel(f.owner, first.run.id, { expectedEpoch: first.claim.epoch }, randomUUID());
+    const failed = await f.review.review(f.owner, f.workspaceId, f.upload.id);
+    expect(failed).toMatchObject({ pendingPages: 0, failedPages: 1, reviewPages: 0, pages: [{ page: 1, state: 'failed', runId: first.run.id, runState: 'cancelled', failure: 'cancelled' }] });
+    await installOfflineVisionQuote();
+    try {
+      const quote = await f.review.quote(f.owner, f.workspaceId, f.upload.id, 1);
+      expect(quote).toMatchObject({ available: true, pages: [1], maximumUsd: '0.05' });
+      const next = await f.review.start(f.owner, f.upload.id, randomUUID(), { workspaceId: f.workspaceId, locale: 'ru', pageLimit: 1, expectedPages: quote.pages, maximumUsd: quote.maximumUsd });
+      expect(next.id).not.toBe(first.run.id);
+      expect(await f.review.review(f.owner, f.workspaceId, f.upload.id)).toMatchObject({ pendingPages: 1, failedPages: 0, pages: [{ page: 1, state: 'pending', runId: next.id, runState: 'queued', failure: null }] });
+      await f.runs.cancel(f.owner, next.id, { expectedEpoch: next.epoch }, randomUUID());
     } finally { vi.unstubAllEnvs(); }
     expect(f.model).not.toHaveBeenCalled();
   });

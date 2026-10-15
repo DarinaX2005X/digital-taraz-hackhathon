@@ -39,11 +39,30 @@ describe('real document files from frozen content', () => {
   it('rejects an unsupported font unless the frozen request explicitly chooses replacement', async () => {
     const input = documentInput([{ type: 'paragraph', attrs: { id: 'p' }, content: [{ type: 'text', text: 'Font requirement', marks: [{ type: 'textStyle', attrs: { fontFamily: 'Unavailable Brand Face' } }] }] }]);
     await expect(renderDocx(input)).rejects.toMatchObject({ messageKey: 'exports.errors.fontUnavailable' });
-    input.options.replaceUnsupportedFonts = true; expect((await renderDocx(input)).warnings).toEqual([{ code: 'font-replaced', message: 'Unavailable Brand Face' }]);
+    input.options.replaceUnsupportedFonts = true; expect((await renderDocx(input)).warnings).toEqual([{ code: 'font-replaced', message: 'Шрифт «Unavailable Brand Face» заменён на Noto Sans.' }]);
   });
   it('fails on an inaccessible image instead of generating a misleading empty file', async () => {
     const input = documentInput([{ type: 'image', attrs: { id: 'img', assetId: 'a873a7e4-f334-4be7-a951-2b6baeb038a0', width: 400, height: 300 } }]);
     input.assets.image = async () => { throw new Error('Image access revoked'); };
     await expect(renderDocx(input)).rejects.toThrow('Image access revoked'); await expect(renderPdf(input)).rejects.toThrow('Image access revoked');
+  });
+  it('preserves merged and nested PDF cell content across pages without duplicate body text', async () => {
+    const nested: DocumentNode = { type: 'table', attrs: { id: 'inner' }, content: [{ type: 'tableRow', attrs: { id: 'inner-r' }, content: [{ type: 'tableCell', attrs: { id: 'inner-c' }, content: [paragraph('inner-p', 'Nested exact amount 13579')] }] }] };
+    const input = documentInput([{ type: 'table', attrs: { id: 'outer' }, content: [
+      { type: 'tableRow', attrs: { id: 'row-a' }, content: [{ type: 'tableCell', attrs: { id: 'span', rowspan: 2 }, content: Array.from({ length: 80 }, (_, index) => paragraph(`span-p-${index}`, `Merged unique ${index} end`)) }, { type: 'tableCell', attrs: { id: 'top-c' }, content: [paragraph('top-p', 'Top adjacent cell'), nested] }] },
+      { type: 'tableRow', attrs: { id: 'row-b' }, content: [{ type: 'tableCell', attrs: { id: 'bottom-c' }, content: [paragraph('bottom-p', 'Bottom adjacent cell')] }] },
+    ] }]);
+    const docx = await renderDocx(input), archive = await JSZip.loadAsync(docx.bytes), xml = await archive.file('word/document.xml')!.async('string');
+    expect(xml.match(/<w:tbl>/g)?.length).toBeGreaterThanOrEqual(2); expect(xml).toContain('w:vMerge'); expect(xml).toContain('Nested exact amount 13579');
+    const result = await renderPdf(input), loading = getDocument({ data: new Uint8Array(result.bytes), useSystemFonts: false, disableFontFace: true });
+    try {
+      const pdf = await loading.promise; expect(pdf.numPages).toBeGreaterThan(1); let all = '';
+      for (let page = 1; page <= pdf.numPages; page++) all += (await (await pdf.getPage(page)).getTextContent()).items.map((item) => 'str' in item ? item.str : '').join(' ') + ' ';
+      expect(all).toContain('Nested exact amount 13579'); expect(all).toContain('Bottom adjacent cell');
+      for (let index = 0; index < 80; index++) expect(all.match(new RegExp(`Merged unique ${index} end`, 'g'))).toHaveLength(1);
+    } finally { await loading.destroy(); }
+  });
+  it('rejects characters absent from the selected embedded font', async () => {
+    await expect(renderPdf(documentInput([paragraph('emoji', 'Unavailable glyph 🛠')]))).rejects.toMatchObject({ messageKey: 'exports.errors.fontGlyphMissing' });
   });
 });

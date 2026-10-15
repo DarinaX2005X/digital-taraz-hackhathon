@@ -7,9 +7,9 @@ Status: active
 
 ## 07.1 Подготовить предложение, смету и согласованные условия
 Status: active
-Requirements: R01, R04, R10, R12, R15, R16, R82, R90, R91, R96, R99, R106
+Requirements: R01, R04, R10, R12, R15, R16, R82, R90, R91, R96, R99, R106, R107
 Depends on: 03.1, 01.3
-Owner: SUBAGENT to assign (передача; прежний автор: agent_execution)
+Owner: /root/business_assistant
 Paths: src/features/commercial/, tests/commercial/, evals/commercial/
 
 Раннее начало J1 после аудита15октября использует принятый artifact/source boundary иfixtures, чтобы04.1/04.2 проверяли настоящий предметный результат. Полная07.1приёмка сохраняет04.2/05.1, точные authoritative calculations, живую модель, варианты ивсе форматы. Текущий estimate/offer builder иsynthetic DB proof — промежуточный результат, не полная коммерческая процедура.
@@ -74,8 +74,8 @@ Real import -> query -> comparison -> manual override -> reopen -> XLSX/DOCX exp
 Status: active
 Requirements: R01, R11, R14, R16, R34, R35, R40, R91, R92, R93, R94, R95
 Depends on: 03.1, 01.2
-Owner: SUBAGENT to assign (передача; прежний автор: operations_delivery)
-Paths: src/features/operations/, tests/operations/, evals/operations/
+Owner: /root/operations_delivery
+Paths: src/features/operations/, tests/operations/, evals/operations/, src/app/api/operations/, src/server/db/operations-schema.ts, migrations/0017_operations.sql.draft
 
 Уточнение исполнения15октября: ручной planner/resource/availability путь начинается на принятом03.1 иобщемUI;04.1 остаётся обязательным для финальнойAIпроцедуры иполной07.4приёмки. Это тот же approved сценарий, без изменения объёма. Fresh GPT-5.6 Sol owner получает весь07.4, включая list/calendar/checklist, ресурсы безаккаунта, реальные save/reopen/history иICS/XLSX/PDF adapters. Exact loans: src/app/api/operations/,src/server/db/operations-schema.ts,migrations/0017_operations.sql.draft/final. Shared PlanModel/commands/events/package/rootexports только recovery_inventory; mainartifactroute только journey_delivery; exporterregistry только exports_delivery. Пока текущий интеграционный checkpoint проверяется, новый код готовится в ignored scratch, без изменения общих inputs.
 
@@ -84,9 +84,11 @@ Paths: src/features/operations/, tests/operations/, evals/operations/
 **Вход в работу и состояния.** Project -> plan, «Добавить задачу», direct date/owner/status controls and dependencies detail. Выбор ресурса поиском по разрешённым WorkResource; «Доступность» открывает обычные поля рабочих интервалов/исключений с единицами. Invite отдельное действие, не требование назначения. Calendar drag has keyboard/date input equivalent; phone list primary. Show conflicts at affected entry, proposed alternatives not silent movement. Return to linked document/creative; unauthorized resource rejected server-side, scope проверки явно ограничен доступными данными.
 
 ### 07.4.1 Модель плана и выполнимость
-Status: active
+Status: done
 
 Domain dependencycycle/overlap/weekday/timezone/missingduration, undo and stableID reorder; calendar dates not shifted by UTC conversion. Fixtures: недоступный день, превышение доступных часов, неизвестная доступность, сотрудник без аккаунта,1 час duration с2 человеко-часами effort. Изменение availability version показывает последствия, не переносит задания молча. No false optimality claim.
+
+Принято integration review:31/31 operations unit/export/static,3/3 fresh PostgreSQL+HTTP и6/6 migration history PASS; final0017/schema export review завершён. Account-optional resources, immutable availability, duration/effort/quantity, DST/effective ranges, manual/source/missing provenance, conflicts/unknown, save/reopen/undo и assistant DTO подтверждены.07.4.2 остаётся active до пользовательской date/mobile/file проверки.
 
 ### 07.4.2 Рабочий план и календарные файлы
 Status: todo

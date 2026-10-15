@@ -2,15 +2,15 @@ import { AlignmentType, BorderStyle, Document, ExternalHyperlink, Footer, Header
 import sharp from 'sharp';
 import type { DocumentNode } from '../../../artifacts/domain/content-models';
 import type { RenderInput, RenderedFile } from '../types';
-import { checkDocumentFonts, loadDocumentFonts } from './fonts';
+import { prepareDocumentFonts } from './custom-fonts';
 import { IdentityError } from '../../../identity/server/http';
+import { exportColor, flattenColor } from './colors';
 
 const attr = (node: DocumentNode, key: string, fallback = 1) => typeof node.attrs?.[key] === 'number' ? node.attrs[key] as number : fallback;
 const text = (node: DocumentNode, key: string) => typeof node.attrs?.[key] === 'string' ? node.attrs[key] as string : undefined;
-const color = (value: unknown) => typeof value === 'string' && /^#[a-f\d]{6}$/i.test(value) ? value.slice(1) : typeof value === 'string' && /^#[a-f\d]{3}$/i.test(value) ? value.slice(1).split('').map((c) => c + c).join('') : undefined;
 export async function renderDocx(input: RenderInput): Promise<RenderedFile> {
   if (input.content.kind !== 'document') throw new IdentityError('VALIDATION_FAILED', 'exports.errors.formatUnavailable');
-  const warnings = checkDocumentFonts(input.content.document, input.options.replaceUnsupportedFonts), fonts = await loadDocumentFonts();
+  const fonts = await prepareDocumentFonts(input), warnings = fonts.warnings;
   const pagePoints = input.options.layout.pageSize === 'A4' ? [595.3, 841.9] : [612, 792];
   const contentWidthPx = (pagePoints[input.options.layout.orientation === 'portrait' ? 0 : 1]! - input.options.layout.marginMm * 2 * 72 / 25.4) / 0.75;
   const numbering: { reference: string; levels: { level: number; format: typeof LevelFormat.DECIMAL | typeof LevelFormat.BULLET; text: string; start: number; alignment: typeof AlignmentType.LEFT; style: { paragraph: { indent: { left: number; hanging: number } } } }[] }[] = [];
@@ -35,7 +35,14 @@ export async function renderDocx(input: RenderInput): Promise<RenderedFile> {
       if (mark.type === 'strike') options.strike = true;
       if (mark.type === 'code') options.shading = { fill: 'F1F3F5' };
       if (mark.type === 'link') href = typeof mark.attrs?.href === 'string' ? mark.attrs.href : undefined;
-      if (mark.type === 'textStyle') { if (typeof mark.attrs?.fontSize === 'number') options.size = mark.attrs.fontSize * 2; const foreground = color(mark.attrs?.color), background = color(mark.attrs?.backgroundColor); if (foreground) options.color = foreground; if (background) options.shading = { fill: background }; }
+      if (mark.type === 'textStyle') {
+        if (typeof mark.attrs?.fontSize === 'number') options.size = mark.attrs.fontSize * 2;
+        if (typeof mark.attrs?.fontFamily === 'string') options.font = fonts.resolve(mark.attrs.fontFamily);
+        const foreground = exportColor(mark.attrs?.color), background = exportColor(mark.attrs?.backgroundColor), backgroundHex = background ? flattenColor(background) : 'FFFFFF';
+        if (foreground) options.color = flattenColor(foreground, backgroundHex);
+        if (background) options.shading = { fill: backgroundHex };
+        if ([foreground, background].some((value) => value && value.alpha !== 1) && !warnings.some((warning) => warning.code === 'transparency-flattened')) warnings.push({ code: 'transparency-flattened', message: { ru: 'Прозрачные цвета текста в Word сведены с цветом фона страницы.', kk: 'Word ішіндегі мөлдір мәтін түстері бет фонымен біріктірілді.', en: 'Transparent text colors in Word are composited over the page background.' }[input.locale] });
+      }
     }
     const run = new TextRun(options); return href ? [new ExternalHyperlink({ link: href, children: [run] })] : [run];
   }
@@ -70,6 +77,6 @@ export async function renderDocx(input: RenderInput): Promise<RenderedFile> {
   const layout = input.options.layout, historical = input.historicalDraft ? ({ ru: 'Исторический черновик', kk: 'Тарихи нобай', en: 'Historical draft' }[input.locale] + ` · v${input.revision}`) : '';
   const children = await blocks(input.content.document.content ?? []), header = [historical, layout.headerText].filter(Boolean).join(' · '), footer = layout.footerText ?? '';
   const dimensions = layout.pageSize === 'A4' ? [11906, 16838] : [12240, 15840], landscape = layout.orientation === 'landscape';
-  const document = new Document({ title: input.title, creator: 'Tirlik', description: `Immutable revision ${input.revision}`, fonts: [{ name: 'Noto Sans', data: fonts.regular, bold: fonts.bold }], numbering: { config: numbering }, styles: { default: { document: { run: { font: 'Noto Sans', size: 22 }, paragraph: { spacing: { after: 140 } } } } }, sections: [{ properties: { page: { size: { width: dimensions[landscape ? 1 : 0], height: dimensions[landscape ? 0 : 1] }, margin: { top: layout.marginMm * 56.693, bottom: layout.marginMm * 56.693, left: layout.marginMm * 56.693, right: layout.marginMm * 56.693, header: 400, footer: 400 } } }, headers: header ? { default: new Header({ children: [new Paragraph({ children: [new TextRun({ text: header, size: 16, color: '64748B' })] })] }) } : undefined, footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: footer, size: 16 }), ...(layout.pageNumbers ? [new TextRun({ children: [' ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], size: 16 })] : [])] })] }) }, children }] });
+  const document = new Document({ title: input.title, creator: 'Tirlik', description: `Immutable revision ${input.revision}`, fonts: [...fonts.faces.values()].map((face) => ({ name: face.family, data: face.regular, bold: face.bold })), numbering: { config: numbering }, styles: { default: { document: { run: { font: 'Noto Sans', size: 22 }, paragraph: { spacing: { after: 140 } } } } }, sections: [{ properties: { page: { size: { width: dimensions[landscape ? 1 : 0], height: dimensions[landscape ? 0 : 1] }, margin: { top: layout.marginMm * 56.693, bottom: layout.marginMm * 56.693, left: layout.marginMm * 56.693, right: layout.marginMm * 56.693, header: 400, footer: 400 } } }, headers: header ? { default: new Header({ children: [new Paragraph({ children: [new TextRun({ text: header, size: 16, color: '64748B' })] })] }) } : undefined, footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: footer, size: 16 }), ...(layout.pageNumbers ? [new TextRun({ children: [' ', PageNumber.CURRENT, ' / ', PageNumber.TOTAL_PAGES], size: 16 })] : [])] })] }) }, children }] });
   return { bytes: await Packer.toBuffer(document), mediaType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', warnings };
 }

@@ -6,6 +6,7 @@ export const EntryDraftSchema = z.strictObject({
   projectRequest: z.strictObject({ intent: z.string().max(14000), key: z.uuid(), input: CreateProjectSchema }).optional(),
   workspaceRequest: z.strictObject({ name: z.string().min(1).max(100), key: z.uuid() }).optional(),
   confirmedWorkspaceId: z.uuid().optional(),
+  manualTitle: z.string().max(240).optional(), manualKind: z.enum(['document', 'table', 'design', 'plan']).optional(),
 });
 export type EntryDraft = z.infer<typeof EntryDraftSchema>;
 export const entryDraftKey = (ownerId: string, intentToken?: string) => `tirlik.entry-draft.v1:${ownerId}:${intentToken ?? 'direct'}`;

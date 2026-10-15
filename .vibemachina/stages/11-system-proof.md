@@ -7,7 +7,7 @@ Status: todo
 
 ## 11.1 Пройти все деловые пути и состояния через реальные границы
 Status: todo
-Requirements: R06, R07, R10, R11, R13, R14, R15, R16, R39, R40, R41, R42, R43, R44, R45, R60, R82, R83, R84, R90, R91, R92, R93, R94, R95, R96, R97, R98, R99, R100, R102, R103, R104, R106
+Requirements: R06, R07, R10, R11, R13, R14, R15, R16, R39, R40, R41, R42, R43, R44, R45, R60, R82, R83, R84, R90, R91, R92, R93, R94, R95, R96, R97, R98, R99, R100, R102, R103, R104, R106, R107, R108
 Depends on: 09.3, 10.3, 07.3
 Owner: SUBAGENT to assign
 Paths: tests/journeys/, evals/suite/

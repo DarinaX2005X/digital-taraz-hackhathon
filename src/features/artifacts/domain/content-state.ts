@@ -1,10 +1,10 @@
 import { z } from 'zod';
-import { FieldBindingSchema, SourceRefSchema, type FieldBinding, type SourceRef, type ArtifactKind } from '../../../contracts/artifacts';
+import { FieldBindingSchema, SourceRefSchema, fieldBindingIdentity, fieldBindingProperty, type FieldBinding, type SourceRef, type ArtifactKind } from '../../../contracts/artifacts';
 import { ElementIdSchema, IdSchema, InstantSchema } from '../../../contracts/primitives';
 import { ContentValidationError, hashJson, measureJson } from './canonical';
 import type { ArtifactContent, DesignLayer, DocumentNode, JsonValue } from './content-models';
 import { validateArtifactContent, uniqueIds } from './semantic-validation';
-import { buildTargetIndex, locateTarget, type ArtifactState, type TargetLock } from './targets';
+import { buildTargetIndex, locateTarget, targetPropertyValue, targetValue, type ArtifactState, type TargetLock } from './targets';
 
 export const TargetLockSchema = z.strictObject({ reason: z.string().trim().min(1).max(1000), actorId: IdSchema, at: InstantSchema });
 export const TargetLocksSchema = z.record(ElementIdSchema, TargetLockSchema);
@@ -14,17 +14,19 @@ export function createArtifactState(input: unknown, sourceRefs: readonly SourceR
   const parsedRefs = z.array(SourceRefSchema).max(1000).parse(sourceRefs);
   const parsedBindings = z.array(FieldBindingSchema).max(10000).parse(bindings);
   const parsedLocks = TargetLocksSchema.parse(locks);
-  uniqueIds(parsedBindings.map((binding) => binding.targetElementId), 'duplicate-binding-target');
+  uniqueIds(parsedBindings.map(fieldBindingIdentity), 'duplicate-binding-target');
   uniqueIds(parsedRefs.map((ref) => hashJson(ref as JsonValue)), 'duplicate-source-ref');
   const index = buildTargetIndex(content);
   const refHashes = new Set(parsedRefs.map((ref) => hashJson(ref as JsonValue)));
   for (const binding of parsedBindings) {
-    if (!locateTarget(index, binding.targetElementId)) throw new ContentValidationError('missing-binding-target');
+    const locator = locateTarget(index, binding.targetElementId);
+    if (!locator) throw new ContentValidationError('missing-binding-target');
+    if (binding.targetProperty) targetPropertyValue(locator.kind, targetValue(content, locator), fieldBindingProperty(binding));
     if (!refHashes.has(hashJson(binding.sourceRef as JsonValue))) throw new ContentValidationError('binding-source-not-declared');
   }
   for (const targetId of Object.keys(parsedLocks)) if (!locateTarget(index, targetId)) throw new ContentValidationError('missing-lock-target');
   const bindingRefs = new Set(parsedBindings.map((binding) => hashJson(binding.sourceRef as JsonValue)));
-  return { format: 1, content, contentMetrics: measureArtifactContent(content), sourceRefs: parsedRefs.filter((ref) => !bindingRefs.has(hashJson(ref as JsonValue))), bindings: Object.fromEntries(parsedBindings.map((binding) => [binding.targetElementId, binding])), locks: parsedLocks, retiredTargets: {}, index };
+  return { format: 1, content, contentMetrics: measureArtifactContent(content), sourceRefs: parsedRefs.filter((ref) => !bindingRefs.has(hashJson(ref as JsonValue))), bindings: Object.fromEntries(parsedBindings.map((binding) => [fieldBindingIdentity(binding), binding])), locks: parsedLocks, retiredTargets: {}, index };
 }
 
 export function countTreeNodes(node: DocumentNode | DesignLayer): number {

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { CreateRunSchema, CancelRunSchema, ResumeRunSchema, RunEventsPageSchema, RunResultRefSchema, RunListCursorSchema, RunListPageSchema, ToolReceiptSchema, type CreateRun, type RunEventsPage, type RunPolicy, type RunState } from '../../../contracts/runs';
+import { CreateRunSchema, CancelRunSchema, ResumeRunSchema, RunEventsPageSchema, RunProgressProjectionSchema, RunResultRefSchema, RunListCursorSchema, RunListPageSchema, ToolReceiptSchema, type CreateRun, type RunEventsPage, type RunPolicy, type RunProgressProjection, type RunState } from '../../../contracts/runs';
 import { IdSchema } from '../../../contracts/primitives';
 import { identityTransaction, lockProjectAccess, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { hasScope } from '../../identity/domain/policy';
@@ -9,7 +9,7 @@ import { IdentityError } from '../../identity/server/http';
 import { RunError } from '../domain/errors';
 import { RUN_LIMITS } from '../domain/limits';
 import { assertFence, boundedObject, boundedTransaction, emitEvent, hash, loadRun, lockStep, requestKey, required, snapshot, terminal, withinSignal, type JsonObject, type RunFence, type RunRow, type StepRow } from './data';
-import type { PlannedStep, RunRegistry, RunTool, ToolContext, ToolOutcome } from './registry';
+import type { PlannedStep, RunCapability, RunRegistry, RunTool, ToolContext, ToolOutcome } from './registry';
 import { createBudgetLedger } from './budget';
 
 export interface Claim { runId: string; epoch: number; leaseOwner: string }
@@ -35,6 +35,30 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     }
     await tx.query('UPDATE agent_runs SET step_count=step_count+$2 WHERE id=$1', [runId, plans.length]);
   }
+  function projectCapability(capability: RunCapability, context: JsonObject): RunProgressProjection | undefined {
+    if (!capability.projectProgress) return undefined;
+    try { return RunProgressProjectionSchema.parse(capability.projectProgress(context)); }
+    catch (error) { if (error instanceof RunError) throw error; throw new RunError('invalid_result'); }
+  }
+  async function emitProjectionChange(tx: PoolClient, runId: string, capability: RunCapability, before: JsonObject | undefined, after: JsonObject, revision: number) {
+    const next = projectCapability(capability, after);
+    if (!next) return;
+    const previous = before ? projectCapability(capability, before) : undefined;
+    if (previous && hash(previous) === hash(next)) return;
+    const priorBranches = new Map((previous?.branches ?? []).map((branch) => [branch.id, branch]));
+    for (const branch of next.branches ?? []) {
+      const prior = priorBranches.get(branch.id);
+      if (prior && prior.state === branch.state && hash(prior.resultRefs) === hash(branch.resultRefs)) continue;
+      await emitEvent(tx, runId, { kind: 'branch_state', branchId: branch.id, branchState: branch.state, resultRefs: branch.resultRefs });
+    }
+    await emitEvent(tx, runId, { kind: 'projection_changed', projectionRevision: revision });
+  }
+  async function projectSnapshot(tx: PoolClient, run: RunRow) {
+    const capability = registry.capability(run.capability_id, run.capability_version);
+    if (!capability.projectProgress) return snapshot(tx, run);
+    const context = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1', [run.id])).rows[0]).state;
+    return snapshot(tx, run, projectCapability(capability, context));
+  }
   async function create(principal: IdentityPrincipal, raw: CreateRun, key: string, options: { trusted?: boolean; privateInput?: JsonObject; confidential?: boolean; transaction?: PoolClient } = {}) {
     const input = CreateRunSchema.parse(raw);
     const capability = registry.capability(input.capabilityId, input.capabilityVersion);
@@ -48,7 +72,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
       // Serializes concurrent identical keys without taking a whole-workspace write lock.
       await tx.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))', [`run-create:${input.workspaceId}:${authorized.userId}:${keyHash}`]);
       const previous = (await tx.query<RunRow>('SELECT * FROM agent_runs WHERE workspace_id=$1 AND created_by=$2 AND request_key_hash=$3', [input.workspaceId, authorized.userId, keyHash])).rows[0];
-      if (previous) { if (previous.input_hash !== requestHash) throw new RunError('conflict'); return snapshot(tx, previous); }
+      if (previous) { if (previous.input_hash !== requestHash) throw new RunError('conflict'); return projectSnapshot(tx, previous); }
       const initial = capability.initialize(input, privateInput);
       const context = boundedObject(initial.context);
       if (!initial.steps.length) throw new RunError('configuration');
@@ -71,7 +95,8 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
       await appendSteps(tx, runId, 0, initial.steps);
       await tx.query('INSERT INTO agent_queue_workspaces(workspace_id) VALUES($1) ON CONFLICT DO NOTHING', [input.workspaceId]);
       await emitEvent(tx, runId, { kind: 'run_state' });
-      return snapshot(tx, await loadRun(tx, runId));
+      await emitProjectionChange(tx, runId, capability, undefined, context, 0);
+      return projectSnapshot(tx, await loadRun(tx, runId));
     };
     return options.transaction ? withWorkspaceAccessInTransaction(options.transaction, principal, request, effect) : withWorkspaceAccess(pool, principal, request, effect);
   }
@@ -80,7 +105,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     return access(principal, run, { scope: 'read', confidential: run.confidential }, async (tx, authorized) => visibleSnapshot(tx, await loadRun(tx, runId), authorized));
   }
   async function visibleSnapshot(tx: PoolClient, run: RunRow, authorized: WorkspaceAccess) {
-    const value = await snapshot(tx, run);
+    const value = await projectSnapshot(tx, run);
     const scoped = run.project_id && authorized.membership.role !== 'owner'
       ? await lockProjectAccess(tx, authorized, { projectId: run.project_id, scope: 'read', confidential: run.confidential }) : authorized;
     if (!hasScope({ ...scoped.membership, projectScopes: scoped.projectScopes, confidential: run.confidential }, run.required_scope)) {
@@ -130,10 +155,10 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
       const run = await loadRun(tx, runId, true);
       if (kind === 'resume') {
         const prior = (await tx.query<{ child_run_id: string; input_hash: string }>('SELECT child_run_id,input_hash FROM agent_run_continuations WHERE parent_run_id=$1 AND created_by=$2 AND request_key_hash=$3', [runId, principal.userId, keyHash])).rows[0];
-        if (prior) { if (prior.input_hash !== inputHash) throw new RunError('conflict'); return snapshot(tx, await loadRun(tx, prior.child_run_id)); }
+        if (prior) { if (prior.input_hash !== inputHash) throw new RunError('conflict'); return projectSnapshot(tx, await loadRun(tx, prior.child_run_id)); }
       }
       const operation = (await tx.query<{ input_hash: string; kind: string }>('SELECT input_hash,kind FROM agent_run_operations WHERE run_id=$1 AND actor_id=$2 AND key_hash=$3', [runId, principal.userId, keyHash])).rows[0];
-      if (operation) { if (operation.input_hash !== inputHash || operation.kind !== kind) throw new RunError('conflict'); return snapshot(tx, run); }
+      if (operation) { if (operation.input_hash !== inputHash || operation.kind !== kind) throw new RunError('conflict'); return projectSnapshot(tx, run); }
       if (run.execution_epoch !== input.expectedEpoch) throw new RunError('conflict');
       if (kind === 'resume') {
         const change = ResumeRunSchema.parse(input), capability = registry.capability(run.capability_id, run.capability_version);
@@ -146,9 +171,9 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
           if ((await tx.query('SELECT child_run_id FROM agent_run_continuations WHERE parent_run_id=$1', [runId])).rowCount) throw new RunError('conflict');
           const ancestors = (await tx.query<{ depth: number }>(`WITH RECURSIVE chain AS (
             SELECT parent_run_id,1 AS depth FROM agent_run_continuations WHERE child_run_id=$1
-            UNION ALL SELECT c.parent_run_id,p.depth+1 FROM agent_run_continuations c JOIN chain p ON c.child_run_id=p.parent_run_id WHERE p.depth<5)
-            SELECT COALESCE(MAX(depth),0)::integer AS depth FROM chain`, [runId])).rows[0];
-          if ((ancestors?.depth ?? 0) >= 5) throw new RunError('branch_limit');
+            UNION ALL SELECT c.parent_run_id,p.depth+1 FROM agent_run_continuations c JOIN chain p ON c.child_run_id=p.parent_run_id WHERE p.depth<$2)
+            SELECT COALESCE(MAX(depth),0)::integer AS depth FROM chain`, [runId, RUN_LIMITS.continuationDepth])).rows[0];
+          if ((ancestors?.depth ?? 0) >= RUN_LIMITS.continuationDepth) throw new RunError('continuation_limit');
           const state = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1 FOR UPDATE', [runId])).rows[0]).state;
           const nextInput: CreateRun = { workspaceId: run.workspace_id, projectId: run.project_id, capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: change.goal ?? run.goal, locale: run.locale, inputRefs: run.input_refs };
           const continuation = capability.continue(nextInput, state, change);
@@ -159,7 +184,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
             await emitEvent(tx, runId, { kind: 'run_state', failure: 'cancelled' });
           }
           await tx.query('INSERT INTO agent_run_continuations(workspace_id,parent_run_id,child_run_id,created_by,request_key_hash,input_hash,reason) VALUES($1,$2,$3,$4,$5,$6,$7)', [run.workspace_id, runId, child.id, principal.userId, keyHash, inputHash, change.goal !== undefined || change.plan !== undefined ? 'goal-change' : expired ? 'deadline' : 'follow-up']);
-          return snapshot(tx, await loadRun(tx, child.id));
+          return projectSnapshot(tx, await loadRun(tx, child.id));
         }
       }
       if (kind === 'cancel') {
@@ -174,11 +199,13 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
         if (change.answers !== undefined || (registry.capability(run.capability_id, run.capability_version).continue && run.state === 'waiting_input' && run.failure_code === null)) {
           const capability = registry.capability(run.capability_id, run.capability_version);
           if (!capability.continue || run.state !== 'waiting_input' || run.failure_code !== null || change.stepId) throw new RunError('conflict');
-          const stored = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1 FOR UPDATE', [runId])).rows[0]);
+          const stored = required((await tx.query<{ state: JsonObject; revision: number }>('SELECT state,revision FROM agent_run_contexts WHERE run_id=$1 FOR UPDATE', [runId])).rows[0]);
           const next = capability.continue({ workspaceId: run.workspace_id, projectId: run.project_id, capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale, inputRefs: run.input_refs }, stored.state, change);
           await tx.query("UPDATE agent_run_steps SET state='skipped',retryable=false,finished_at=now() WHERE run_id=$1 AND state='planned'", [runId]);
           await appendSteps(tx, runId, run.step_count, next.steps);
-          await tx.query('UPDATE agent_run_contexts SET state=$2,revision=revision+1,updated_at=now() WHERE run_id=$1', [runId, boundedObject(next.context)]);
+          const nextContext = boundedObject(next.context);
+          await tx.query('UPDATE agent_run_contexts SET state=$2,revision=revision+1,updated_at=now() WHERE run_id=$1', [runId, nextContext]);
+          await emitProjectionChange(tx, runId, capability, stored.state, nextContext, stored.revision + 1);
         } else {
         const stepId = 'stepId' in input ? input.stepId : undefined;
         const retried = await tx.query("UPDATE agent_run_steps SET state='planned',retryable=false,failure_code=NULL,finished_at=NULL WHERE run_id=$1 AND state='failed' AND retryable=true AND ($2::uuid IS NULL OR id=$2)", [runId, stepId ?? null]);
@@ -193,7 +220,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
       const changed = await loadRun(tx, runId);
       await tx.query('INSERT INTO agent_run_operations(run_id,actor_id,key_hash,input_hash,kind,result_epoch) VALUES($1,$2,$3,$4,$5,$6)', [runId, principal.userId, keyHash, inputHash, kind, changed.execution_epoch]);
       await emitEvent(tx, runId, { kind: 'run_state', ...(kind === 'cancel' ? { failure: 'cancelled' as const } : {}) });
-      return snapshot(tx, await loadRun(tx, runId));
+      return projectSnapshot(tx, await loadRun(tx, runId));
     });
   }
   async function claim(): Promise<Claim | null> {
@@ -309,6 +336,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
           const state = boundedObject(result.context);
           const refs = z.array(RunResultRefSchema).max(40).parse(result.resultRefs ?? []);
           await tx.query('UPDATE agent_run_contexts SET state=$2,revision=revision+1,updated_at=now() WHERE run_id=$1', [run.id, state]);
+          await emitProjectionChange(tx, run.id, registry.capability(run.capability_id, run.capability_version), current.state, state, current.revision + 1);
           await tx.query('INSERT INTO agent_tool_receipts(run_id,step_id,tool_call_id,input_hash,output_hash,result_refs) VALUES($1,$2,$3,$4,$5,$6)', [run.id, step.id, key, input.inputHash, hash({ state, refs }), JSON.stringify(refs)]);
           await emitEvent(tx, run.id, { kind: 'result', stepId: step.id, resultRefs: refs });
           return { replay: false, context: state, revision: current.revision + 1, resultRefs: refs };
@@ -341,6 +369,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
         const nextContext = boundedObject(outcome.context ?? context.state);
         await appendSteps(tx, run.id, locked.step_count, outcome.nextSteps ?? []);
         await tx.query('UPDATE agent_run_contexts SET state=$2,revision=revision+1,updated_at=now() WHERE run_id=$1', [run.id, nextContext]);
+        await emitProjectionChange(tx, run.id, registry.capability(run.capability_id, run.capability_version), context.state, nextContext, current.revision + 1);
         await tx.query('INSERT INTO agent_tool_receipts(run_id,step_id,tool_call_id,input_hash,output_hash,result_refs) VALUES($1,$2,$3,$4,$5,$6)', [run.id, step.id, callId, inputHash, hash(output), JSON.stringify(refs)]);
         await tx.query("UPDATE agent_run_steps SET state='succeeded',result_refs=$2,finished_at=now(),retryable=false WHERE id=$1", [step.id, JSON.stringify(refs)]);
         if (outcome.state === 'completed' || outcome.state === 'review_ready') {

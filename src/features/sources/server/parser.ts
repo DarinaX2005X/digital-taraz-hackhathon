@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { parse } from 'csv-parse';
 import sharp from 'sharp';
 import type { SourceChunk, SourceFormat, SourceFragment, SourceManifest, SourceOptions } from '../../../contracts/sources';
@@ -8,6 +9,10 @@ import { sourceHash } from './storage';
 import { inspectSourceFont } from './font';
 
 export const SOURCE_MEDIA: Record<SourceFormat, string> = { text: 'text/plain', csv: 'text/csv', tsv: 'text/tab-separated-values', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', pdf: 'application/pdf', png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp', ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff' };
+export const SOURCE_CHUNK_FRAGMENT_LIMIT = 250;
+export const SOURCE_CHUNK_TARGET_BYTES = 256 * 1024;
+const SOURCE_SINGLE_FRAGMENT_LIMIT = 2 * 1024 * 1024;
+const SOURCE_DECODE_WINDOW = 64 * 1024;
 const bad = (key: string) => new IdentityError('VALIDATION_FAILED', `sources.errors.${key}`);
 
 export function validateSourceMagic(bytes: Buffer, format: SourceFormat) {
@@ -24,39 +29,125 @@ export function validateSourceMagic(bytes: Buffer, format: SourceFormat) {
 function decode(bytes: Buffer, encoding: SourceOptions['encoding']): string {
   try { return new TextDecoder(encoding, { fatal: true }).decode(bytes); } catch { throw bad('encoding'); }
 }
-export interface SourceExtraction { manifest: SourceManifest; snapshotHash: string; chunks: SourceChunk[]; pages: { page: number; state: 'ready' | 'pending' | 'needs-review' | 'failed' }[] }
-export function buildExtraction(format: SourceFormat, byteHash: string, options: SourceOptions, fragments: SourceFragment[], sheets: string[], diagnostics: string[], pages: SourceExtraction['pages']): SourceExtraction {
+
+async function* decodedParts(bytes: Buffer, encoding: SourceOptions['encoding']) {
+  const decoder = new TextDecoder(encoding, { fatal: true });
+  try {
+    for (let offset = 0; offset < bytes.length; offset += SOURCE_DECODE_WINDOW) {
+      const value = decoder.decode(bytes.subarray(offset, offset + SOURCE_DECODE_WINDOW), { stream: offset + SOURCE_DECODE_WINDOW < bytes.length });
+      if (value) yield value;
+    }
+    const tail = decoder.decode();
+    if (tail) yield tail;
+  } catch { throw bad('encoding'); }
+}
+
+function detectedDelimiter(bytes: Buffer, format: 'csv' | 'tsv', options: SourceOptions) {
+  if (options.delimiter) return options.delimiter;
+  if (format === 'tsv') return '\t';
+  let preview: string;
+  try {
+    const end = Math.min(bytes.length, SOURCE_DECODE_WINDOW);
+    preview = new TextDecoder(options.encoding, { fatal: true }).decode(bytes.subarray(0, end), { stream: end < bytes.length });
+  } catch { throw bad('encoding'); }
+  preview = preview.split(/\r?\n/, 1)[0]!;
+  return preview.split(';').length > preview.split(',').length ? ';' : ',';
+}
+
+export interface SourceChunkEmission { ordinal: number; hash: string; content: SourceChunk }
+export type SourceChunkSink = (chunk: SourceChunkEmission) => void | Promise<void>;
+export interface SourceExtractionStats { emittedChunks: number; peakBufferedFragments: number }
+export interface SourceExtractionSummary {
+  manifest: SourceManifest; snapshotHash: string;
+  pages: { page: number; state: 'ready' | 'pending' | 'needs-review' | 'failed' }[];
+  stats: SourceExtractionStats;
+}
+export interface SourceExtraction extends SourceExtractionSummary { chunks: SourceChunk[] }
+class ChunkSinkError extends Error { constructor(readonly failure: unknown) { super('SOURCE_CHUNK_SINK_FAILED'); } }
+
+class ChunkEmitter {
+  private fragments: SourceFragment[] = [];
+  private bytes = 0;
+  readonly hashes: string[] = [];
+  fragmentCount = 0;
+  rowCount = 0;
+  peakBufferedFragments = 0;
+  constructor(private readonly sink: SourceChunkSink) {}
+  async add(fragment: SourceFragment) {
+    const length = Buffer.byteLength(JSON.stringify(fragment));
+    if (length > SOURCE_SINGLE_FRAGMENT_LIMIT) throw bad('tooLarge');
+    if (this.fragments.length && (this.fragments.length >= SOURCE_CHUNK_FRAGMENT_LIMIT || this.bytes + length > SOURCE_CHUNK_TARGET_BYTES)) await this.flush();
+    this.fragments.push(fragment); this.bytes += length; this.fragmentCount += 1;
+    if (fragment.row !== undefined) this.rowCount += 1;
+    this.peakBufferedFragments = Math.max(this.peakBufferedFragments, this.fragments.length);
+  }
+  async finish() {
+    await this.flush();
+    return { emittedChunks: this.hashes.length, peakBufferedFragments: this.peakBufferedFragments };
+  }
+  private async flush() {
+    if (!this.fragments.length) return;
+    const content = { fragments: this.fragments }, hash = sourceHash(JSON.stringify(content)), ordinal = this.hashes.length;
+    try { await this.sink({ ordinal, hash, content }); } catch (error) { throw new ChunkSinkError(error); }
+    this.hashes.push(hash); this.fragments = []; this.bytes = 0;
+  }
+}
+
+function manifest(format: SourceFormat, byteHash: string, options: SourceOptions, emitter: ChunkEmitter, sheets: string[], diagnostics: string[], pages: SourceExtractionSummary['pages']) {
+  const value = SourceManifestSchema.parse({
+    parserVersion: 'tirlik-source-1', policyVersion: 'bounded-1', format, byteHash, options,
+    chunkHashes: emitter.hashes, fragmentCount: emitter.fragmentCount, rowCount: emitter.rowCount, pageCount: pages.length,
+    sheets, diagnostics, complete: pages.every((page) => page.state === 'ready' || page.state === 'needs-review'),
+  });
+  return { manifest: value, snapshotHash: sourceHash(JSON.stringify(value)) };
+}
+
+function materializedChunks(fragments: SourceFragment[]) {
   const chunks: SourceChunk[] = []; let batch: SourceFragment[] = [], bytes = 0;
   for (const fragment of fragments) {
     const length = Buffer.byteLength(JSON.stringify(fragment));
-    if (batch.length && (batch.length >= 250 || bytes + length > 256 * 1024)) { chunks.push({ fragments: batch }); batch = []; bytes = 0; }
+    if (length > SOURCE_SINGLE_FRAGMENT_LIMIT) throw bad('tooLarge');
+    if (batch.length && (batch.length >= SOURCE_CHUNK_FRAGMENT_LIMIT || bytes + length > SOURCE_CHUNK_TARGET_BYTES)) { chunks.push({ fragments: batch }); batch = []; bytes = 0; }
     batch.push(fragment); bytes += length;
   }
   if (batch.length) chunks.push({ fragments: batch });
-  const manifest = SourceManifestSchema.parse({ parserVersion: 'tirlik-source-1', policyVersion: 'bounded-1', format, byteHash, options, chunkHashes: chunks.map((chunk) => sourceHash(JSON.stringify(chunk))), fragmentCount: fragments.length, rowCount: fragments.filter((fragment) => fragment.row !== undefined).length, pageCount: pages.length, sheets, diagnostics, complete: pages.every((page) => page.state === 'ready' || page.state === 'needs-review') });
-  return { manifest, snapshotHash: sourceHash(JSON.stringify(manifest)), chunks, pages };
+  return chunks;
 }
 
-export async function extractSource(bytes: Buffer, format: SourceFormat, options: SourceOptions): Promise<SourceExtraction> {
+/** Used when a derived OCR manifest is rebuilt from already bounded persisted chunks. */
+export function buildExtraction(format: SourceFormat, byteHash: string, options: SourceOptions, fragments: SourceFragment[], sheets: string[], diagnostics: string[], pages: SourceExtraction['pages']): SourceExtraction {
+  const chunks = materializedChunks(fragments), chunkHashes = chunks.map((chunk) => sourceHash(JSON.stringify(chunk)));
+  const value = SourceManifestSchema.parse({ parserVersion: 'tirlik-source-1', policyVersion: 'bounded-1', format, byteHash, options, chunkHashes, fragmentCount: fragments.length, rowCount: fragments.filter((fragment) => fragment.row !== undefined).length, pageCount: pages.length, sheets, diagnostics, complete: pages.every((page) => page.state === 'ready' || page.state === 'needs-review') });
+  return { manifest: value, snapshotHash: sourceHash(JSON.stringify(value)), chunks, pages, stats: { emittedChunks: chunks.length, peakBufferedFragments: Math.min(fragments.length, SOURCE_CHUNK_FRAGMENT_LIMIT) } };
+}
+
+async function streamDelimited(bytes: Buffer, format: 'csv' | 'tsv', options: SourceOptions, emitter: ChunkEmitter, diagnostics: string[]) {
+  const parser = Readable.from(decodedParts(bytes, options.encoding)).pipe(parse({ delimiter: detectedDelimiter(bytes, format, options), bom: true, relax_column_count: true, skip_empty_lines: false, max_record_size: 1024 * 1024 }));
+  const widths = new Set<number>(); let row = 0;
+  try {
+    for await (const record of parser) {
+      if (++row > 100001) { parser.destroy(); throw bad('rowLimit'); }
+      const values = record as string[];
+      if (values.length > 100) { parser.destroy(); throw bad('columnLimit'); }
+      if (values.some((cell) => cell.length > 64000)) { parser.destroy(); throw bad('tooLarge'); }
+      widths.add(values.length);
+      await emitter.add({ id: `row:${row}`, row, values, review: 'observed' });
+    }
+  } catch (error) { if (error instanceof ChunkSinkError) throw error.failure; if (error instanceof IdentityError) throw error; throw bad('csv'); }
+  if (widths.size > 1) diagnostics.push('uneven-rows');
+}
+
+/**
+ * Production ingestion supplies a durable sink. CSV/TSV rows are decoded,
+ * parsed and backpressured one bounded chunk at a time; the returned summary
+ * contains only hashes/counts, never all rows or chunks.
+ */
+export async function extractSourceToSink(bytes: Buffer, format: SourceFormat, options: SourceOptions, sink: SourceChunkSink): Promise<SourceExtractionSummary> {
   validateSourceMagic(bytes, format);
-  const byteHash = sourceHash(bytes);
-  let fragments: SourceFragment[] = [], sheets: string[] = [], diagnostics: string[] = [], pages: SourceExtraction['pages'] = [];
+  const byteHash = sourceHash(bytes), emitter = new ChunkEmitter(sink);
+  let fragments: SourceFragment[] = [], sheets: string[] = [], diagnostics: string[] = [], pages: SourceExtractionSummary['pages'] = [];
   if (format === 'csv' || format === 'tsv') {
-    const value = decode(bytes, options.encoding);
-    const delimiter = options.delimiter ?? (format === 'tsv' ? '\t' : value.split(/\r?\n/, 1)[0]!.split(';').length > value.split(/\r?\n/, 1)[0]!.split(',').length ? ';' : ',');
-    const parser = parse(value, { delimiter, bom: true, relax_column_count: true, skip_empty_lines: false, max_record_size: 1024 * 1024 });
-    let row = 0;
-    try {
-      for await (const record of parser) {
-        if (++row > 100001) { parser.destroy(); throw bad('rowLimit'); }
-        const values = record as string[];
-        if (values.length > 100) { parser.destroy(); throw bad('columnLimit'); }
-        if (values.some((cell) => cell.length > 64000)) { parser.destroy(); throw bad('tooLarge'); }
-        fragments.push({ id: `row:${row}`, row, values, review: 'observed' });
-      }
-    } catch (error) { if (error instanceof IdentityError) throw error; throw bad('csv'); }
-    const widths = new Set(fragments.map((fragment) => fragment.values!.length));
-    if (widths.size > 1) diagnostics.push('uneven-rows');
+    await streamDelimited(bytes, format, options, emitter, diagnostics);
   } else if (format === 'text') {
     const text = decode(bytes, options.encoding);
     for (let offset = 0; offset < text.length; offset += 8000) fragments.push({ id: `text:${offset}`, text: text.slice(offset, offset + 8000), review: 'observed' });
@@ -91,6 +182,15 @@ export async function extractSource(bytes: Buffer, format: SourceFormat, options
     } catch (error) { if (error instanceof IdentityError) throw error; throw bad('image'); }
     if (options.purpose !== 'visual') { pages = [{ page: 1, state: 'pending' }]; diagnostics.push('vision-required'); }
   }
-  if (!fragments.length && pages.every((page) => page.state === 'ready') && !(options.purpose === 'visual' && ['png', 'jpeg', 'webp'].includes(format))) diagnostics.push('empty-content');
-  return buildExtraction(format, byteHash, options, fragments, sheets, diagnostics, pages);
+  for (const fragment of fragments) await emitter.add(fragment);
+  const stats = await emitter.finish();
+  if (!emitter.fragmentCount && pages.every((page) => page.state === 'ready') && !(options.purpose === 'visual' && ['png', 'jpeg', 'webp'].includes(format))) diagnostics.push('empty-content');
+  return { ...manifest(format, byteHash, options, emitter, sheets, diagnostics, pages), pages, stats };
+}
+
+/** Compatibility materializer for bounded unit/domain callers. Production upload uses extractSourceToSink. */
+export async function extractSource(bytes: Buffer, format: SourceFormat, options: SourceOptions): Promise<SourceExtraction> {
+  const chunks: SourceChunk[] = [];
+  const extracted = await extractSourceToSink(bytes, format, options, ({ ordinal, content }) => { chunks[ordinal] = content; });
+  return { ...extracted, chunks };
 }

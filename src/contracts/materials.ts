@@ -84,10 +84,68 @@ export const DatasetQuerySchema = z.strictObject({
   filters: z.array(DatasetFilterSchema).max(10).default([]), query: z.string().trim().max(120).default(''),
   after: z.string().max(2048).optional(), limit: z.number().int().min(1).max(50).default(50), includeMissing: z.boolean().default(false),
 });
+export type DatasetExpression =
+  | { type: 'predicate'; predicate: z.infer<typeof DatasetFilterSchema> }
+  | { type: 'group'; operator: 'and' | 'or'; children: DatasetExpression[] }
+  | { type: 'not'; child: DatasetExpression };
+export const DatasetExpressionSchema: z.ZodType<DatasetExpression> = z.lazy(() => z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('predicate'), predicate: DatasetFilterSchema }),
+  z.strictObject({ type: z.literal('group'), operator: z.enum(['and', 'or']), children: z.array(DatasetExpressionSchema).min(1).max(10) }),
+  z.strictObject({ type: z.literal('not'), child: DatasetExpressionSchema }),
+]));
+function expressionSize(expression: DatasetExpression, depth = 1): { depth: number; predicates: number } {
+  if (expression.type === 'predicate') return { depth, predicates: 1 };
+  if (expression.type === 'not') return expressionSize(expression.child, depth + 1);
+  return expression.children.reduce((result, child) => {
+    const next = expressionSize(child, depth + 1);
+    return { depth: Math.max(result.depth, next.depth), predicates: result.predicates + next.predicates };
+  }, { depth, predicates: 0 });
+}
+const DatasetBrowseQueryBaseSchema = DatasetQuerySchema.extend({ where: DatasetExpressionSchema.optional() });
+function validateExpression(value: { where?: DatasetExpression }, context: z.RefinementCtx) {
+  if (!value.where) return;
+  const size = expressionSize(value.where);
+  if (size.depth > 4 || size.predicates > 20) context.addIssue({ code: 'custom', message: 'The query expression is too complex.' });
+}
+export const DatasetBrowseQuerySchema = DatasetBrowseQueryBaseSchema.superRefine(validateExpression);
 export const DatasetRecordSchema = z.strictObject({ recordId: IdSchema, label: z.string(), missing: z.boolean(), revision: RevisionSchema, cells: z.record(ElementIdSchema, MaterialCellSchema) });
 export const DatasetPageSchema = z.strictObject({ viewer: MaterialViewerSchema, collection: CollectionSchema, revision: RevisionSchema, records: z.array(DatasetRecordSchema).max(50), nextCursor: z.string().nullable(), total: z.number().int().nonnegative() });
-export const DatasetAggregateInputSchema = DatasetQuerySchema.omit({ after: true, limit: true, fieldIds: true, includeMissing: true }).extend({ fieldId: ElementIdSchema, operation: z.enum(['count', 'sum', 'min', 'max', 'average']) });
-export const DatasetAggregateSchema = z.strictObject({ revision: RevisionSchema, fieldId: ElementIdSchema, operation: z.enum(['count', 'sum', 'min', 'max', 'average']), value: z.string().nullable(), currency: z.string().optional(), unit: z.string().optional(), coverage: z.strictObject({ total: z.number().int().nonnegative(), included: z.number().int().nonnegative(), excluded: z.number().int().nonnegative(), unknown: z.number().int().nonnegative() }) });
+export const DatasetCoverageSchema = z.strictObject({
+  total: z.number().int().nonnegative(), included: z.number().int().nonnegative(), excluded: z.number().int().nonnegative(),
+  missing: z.number().int().nonnegative(), unknown: z.number().int().nonnegative(), needsReview: z.number().int().nonnegative(),
+});
+export const DatasetAggregateInputSchema = DatasetBrowseQueryBaseSchema.omit({ after: true, limit: true, fieldIds: true, includeMissing: true }).extend({ fieldId: ElementIdSchema, operation: z.enum(['count', 'sum', 'min', 'max', 'average']) }).superRefine(validateExpression);
+export const DatasetAggregateSchema = z.strictObject({ revision: RevisionSchema, fieldId: ElementIdSchema, operation: z.enum(['count', 'sum', 'min', 'max', 'average']), value: z.string().nullable(), currency: z.string().optional(), unit: z.string().optional(), coverage: DatasetCoverageSchema, sourceRefs: z.array(SourceRefSchema).max(1000) });
+export const DatasetFacetInputSchema = DatasetBrowseQueryBaseSchema.omit({ after: true, limit: true, fieldIds: true, includeMissing: true }).extend({
+  fieldId: ElementIdSchema, after: z.string().max(2048).optional(), limit: z.number().int().min(1).max(50).default(20),
+}).superRefine(validateExpression);
+export const DatasetFacetValueSchema = z.strictObject({ key: z.string().max(16000), value: MaterialValueSchema.nullable(), count: z.number().int().nonnegative() });
+export const DatasetFacetSchema = z.strictObject({ revision: RevisionSchema, fieldId: ElementIdSchema, values: z.array(DatasetFacetValueSchema).max(50), nextCursor: z.string().nullable(), coverage: DatasetCoverageSchema });
+export const DatasetMeasureSchema = z.strictObject({ id: ElementIdSchema, fieldId: ElementIdSchema, operation: z.enum(['count', 'sum', 'min', 'max', 'average']) });
+export const DatasetGroupInputSchema = DatasetBrowseQueryBaseSchema.omit({ after: true, limit: true, fieldIds: true, includeMissing: true }).extend({
+  dimensions: z.array(ElementIdSchema).max(3).default([]), measures: z.array(DatasetMeasureSchema).min(1).max(10),
+  after: z.string().max(2048).optional(), limit: z.number().int().min(1).max(50).default(50),
+}).superRefine((value, context) => {
+  validateExpression(value, context);
+  if (new Set(value.dimensions).size !== value.dimensions.length || new Set(value.measures.map((measure) => measure.id)).size !== value.measures.length) context.addIssue({ code: 'custom', message: 'Grouped query identifiers must be unique.' });
+});
+export const DatasetGroupRowSchema = z.strictObject({
+  key: z.string().max(2048), dimensions: z.record(ElementIdSchema, MaterialValueSchema.nullable()),
+  measures: z.record(ElementIdSchema, z.strictObject({ value: z.string().nullable(), coverage: DatasetCoverageSchema })),
+});
+export const DatasetGroupPageSchema = z.strictObject({ viewer: MaterialViewerSchema, collection: CollectionSchema, revision: RevisionSchema, rows: z.array(DatasetGroupRowSchema).max(50), nextCursor: z.string().nullable(), totalGroups: z.number().int().nonnegative(), sourceRefs: z.array(SourceRefSchema).max(1000) });
+export const MaterialDecisionContextInputSchema = DatasetBrowseQueryBaseSchema.omit({ after: true, limit: true, includeMissing: true }).extend({
+  sampleLimit: z.number().int().min(1).max(20).default(12), measures: z.array(DatasetMeasureSchema).min(1).max(10),
+  grouping: z.strictObject({ dimensions: z.array(ElementIdSchema).max(3).default([]), limit: z.number().int().min(1).max(20).default(10) }).optional(),
+}).superRefine(validateExpression);
+export const MaterialDecisionAggregateSchema = DatasetAggregateSchema.omit({ sourceRefs: true }).extend({ measureId: ElementIdSchema });
+export const MaterialDecisionGroupPageSchema = DatasetGroupPageSchema.omit({ sourceRefs: true });
+export const MaterialDecisionContextSchema = z.strictObject({
+  viewer: MaterialViewerSchema, collection: CollectionSchema, revision: RevisionSchema,
+  schema: z.array(MaterialFieldSchema).max(100), matchedRecords: z.number().int().nonnegative(), truncated: z.boolean(),
+  sample: z.array(DatasetRecordSchema).max(20), aggregates: z.array(MaterialDecisionAggregateSchema).max(10), grouped: MaterialDecisionGroupPageSchema.optional(),
+  evidenceRefs: z.array(SourceRefSchema).max(200), evidenceTruncated: z.boolean(),
+});
 export const FactReadSchema = z.strictObject({ workspaceId: IdSchema, refs: z.array(SourceRefSchema).min(1).max(100) });
 export const BoundFactSchema = z.strictObject({
   requestedRef: SourceRefSchema, state: z.enum(['current', 'stale', 'missing', 'unknown']),
@@ -117,5 +175,10 @@ export type MaterialImport = z.infer<typeof MaterialImportSchema>;
 export type ImportCounts = z.infer<typeof ImportCountsSchema>;
 export type ImportRow = z.infer<typeof ImportRowSchema>;
 export type DatasetQuery = z.infer<typeof DatasetQuerySchema>;
+export type DatasetBrowseQuery = z.infer<typeof DatasetBrowseQuerySchema>;
 export type DatasetRecord = z.infer<typeof DatasetRecordSchema>;
+export type DatasetCoverage = z.infer<typeof DatasetCoverageSchema>;
+export type DatasetFacet = z.infer<typeof DatasetFacetSchema>;
+export type DatasetGroupPage = z.infer<typeof DatasetGroupPageSchema>;
+export type MaterialDecisionContext = z.infer<typeof MaterialDecisionContextSchema>;
 export type BoundFact = z.infer<typeof BoundFactSchema>;

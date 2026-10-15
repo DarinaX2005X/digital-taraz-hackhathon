@@ -79,6 +79,17 @@ describe('identity navigation and input boundaries', () => {
     }
     expect(authReturnTo(`${route}?resume=1`, 'a'.repeat(64))).toBe(`${route}?resume=1&intent=${'a'.repeat(64)}`);
   });
+  it('preserves one selected assistant session for an exact project or artifact route', () => {
+    const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
+    const run = '252973d6-2600-4aef-99e1-6c0a9a57c650';
+    for (const route of [`/app/projects/${id}`, `/app/projects/${id}/artifacts/${id}`]) {
+      expect(safeReturnTo(`${route}?run=${run}&goal=private`)).toBe(`${route}?run=${run}`);
+      expect(safeReturnTo(`${route}?run=${run}&run=${run}`)).toBe('/app');
+      expect(safeReturnTo(`${route}?run=invalid`)).toBe('/app');
+    }
+    expect(safeReturnTo(`/app/projects/invalid/artifacts/${id}?run=${run}`)).toBe(`/app/projects/invalid/artifacts/${id}`);
+    expect(safeReturnTo(`/app/work?run=${run}`)).toBe('/app/work');
+  });
   it('retains only supported opaque material library and saved import identifiers', () => {
     const id = '152973d6-2600-4aef-99e1-6c0a9a57c659';
     const libraryKeys = ['workspaceId', 'projectId', 'sourceId', 'sourceVersionId'];

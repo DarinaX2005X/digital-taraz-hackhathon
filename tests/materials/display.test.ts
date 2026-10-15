@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { moneyFilterScalar, valueText } from '../../src/features/materials/domain/display';
+import { materialFilterValue, moneyFilterScalar, valueText } from '../../src/features/materials/domain/display';
 
 describe('exact values displayed and searched in the materials table', () => {
   it('displays large prices without passing through a floating point number', () => {
@@ -15,5 +15,10 @@ describe('exact values displayed and searched in the materials table', () => {
     expect(moneyFilterScalar('12.345','KZT')).toBeNull();
     expect(moneyFilterScalar('12.5','JPY')).toBeNull();
     expect(moneyFilterScalar('1e3','KZT')).toBeNull();
+  });
+  it('turns typed facet values into reusable filter input without changing units', () => {
+    expect(materialFilterValue({ kind:'money', minorUnits:'12345', currency:'KZT' })).toBe('123.45');
+    expect(materialFilterValue({ kind:'quantity', decimal:'2.5', unit:'kg' })).toBe('2.5');
+    expect(materialFilterValue({ kind:'unknown', reason:'empty' })).toBeNull();
   });
 });

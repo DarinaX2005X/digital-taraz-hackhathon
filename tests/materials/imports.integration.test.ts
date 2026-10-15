@@ -32,18 +32,20 @@ async function fixture() {
   const collections = createCollectionService(pool), imports = createImportService(pool), datasets = createDatasetService(pool);
   const created = await collections.create(f.owner, randomUUID(), { workspaceId: f.workspaceId, projectId: f.projectId, title: 'Прайс мастерской', kind: 'prices', expectedAuthzVersion: 1 });
   const base = (revision: number) => ({ workspaceId: f.workspaceId, expectedAuthzVersion: 1, expectedRevision: revision });
-  async function prepare(text: string, revision: number) {
+  async function start(text: string, revision: number, importMapping = mapping) {
     const bytes = new TextEncoder().encode(text);
     const initialized = await sources.init(f.owner, randomUUID(), InitSourceUploadSchema.parse({ workspaceId: f.workspaceId, projectId: f.projectId, title: 'Свой прайс', fileName: 'prices.csv', format: 'csv', size: bytes.length }));
     await sources.put(f.owner, f.workspaceId, initialized.upload.id, initialized.token!, new Blob([bytes]).stream());
     const ready = await sources.finalize(f.owner, f.workspaceId, initialized.upload.id);
-    const started = await imports.begin(f.owner, randomUUID(), { ...base(revision), collectionId: created.collection.id, sourceId: initialized.upload.sourceId, sourceVersionId: ready.upload.versionId, mapping });
-    let item = started.import;
+    return (await imports.begin(f.owner, randomUUID(), { ...base(revision), collectionId: created.collection.id, sourceId: initialized.upload.sourceId, sourceVersionId: ready.upload.versionId, mapping: importMapping })).import;
+  }
+  async function prepare(text: string, revision: number, importMapping = mapping) {
+    let item = await start(text, revision, importMapping);
     while (item.status === 'preparing') item = (await imports.advance(f.owner, item.id, base(revision))).import;
     expect(item.status).toBe('preview');
     return item;
   }
-  return { ...f, collections, imports, datasets, collectionId: created.collection.id, base, prepare };
+  return { ...f, collections, imports, datasets, collectionId: created.collection.id, base, start, prepare };
 }
 
 describe('material import identity and review persistence', () => {
@@ -151,4 +153,98 @@ describe('material import identity and review persistence', () => {
     expect(preview.rows).toEqual(original.rows);
     expect(preview.import.reviewRevision).toBe(2);
   });
+
+  it('queries nested filters, exact coverage, facets, grouped results and bounded AI decision context', async () => {
+    const f = await fixture(), item = await f.prepare('SKU,price\nA,100\nB,200\nC,\n', 0);
+    await f.imports.apply(f.owner, randomUUID(), item.id, { ...f.base(0), expectedReviewRevision: 0, allowPartial: true });
+    const where = { type: 'group' as const, operator: 'or' as const, children: [
+      { type: 'predicate' as const, predicate: { fieldId: 'sku', op: 'eq' as const, value: 'A' } },
+      { type: 'predicate' as const, predicate: { fieldId: 'price', op: 'unknown' as const } },
+    ] };
+    const filtered = await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, where });
+    expect(filtered.total).toBe(2);
+    expect(new Set(filtered.records.map((record) => record.cells.sku!.rawValue))).toEqual(new Set(['A', 'C']));
+    const aggregate = await f.datasets.aggregate(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, fieldId: 'price', operation: 'sum' });
+    expect(aggregate).toMatchObject({ value: '30000', coverage: { total: 3, included: 2, excluded: 1, missing: 0, unknown: 1, needsReview: 0 } });
+    const firstFacet = await f.datasets.facet(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, fieldId: 'sku', limit: 2 });
+    expect(firstFacet.values).toHaveLength(2); expect(firstFacet.nextCursor).not.toBeNull();
+    const secondFacet = await f.datasets.facet(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, fieldId: 'sku', limit: 2, after: firstFacet.nextCursor });
+    expect(secondFacet.values).toHaveLength(1);
+    const measures = [{ id: 'price_total', fieldId: 'price', operation: 'sum' as const }];
+    const firstGroups = await f.datasets.group(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, dimensions: ['sku'], measures, limit: 2 });
+    expect(firstGroups.totalGroups).toBe(3); expect(firstGroups.rows).toHaveLength(2); expect(firstGroups.nextCursor).not.toBeNull();
+    const secondGroups = await f.datasets.group(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, dimensions: ['sku'], measures, limit: 2, after: firstGroups.nextCursor });
+    expect(secondGroups.totalGroups).toBe(3); expect(secondGroups.rows).toHaveLength(1);
+    const context = await f.datasets.context(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, sampleLimit: 1, measures, grouping: { dimensions: [], limit: 1 } });
+    expect(context).toMatchObject({ revision: 1, matchedRecords: 3, truncated: true, aggregates: [{ measureId: 'price_total', value: '30000' }] });
+    expect(context.sample).toHaveLength(1); expect(context.grouped?.rows).toHaveLength(1); expect(context.evidenceRefs.length).toBeGreaterThan(0);
+  });
+
+  it('keeps identities through reorder and price changes and applies append, upsert and complete replace semantics', async () => {
+    const f = await fixture();
+    const first = await f.prepare('SKU,price\nA,100\nB,200\n', 0);
+    await f.imports.apply(f.owner, randomUUID(), first.id, { ...f.base(0), expectedReviewRevision: 0 });
+    const repeated = await f.start('SKU,price\nA,100\nB,200\n', 1);
+    expect(repeated).toMatchObject({ id: first.id, status: 'applied', appliedRevision: 1 });
+    const original = await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId });
+    const identities = new Map(original.records.map((record) => [record.cells.sku!.rawValue, record.recordId]));
+    const reordered = ImportMappingSchema.parse({ ...mapping, fields: mapping.fields.map((field) => ({ ...field, column: field.id === 'sku' ? 1 : 0 })), headers: ['price', 'SKU'] });
+    const second = await f.prepare('price,SKU\n200,B\n150,A\n', 1, reordered);
+    const preview = await f.imports.preview(f.owner, f.workspaceId, second.id);
+    expect(preview.import.counts).toMatchObject({ changed: 1, unchanged: 1, ambiguous: 0 });
+    await f.imports.apply(f.owner, randomUUID(), second.id, { ...f.base(1), expectedReviewRevision: 0 });
+    const afterReorder = await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId });
+    expect(afterReorder.records.find((record) => record.cells.sku!.rawValue === 'A')).toMatchObject({ recordId: identities.get('A'), cells: { price: { value: { minorUnits: '15000' } } } });
+    expect(afterReorder.records.find((record) => record.cells.sku!.rawValue === 'B')?.recordId).toBe(identities.get('B'));
+
+    const upsertOnlyA = await f.prepare('SKU,price\nA,150\n', 2);
+    await f.imports.apply(f.owner, randomUUID(), upsertOnlyA.id, { ...f.base(2), expectedReviewRevision: 0 });
+    expect((await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId })).records).toHaveLength(2);
+
+    const append = ImportMappingSchema.parse({ ...mapping, importMode: 'append' });
+    const appended = await f.prepare('SKU,price\nA,151\nC,300\n', 3, append);
+    const appendPreview = await f.imports.preview(f.owner, f.workspaceId, appended.id);
+    expect(appendPreview.import.counts).toMatchObject({ added: 1, ambiguous: 1 });
+    await expect(f.imports.apply(f.owner, randomUUID(), appended.id, { ...f.base(3), expectedReviewRevision: 0 })).rejects.toMatchObject({ messageKey: 'materials.errors.partial' });
+    const overlap = appendPreview.rows.find((row) => row.change === 'ambiguous')!;
+    const resolved = await f.imports.resolve(f.owner, randomUUID(), appended.id, { ...f.base(3), expectedReviewRevision: 0, changes: [{ ordinal: overlap.ordinal, exclude: true }] });
+    await f.imports.apply(f.owner, randomUUID(), appended.id, { ...f.base(3), expectedReviewRevision: resolved.import.reviewRevision, allowPartial: true });
+    expect((await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId })).records).toHaveLength(3);
+
+    const replace = ImportMappingSchema.parse({ ...mapping, importMode: 'replace-snapshot' });
+    const replacement = await f.prepare('SKU,price\nA,150\n', 4, replace);
+    expect((await f.imports.preview(f.owner, f.workspaceId, replacement.id)).import.counts.missing).toBe(2);
+    await f.imports.apply(f.owner, randomUUID(), replacement.id, { ...f.base(4), expectedReviewRevision: 0, confirmCompleteSnapshot: true });
+    const current = await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId });
+    expect(current.records).toHaveLength(1); expect(current.records[0]!.recordId).toBe(identities.get('A'));
+    expect((await f.datasets.query(f.owner, { workspaceId: f.workspaceId, collectionId: f.collectionId, revision: 4 })).records).toHaveLength(3);
+  });
+
+  it('advances a large source in bounded durable batches instead of loading the collection at once', async () => {
+    const f = await fixture();
+    const rows = Array.from({ length: 2501 }, (_, index) => `${String(index).padStart(6, '0')},${index + 1}`);
+    const started = await f.start(`SKU,price\n${rows.join('\n')}\n`, 0);
+    expect(started.chunkCount).toBeGreaterThan(4);
+    const first = (await f.imports.advance(f.owner, started.id, f.base(0))).import;
+    expect(first).toMatchObject({ status: 'preparing', nextChunk: 4 });
+    expect(first.counts.total).toBeLessThanOrEqual(2000);
+    let item = first;
+    while (item.status === 'preparing') item = (await f.imports.advance(f.owner, item.id, f.base(0))).import;
+    expect(item).toMatchObject({ status: 'preview', counts: { total: 2501, added: 2501 } });
+  });
+
+  it('pages 100000 records without a latest-100 fallback or full response materialization', async () => {
+    const f = await fixture(), item = await f.prepare('SKU,price\nseed,100\n', 0);
+    await f.imports.apply(f.owner, randomUUID(), item.id, { ...f.base(0), expectedReviewRevision: 0 });
+    await pool.query(`WITH template AS (SELECT cells FROM material_records WHERE collection_id=$1 LIMIT 1), generated AS (
+      SELECT gen_random_uuid() AS id,('scale-'||n)::text AS label,md5(('scale-'||n)::text) AS identity_hash FROM generate_series(1,99999) n
+    ) INSERT INTO material_records(id,collection_id,identity_hash,identity_key,current_revision,missing,label,cells,row_hash)
+      SELECT g.id,$1,g.identity_hash,g.label,1,false,g.label,jsonb_set(jsonb_set(template.cells,'{sku,sourceRef,recordId}',to_jsonb(g.id::text)),'{price,sourceRef,recordId}',to_jsonb(g.id::text)),md5(g.label)
+      FROM generated g CROSS JOIN template`,[f.collectionId]);
+    await pool.query('UPDATE material_collections SET record_count=100000 WHERE id=$1',[f.collectionId]);
+    const page = await f.datasets.query(f.owner,{workspaceId:f.workspaceId,collectionId:f.collectionId,limit:50});
+    expect(page).toMatchObject({total:100000,records:expect.any(Array)}); expect(page.records).toHaveLength(50); expect(page.nextCursor).not.toBeNull();
+    const next = await f.datasets.query(f.owner,{workspaceId:f.workspaceId,collectionId:f.collectionId,limit:50,after:page.nextCursor});
+    expect(next.records).toHaveLength(50); expect(new Set([...page.records,...next.records].map((record)=>record.recordId)).size).toBe(100);
+  },120000);
 });

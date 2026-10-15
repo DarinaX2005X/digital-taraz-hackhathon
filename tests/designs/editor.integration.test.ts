@@ -8,6 +8,8 @@ import { prepareHistoryOperation } from '@/features/artifacts/client/checked-his
 import { ArtifactHistoryActionSchema } from '@/features/artifacts/contracts';
 import type { DesignAction } from '@/features/designs/domain/actions';
 import { content } from './fixtures';
+import { withWorkspaceAccess } from '@/features/identity/server/access';
+import { createPendingSource, publishSourceVersion } from '@/features/sources/server/source-heads';
 
 let pool:Pool;beforeAll(()=>{pool=artifactTestPool();});afterAll(async()=>{await pool?.end();});
 describe('design editor durable service journey',()=>{
@@ -38,5 +40,19 @@ describe('design editor durable service journey',()=>{
     await fixture.service.apply(fixture.owner,request);
     await expect(fixture.service.apply(fixture.owner,{...request,group:{...request.group,commandGroupId:randomUUID(),commands:request.group.commands.map((command)=>({...command,commandId:randomUUID()}))}})).rejects.toMatchObject({code:'CONFLICT'});
     expect((await fixture.read(created.artifact.id)).artifact.currentRevision).toBe(1);
+  });
+  it('persists independent text/fill bindings and leaves them unoverridden after geometry-only edits',async()=>{
+    const fixture=await artifactFixture(pool),textRef={sourceId:randomUUID(),sourceVersionId:randomUUID(),revision:1},fillRef={sourceId:randomUUID(),sourceVersionId:randomUUID(),revision:1};
+    await withWorkspaceAccess(pool,fixture.owner,{workspaceId:fixture.workspaceId,projectId:fixture.projectId,scope:'edit'},async(tx,access)=>{for(const ref of [textRef,fillRef]){await createPendingSource(tx,access,{sourceId:ref.sourceId,projectId:fixture.projectId,accessClass:'internal'});await publishSourceVersion(tx,access,{sourceId:ref.sourceId,versionId:ref.sourceVersionId,expectedRevision:0,snapshotHash:(ref===textRef?'1':'2').repeat(64)});}});
+    const created=await fixture.service.create(fixture.owner,randomUUID(),{workspaceId:fixture.workspaceId,projectId:fixture.projectId,expectedAuthzVersion:1,title:'Bound design',content:content(),sourceRefs:[textRef,fillRef],bindings:[{targetElementId:'title',targetProperty:'text',sourceRef:textRef,transformId:'display-text',updateMode:'propose'},{targetElementId:'title',targetProperty:'fill',sourceRef:fillRef,transformId:'brand-color',updateMode:'propose'}]});
+    const apply=async(action:DesignAction)=>{const snapshot=await fixture.read(created.artifact.id),prepared=await prepareDesignAction(snapshot,action,'Edit property',{at:'2026-10-15T12:00:00.000Z'}),id=randomUUID();return fixture.service.apply(fixture.owner,{workspaceId:fixture.workspaceId,expectedAuthzVersion:1,group:{...prepared.command,commandGroupId:id,commands:prepared.command.commands.map((command)=>({...command,commandId:randomUUID()}))}});};
+    const initial=await fixture.read(created.artifact.id);if(initial.content.kind!=='design')throw new Error('design');const layer=initial.content.pages[0]!.layers[0]!;
+    await apply({type:'transform-layers',transforms:[{id:'title',transform:{...layer.transform,x:layer.transform.x+40,y:layer.transform.y+20}}]});
+    let reopened=await fixture.read(created.artifact.id);expect(reopened.artifact.bindings.every((binding)=>!binding.override)).toBe(true);
+    await apply({type:'update-layer',id:'title',patch:{text:'143 600 ₸'}});reopened=await fixture.read(created.artifact.id);
+    expect(reopened.artifact.bindings.find((binding)=>binding.targetProperty==='text')?.override?.reason).toBe('Edit property');
+    expect(reopened.artifact.bindings.find((binding)=>binding.targetProperty==='fill')?.override).toBeUndefined();
+    await apply({type:'unbind',id:'title',targetProperty:'text'});reopened=await fixture.read(created.artifact.id);
+    expect(reopened.artifact.bindings.map((binding)=>binding.targetProperty)).toEqual(['fill']);
   });
 });

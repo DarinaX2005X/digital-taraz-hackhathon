@@ -7,9 +7,16 @@
 .pageHeading, .sectionHeading, .actions, .filters, .meta { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .pageHeading { justify-content: space-between; margin-bottom: 28px; }
 .pageHeading h1 { margin: 0; font-size: 28px; line-height: 1.3; overflow-wrap: anywhere; }
+.workHeading { align-items: flex-start; }
+.workHeading > div:first-child { max-width: 840px; }
+.workHeading h1 { font-size: clamp(34px, 4vw, 52px); line-height: 1.08; }
+.workHeading p { max-width: 70ch; margin: 12px 0 0; color: var(--color-muted, #58625e); font-size: 17px; line-height: 1.6; }
 .sectionHeading { justify-content: space-between; margin-bottom: 16px; }
 .sectionHeading h2 { margin: 0; font-size: 20px; line-height: 1.4; }
 .filters { justify-content: space-between; gap: 16px; padding-bottom: 20px; }
+.workComposer { margin: 8px 0 36px; padding: 26px; border: 1px solid #bfd3ce; border-radius: 14px; background: linear-gradient(135deg, #edf7f4 0%, #f9fbfa 62%, #fff 100%); box-shadow: 0 1px 2px #20262410; }
+.workComposer form { max-width: 980px; }
+.composerActions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .filters > :last-child { width: min(100%, 340px); }
 .workspaceSelect { width: min(100%, 300px); }
 .projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 20px; list-style: none; padding: 0; margin: 0; }
@@ -48,6 +55,29 @@
 .editorRail { min-width: 0; }
 .editorRail a[aria-current="page"] { background: #e6f2f1; padding-inline: 10px; border-radius: 6px; }
 .editorMain { min-width: 0; }
+.sessionLayout { display: grid; grid-template-columns: minmax(360px, 410px) minmax(0, 1fr); gap: 18px; align-items: start; min-width: 0; }
+.sessionLayoutCollapsed { grid-template-columns: 72px minmax(0, 1fr); }
+.sessionAssistant, .sessionResult { min-width: 0; }
+.sessionResult { min-height: 580px; padding: 22px; border: 1px solid var(--color-divider, #d6ddda); border-radius: 12px; background: #fff; }
+.sessionResult > .sectionHeading { align-items: end; }
+.sessionResult > .sectionHeading h2 { margin-top: 3px; }
+.resultLabel { display: block; color: var(--color-action, #086a70); font-size: 12px; font-weight: 600; }
+.sessionSwitch { display: none; margin-bottom: 12px; padding: 4px; gap: 4px; width: fit-content; border: 1px solid var(--color-divider, #d6ddda); border-radius: 8px; background: #fff; }
+.sessionSwitch button { min-width: 124px; }
+.sessionResultList { margin-top: 12px; padding: 16px; border-top: 1px solid #d6ddda; background: #fff; }
+.sessionResultList h2 { font-size: 15px; line-height: 22px; margin-bottom: 8px; }
+.assistantEntry { padding-top: 6px; }
+.assistantEntry .taskComposer { margin-inline: -8px; padding: 16px; border-radius: 10px; }
+.resultCards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.resultCards li { min-width: 0; }
+.resultCards a { min-height: 92px; padding: 14px; border: 1px solid #d6ddda; border-radius: 8px; background: #fbfcfb; }
+.resultCards a > svg { align-self: flex-start; margin-top: 2px; }
+.kindChoices { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; }
+.kindChoices legend { margin-bottom: 8px; font-weight: 600; }
+.kindChoices label { min-height: 52px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #d6ddda; border-radius: 8px; background: #fff; cursor: pointer; }
+.kindChoices label:has(input:checked) { border-color: #086a70; background: #edf7f4; }
+.kindChoices label:has(input:focus-visible) { outline: 2px solid #086a70; outline-offset: 2px; }
+.kindChoices input { width: 18px; height: 18px; accent-color: #086a70; }
 .editorFailure { display: grid; justify-items: start; gap: 16px; padding: 32px; background: white; border-radius: 14px; }
 .editorFailure h2, .editorFailure p { margin: 0; }
 .mobileOnly { display: none; }
@@ -71,4 +101,10 @@
 @media (prefers-reduced-motion: reduce) { .project, .projectMark { transition: none; } .project a:hover .projectMark { transform: none; } }
 @media (min-width: 1800px) { .main { padding-inline: 48px; } .projects { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); } }
 @media (max-width: 1100px) { .projectLayout { grid-template-columns: minmax(0, 1fr) 260px; gap: 24px; } .editorLayout { grid-template-columns: 170px minmax(0, 1fr); gap: 16px; } }
-@media (max-width: 767px) { .main { padding: 20px 16px 36px; } .shell :global(.tl-product-header__inner) { padding-inline: 16px; } .navigation { order: 3; width: 100%; margin: 0; } .pageHeading { align-items: flex-start; margin-bottom: 20px; } .pageHeading h1 { font-size: 24px; } .projectLayout, .editorLayout { grid-template-columns: minmax(0, 1fr); } .aside { border-left: 0; border-top: 1px solid #d6ddda; padding: 24px 0 0; } .desktopOnly { display: none; } .mobileOnly { display: inline-flex; } .sheet { padding: 16px; } .actions { gap: 8px; } .filters > :last-child { width: 100%; } }
+@media (max-width: 1199px) {
+  .sessionSwitch { display: flex; }
+  .sessionLayout, .sessionLayoutCollapsed { grid-template-columns: minmax(0, 1fr); }
+  .sessionLayout[data-mobile-view='assistant'] > .sessionResult { display: none; }
+  .sessionLayout[data-mobile-view='result'] > .sessionAssistant { display: none; }
+}
+@media (max-width: 767px) { .main { padding: 20px 16px 36px; } .shell :global(.tl-product-header__inner) { padding-inline: 16px; } .navigation { order: 3; width: 100%; margin: 0; } .pageHeading { align-items: flex-start; margin-bottom: 20px; } .pageHeading h1 { font-size: 24px; } .workHeading h1 { font-size: 36px; } .workHeading p { font-size: 16px; } .workComposer { padding: 18px 16px; margin-bottom: 28px; } .composerActions > * { width: 100%; justify-content: center; } .projectLayout, .editorLayout { grid-template-columns: minmax(0, 1fr); } .aside { border-left: 0; border-top: 1px solid #d6ddda; padding: 24px 0 0; } .desktopOnly { display: none; } .mobileOnly { display: inline-flex; } .sheet { padding: 16px; } .actions { gap: 8px; } .filters > :last-child { width: 100%; } .sessionSwitch { width: 100%; } .sessionSwitch button { flex: 1; min-width: 0; } .sessionResult { min-height: 0; padding: 14px; } }

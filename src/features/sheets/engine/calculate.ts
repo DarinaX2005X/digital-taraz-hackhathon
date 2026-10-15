@@ -15,8 +15,8 @@ import { inspectFormula, type FormulaDiagnostic, type FormulaReference } from '.
 import { columnUnit, requireTable, type CellAddress, type TableContent } from '../domain/model';
 import { findFormulaCycles, formulaKey } from './cycles';
 import Decimal from 'decimal.js';
-import { recalculateEstimate } from '@/features/commercial/domain/calculation';
 import { stableCellId } from '../domain/model';
+import { recalculateExactWorkbook } from '../domain/calculation';
 
 export type CalculationResult = { content: TableContent; diagnostics: FormulaDiagnostic[]; formulaCount: number };
 
@@ -37,7 +37,7 @@ export function createDataEngine(content: TableContent) {
 export async function calculateWorkbook(input: TableContent, options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<CalculationResult> {
   const content = requireTable(structuredClone(input));
   const temporary = structuredClone(content);
-  const exact = recalculateEstimate(content);
+  const exact = recalculateExactWorkbook(content);
   const exactOutputs = new Map(Object.values(exact.results).filter((result) => result.state !== 'modified').flatMap((result) => Object.entries(result.values)));
   const diagnostics: FormulaDiagnostic[] = [];
   const formulas = new Map<string, { address: CellAddress; references: FormulaReference[] }>();
@@ -119,6 +119,6 @@ export async function calculateWorkbook(input: TableContent, options: { timeoutM
         }
       }
     }
-    return { content: recalculateEstimate(content).content, diagnostics, formulaCount };
+    return { content: recalculateExactWorkbook(content).content, diagnostics, formulaCount };
   } finally { univer.dispose(); }
 }

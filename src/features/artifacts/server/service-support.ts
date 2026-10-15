@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { ArtifactEnvelope, SourceRef } from '../../../contracts/artifacts';
+import type { BoundFact } from '../../../contracts/materials';
 import type { ConflictRef } from '../../../contracts/errors';
 import type { AccessScope } from '../../identity/contracts';
 import { hasScope } from '../../identity/domain/policy';
 import { assertAuthzVersion, lockProjectAccess, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError } from '../../identity/server/http';
 import { readSourceFreshness } from '../../sources/server/source-heads';
+import { readFactsInTransaction } from '../../materials/server/facts';
 import { ArtifactVersionSchema, type ArtifactPermissions, type ArtifactVersion, type ArtifactViewer } from '../contracts';
 import { hashJson } from '../domain/canonical';
 import { collectSourceRefs } from '../domain/content-state';
@@ -98,7 +100,7 @@ export async function loadState(tx: PoolClient, row: Pick<ArtifactRow, 'workspac
   const state = await store.graph.materialize(row.content_hash) as unknown as ArtifactState;
   return { store, state, draft: new ArtifactDraft(store.graph, row.content_hash) };
 }
-export const missingTargets = (state: ArtifactState) => [...new Set([...Object.keys(state.bindings), ...Object.keys(state.locks)])].filter((id) => !locateTarget(state.index, id));
+export const missingTargets = (state: ArtifactState) => [...new Set([...Object.values(state.bindings).map((binding) => binding.targetElementId), ...Object.keys(state.locks)])].filter((id) => !locateTarget(state.index, id));
 export async function loadVersion(tx: PoolClient, row: ArtifactRow, revision = row.current_revision): Promise<VersionRow> {
   const version = (await tx.query<VersionRow>('SELECT v.*,u.name AS author_name FROM artifact_versions v JOIN identity_users u ON u.id=v.author_id WHERE v.workspace_id=$1 AND v.artifact_id=$2 AND v.revision=$3', [row.workspace_id, row.id, revision])).rows[0];
   if (!version) throw notFound();
@@ -137,7 +139,14 @@ export async function assertSources(tx: PoolClient, access: WorkspaceAccess, ref
   if (Object.keys(expected).length !== actualIds.size || Object.keys(expected).some((id) => !actualIds.has(id))) throw new ArtifactConflict();
   for (const item of freshness) {
     if (item.sourceStatus === 'unknown' || item.currentRevision === undefined) throw new ArtifactConflict();
-    if (expected[item.sourceRef.sourceId] !== item.currentRevision || (requireCurrent && item.status !== 'current')) throw new ArtifactConflict([{ kind: 'source', objectId: item.sourceRef.sourceId, reason: 'source-changed', expectedRevision: expected[item.sourceRef.sourceId], currentRevision: item.currentRevision }]);
+    if (expected[item.sourceRef.sourceId] !== item.currentRevision || (requireCurrent && item.sourceRef.factRevision === undefined && item.status !== 'current')) throw new ArtifactConflict([{ kind: 'source', objectId: item.sourceRef.sourceId, reason: 'source-changed', expectedRevision: expected[item.sourceRef.sourceId], currentRevision: item.currentRevision }]);
+  }
+  if (requireCurrent) {
+    const factRefs = refs.filter((ref) => ref.factRevision !== undefined), facts: BoundFact[] = [];
+    for (let offset = 0; offset < factRefs.length; offset += 100) facts.push(...(await readFactsInTransaction(tx, access, factRefs.slice(offset, offset + 100))).facts);
+    for (const fact of facts) if (fact.state !== 'current' || !fact.canBind || !fact.pinned) {
+      throw new ArtifactConflict([{ kind: 'source', objectId: fact.requestedRef.sourceId, reason: 'source-changed', expectedRevision: expected[fact.requestedRef.sourceId], currentRevision: expected[fact.requestedRef.sourceId] }]);
+    }
   }
 }
 export function operationBodyHash(value: unknown) { return hashJson(value as JsonValue); }

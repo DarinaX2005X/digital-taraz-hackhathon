@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import type { SourceRef } from '../../../contracts/artifacts';
-import type { DependencyEdge, DependencyTarget } from '../../../contracts/dependency-edges';
+import { dependencyTargetProperty, type DependencyEdge, type DependencyTarget } from '../../../contracts/dependency-edges';
 import { applyDependencyEffectsInTransaction, canReplayDependencyEffects, dependencyEffectProjectIds, historyDependencyEffectsInTransaction } from '../../dependencies/server/effects';
 import { graphLock } from '../../dependencies/server/register';
 import { hasScope } from '../../identity/domain/policy';
@@ -108,7 +108,10 @@ async function commitGroup(tx: PoolClient, access: WorkspaceAccess, input: { id:
     const changed = await nextVersion(tx, access, command.row, { contentRef, reason: input.reason, inputRevisions: input.sourceRevisions });
     vector[command.row.id] = changed.row.current_revision;
     artifacts.push({ artifactId: command.row.id, revision: changed.row.current_revision, versionId: changed.version.id, contentRef });
-    const targets = Object.keys(command.afterHashes);
+    const targets = [...new Set(command.operations.flatMap((operation) => {
+      const value = operation as unknown as { targetId?: unknown };
+      return typeof value.targetId === 'string' ? [value.targetId] : [];
+    }))];
     events.push({ projectId: changed.row.project_id, accessClass: changed.row.access_class, kind: 'artifact.changed', objectId: changed.row.id, revision: changed.row.current_revision, payload: { commandGroupId: input.id, changedTargetIds: targets.slice(0, 100), ...(targets.length > 100 ? { moreTargets: true } : {}) } });
   }
   await tx.query(`INSERT INTO artifact_command_groups(workspace_id,id,actor_id,body_hash,origin,action,reason,changeset_id,committed_revisions,undoes_group_id,redoes_group_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, [access.workspace.id, input.id, access.userId, input.hash, input.origin, input.action, input.reason, input.changesetId ?? null, JSON.stringify(vector), input.action === 'undo' ? input.targetGroupId : null, input.action === 'redo' ? input.targetGroupId : null]);
@@ -179,10 +182,10 @@ export function createCommandHistory(pool: Pool) {
       };
       for (const edge of body.group.dependencyEdges ?? []) {
         const command = body.group.commands.find((item) => item.artifactId === edge.target.artifactId);
-        if (!command || !command.operations.some((operation) => operation.targetId === edge.target.targetElementId)) throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
+        if (!command || !command.operations.some((operation) => operation.targetId === edge.target.targetElementId && (operation.targetProperty ?? 'value') === dependencyTargetProperty(edge.target))) throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
         projectChanges(authorized.get(command.artifactId)!.project_id).edges.push(edge);
       }
-      for (const command of body.group.commands) for (const operation of command.operations) if (operation.op === 'unbind') projectChanges(authorized.get(command.artifactId)!.project_id).removeTargets.push({ artifactId: command.artifactId, targetElementId: operation.targetId });
+      for (const command of body.group.commands) for (const operation of command.operations) if (operation.op === 'unbind') projectChanges(authorized.get(command.artifactId)!.project_id).removeTargets.push({ artifactId: command.artifactId, targetElementId: operation.targetId, ...(operation.targetProperty ? { targetProperty: operation.targetProperty } : {}) });
       if (graphChanges.size) {
         await applyDependencyEffectsInTransaction(tx, access, { commandGroupId: id, projects: [...graphChanges.values()] });
         result.historyGroup = (await describeHistoryGroup(tx, access, (await loadGroup(tx, access.workspace.id, id))!))!;

@@ -127,4 +127,20 @@ describe('bounded canonical artifact models', () => {
     expect(() => createArtifactState(content, [], [], { missing: { reason: 'Lock', actorId: '68eb98a7-71ba-4ec3-b4c1-ed8ec3d4df88', at: '2026-10-14T12:00:00Z' } })).toThrow('missing-lock-target');
     expect(canonicalJson({ content } as JsonValue)).toContain('document');
   });
+  it('migrates legacy value bindings while allowing finite independent text and fill targets', () => {
+    const transform = { x: 0, y: 0, width: 100, height: 20, rotation: 0 };
+    const content: ArtifactContent = { kind: 'design', schemaVersion: 1, pages: [{ id: 'page', width: 100, height: 100, unit: 'px', background: '#ffffff', layers: [{ id: 'price', type: 'text', transform, text: '100 ₸', style: { fill: '#111111' } }] }] };
+    const first = { sourceId: '3401f1f2-2f6c-4e01-8a8d-427863d9658d', sourceVersionId: 'f87c6f66-625e-4028-a410-1618c471b8ac', revision: 1 };
+    const second = { sourceId: 'd37a9a8c-d39e-4f3d-8fd3-05373ce2cae9', sourceVersionId: '29b446f0-febd-4e56-a078-ce7a31f00f32', revision: 1 };
+    const state = createArtifactState(content, [first, second], [
+      { targetElementId: 'price', targetProperty: 'text', sourceRef: first, transformId: 'copy', updateMode: 'propose' },
+      { targetElementId: 'price', targetProperty: 'fill', sourceRef: second, transformId: 'copy', updateMode: 'propose' },
+    ]);
+    expect(Object.values(state.bindings).map((binding) => binding.targetProperty).sort()).toEqual(['fill', 'text']);
+    const legacyTable = table(), legacyCell = tableCellTargetId('sheet', 'rowA', 'price');
+    const legacy = createArtifactState(legacyTable, [first], [{ targetElementId: legacyCell, sourceRef: first, transformId: 'copy', updateMode: 'propose' }]);
+    expect(legacy.bindings[legacyCell]?.targetProperty).toBeUndefined();
+    expect(createArtifactTargetResolver(legacyTable, Object.values(legacy.bindings))(legacyCell, 'value')?.binding).toBeDefined();
+    expect(() => createArtifactState(content, [first], [{ targetElementId: 'price', targetProperty: 'value', sourceRef: first, transformId: 'copy', updateMode: 'propose' }])).toThrow('binding-property-not-supported');
+  });
 });

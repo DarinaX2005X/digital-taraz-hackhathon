@@ -9,10 +9,13 @@ import { ArtifactWorkspacePage } from '@/features/workspace/ui/artifact-page';
 import { getDatabasePool } from '@/server/db/pool';
 
 export const dynamic = 'force-dynamic';
-export default async function Page({ params }: { params: Promise<{ projectId: string; artifactId: string }> }) {
+export default async function Page({ params, searchParams }: { params: Promise<{ projectId: string; artifactId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { projectId, artifactId } = await params;
+  const query = await searchParams;
   if (!IdSchema.safeParse(projectId).success || !IdSchema.safeParse(artifactId).success) notFound();
-  const returnTo = `/app/projects/${projectId}/artifacts/${artifactId}`;
+  if (query.run !== undefined && !IdSchema.safeParse(query.run).success) notFound();
+  const initialRunId = typeof query.run === 'string' ? query.run : undefined;
+  const returnTo = `/app/projects/${projectId}/artifacts/${artifactId}${initialRunId ? `?run=${initialRunId}` : ''}`;
   let loaded: { initial: Awaited<ReturnType<ReturnType<typeof getArtifactService>['readRoute']>>; projectTitle: string };
   try {
     const actor = await getIdentityHandlers().getActor(await headers());
@@ -27,5 +30,5 @@ export default async function Page({ params }: { params: Promise<{ projectId: st
     }
     throw error;
   }
-  return <ArtifactWorkspacePage key={`${loaded.initial.viewer.userId}:${artifactId}`} {...loaded} />;
+  return <ArtifactWorkspacePage key={`${loaded.initial.viewer.userId}:${artifactId}`} {...loaded} initialRunId={initialRunId} />;
 }

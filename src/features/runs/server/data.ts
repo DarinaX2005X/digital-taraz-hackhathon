@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { RunEventSchema, RunProgressSchema, RunSchema, type Run, type RunAction, type RunFailure, type RunInputRef, type RunPolicy, type RunState, type RunStep, type RunResultRef } from '../../../contracts/runs';
+import { RunEventSchema, RunProgressProjectionSchema, RunProgressSchema, RunSchema, type Run, type RunAction, type RunBranchProjection, type RunFailure, type RunInputRef, type RunPolicy, type RunProgressProjection, type RunState, type RunStep, type RunResultRef } from '../../../contracts/runs';
 import { RunError } from '../domain/errors';
 
 export type JsonObject = { [key: string]: unknown };
@@ -80,13 +80,18 @@ export async function lockStep(transaction: PoolClient, fence: RunFence) {
   if (!step || step.state !== 'claimed' || step.execution_epoch !== fence.epoch) throw new RunError('lease_lost');
   return step;
 }
-export async function emitEvent(transaction: PoolClient, runId: string, detail: { kind: 'run_state' | 'step_state' | 'usage' | 'result'; stepId?: string; stepState?: RunStep['state']; action?: RunAction; failure?: RunFailure; resultRefs?: RunResultRef[] }) {
+export async function emitEvent(transaction: PoolClient, runId: string, detail: {
+  kind: 'run_state' | 'step_state' | 'usage' | 'result' | 'branch_state' | 'projection_changed';
+  stepId?: string; stepState?: RunStep['state']; action?: RunAction; failure?: RunFailure; resultRefs?: RunResultRef[];
+  branchId?: string; branchState?: RunBranchProjection['state'];
+  projectionRevision?: number;
+}) {
   const row = required((await transaction.query<{ state: RunState; event_sequence: string }>('UPDATE agent_runs SET event_sequence=event_sequence+1,updated_at=now() WHERE id=$1 RETURNING state,event_sequence', [runId])).rows[0]);
   const event = RunEventSchema.parse({ id: crypto.randomUUID(), runId, sequence: Number(row.event_sequence), at: new Date().toISOString(), state: row.state, ...detail });
   await transaction.query('INSERT INTO agent_run_events(run_id,sequence,id,kind,payload,created_at) VALUES($1,$2,$3,$4,$5,$6)', [runId, event.sequence, event.id, event.kind, event, event.at]);
   return event;
 }
-export async function snapshot(transaction: PoolClient, run: RunRow): Promise<Run> {
+export async function snapshot(transaction: PoolClient, run: RunRow, projected?: RunProgressProjection): Promise<Run> {
   const steps = (await transaction.query<StepRow>('SELECT * FROM agent_run_steps WHERE run_id=$1 ORDER BY ordinal', [run.id])).rows.map((step) => ({
     id: step.id, runId: step.run_id, ordinal: step.ordinal, action: step.action, state: step.state, toolName: step.tool_name,
     toolVersion: step.tool_version, attempt: step.attempt, failure: step.failure_code, retryable: step.retryable,
@@ -95,17 +100,19 @@ export async function snapshot(transaction: PoolClient, run: RunRow): Promise<Ru
   const links = (await transaction.query<{ parent_run_id: string; child_run_id: string }>('SELECT parent_run_id,child_run_id FROM agent_run_continuations WHERE parent_run_id=$1 OR child_run_id=$1', [run.id])).rows;
   const parentRunId = links.find((link) => link.child_run_id === run.id)?.parent_run_id ?? null;
   const continuationRunId = links.find((link) => link.parent_run_id === run.id)?.child_run_id ?? null;
-  const stored = run.capability_id === 'business.goal' ? (await transaction.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1', [run.id])).rows[0]?.state : undefined;
-  const progress = RunProgressSchema.parse({ plan: stored?.plan ?? [], questions: stored?.questions ?? [], summary: stored?.summary ?? '', results: stored?.results ?? [], parentRunId, continuationRunId });
-  const canContinue = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed';
-  const canResume = (canContinue && ['waiting_input', 'failed', 'review_ready'].includes(run.state)) || (['waiting_input', 'failed'].includes(run.state) && (!run.deadline_at || run.deadline_at > new Date())
-    && (steps.some((step) => step.retryable) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned'))));
+  const publicProgress = RunProgressProjectionSchema.parse(projected ?? { plan: [], questions: [], summary: '', results: [], decision: null });
+  const progress = RunProgressSchema.parse({ ...publicProgress, parentRunId, continuationRunId });
+  const unsafeUsage = ((await transaction.query("SELECT 1 FROM agent_run_usage WHERE run_id=$1 AND state IN ('reserved','dispatched','ambiguous') LIMIT 1", [run.id])).rowCount ?? 0) > 0;
+  const withinLifetime = !run.deadline_at || run.deadline_at > new Date();
+  const canRevise = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed' && !unsafeUsage;
+  const canResume = !unsafeUsage && withinLifetime && ['waiting_input', 'failed'].includes(run.state)
+    && (steps.some((step) => step.retryable) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
   return RunSchema.parse({
     id: run.id, workspaceId: run.workspace_id, projectId: run.project_id, createdBy: run.created_by,
     capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale,
     state: run.state, epoch: run.execution_epoch, cursor: Number(run.event_sequence), failure: run.failure_code,
     createdAt: iso(run.created_at), updatedAt: iso(run.updated_at), startedAt: iso(run.started_at), deadlineAt: iso(run.deadline_at),
     budget: { limitUsd: run.budget_limit_usd, reservedUsd: run.reserved_usd, spentUsd: run.spent_usd, requestCount: run.request_count, requestLimit: 12 },
-    steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canContinue, retryStepIds: canResume ? steps.filter((step) => step.retryable).map((step) => step.id) : [] },
+    steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable).map((step) => step.id) : [] },
   });
 }

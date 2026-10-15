@@ -14,11 +14,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const query = await searchParams;
   if (!IdSchema.safeParse(projectId).success) notFound();
   if (query.resume !== undefined && query.resume !== '1') notFound();
+  if (query.run !== undefined && !IdSchema.safeParse(query.run).success) notFound();
+  if (query.create !== undefined && (typeof query.create !== 'string' || !['document', 'table', 'design', 'plan'].includes(query.create))) notFound();
   const hasSource = query.sourceId !== undefined || query.sourceVersionId !== undefined;
   if (hasSource && (!IdSchema.safeParse(query.sourceId).success || !IdSchema.safeParse(query.sourceVersionId).success)) notFound();
   const selectedSource = hasSource ? { sourceId: query.sourceId as string, sourceVersionId: query.sourceVersionId as string } : undefined;
   const returnQuery = new URLSearchParams();
   if (query.resume === '1') returnQuery.set('resume', '1');
+  if (typeof query.run === 'string') returnQuery.set('run', query.run);
+  if (typeof query.create === 'string') returnQuery.set('create', query.create);
   if (selectedSource) { returnQuery.set('sourceId', selectedSource.sourceId); returnQuery.set('sourceVersionId', selectedSource.sourceVersionId); }
   const returnTo = `/app/projects/${projectId}${returnQuery.size ? `?${returnQuery}` : ''}`;
   let selectedArtifactId: string | null = null;
@@ -35,6 +39,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     }
     throw error;
   }
-  if (selectedArtifactId) redirect(`/app/projects/${projectId}/artifacts/${selectedArtifactId}`);
-  return <ProjectPage key={`${loaded.ownerId}:${projectId}`} {...loaded} selectedSource={selectedSource} />;
+  if (selectedArtifactId) redirect(`/app/projects/${projectId}/artifacts/${selectedArtifactId}${typeof query.run === 'string' ? `?run=${query.run}` : ''}`);
+  return <ProjectPage key={`${loaded.ownerId}:${projectId}`} {...loaded} selectedSource={selectedSource} initialRunId={typeof query.run === 'string' ? query.run : undefined} initialCreateKind={typeof query.create === 'string' ? query.create as 'document' | 'table' | 'design' | 'plan' : undefined} />;
 }

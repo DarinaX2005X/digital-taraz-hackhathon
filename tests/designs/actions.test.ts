@@ -41,7 +41,7 @@ describe('design actions use the authoritative artifact journal', () => {
     const sourceRef={sourceId:'7c48e4e5-0264-477a-881b-a453cc78c7fb',sourceVersionId:'087b67b3-07e1-475d-ad5a-ad1e3d74efb3',revision:1};
     const result=await applyDesignAction(state(),{type:'bind-color',id:'title',sourceRef,value:'#136766'},options());
     expect(designFromState(result.state).pages[0]!.layers[0]!.style.fill).toBe('#136766');
-    expect(result.state.bindings.title).toMatchObject({sourceRef,transformId:'brand-color'});
+    expect(Object.values(result.state.bindings).find((binding)=>binding.targetProperty==='fill')).toMatchObject({sourceRef,transformId:'brand-color',targetElementId:'title'});
     await expect(applyDesignAction(state(),{type:'bind-color',id:'title',sourceRef,value:'url(https://example.test)'},options())).rejects.toThrow('invalid');
   });
   it('guards edits and removals with authorized current source heads while keeping pinned bindings', async () => {
@@ -52,7 +52,7 @@ describe('design actions use the authoritative artifact journal', () => {
     const edit = await prepareDesignAction(initial, { type: 'translate', ids: ['photo'], x: 10, y: 0 }, 'Move photo', { at });
     expect(edit.command.expectedSourceRevisions).toEqual({ [sourceRef.sourceId]: 3 });
     expect(edit.state.bindings.title!.sourceRef.revision).toBe(2);
-    const removal = await prepareDesignAction(initial, { type: 'unbind', id: 'title' }, 'Unlink title', { at });
+    const removal = await prepareDesignAction(initial, { type: 'unbind', id: 'title', targetProperty: 'value' }, 'Unlink title', { at });
     expect(removal.command.commands[0]!.expectedSourceRevisions).toEqual({ [sourceRef.sourceId]: 3 });
     initial.sourceFreshness = [{ sourceRef, status: 'unknown', sourceStatus: 'unknown' }];
     await expect(prepareDesignAction(initial, { type: 'remove', ids: ['title'] }, 'Remove title')).rejects.toThrow('source-current-revision-unavailable');
@@ -63,7 +63,23 @@ describe('design actions use the authoritative artifact journal', () => {
     await expect(prepareDesignAction(snapshot(), action, 'Bind title')).rejects.toThrow('source-current-revision-unavailable');
     const result = await prepareDesignAction(snapshot(), action, 'Bind title', { at, sourceFreshness: [{ sourceRef, status: 'stale', sourceStatus: 'stale', currentRevision: 4 }] });
     expect(result.command.expectedSourceRevisions).toEqual({ [sourceRef.sourceId]: 4 });
-    expect(result.state.bindings.title!.sourceRef).toEqual(sourceRef);
+    expect(Object.values(result.state.bindings).find((binding)=>binding.targetProperty==='text')?.sourceRef).toEqual(sourceRef);
+  });
+  it('keeps text/fill bindings independent across geometry, manual edits, unbind and duplication', async () => {
+    const textRef = { sourceId: '7c48e4e5-0264-477a-881b-a453cc78c7fb', sourceVersionId: '087b67b3-07e1-475d-ad5a-ad1e3d74efb3', revision: 1 };
+    const fillRef = { sourceId: '632fe31c-fecf-4d5b-98a8-4e92f24daf10', sourceVersionId: 'ff585464-8efd-4e2b-b310-b9362fb4a431', revision: 1 };
+    const textBound = await applyDesignAction(state(), { type: 'bind', id: 'title', sourceRef: textRef, transformId: 'display-text', value: '131 900 ₸' }, options());
+    const both = await applyDesignAction(textBound.state, { type: 'bind-color', id: 'title', sourceRef: fillRef, value: '#136766' }, options());
+    expect(Object.values(both.state.bindings).map((binding)=>binding.targetProperty).sort()).toEqual(['fill','text']);
+    const moved = await applyDesignAction(both.state, { type: 'transform-layers', transforms: [{ id: 'title', transform: { x: 70, y: 90, width: 320, height: 72, rotation: 3 } }] }, options());
+    expect(Object.values(moved.state.bindings).every((binding)=>!binding.override)).toBe(true);
+    const edited = await applyDesignAction(moved.state, { type: 'update-layer', id: 'title', patch: { text: '143 600 ₸' } }, options());
+    expect(Object.values(edited.state.bindings).find((binding)=>binding.targetProperty==='text')?.override?.reason).toBe(context.reason);
+    expect(Object.values(edited.state.bindings).find((binding)=>binding.targetProperty==='fill')?.override).toBeUndefined();
+    const unbound = await applyDesignAction(edited.state, { type: 'unbind', id: 'title', targetProperty: 'text' }, options());
+    expect(Object.values(unbound.state.bindings).map((binding)=>binding.targetProperty)).toEqual(['fill']);
+    const duplicated = await applyDesignAction(both.state, { type: 'duplicate', ids: ['title'] }, options());
+    expect(Object.values(duplicated.state.bindings).filter((binding)=>binding.targetElementId==='new-1').map((binding)=>binding.targetProperty).sort()).toEqual(['fill','text']);
   });
   it('groups stable layers, transforms and ungroups them with exact undo/redo', async () => {
     const initial = state(), grouped = await applyDesignAction(initial, { type: 'group', ids: ['title', 'photo'] }, options());

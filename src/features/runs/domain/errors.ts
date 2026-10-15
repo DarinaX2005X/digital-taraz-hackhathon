@@ -9,6 +9,6 @@ export class RunError extends Error {
   constructor(readonly failure: RunFailure, code?: ErrorCode) {
     super(`runs.errors.${failure.replace(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase())}`);
     this.retryable = retryable.has(failure);
-    this.code = code ?? (limitFailures.has(failure) ? 'RATE_LIMITED' : failure === 'conflict' || failure === 'lease_lost' ? 'CONFLICT' : failure === 'access_changed' ? 'FORBIDDEN' : failure === 'invalid_result' ? 'PROVIDER_FAILED' : 'UNAVAILABLE');
+    this.code = code ?? (limitFailures.has(failure) ? 'RATE_LIMITED' : failure === 'conflict' || failure === 'lease_lost' || failure === 'continuation_limit' ? 'CONFLICT' : failure === 'access_changed' ? 'FORBIDDEN' : failure === 'invalid_result' ? 'PROVIDER_FAILED' : 'UNAVAILABLE');
   }
 }

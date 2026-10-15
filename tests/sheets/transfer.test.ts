@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
 import { importTable } from '@/features/sheets/server/import';
 import { exportTable } from '@/features/sheets/server/export';
-import { createBlankTable } from '@/features/sheets/domain/model';
+import { createBlankTable, stableCellId } from '@/features/sheets/domain/model';
 import { csvField } from '@/features/sheets/server/transfer';
 
 describe('spreadsheet file transfer', () => {
@@ -41,5 +41,16 @@ describe('spreadsheet file transfer', () => {
     const other = createBlankTable('Other'), otherId = other.workbook.sheetOrder[0]!; table.workbook.sheetOrder.push(otherId); table.workbook.sheets[otherId] = other.workbook.sheets[otherId]!; table.stableIds[otherId] = other.stableIds[otherId]!;
     await expect(exportTable(table, { format: 'csv', locale: 'en' })).rejects.toThrow('selectExportSheet');
     const output = await exportTable(table, { format: 'csv', sheetId: id, locale: 'en' }); expect(new TextDecoder().decode(output.bytes)).toContain('3,6');
+  });
+  it('exports the same exact authority as prepared apply instead of a cached business total', async () => {
+    const table = createBlankTable('Quote', { rows: 4, columns: 3 }), id = table.workbook.sheetOrder[0]!, sheet = table.workbook.sheets[id]!;
+    const cell = (row: number, column: number) => stableCellId(table, { sheetId: id, row, column });
+    sheet.cellData = { 0: { 0: { v: 180, t: 2 }, 1: { v: 485, t: 2 }, 2: { f: '=ROUND(A1*B1,2)', v: 1, t: 2 } }, 1: { 2: { f: '=C1', v: 2, t: 2 } }, 2: { 2: { f: '=C2', v: 3, t: 2 } } };
+    sheet.calculation = { schemaVersion: 1, currency: 'KZT', scale: 2, rounding: 'half-up', lines: [{ id: 'service', quantityCellId: cell(0, 0), priceCellId: cell(0, 1), amountCellId: cell(0, 2), expectedFormula: '=ROUND(A1*B1,2)' }], subtotalCellId: cell(1, 2), subtotalFormula: '=C1', totalCellId: cell(2, 2), totalFormula: '=C2' };
+    const xlsx = await exportTable(table, { format: 'xlsx', locale: 'ru' }), workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(Buffer.from(xlsx.bytes) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
+    expect(workbook.getWorksheet('Quote')!.getCell('C3').result).toBe('87300.00');
+    const csv = await exportTable(table, { format: 'csv', sheetId: id, locale: 'ru' });
+    expect(new TextDecoder().decode(csv.bytes)).toContain('180,485,87300.00');
   });
 });

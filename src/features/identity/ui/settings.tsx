@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore, type Dispatch, type FormEvent, type SetStateAction } from "react";
-import { Activity, KeyRound, Languages, LogIn, LogOut, Monitor, RefreshCw, Save, Smartphone, Trash2, UserRound, Users } from "lucide-react";
+import { KeyRound, Languages, LogIn, LogOut, Monitor, RefreshCw, Save, Smartphone, Trash2, UserRound, Users } from "lucide-react";
 import { Button, Dialog, DialogClose, IconButton, InputField, LoadingState, LocaleSelect, ProductHeader } from "@/ui";
 import { useLocale } from "@/i18n/provider";
 import { TourSettings } from '@/features/onboarding/tour';
@@ -44,7 +44,7 @@ function SettingsNavigation({ view }: { view: SettingsView }) {
   const { locale } = useLocale();
   return <nav className={styles.settingsNav} aria-label={t("identity.navigation.settings")}>
     <div className={styles.settingsNavGroup}>{viewItems.map(({ view: target, label, icon: Icon }) => <a key={target} href={`#${target}`} aria-current={view === target ? "page" : undefined}><Icon size={18} aria-hidden="true" /><span>{t(label)}</span></a>)}</div>
-    <div className={styles.settingsNavGroup}><a href="#tour" aria-current={view === 'tour' ? 'page' : undefined}>{tourCopy[locale].settings}</a><Link href="/settings/team"><Users size={18} aria-hidden="true" /><span>{t("identity.team.manage")}</span></Link><Link href="/app/runs"><Activity size={18} aria-hidden="true" /><span>{t("identity.navigation.activity")}</span></Link></div>
+    <div className={styles.settingsNavGroup}><a href="#tour" aria-current={view === 'tour' ? 'page' : undefined}>{tourCopy[locale].settings}</a><Link href="/settings/team"><Users size={18} aria-hidden="true" /><span>{t("identity.team.manage")}</span></Link></div>
     <div className={styles.settingsNavGroup}><a href="#delete-account" className={styles.settingsDangerLink} aria-current={view === "delete-account" ? "page" : undefined}><Trash2 size={18} aria-hidden="true" /><span>{t("identity.deletion.title")}</span></a></div>
   </nav>;
 }

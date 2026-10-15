@@ -3,6 +3,9 @@ import { createDemoSeed } from '../../src/features/demo/domain/sample';
 import { createDemoStore, demoArtifact } from '../../src/features/demo/domain/store';
 import { artifactDraft, selectableGroups } from '../../src/features/dependencies/domain/proposal';
 import { createArtifactTargetResolver } from '../../src/features/artifacts/domain/targets';
+import { createArtifactState } from '../../src/features/artifacts/domain/content-state';
+import { hashJson } from '../../src/features/artifacts/domain/canonical';
+import type { ArtifactContent, JsonValue } from '../../src/features/artifacts/domain/content-models';
 async function changePrice(store: ReturnType<typeof createDemoStore>, value: number) {
   const snapshot = store.snapshot(store.seed.tableId), target = (await artifactDraft(demoArtifact(snapshot)).target(store.seed.priceTargetId))!;
   return store.apply({ commandGroupId: crypto.randomUUID(), expectedArtifactRevisions: { [snapshot.artifact.id]: snapshot.artifact.currentRevision }, expectedSourceRevisions: { [store.seed.sourceRef.sourceId]: 1 }, commands: [{ commandId: crypto.randomUUID(), artifactId: snapshot.artifact.id, kind: 'table', baseRevision: snapshot.artifact.currentRevision, expectedSourceRevisions: { [store.seed.sourceRef.sourceId]: 1 }, reason: 'Sample price edit', operations: [{ targetId: target.targetId, op: 'set', beforeHash: target.hash, value: { v: value, t: 2 } }] }] });
@@ -37,5 +40,16 @@ describe('isolated example uses canonical editing and connected proposals', () =
     expect((await store.client.versions(initial.artifact.id, opts)).versions).toHaveLength(1);
     expect((await store.client.access([initial.artifact.id], opts)).authorizedArtifactIds).toEqual([initial.artifact.id]);
     expect((await store.client.events('0', opts)).events).toEqual([]);
+  });
+  it('keeps property binding map keys private when reporting missing demo targets', async () => {
+    const seed = createDemoSeed('en'), planSnapshot = seed.snapshots[0]!;
+    const plan: ArtifactContent = { kind: 'plan', schemaVersion: 1, timezone: 'Asia/Qyzylorda', entries: [{ id: 'review-offer', title: 'Review 100 ₸ offer', status: 'todo', resourceIds: [], dependencies: [], checklist: [], availabilityVersionIds: [] }] };
+    const bindings = [{ targetElementId: 'review-offer', targetProperty: 'text' as const, sourceRef: seed.sourceRef, transformId: 'offer-title', updateMode: 'propose' as const }];
+    const artifactState = createArtifactState(plan, [seed.sourceRef], bindings), contentRef = { id: crypto.randomUUID(), hash: hashJson(artifactState as unknown as JsonValue) };
+    planSnapshot.artifact = { ...planSnapshot.artifact, kind: 'plan', contentRef, bindings }; planSnapshot.content = plan; planSnapshot.version = { ...planSnapshot.version, contentRef, snapshotHash: contentRef.hash };
+    const store = createDemoStore(seed), snapshot = store.snapshot(seed.tableId), target = (await artifactDraft(demoArtifact(snapshot)).target('review-offer', 'text'))!;
+    await store.apply({ commandGroupId: crypto.randomUUID(), expectedArtifactRevisions: { [seed.tableId]: 0 }, expectedSourceRevisions: { [seed.sourceRef.sourceId]: 1 }, commands: [{ commandId: crypto.randomUUID(), artifactId: seed.tableId, kind: 'plan', baseRevision: 0, expectedSourceRevisions: { [seed.sourceRef.sourceId]: 1 }, reason: 'Update title', operations: [{ targetId: 'review-offer', targetProperty: 'text', op: 'set', beforeHash: target.hash, value: 'Review updated offer' }] }] });
+    expect(store.snapshot(seed.tableId).missingTargets).toEqual([]);
+    expect(store.snapshot(seed.tableId).artifact.bindings.map((binding) => binding.targetProperty)).toEqual(['text']);
   });
 });

@@ -9,8 +9,10 @@ Status: active
 Status: active
 Requirements: R12, R13, R14, R35, R36, R40, R44, R45, R91, R92, R93, R94, R95, R105
 Depends on: 03.1, 01.2
-Owner: SUBAGENT to assign (передача; прежний автор: sheets_finish)
+Owner: /root/core_authority
 Paths: src/features/sheets/, tests/sheets/, src/app/api/sheets/
+
+Новый owner после checkpoint `d6ac5ff` также получает exclusive shared loan `src/features/artifacts/server/command-history.ts`, `src/features/artifacts/server/service.ts`, `tests/artifacts/server/service.integration.test.ts`, `src/contracts/calculations.ts` и связанные calculation regressions. Цель первого handover — server-authoritative prepared calculation boundary; UI/grid breadth продолжается после неё в том же task.
 
 После independently accepted03.1 и checkpoint8b1b864 ручной table editor/engine/command adapter начинается параллельно02.4, как документный03.3. Format gate01.4.1 уже подтвердил выбранный engine subset. Это вход по готовому shared persistence контракту, не снятие полной02.4: окончательная05.1 acceptance требует настоящего materials query/mapping/source lineage и всех импортных сценариев. Fresh sheets_delivery получает весь05.1, не отдельный grid component. Existing canonical artifact types/history не дублировать; любые shared изменения через integration/ихowner.
 
@@ -21,9 +23,11 @@ Exclusive API prefix `src/app/api/sheets/` для действительно н�
 **Вход в работу и состояния.** Work -> table or material -> «Анализировать»: sheet dominant, formula bar and column units; chart/table views, filter immediately with cancelable query. All direct edits through Command, locks/pending/conflicts/history. Phone cell-detail editor and horizontal grid scroll preserve coordinates, numeric keyboard and accessible alternatives.
 
 ### 05.1.1 Движок и анализ с источниками
-Status: active
+Status: done
 
 Golden SUM/IF/SUMIFS/inter-sheet, cycles/errors/rounding, unit mismatch, filters and coverage. Chart point maps to aggregate source query, no model-generated numbers.
+
+Принято authoritative boundary: core92/92, sheets31/31, calculation DB5/5, dependencyDB6/6 иartifactDB14/14 PASS. Server revalidates hashes/revisions/ACL/source facts and rejects forged cached totals; ISO scales JPY0/KWD3/KZT2; real fact420→485 yields131900→143600 with11700 difference and preserved manual phrase/lineage. Dataset group/facet/context и100k paging приняты materials package.05.1.2 остаётся active для полного grid/user interaction review.
 
 ### 05.1.2 Редактор и XLSX/CSV
 Status: active

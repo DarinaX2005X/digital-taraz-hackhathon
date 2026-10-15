@@ -49,4 +49,50 @@ describe("public-site contracts without browser rendering", () => {
     expect(source("src/features/public-site/public-site.tsx")).toContain("/site/business-materials.png");
     expect(source("src/features/public-site/public-site.module.css")).toContain("prefers-reduced-motion: reduce");
   });
+
+  it("makes the assistant-led business decision the first public argument", () => {
+    for (const copy of Object.values(publicCopy)) {
+      expect(copy.heroTitle.length).toBeGreaterThan(24);
+      expect(copy.description.toLowerCase()).toContain('ai');
+      expect(copy.proof.goal.length).toBeGreaterThan(30);
+      expect(copy.proof.plan).toHaveLength(3);
+      expect(copy.proof.findings).toHaveLength(3);
+      expect(copy.proof.results.map((result) => result.title)).toHaveLength(3);
+      expect(copy.proof.continuation.length).toBeGreaterThan(50);
+    }
+    expect(publicCopy.ru.ownTaskAction).toBe('Начать задачу');
+    expect(publicCopy.ru.proof.goal).toContain('без убыточных условий');
+    expect(publicCopy.ru.proof.findings.join(' ')).toContain('загрузк');
+  });
+
+  it("does not advertise the weak editor-only example as the product proof", () => {
+    const page = source("src/features/public-site/public-site.tsx");
+    const proof = source("src/features/public-site/decision-proof.tsx");
+    expect(page).toContain('<DecisionProof copy={copy} />');
+    expect(page).toContain('href="/app/work"');
+    expect(page).not.toContain('/demo');
+    expect(proof).not.toMatch(/<input|<form/);
+    expect(proof).toContain('aria-pressed={index === activeStep}');
+    expect(proof).toContain('aria-controls="assistant-plan-detail"');
+    expect(proof).toContain('<blockquote');
+    expect(proof).toContain('<dl>');
+  });
+
+  it("gives interactive public cards matching hover, focus and reduced-motion states", () => {
+    const css = source("src/features/public-site/public-site.module.css");
+    expect(css).toContain('@media (hover: hover) and (pointer: fine)');
+    expect(css).toContain('.proofPlan button:hover');
+    expect(css).toContain('.proofPlan button:focus-visible');
+    expect(css).toContain('rotate(-8deg) scale(1.08)');
+    expect(css).toContain('.informationCard:focus-visible');
+    expect(css).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(css).toContain('@media (prefers-reduced-transparency: reduce)');
+  });
+
+  it("keeps public copy free of temporary delivery reports and fabricated evidence", () => {
+    const copy = JSON.stringify(publicCopy);
+    for (const phrase of ['coming soon', 'пока недоступ', 'ещё не готов', 'trusted by', 'нам доверяют']) expect(copy.toLowerCase()).not.toContain(phrase);
+    expect(copy).not.toMatch(/\d+\s*%/);
+    expect(source("src/features/public-site/public-site.module.css")).not.toContain('transition: all');
+  });
 });

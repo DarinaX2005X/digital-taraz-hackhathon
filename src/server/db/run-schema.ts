@@ -160,7 +160,7 @@ export const agentRunEvents = pgTable('agent_run_events', {
 }, (table) => [
   primaryKey({ columns: [table.runId, table.sequence] }), index('agent_run_events_retention_idx').on(table.createdAt),
   check('agent_run_events_sequence_check', sql`${table.sequence} BETWEEN 1 AND 9007199254740991`),
-  check('agent_run_events_kind_check', sql`${table.kind} IN ('run_state','step_state','usage','result')`),
+  check('agent_run_events_kind_check', sql`${table.kind} IN ('run_state','step_state','usage','result','branch_state','projection_changed')`),
   check('agent_run_events_payload_check', sql`octet_length(${table.payload}::text) <= 16384`),
 ]);
 export const agentQueueWorkspaces = pgTable('agent_queue_workspaces', {

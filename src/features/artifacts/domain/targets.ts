@@ -1,4 +1,4 @@
-import type { FieldBinding, SourceRef } from '../../../contracts/artifacts';
+import { fieldBindingIdentity, fieldBindingProperty, fieldBindingStateKey, type BindingTargetProperty, type FieldBinding, type SourceRef } from '../../../contracts/artifacts';
 import type { ArtifactContent, DesignLayer, DocumentNode, JsonValue } from './content-models';
 import { ContentValidationError, hashJson, stableToken } from './canonical';
 import type { JsonPath } from './merkle-json';
@@ -21,6 +21,7 @@ export interface ArtifactState {
 export interface ArtifactTarget {
   targetId: string; kind: TargetKind; value: JsonValue; hash: string;
   binding: FieldBinding | null; lock: TargetLock | null;
+  targetProperty?: BindingTargetProperty;
   parentId?: string; position?: number;
 }
 
@@ -115,25 +116,81 @@ export function targetValue(content: ArtifactContent, locator: TargetLocator): J
   return (readPath(content, locator.path) ?? null) as JsonValue;
 }
 
-export function describeTarget(targetId: string, locator: TargetLocator, value: JsonValue, binding: FieldBinding | null, lock: TargetLock | null): ArtifactTarget {
+/** Resolve one semantic property through a finite kind/property allowlist. */
+export function targetPropertyValue(kind: TargetKind, value: JsonValue, property: BindingTargetProperty): JsonValue {
+  const object = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, JsonValue> : undefined;
+  if (!object) throw new ContentValidationError('binding-property-not-supported');
+  if (property === 'value') {
+    if (kind === 'table-cell') return object.v ?? null;
+    if (kind === 'document-node' && object.type === 'dataField') {
+      const attrs = object.attrs && typeof object.attrs === 'object' && !Array.isArray(object.attrs) ? object.attrs as Record<string, JsonValue> : undefined;
+      return attrs?.value ?? null;
+    }
+    if (kind === 'plan-entry') {
+      const quantity = object.quantity && typeof object.quantity === 'object' && !Array.isArray(object.quantity) ? object.quantity as Record<string, JsonValue> : undefined;
+      return quantity?.decimal ?? null;
+    }
+  }
+  if (property === 'text') {
+    if (kind === 'document-node' && object.type === 'text') return object.text ?? '';
+    if (kind === 'design-layer' && object.type === 'text') return object.text ?? '';
+    if (kind === 'plan-entry') return object.title ?? '';
+  }
+  if (property === 'fill' && kind === 'design-layer') {
+    const style = object.style && typeof object.style === 'object' && !Array.isArray(object.style) ? object.style as Record<string, JsonValue> : undefined;
+    return style?.fill ?? null;
+  }
+  throw new ContentValidationError('binding-property-not-supported');
+}
+
+/** Replace exactly one allowlisted semantic property and retain all other structure. */
+export function replaceTargetPropertyValue(kind: TargetKind, value: JsonValue, property: BindingTargetProperty, next: JsonValue): JsonValue {
+  // Validate that the current target/property combination is allowed first.
+  targetPropertyValue(kind, value, property);
+  const object = structuredClone(value) as Record<string, JsonValue>;
+  if (property === 'value' && kind === 'table-cell') {
+    object.v = next;
+    object.t = typeof next === 'number' ? 2 : typeof next === 'boolean' ? 3 : 1;
+    return object;
+  }
+  if (property === 'value' && kind === 'document-node') {
+    object.attrs = { ...object.attrs as Record<string, JsonValue>, value: next };
+    return object;
+  }
+  if (property === 'value' && kind === 'plan-entry') {
+    object.quantity = { ...object.quantity as Record<string, JsonValue>, decimal: next };
+    return object;
+  }
+  if (property === 'text' && (kind === 'document-node' || kind === 'design-layer')) { object.text = next; return object; }
+  if (property === 'text' && kind === 'plan-entry') { object.title = next; return object; }
+  if (property === 'fill' && kind === 'design-layer') {
+    object.style = { ...object.style as Record<string, JsonValue>, fill: next };
+    return object;
+  }
+  throw new ContentValidationError('binding-property-not-supported');
+}
+
+export function describeTarget(targetId: string, locator: TargetLocator, value: JsonValue, binding: FieldBinding | null, lock: TargetLock | null, targetProperty?: BindingTargetProperty): ArtifactTarget {
   const stableLocation: Record<string, JsonValue> = locator.kind === 'table-cell'
     ? { sheetId: locator.sheetId!, rowId: locator.rowId!, columnId: locator.columnId! }
     : { parentId: locator.parentId ?? null, position: locator.position ?? null };
+  const projected = targetProperty ? targetPropertyValue(locator.kind, value, targetProperty) : value;
   return {
-    targetId, kind: locator.kind, value, binding, lock,
+    targetId, kind: locator.kind, value: projected, binding, lock, ...(targetProperty ? { targetProperty } : {}),
     ...(locator.parentId === undefined ? {} : { parentId: locator.parentId }), ...(locator.position === undefined ? {} : { position: locator.position }),
-    hash: hashJson({ targetId, kind: locator.kind, value, binding: binding as unknown as JsonValue, lock: lock as unknown as JsonValue, location: stableLocation }),
+    hash: hashJson({ targetId, targetProperty: targetProperty ?? null, kind: locator.kind, value: projected, binding: binding as unknown as JsonValue, lock: lock as unknown as JsonValue, location: stableLocation }),
   };
 }
 
 /** Reuse one resolver for one immutable editor snapshot, never between revisions. */
 export function createArtifactTargetResolver(content: ArtifactContent, bindings: readonly FieldBinding[] = [], locks: Record<string, TargetLock> = {}) {
   const index = buildTargetIndex(content);
-  const byTarget = new Map(bindings.map((binding) => [binding.targetElementId, binding]));
-  return (targetId: string): ArtifactTarget | null => {
+  const byTarget = new Map(bindings.map((binding) => [fieldBindingIdentity(binding), binding]));
+  return (targetId: string, targetProperty?: BindingTargetProperty): ArtifactTarget | null => {
     const locator = locateTarget(index, targetId);
     if (!locator) return null;
-    const binding = byTarget.get(targetId) ?? null;
-    return describeTarget(targetId, locator, targetValue(content, locator), binding, locks[targetId] ?? binding?.lock ?? null);
+    const binding = byTarget.get(targetProperty === undefined ? targetId : fieldBindingStateKey(targetId, targetProperty)) ?? null;
+    if (binding && targetProperty !== undefined && fieldBindingProperty(binding) !== targetProperty) throw new ContentValidationError('binding-property-mismatch');
+    return describeTarget(targetId, locator, targetValue(content, locator), binding, locks[targetId] ?? binding?.lock ?? null, targetProperty);
   };
 }

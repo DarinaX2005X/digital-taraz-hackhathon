@@ -29,9 +29,11 @@ export async function exportDemoDocument(request: Request): Promise<Response> {
     assertBoundedJson(raw, { bytes: 256 * 1024, depth: 30, values: 15000 });
     const body = InputSchema.parse(raw), content = validateArtifactContent(body.content);
     if (content.kind !== 'document') throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
+    const artifactId = typeof content.document.attrs?.id === 'string' ? content.document.attrs.id : undefined;
+    if (!artifactId) throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed');
     const nodes = [content.document]; let count = 0;
     while (nodes.length) { const node = nodes.pop()!; if (++count > 300 || node.type === 'image') throw new IdentityError('VALIDATION_FAILED', 'artifacts.errors.validationFailed'); nodes.push(...node.content ?? []); }
-    const result = await renderDocx({ content, title: body.title, format: 'docx', locale: body.locale, options: ExportOptionsSchema.parse({}), revision: 0, createdAt: new Date().toISOString(), historicalDraft: false, assets: { image: async () => { throw new IdentityError('NOT_FOUND', 'artifacts.errors.notFound'); } }, signal: request.signal });
+    const result = await renderDocx({ artifactId, content, title: body.title, format: 'docx', locale: body.locale, options: ExportOptionsSchema.parse({}), privateFieldsPolicy: 'exclude-internal', revision: 0, createdAt: new Date().toISOString(), historicalDraft: false, assets: { image: async () => { throw new IdentityError('NOT_FOUND', 'artifacts.errors.notFound'); } }, signal: request.signal });
     return new Response(new Uint8Array(result.bytes), { headers: { 'Content-Type': result.mediaType, 'Content-Disposition': 'attachment; filename="tirlik-workshop-offer.docx"', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
   } catch (error) { return artifactErrorResponse(error); }
   finally { if (reserved) active--; }

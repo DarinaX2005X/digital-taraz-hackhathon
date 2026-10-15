@@ -7,12 +7,12 @@ Status: active
 
 ## 10.1 Показать продукт и привести к настоящей работе
 Status: active
-Requirements: R02, R07, R08, R09, R19, R21, R28, R29, R30, R31, R38, R40, R41, R44, R45, R46, R47, R48, R49, R64, R101, R106
+Requirements: R02, R07, R08, R09, R19, R21, R28, R29, R30, R31, R38, R40, R41, R44, R45, R46, R47, R48, R49, R64, R101, R106, R108
 Depends on: 01.2, 02.1
-Owner: SUBAGENT to assign (передача; прежний автор: journey_delivery)
+Owner: /root/public_ai_story
 Paths: src/features/public-site/, public/site/, tests/public-site/, src/app/page.tsx
 
-Точные дополнительные loans public_auth: `src/app/[locale]/page.tsx`, `src/app/[locale]/layout.tsx`, `src/app/[locale]/help/page.tsx`, `src/app/[locale]/privacy/page.tsx`. Только эти файлы, не wildcard subtree. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Существующие auth/settings/shared UI loans перечислены в STATE и не пересекаются с server/runtime/workspace owners.
+Точные дополнительные loans `/root/public_ai_story`: `src/app/[locale]/page.tsx`, `src/app/[locale]/layout.tsx`, `src/app/[locale]/help/page.tsx`, `src/app/[locale]/privacy/page.tsx`, `src/app/[locale]/not-found.tsx`. Для R41 root unknown route выдан bounded Next16 repair loan `/root/not_found_repair_v2`: `next.config.ts` только для `experimental.globalNotFound:true`, `src/app/global-not-found.tsx` и `src/proxy.ts` только для direct semantic 404 response of unknown first-segment public paths, плюс focused identity route tests. Proxy must exclude assets, API, app, auth, settings and supported locale routes; no redirect or auth bypass. Только эти файлы, не wildcard subtree. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Auth/settings/shared controls read-only; новые server/runtime/workspace contracts запрашиваются у их owners.
 
 Дополнительный bounded loan `src/app/[locale]/not-found.tsx` для полноценной локализованной404 при неизвестном locale/path; текущий checkpoint выявил реальный SSRerror shell вместо h1/lang/home link. Owner исправляет root/locale error boundary по installedNext docs, не снижает HTTP acceptance и не меняет остальной frozen UI.
 
@@ -38,9 +38,11 @@ Status: active
 
 HTTP auth intent/locale persistence, public/private boundary and footer link checks. User judges first3-5seconds, CTA prominence, text fit/mobile and meaningful illustration.
 
+Финальная невизуальная route acceptance текущего snapshot: `http-identity` PASS (root unknown en/kk semantic404 без redirect/error shell и `/ru/missing` localized recovery), `http-workspace` PASS после Next16 global-not-found/proxy repair, `http-artifacts`, `http-demo`, `http-sources`, `http-sheets` и `http-materials` PASS. Root unknown public paths перехватываются только для неизвестного first segment; assets/API/app/auth/settings/supported locales не затрагиваются. Визуальная композиция и пользовательская понятность остаются needs-user-check.
+
 ## 10.2 Дать интерактивный пример без нежелательных записей
 Status: active
-Requirements: R08, R21, R24, R26, R27, R75, R76, R82, R99, R106
+Requirements: R08, R21, R24, R26, R27, R75, R76, R82, R99, R106, R107
 Depends on: 03.1, 01.3
 Owner: SUBAGENT to assign (передача; прежний автор: connected_delivery)
 Paths: src/features/demo/, tests/demo/
@@ -65,7 +67,7 @@ Login cancel/error preserves intent; explicit copy creates one project+correct a
 
 ## 10.3 Провести первое обучение и сохранить возможность повторить
 Status: active
-Requirements: R08, R24, R29, R32, R33, R39, R40, R44, R45, R97, R98
+Requirements: R08, R24, R29, R32, R33, R39, R40, R44, R45, R97, R98, R108
 Depends on: 03.1, 02.1
 Owner: SUBAGENT to assign (передача; прежний автор: journey_delivery)
 Paths: src/features/onboarding/, tests/onboarding/

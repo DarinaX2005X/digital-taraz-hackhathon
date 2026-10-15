@@ -34,7 +34,7 @@ Release /root/foundation 2026-10-13 после commit/push e466058f2ada71c5ea33a
 
 ## 01.2 Собрать общие элементы понятного интерфейса
 Status: done
-Requirements: R09, R31, R32, R33, R34, R38, R39, R40, R44, R45, R46, R47, R48, R49, R60, R101
+Requirements: R09, R31, R32, R33, R34, R38, R39, R40, R44, R45, R46, R47, R48, R49, R60, R101, R108
 Depends on: 01.1
 Owner: /root/ui_foundation
 Paths: src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/

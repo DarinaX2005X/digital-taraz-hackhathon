@@ -15,6 +15,7 @@ import type { DesignAction } from '../domain/actions';
 import { isLayerLocked, layerLocations, newLayer, type DesignLayer } from '../domain/model';
 import { designMessages } from '../locales';
 import { AssetPicker, type PickedDesignAsset } from './asset-picker';
+import { fieldBindingProperty } from '@/contracts/artifacts';
 import styles from './design-editor.module.css';
 
 function NumberField({label,value,onCommit,min,max,step=1,disabled}:{label:string;value:number;onCommit(value:number):void;min?:number;max?:number;step?:number;disabled?:boolean}) {
@@ -35,6 +36,7 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
   const locations=useMemo(()=>layerLocations(current.content),[current.content]);
   const selected=useMemo(()=>selection.map((id)=>locations.get(id)).filter((item)=>item?.pageId===page.id),[selection,locations,page.id]);
   const selectedIds=useMemo(()=>selected.map((item)=>item!.layer.id),[selected]),layer=selected.length===1?selected[0]!.layer:undefined;
+  const layerBindings=useMemo(()=>layer&&snapshot?snapshot.artifact.bindings.filter((binding)=>binding.targetElementId===layer.id):[],[layer,snapshot]);
   const editable=!!snapshot?.permissions.edit&&!['archived','trashed'].includes(snapshot.artifact.status)&&sessionState.storageReady&&['ready','dirty','saving'].includes(current.phase);
   const locked=useMemo(()=>new Set([...locations.values()].filter((item)=>snapshot&&isLayerLocked(snapshot,item)).flatMap((item)=>[item.layer.id,...item.ancestors])),[locations,snapshot]);
   const selectionLocked=selectedIds.some((id)=>locked.has(id));
@@ -118,7 +120,7 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
           <div className={styles.section}><div className={styles.actions}><IconButton icon={ArrowUpToLine} label={t.front} disabled={!canChange} onClick={()=>void dispatch({type:'order',ids:selectedIds,direction:'front'})}/><IconButton icon={ArrowDownToLine} label={t.back} disabled={!canChange} onClick={()=>void dispatch({type:'order',ids:selectedIds,direction:'back'})}/></div><label className={styles.field}>{t.textAlign}<select value="" disabled={!canChange} onChange={(event)=>{if(event.target.value)void dispatch({type:'align',ids:selectedIds,alignment:event.target.value as 'left',toPage:selectedIds.length===1});}}><option value="">—</option>{(['left','center-x','right','top','center-y','bottom'] as const).map((value)=><option key={value} value={value}>{value==='center-x'?t.centerX:value==='center-y'?t.centerY:t[value]}</option>)}</select></label>{selectedIds.length>=3&&<div className={styles.actions}><Button disabled={!canChange} onClick={()=>void dispatch({type:'distribute',ids:selectedIds,axis:'x'})}>{t.distributeX}</Button><Button disabled={!canChange} onClick={()=>void dispatch({type:'distribute',ids:selectedIds,axis:'y'})}>{t.distributeY}</Button></div>}</div>
           {layer&&['text','shape'].includes(layer.type)&&<Button disabled={!canChange} onClick={()=>setPicker('brand-color')}>{t.fill} · {t.assets}</Button>}
           {layer?.type==='text'&&<Button disabled={!canChange} onClick={()=>setPicker('fact')}>{t.binding}</Button>}
-          {layer&&snapshot.artifact.bindings.some((binding)=>binding.targetElementId===layer.id)&&<div className={styles.section}><h3>{t.binding}</h3><p className={styles.hint}>{t.bound}</p><Button disabled={!editable||lockedLayer} onClick={()=>void dispatch({type:'unbind',id:layer.id})}>{t.unbind}</Button></div>}
+          {layerBindings.map((binding)=>{const property=fieldBindingProperty(binding);return <div className={styles.section} key={`${binding.targetElementId}:${property}`}><h3>{t.binding} · {property==='text'?t.text:property==='fill'?t.fill:t.bound}</h3>{property!=='fill'&&<p className={styles.hint}>{t.bound}</p>}<Button disabled={!editable||lockedLayer} onClick={()=>void dispatch({type:'unbind',id:binding.targetElementId,targetProperty:property})}>{t.unbind}</Button></div>;})}
         </>}
         <p id="design-keyboard-help" className={styles.hint}>{t.keyboard}</p>
       </aside>

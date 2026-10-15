@@ -1,10 +1,18 @@
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DependencyEdge } from '../../src/contracts/dependencies';
+import { ImportMappingSchema } from '../../src/contracts/materials';
+import { InitSourceUploadSchema } from '../../src/contracts/sources';
 import { createArtifactTargetResolver, tableCellTargetId } from '../../src/features/artifacts/domain/targets';
 import { createDependencyService } from '../../src/features/dependencies/server/service';
 import { createDependencyHandlers } from '../../src/features/dependencies/server/handlers';
+import { createCollectionService } from '../../src/features/materials/server/collections';
+import { createDatasetService } from '../../src/features/materials/server/datasets';
+import { createImportService } from '../../src/features/materials/server/imports';
+import { createSourceService } from '../../src/features/sources/server/service';
+import { LocalSourceStorage } from '../../src/features/sources/server/storage';
 import { artifactFixture, artifactTestPool, currentArtifactAuthz } from '../artifacts/server/test-fixture';
 
 let pool: Pool;
@@ -24,6 +32,51 @@ async function setup() {
   return { ...base, dependencies: service, input, edges, tableId: table.artifact.id, documentId: document.artifact.id, price, total };
 }
 describe('authorized linked-change transactions', () => {
+  it('uses a real accepted stable fact to draft and apply the canonical quote update while retaining pinned lineage', async () => {
+    const base = await artifactFixture(pool), dependencies = createDependencyService(pool);
+    const sources = createSourceService(pool, new LocalSourceStorage(path.join(process.env.TIRLIK_DATA_DIR!, 'dependency-facts', randomUUID())));
+    const collections = createCollectionService(pool), imports = createImportService(pool), datasets = createDatasetService(pool);
+    const mapping = ImportMappingSchema.parse({ fields: [{ id: 'sku', label: 'SKU', column: 0, header: 'SKU', kind: 'text' }, { id: 'priceKzt', label: 'Цена', column: 1, header: 'priceKzt', kind: 'money', currency: 'KZT' }], headers: ['SKU', 'priceKzt'], headerRow: 1, importMode: 'upsert', recordKeySpec: { kind: 'fields', fieldIds: ['sku'], trim: true, caseSensitive: true, confirmed: true } });
+    const collection = await collections.create(base.owner, randomUUID(), { workspaceId: base.workspaceId, projectId: base.projectId, title: 'Service catalog', kind: 'prices', expectedAuthzVersion: 1 });
+    const acceptPrice = async (price: number, expectedRevision: number) => {
+      const bytes = new TextEncoder().encode(`SKU,priceKzt\n010201,${price}\n`);
+      const initialized = await sources.init(base.owner, randomUUID(), InitSourceUploadSchema.parse({ workspaceId: base.workspaceId, projectId: base.projectId, title: 'Accepted service catalog', fileName: `catalog-${price}.csv`, format: 'csv', size: bytes.length }));
+      await sources.put(base.owner, base.workspaceId, initialized.upload.id, initialized.token!, new Blob([bytes]).stream());
+      const ready = await sources.finalize(base.owner, base.workspaceId, initialized.upload.id);
+      const begin = { workspaceId: base.workspaceId, collectionId: collection.collection.id, sourceId: initialized.upload.sourceId, sourceVersionId: ready.upload.versionId, mapping, expectedAuthzVersion: 1, expectedRevision };
+      let item = (await imports.begin(base.owner, randomUUID(), begin)).import;
+      while (item.status === 'preparing') item = (await imports.advance(base.owner, item.id, { workspaceId: base.workspaceId, expectedAuthzVersion: 1, expectedRevision })).import;
+      await imports.apply(base.owner, randomUUID(), item.id, { workspaceId: base.workspaceId, expectedAuthzVersion: 1, expectedRevision, expectedReviewRevision: item.reviewRevision });
+      return (await datasets.query(base.owner, { workspaceId: base.workspaceId, collectionId: collection.collection.id })).records[0]!.cells.priceKzt!.sourceRef;
+    };
+    const oldRef = await acceptPrice(420, 0);
+    const cell = (row: string, column: string) => tableCellTargetId('quote', row, column);
+    const priceId = cell('service', 'price'), quantityId = cell('service', 'quantity'), serviceAmountId = cell('service', 'amount'), totalId = cell('total', 'amount');
+    const table = await base.service.create(base.owner, randomUUID(), { workspaceId: base.workspaceId, projectId: base.projectId, expectedAuthzVersion: 1, title: 'Canonical quote', sourceRefs: [oldRef], bindings: [{ targetElementId: priceId, sourceRef: oldRef, transformId: 'catalog-price', updateMode: 'deterministic' }], content: { kind: 'table', schemaVersion: 1, workbook: { id: 'book', name: 'Quote', appVersion: '1', locale: 'ruRU', sheetOrder: ['quote'], sheets: { quote: { id: 'quote', name: 'Quote', rowCount: 5, columnCount: 3, cellData: { 0: { 0: { v: 420, t: 2 }, 1: { v: 180, t: 2 }, 2: { v: '75600.00', t: 1, f: '=A1*B1' } }, 1: { 2: { v: '21600.00', t: 1 } }, 2: { 2: { v: '31200.00', t: 1 } }, 3: { 2: { v: '3500.00', t: 1 } }, 4: { 2: { v: '131900.00', t: 1, f: '=SUM(C1:C4)' } } } } } }, stableIds: { quote: { rows: ['service', 'windows', 'specialist', 'delivery', 'total'], columns: ['price', 'quantity', 'amount'] } } } });
+    const document = await base.service.create(base.owner, randomUUID(), { workspaceId: base.workspaceId, projectId: base.projectId, expectedAuthzVersion: 1, title: 'Offer', sourceRefs: [oldRef], bindings: [{ targetElementId: 'quoteTotal', sourceRef: oldRef, transformId: 'quote-total', updateMode: 'propose' }], content: { kind: 'document', schemaVersion: 1, document: { type: 'doc', attrs: { id: 'root' }, content: [{ type: 'paragraph', attrs: { id: 'manualDelivery' }, content: [{ type: 'text', text: 'Срок доставки согласуем отдельно.' }] }, { type: 'paragraph', attrs: { id: 'amountLine' }, content: [{ type: 'dataField', attrs: { id: 'quoteTotal', value: '131 900,00 ₸' } }] }] } } });
+    const otherAmounts = ['windows', 'specialist', 'delivery'].map((row) => cell(row, 'amount'));
+    const edges: DependencyEdge[] = [
+      { id: randomUUID(), inputs: [{ key: 'price', ref: { kind: 'source', sourceRef: oldRef } }], target: { artifactId: table.artifact.id, targetElementId: priceId }, transform: { kind: 'copy', input: 'price' }, updateMode: 'deterministic', label: 'Accepted service price' },
+      { id: randomUUID(), inputs: [{ key: 'price', ref: { kind: 'artifact', artifactId: table.artifact.id, targetElementId: priceId } }, { key: 'quantity', ref: { kind: 'artifact', artifactId: table.artifact.id, targetElementId: quantityId } }], target: { artifactId: table.artifact.id, targetElementId: serviceAmountId }, transform: { kind: 'decimal', operation: 'product', inputs: ['price', 'quantity'], scale: 2 }, updateMode: 'deterministic', label: 'Service amount' },
+      { id: randomUUID(), inputs: [serviceAmountId, ...otherAmounts].map((targetElementId, index) => ({ key: `line${index}`, ref: { kind: 'artifact' as const, artifactId: table.artifact.id, targetElementId } })), target: { artifactId: table.artifact.id, targetElementId: totalId }, transform: { kind: 'decimal', operation: 'sum', inputs: ['line0', 'line1', 'line2', 'line3'], scale: 2 }, updateMode: 'deterministic', label: 'Known quote total' },
+      { id: randomUUID(), inputs: [{ key: 'total', ref: { kind: 'artifact', artifactId: table.artifact.id, targetElementId: totalId } }], target: { artifactId: document.artifact.id, targetElementId: 'quoteTotal' }, transform: { kind: 'money-format', input: 'total', currency: 'KZT', locale: 'ru', scale: 2, basis: 'major' }, updateMode: 'propose', label: 'Offer total' },
+    ];
+    const input = { workspaceId: base.workspaceId, projectId: base.projectId, expectedAuthzVersion: 1 };
+    await dependencies.register(base.owner, randomUUID(), { ...input, edges });
+    const currentRef = await acceptPrice(485, 1);
+    expect(currentRef.recordId).toBe(oldRef.recordId); expect(currentRef.fieldId).toBe(oldRef.fieldId); expect(currentRef.factRevision).toBe(2);
+    const change = await dependencies.prepare(base.owner, randomUUID(), input);
+    expect(change.proposal.changes.find((item) => item.target.targetElementId === totalId)?.after).toBe('143600.00');
+    const groupId = change.proposal.changes[0]!.groupId;
+    const accepted = await dependencies.review(base.owner, randomUUID(), change.id, 'accept', { ...input, expectedRevision: change.revision, groupIds: [groupId] });
+    expect(accepted.receipt?.artifacts).toHaveLength(2);
+    const opened = await base.read(document.artifact.id), resolver = createArtifactTargetResolver(opened.content, opened.artifact.bindings, opened.locks);
+    expect(String(resolver('quoteTotal', 'value')!.value)).toContain('143');
+    expect(JSON.stringify(resolver('manualDelivery')!.value)).toContain('Срок доставки согласуем отдельно.');
+    expect(opened.artifact.bindings[0]!.sourceRef).toMatchObject({ recordId: oldRef.recordId, factRevision: 2 });
+    const oldVersion = await base.service.version(base.owner, { workspaceId: base.workspaceId, artifactId: document.artifact.id, revision: 0 });
+    expect(oldVersion.artifact.bindings[0]!.sourceRef).toMatchObject({ sourceVersionId: oldRef.sourceVersionId, factRevision: 1 });
+  });
   it('accepts table/document changes atomically, replays once, reopens, and undoes through canonical history', async () => {
     const f = await setup(), before = await f.read(f.documentId), proposal = await f.dependencies.prepare(f.owner, randomUUID(), f.input);
     expect(proposal.proposal.changes.map((change) => change.state)).toEqual(['ready', 'ready']);

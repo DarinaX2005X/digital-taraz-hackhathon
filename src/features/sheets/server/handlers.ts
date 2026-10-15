@@ -14,17 +14,19 @@ import { ContentValidationError } from '@/features/artifacts/domain/canonical';
 import type { TableCell } from '@/features/artifacts/domain/content-models';
 import type { FieldBinding, SourceRef } from '@/contracts/artifacts';
 import type { MaterialCell } from '@/contracts/materials';
+import { currencyMinorUnitScale } from '@/contracts/calculations';
 import { SheetImportRequestSchema, SheetMaterializeRequestSchema } from '../contracts';
 import { createBlankTable, MAX_ROWS, stableCellId } from '../domain/model';
 import { importTable } from './import';
 const Exact = Decimal.clone({ precision: 100, rounding: Decimal.ROUND_HALF_UP, toExpNeg: -100, toExpPos: 100 });
 
-function materialValue(cell: MaterialCell | undefined): TableCell {
+export function materialValue(cell: MaterialCell | undefined): TableCell {
   if (!cell || cell.value.kind === 'unknown' || cell.reviewState === 'needs-review') return {};
   const value = cell.value;
   if (value.kind === 'text') return { v: value.text, t: 1 };
   if (value.kind === 'date') return { v: value.date, t: 1 };
-  const exact = value.kind === 'money' ? new Exact(value.minorUnits).div(100).toFixed(2) : value.decimal;
+  const scale = value.kind === 'money' ? currencyMinorUnitScale(value.currency) : undefined;
+  const exact = value.kind === 'money' ? new Exact(value.minorUnits).div(new Exact(10).pow(scale!)).toFixed(scale) : value.decimal;
   const number = Number(exact);
   // Large exact inputs remain text rather than being silently rounded by JS.
   return Number.isFinite(number) && new Exact(String(number)).eq(exact) ? { v: number, t: 2 } : { v: exact, t: 1 };

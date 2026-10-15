@@ -3,7 +3,7 @@ import { ErrorEnvelopeSchema } from '@/contracts/errors';
 import { IdSchema } from '@/contracts/primitives';
 import { SourceListSchema, type SourceLibraryQuery } from '@/contracts/sources';
 import { ArtifactMutationResultSchema, SourceFreshnessSchema } from '@/features/artifacts/contracts';
-import { BoundFactsSchema, CollectionListSchema, CollectionResultSchema, CorrectionResultSchema, DatasetPageSchema, ImportPreviewSchema, ImportResultSchema, MaterialHistorySchema, MaterialSourcePreviewSchema, ResolutionResultSchema, type CollectionListInput, type DatasetQuery } from '@/contracts/materials';
+import { BoundFactsSchema, CollectionListSchema, CollectionResultSchema, CorrectionResultSchema, DatasetFacetSchema, DatasetGroupPageSchema, DatasetPageSchema, ImportPreviewSchema, ImportResultSchema, MaterialDecisionContextSchema, MaterialHistorySchema, MaterialSourcePreviewSchema, ResolutionResultSchema, type CollectionListInput, type DatasetBrowseQuery } from '@/contracts/materials';
 
 export class MaterialRequestError extends Error {
   constructor(readonly status: number, readonly messageKey: string) { super(messageKey); }
@@ -29,7 +29,10 @@ export function createMaterialClient(fetcher: typeof fetch = fetch) {
     begin: (input: unknown, key: string, context: MaterialContext) => request(`${root}/imports`, 'POST', ImportResultSchema, context, input, key),
     preview: (workspaceId: string, id: string, options: { after?: string; change?: string }, context: MaterialContext) => request(`${root}/imports/${IdSchema.parse(id)}?${queryString({ workspaceId, ...options })}`, 'GET', ImportPreviewSchema, context),
     importAction: (id: string, action: 'advance' | 'cancel' | 'resolve' | 'undo-decision' | 'apply', input: unknown, key: string, context: MaterialContext) => request(`${root}/imports/${IdSchema.parse(id)}/${action}`, 'POST', ImportResultSchema, context, input, key),
-    query: (input: Partial<DatasetQuery> & { workspaceId: string; collectionId: string }, context: MaterialContext) => request(`${root}/datasets/query`, 'POST', DatasetPageSchema, context, input),
+    query: (input: Partial<DatasetBrowseQuery> & { workspaceId: string; collectionId: string }, context: MaterialContext) => request(`${root}/datasets/query`, 'POST', DatasetPageSchema, context, input),
+    facet: (input: unknown, context: MaterialContext) => request(`${root}/datasets/facet`, 'POST', DatasetFacetSchema, context, input),
+    group: (input: unknown, context: MaterialContext) => request(`${root}/datasets/group`, 'POST', DatasetGroupPageSchema, context, input),
+    decisionContext: (input: unknown, context: MaterialContext) => request(`${root}/context/read`, 'POST', MaterialDecisionContextSchema, context, input),
     facts: (input: unknown, context: MaterialContext) => request(`${root}/facts/read`, 'POST', BoundFactsSchema.extend({ sourceFreshness: z.array(SourceFreshnessSchema).max(100) }), context, input),
     history: (workspaceId: string, id: string, beforeRevision: number | undefined, context: MaterialContext) => request(`${root}/collections/${IdSchema.parse(id)}/history?${queryString({ workspaceId, beforeRevision })}`, 'GET', MaterialHistorySchema, context),
     correctionPreview: (id: string, input: unknown, context: MaterialContext) => request(`${root}/collections/${IdSchema.parse(id)}/correction-preview`, 'POST', CorrectionResultSchema, context, input),

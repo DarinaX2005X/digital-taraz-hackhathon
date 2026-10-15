@@ -231,6 +231,9 @@ export function validatePlanEntry(entry: unknown): PlanEntry {
   if ((value.startDate && value.startAt) || (value.endDate && value.endAt) || Boolean(value.startDate) !== Boolean(value.endDate) || Boolean(value.startAt) !== Boolean(value.endAt)) fail('mixed-plan-time');
   if ((value.startDate && value.endDate && value.startDate > value.endDate) || (value.startAt && value.endAt && Date.parse(value.startAt) > Date.parse(value.endAt))) fail('reversed-plan-time');
   uniqueIds(value.resourceIds); uniqueIds(value.dependencies); uniqueIds(value.availabilityVersionIds); uniqueIds(value.checklist.map((item) => item.id));
+  uniqueIds(value.assignments?.map((item) => item.resourceId) ?? []);
+  uniqueIds(value.linkedArtifactIds ?? []);
+  uniqueIds(value.capacityOverride?.availabilityVersionIds ?? []);
   if (value.dependencies.includes(value.id)) fail('plan-self-dependency');
   return value;
 }

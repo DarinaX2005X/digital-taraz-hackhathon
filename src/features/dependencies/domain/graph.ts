@@ -1,8 +1,9 @@
 import type { DependencyEdge, DependencyRef, DependencyTarget } from '../../../contracts/dependencies';
 import { DependencyEdgeSchema } from '../../../contracts/dependencies';
+import { dependencyTargetProperty } from '../../../contracts/dependency-edges';
 import { ContentValidationError } from '../../artifacts/domain/canonical';
 
-export const targetKey = (target: DependencyTarget): string => `artifact:${target.artifactId}:${target.targetElementId}`;
+export const targetKey = (target: DependencyTarget): string => `artifact:${target.artifactId}:${target.targetElementId}:${dependencyTargetProperty(target)}`;
 /** Source identity deliberately excludes a version; a missing record never binds by row position. */
 export function dependencyKey(ref: DependencyRef): string {
   if (ref.kind === 'artifact') return targetKey(ref);

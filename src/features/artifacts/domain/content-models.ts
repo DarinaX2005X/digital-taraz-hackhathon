@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { CalendarDateSchema, DecimalStringSchema, ElementIdSchema, IdSchema, InstantSchema } from '../../../contracts/primitives';
+import { CalendarDateSchema, DecimalStringSchema, ElementIdSchema, HashSchema, IdSchema, InstantSchema, RevisionSchema } from '../../../contracts/primitives';
 import { CalculationSpecSchema } from '../../../contracts/calculations';
+import { SourceRefSchema } from '../../../contracts/artifacts';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 export interface DocumentNode {
@@ -73,8 +74,20 @@ export const DesignLayerSchema: z.ZodType<DesignLayer> = z.lazy(() => z.strictOb
 }));
 export const PlanEntrySchema = z.strictObject({
   id: ElementIdSchema, title: z.string().min(1).max(1000), status: z.enum(['todo', 'in-progress', 'done', 'cancelled']),
+  description: z.string().max(12000).optional(),
   startDate: CalendarDateSchema.optional(), endDate: CalendarDateSchema.optional(), startAt: InstantSchema.optional(), endAt: InstantSchema.optional(),
   resourceIds: z.array(IdSchema).max(100), dependencies: z.array(ElementIdSchema).max(1000),
+  assignments: z.array(z.strictObject({
+    resourceId: IdSchema, resourceRevision: RevisionSchema.optional(), availabilityVersionId: IdSchema.optional(),
+    effort: z.strictObject({ decimal: DecimalStringSchema, unit: z.string().min(1).max(40) }).optional(),
+  })).max(100).optional(),
+  linkedArtifactIds: z.array(IdSchema).max(100).optional(),
+  sourceRefs: z.array(SourceRefSchema).max(1000).optional(),
+  calendar: z.strictObject({ uid: z.string().trim().min(1).max(512), sequence: z.number().int().min(0).max(2147483647) }).optional(),
+  capacityOverride: z.strictObject({
+    reason: z.string().trim().min(1).max(1000), actorId: IdSchema, acceptedAt: InstantSchema,
+    availabilityVersionIds: z.array(IdSchema).max(100), assessmentKey: HashSchema,
+  }).optional(),
   effort: z.strictObject({ decimal: DecimalStringSchema, unit: z.string().min(1).max(40) }).optional(),
   durationMinutes: z.number().int().nonnegative().optional(), quantity: z.strictObject({ decimal: DecimalStringSchema, unit: z.string().min(1).max(40) }).optional(),
   checklist: z.array(z.strictObject({ id: ElementIdSchema, text: z.string().min(1).max(1000), done: z.boolean() })).max(1000),

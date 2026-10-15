@@ -114,6 +114,29 @@ describe('conditional artifact operations', () => {
     await value.apply(inverseInputs(changed.inverse), { ...context, origin: 'history' }, changed.inverse);
     expect((await value.state()).content).toEqual(design);
   });
+  it('keeps text and fill bindings independent and geometry-only edits do not create value overrides', async () => {
+    const design: ArtifactContent = { kind: 'design', schemaVersion: 1, pages: [{ id: 'page', width: 800, height: 600, unit: 'px', background: '#ffffff', layers: [{ id: 'price', type: 'text', text: '131 900 ₸', transform: { x: 10, y: 20, width: 220, height: 48, rotation: 0 }, style: { fill: '#112233' } }] }] };
+    const textRef = { sourceId: '3401f1f2-2f6c-4e01-8a8d-427863d9658d', sourceVersionId: 'f87c6f66-625e-4028-a410-1618c471b8ac', revision: 1 };
+    const fillRef = { sourceId: 'd37a9a8c-d39e-4f3d-8fd3-05373ce2cae9', sourceVersionId: '29b446f0-febd-4e56-a078-ce7a31f00f32', revision: 1 };
+    const graph = new MerkleJson(), value = new ArtifactDraft(graph, graph.encode(createArtifactState(design, [textRef, fillRef], [
+      { targetElementId: 'price', targetProperty: 'text', sourceRef: textRef, transformId: 'price-text', updateMode: 'propose' },
+      { targetElementId: 'price', targetProperty: 'fill', sourceRef: fillRef, transformId: 'brand-fill', updateMode: 'propose' },
+    ]) as unknown as JsonValue));
+    const textBeforeGeometry = (await value.target('price', 'text'))!;
+    const whole = (await value.target('price'))!;
+    await value.apply([{ targetId: 'price', op: 'set', beforeHash: whole.hash, value: { ...whole.value as Record<string, JsonValue>, transform: { x: 90, y: 110, width: 260, height: 52, rotation: 2 } } }], context);
+    expect((await value.target('price', 'text'))!.binding?.override).toBeUndefined();
+    expect((await value.target('price', 'fill'))!.binding?.override).toBeUndefined();
+    // The text precondition is property-scoped, so the prior geometry-only edit
+    // does not invalidate the reviewed text change.
+    await value.apply([{ targetId: 'price', targetProperty: 'text', op: 'set', beforeHash: textBeforeGeometry.hash, value: '143 600 ₸' }], context);
+    expect((await value.target('price', 'text'))!.binding?.override?.reason).toBe(context.reason);
+    expect((await value.target('price', 'fill'))!.binding?.override).toBeUndefined();
+    expect((await value.target('price'))!.value).toMatchObject({ text: '143 600 ₸', style: { fill: '#112233' }, transform: { x: 90, y: 110 } });
+    await value.apply([{ targetId: 'price', targetProperty: 'fill', op: 'set', beforeHash: (await value.target('price', 'fill'))!.hash, value: '#445566' }], context);
+    expect((await value.target('price', 'fill'))!.binding?.override?.reason).toBe(context.reason);
+    await expect(value.apply([{ targetId: 'price', targetProperty: 'geometry' as never, op: 'set', beforeHash: (await value.target('price'))!.hash, value: 1 }], context)).rejects.toThrow();
+  });
   it('restores table merges exactly and permits formulas unaffected by a structural edit', async () => {
     const table: ArtifactContent = { kind: 'table', schemaVersion: 1, workbook: { id: 'book', name: 'Prices', appVersion: '1', locale: 'ruRU', sheetOrder: ['sheet'], sheets: { sheet: { id: 'sheet', name: 'Prices', rowCount: 3, columnCount: 2, cellData: {}, mergeData: [{ startRow: 0, endRow: 2, startColumn: 0, endColumn: 0 }] } } }, stableIds: { sheet: { rows: ['r1', 'r2', 'r3'], columns: ['sku', 'price'] } } };
     const value = draft(table), row = tableRowTargetId('sheet', 'r2');
@@ -155,6 +178,12 @@ describe('conditional artifact operations', () => {
     const entry = { id: 'one', title: 'Prepare', status: 'todo' as const, resourceIds: [], dependencies: [], checklist: [], availabilityVersionIds: [] };
     const plan = draft({ kind: 'plan', schemaVersion: 1, timezone: 'Asia/Qyzylorda', entries: [entry, { ...entry, id: 'two', dependencies: ['one'] }] });
     await expect(plan.apply([{ targetId: 'one', op: 'set', value: { ...entry, dependencies: ['two'] }, beforeHash: (await plan.target('one'))!.hash }], context)).rejects.toThrow();
+    expect((await plan.target('one'))!.value).toEqual(entry);
+    const resourceId = '68eb98a7-71ba-4ec3-b4c1-ed8ec3d4df88', availabilityVersionId = 'a02465e0-f2ce-4e8d-8bc2-4a4cdf6496f7';
+    const operational = { ...entry, description: 'Проверить срок и загрузку.', assignments: [{ resourceId, resourceRevision: 2, availabilityVersionId, effort: { decimal: '4.5', unit: 'hour' } }], linkedArtifactIds: [resourceId], sourceRefs: [{ sourceId: resourceId, sourceVersionId: availabilityVersionId, revision: 1 }], calendar: { uid: 'tirlik-one@example.test', sequence: 3 }, capacityOverride: { reason: 'Подтверждено руководителем', actorId, acceptedAt: context.at, availabilityVersionIds: [availabilityVersionId], assessmentKey: 'a'.repeat(64) } };
+    const applied = await plan.apply([{ targetId: 'one', op: 'set', value: operational, beforeHash: (await plan.target('one'))!.hash }], context);
+    expect((await plan.target('one'))!.value).toEqual(operational);
+    await plan.apply(inverseInputs(applied.inverse), { ...context, origin: 'history' }, applied.inverse);
     expect((await plan.target('one'))!.value).toEqual(entry);
   });
 });

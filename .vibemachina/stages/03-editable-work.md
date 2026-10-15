@@ -70,12 +70,12 @@ Domain/contract boundary сохранена37d4bd53177a0bfa90a1290c10d6a2451dd90
 
 ## 03.2 Организовать работу вокруг проектов и текущего результата
 Status: active
-Requirements: R08, R21, R25, R31, R32, R33, R35, R36, R37, R38, R39, R40, R41, R44, R45, R97, R106
+Requirements: R08, R21, R25, R31, R32, R33, R35, R36, R37, R38, R39, R40, R41, R44, R45, R97, R106, R107, R108
 Depends on: 02.1, 01.2
-Owner: SUBAGENT to assign (передача; прежний автор: journey_delivery)
-Paths: src/features/workspace/, tests/workspace/, src/app/api/projects/, src/server/db/workspace-view-schema.ts, migrations/0009_workspace_views.sql, src/app/app/work/
+Owner: /root/assistant_session
+Paths: src/features/workspace/, tests/workspace/, src/features/runs/ui/, src/features/runs/locales/, src/app/api/projects/, src/server/db/workspace-view-schema.ts, migrations/0009_workspace_views.sql, src/app/app/work/, src/app/app/runs/
 
-Дополнительные точные route loans исключительно workspace_delivery: `src/app/app/projects/[projectId]/page.tsx`, `src/app/app/projects/[projectId]/layout.tsx`, `src/app/app/projects/[projectId]/artifacts/[artifactId]/page.tsx`. History subtree принадлежит artifact_delivery. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Начало возможно на независимо принятом server03.1 boundary, финальная03.2 acceptance требует полной03.1 integration.
+Дополнительные точные route loans исключительно `/root/assistant_session`: `src/app/app/projects/[projectId]/page.tsx`, `src/app/app/projects/[projectId]/layout.tsx`, `src/app/app/projects/[projectId]/artifacts/[artifactId]/page.tsx`, `src/app/app/runs/page.tsx`, `src/app/app/runs/[runId]/page.tsx`. Для F010 выданы bounded identity loans `src/features/identity/ui/settings.tsx`, `src/features/identity/ui/account-menu.tsx`, `src/features/identity/ui/entry.tsx`, `src/features/identity/domain/return-to.ts` и соответствующие focused identity tests только для Work-vs-Settings navigation, validated assistant `run` return context и no-auto-mutation GET. Для sign-out privacy дополнительно выдан exact loan `src/features/identity/ui/private-tab-drafts.ts` и focused test: он добавляет очистку только owner-scoped task-selection/project-session/run-session-draft prefixes, не затрагивая чужие account keys. History subtree read-only и остаётся canonical artifact integration. Next dynamic routes перечислены буквально вне glob metadata; MAIN отдельно сверяет ownership. Начало возможно на независимо принятом server03.1 boundary, финальная03.2 acceptance требует полной03.1 integration.
 
 По прямому новому ускорению пользователя2026-10-14 реализация начинается на принятом server03.1 boundary (Project/artifact/events actual API,17SQL PASS), не ждёт полного history/session UI refinement. Финальная03.2 acceptance требует полной интеграции. Artifact_delivery подтвердил STOP и передал canonical project-core/contracts/api/projects новому workspace_delivery, high reasoning. Не создавать второй Project. Artifact list-by-project добавляет artifact owner. Старый read-only prep ниже полезен как контекст, не текущий запрет реализации.
 
@@ -90,11 +90,13 @@ Read-only prep завершён: полный packet/исходники/referenc
 **Вход в работу и состояния.** Navigation Работа/Материалы/Бизнес, no agent-role tabs. «Работа» начинает AI-сессию через «Что нужно сделать?» и attachment; текущий plan/question/result видны без знания внутренних модулей. Project показывает assistant area и dominant selected editor; result rail and contextual Источники/Изменения only when relevant. Empty/partial/pending/waiting-input/review-ready/failed/archived and404 purposeful. Mobile переключает «Ассистент / Результат» с сохранением selection/draft, не прячет AI в неизвестной панели.
 
 ### 03.2.1 Личная работа и навигация
-Status: active
+Status: done
 
 Приоритет исправления2026-10-15: существующая page результата монтирует только preview и creation ведёт в пустой документ. При подключении готового capability монтировать настоящий editor с save/history и next action, обеспечить create document/table/design по фактической полной готовности. Сохранённая свободная цель получает явную команду выполнения через04.1, не link в пустой runs history. Первичная рабочая форма минимизирует обязательное именование, сохраняет intent/locale/draft и добавленные источники. Initial workspace для solo user создаётся только явной командой, несколько доступных выбираются явно. Все visible auth recovery entries сохраняют destination/черновик; pending create нельзя закрыть как discard с продолжающимся эффектом и потерей idempotency key. Интеграцию shared routes выполняет единственный owner, редактирование features поручено их owners.
 
 API create/list/open/archive, same project on return, search/filter validation and 404 HTTP status. Route action inventory points to real handlers, no dead CTA.
+
+Принято по коду/данным: `/app/work` является основной assistant home, Work отделён от Settings, preserved returnTo/run и owner-scoped draft cleanup проверены. AI-session монтирует реальные Document/Sheet/Design/Plan editors, structured decision и fixed bundle entry.74/74 focused,17/17 final affected tests и8/8 workspace PostgreSQL PASS.03.2.2 остаётся active до финального mounted workspace pass и пользовательского visual/mobile review.
 
 ### 03.2.2 Согласованное состояние без reload
 Status: todo
@@ -132,8 +134,10 @@ Command adapters tested direct edits/format/find/replace/locks undo through DB r
 Status: active
 Requirements: R13, R16, R25, R42, R43, R95
 Depends on: 03.1
-Owner: /root/exports_delivery
+Owner: /root/export_completion
 Paths: src/features/exports/, tests/exports/
+
+Новый owner после checkpoint `d6ac5ff` получает весь незавершённый03.4 и selectively reviews старый ignored CP2, не копируя его поверх active source. Export registry/API shared changes согласуются с core/integration owners; задача обязана довести fixed-revision DOCX+XLSX и coherent package boundary для assistant proof.
 
 Локальный допуск опирается на принятый format proof01.4.1; remote01.4.2 отложен по указанию пользователя. Реальные локальные DOCX/PDF и их содержимое проверяются здесь; пригодность cloud execution/storage отдельно обязательна11.2/13.2.
 
@@ -154,4 +158,6 @@ Parse DOCX zip/XML and PDF text/page/font/image objects; golden Unicode, totals,
 Status: active
 
 Actual object storage writes, interruption between files -> same manifest retry, duplicate request one bundle, ACL revocation and checksum. Export reflects saved revision not latest mutable state.
+
+Текущий handover: export unit/domain39/39 иPostgreSQL11/11 PASS. Private fixed-revision DOCX+XLSX ZIP manifest/hashes, current artifact/source/resource ACL, retry/cancel/partial, complex document/font checks и real sheet/design/plan adapters приняты. Mounted `http-sheets`4/4 PASS после strengthened manifest/source-pin assertions; leading-zero `00123` regression доказал, что adapter сохраняет строку, а прежняя потеря была исправлена в test fixture. Пользовательское открытие файлов и визуальная проверка dialog ещё впереди.
 

@@ -1,16 +1,18 @@
 import { z } from 'zod';
-import { ArtifactKindSchema } from './artifacts';
+import { ArtifactKindSchema, BindingTargetPropertySchema } from './artifacts';
 import { DependencyEdgeSchema } from './dependency-edges';
 import { ElementIdSchema, HashSchema, IdSchema, InstantSchema, RevisionSchema } from './primitives';
 
 export const RevisionVectorSchema = z.record(IdSchema, RevisionSchema);
 export const CommandOperationSchema = z.strictObject({
   targetId: ElementIdSchema,
+  targetProperty: BindingTargetPropertySchema.optional(),
   op: z.enum(['set', 'insert', 'remove', 'move', 'style', 'bind', 'unbind', 'lock']),
   value: z.json().optional(),
   beforeHash: HashSchema.nullable(),
-}).refine((operation) => operation.op === 'remove' || operation.op === 'unbind' || operation.value !== undefined, {
-  message: 'This operation requires a value.',
+}).superRefine((operation, context) => {
+  if (operation.op !== 'remove' && operation.op !== 'unbind' && operation.value === undefined) context.addIssue({ code: 'custom', message: 'This operation requires a value.' });
+  if (operation.targetProperty && !['set', 'bind', 'unbind'].includes(operation.op)) context.addIssue({ code: 'custom', message: 'This operation cannot address a target property.' });
 });
 
 export const CommandInputSchema = z.strictObject({

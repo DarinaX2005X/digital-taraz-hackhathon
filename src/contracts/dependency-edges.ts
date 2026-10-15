@@ -1,18 +1,21 @@
 import { z } from 'zod';
-import { SourceRefSchema } from './artifacts';
+import { BindingTargetPropertySchema, SourceRefSchema, type BindingTargetProperty } from './artifacts';
+import { currencyMinorUnitScale } from './calculations';
 import { ElementIdSchema, IdSchema } from './primitives';
 
 export const DependencyRefSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('source'), sourceRef: SourceRefSchema }),
-  z.strictObject({ kind: z.literal('artifact'), artifactId: IdSchema, targetElementId: ElementIdSchema }),
+  z.strictObject({ kind: z.literal('artifact'), artifactId: IdSchema, targetElementId: ElementIdSchema, targetProperty: BindingTargetPropertySchema.optional() }),
 ]);
-export const DependencyTargetSchema = z.strictObject({ artifactId: IdSchema, targetElementId: ElementIdSchema });
+export const DependencyTargetSchema = z.strictObject({ artifactId: IdSchema, targetElementId: ElementIdSchema, targetProperty: BindingTargetPropertySchema.optional() });
 export const DependencyTransformSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('copy'), input: ElementIdSchema }),
   z.strictObject({ kind: z.literal('material-format'), input: ElementIdSchema, locale: z.enum(['ru', 'kk', 'en']) }),
   z.strictObject({ kind: z.literal('money-format'), input: ElementIdSchema, currency: z.string().regex(/^[A-Z]{3}$/), locale: z.enum(['ru', 'kk', 'en']), scale: z.number().int().min(0).max(6), basis: z.enum(['major', 'minor']) }),
   z.strictObject({ kind: z.literal('decimal'), operation: z.enum(['sum', 'product']), inputs: z.array(ElementIdSchema).min(1).max(100), scale: z.number().int().min(0).max(6) }),
-]);
+]).superRefine((transform, context) => {
+  if (transform.kind === 'money-format' && transform.scale !== currencyMinorUnitScale(transform.currency)) context.addIssue({ code: 'custom', message: 'Money formatting scale must match the ISO currency minor unit.' });
+});
 export const DependencyEdgeSchema = z.strictObject({
   id: IdSchema,
   inputs: z.array(z.strictObject({ key: ElementIdSchema, ref: DependencyRefSchema })).min(1).max(100),
@@ -29,3 +32,7 @@ export type DependencyRef = z.infer<typeof DependencyRefSchema>;
 export type DependencyTarget = z.infer<typeof DependencyTargetSchema>;
 export type DependencyTransform = z.infer<typeof DependencyTransformSchema>;
 export type DependencyEdge = z.infer<typeof DependencyEdgeSchema>;
+
+export function dependencyTargetProperty(target: { targetProperty?: BindingTargetProperty }): BindingTargetProperty {
+  return target.targetProperty ?? 'value';
+}

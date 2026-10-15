@@ -3,7 +3,7 @@
 import * as Ariakit from "@ariakit/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Activity, KeyRound, Languages, LogOut, UserRound, Users } from "lucide-react";
+import { BriefcaseBusiness, KeyRound, Languages, LogOut, UserRound, Users } from "lucide-react";
 import { useRef, useState } from "react";
 import { Button, Dialog, DialogClose, IconButton } from "@/ui";
 import type { IdentityMutationResult, IdentityViewer } from "../contracts";
@@ -54,6 +54,8 @@ function AuthenticatedAccountMenu({ viewer, beforeSignOut, onSignedOut }: Accoun
       <Ariakit.MenuButton render={<IconButton icon={UserRound} label={`${t("identity.navigation.account")}: ${viewer.user.name}`} />} />
       <Ariakit.Menu className={styles.menu} gutter={8} portal>
         <div className={styles.menuIdentity}><p>{viewer.user.name}</p><p>{viewer.user.email}</p></div>
+        <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/app/work" />}><BriefcaseBusiness aria-hidden="true" size={18} />{t("identity.navigation.home")}</Ariakit.MenuItem>
+        <Ariakit.MenuSeparator className={styles.menuSeparator} />
         <Ariakit.MenuGroup aria-label={t("identity.navigation.settings")}>
           <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#profile" />}><UserRound aria-hidden="true" size={18} />{t("identity.navigation.profile")}</Ariakit.MenuItem>
           <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#security" />}><KeyRound aria-hidden="true" size={18} />{t("identity.navigation.security")}</Ariakit.MenuItem>
@@ -61,7 +63,6 @@ function AuthenticatedAccountMenu({ viewer, beforeSignOut, onSignedOut }: Accoun
         </Ariakit.MenuGroup>
         <Ariakit.MenuSeparator className={styles.menuSeparator} />
         <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings/team" />}><Users aria-hidden="true" size={18} />{t("identity.team.manage")}</Ariakit.MenuItem>
-        <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/app/runs" />}><Activity aria-hidden="true" size={18} />{t("identity.navigation.activity")}</Ariakit.MenuItem>
         <Ariakit.MenuSeparator className={styles.menuSeparator} />
         <Ariakit.MenuItem className={`${styles.menuItem} ${styles.menuItemDanger}`} onClick={() => setSignOutOpen(true)}><LogOut aria-hidden="true" size={18} />{t("identity.navigation.signOut")}</Ariakit.MenuItem>
       </Ariakit.Menu>

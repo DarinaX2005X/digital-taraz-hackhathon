@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, FileText } from 'lucide-react';
 import type { SourceSummary } from '@/contracts/sources';
 import { useLocale } from '@/i18n/provider';
@@ -9,17 +8,18 @@ import { runClient } from '@/features/runs/client/transport';
 import { sourceClient } from '@/features/sources/client/transport';
 import { Button } from '@/ui';
 import { isDefiniteRequestRejection } from '../domain/request-attempt';
-import { prepareTaskRequest, readTaskRequest, taskRequestKey, type TaskRequest } from '../domain/task-request';
+import { prepareTaskRequest, readTaskRequest, readTaskSelection, taskRequestKey, taskSelectionKey, type TaskRequest } from '../domain/task-request';
 import { WorkspaceError, useWorkspaceCopy } from './shell';
 import styles from './workspace.module.css';
 
-export function ProjectTask({ ownerId, workspaceId, projectId, goal, sources, active, canEdit, selectedSource, beforeStart, onBusyChange, run }: {
+export function ProjectTask({ ownerId, workspaceId, projectId, goal, sources, active, canEdit, selectedSource, beforeStart, onBusyChange, onStarted, run }: {
   ownerId: string; workspaceId: string; projectId: string; goal: string; sources: SourceSummary[] | undefined;
   active: boolean; canEdit: boolean; selectedSource?: { sourceId: string; sourceVersionId: string };
   beforeStart: () => Promise<boolean>; onBusyChange: (busy: boolean) => void;
+  onStarted: (runId: string) => void;
   run: <T>(action: (signal: AbortSignal) => Promise<T>, externalSignal?: AbortSignal, purge?: boolean) => Promise<T>;
 }) {
-  const t = useWorkspaceCopy(), { locale } = useLocale(), router = useRouter();
+  const t = useWorkspaceCopy(), { locale } = useLocale();
   const [selected, setSelected] = useState<string[]>([]), [pending, setPending] = useState(false);
   const [uncertain, setUncertain] = useState(false), [restored, setRestored] = useState(false);
   const [error, setError] = useState<unknown>(), [sourceChanged, setSourceChanged] = useState(false);
@@ -27,6 +27,7 @@ export function ProjectTask({ ownerId, workspaceId, projectId, goal, sources, ac
   const [pinLoading, setPinLoading] = useState(false);
   const request = useRef<TaskRequest | undefined>(undefined), restoredSource = useRef<string | undefined>(undefined);
   const storageKey = taskRequestKey(ownerId, projectId);
+  const selectionStorageKey = taskSelectionKey(ownerId, projectId);
   const readySources = sources?.filter((item) => item.status === 'ready' && item.currentVersionId && item.revision > 0) ?? [];
 
   useEffect(() => {
@@ -34,11 +35,16 @@ export function ProjectTask({ ownerId, workspaceId, projectId, goal, sources, ac
       try {
         const saved = readTaskRequest(sessionStorage.getItem(storageKey), workspaceId, projectId);
         if (saved) { request.current = saved; setSelected(saved.input.inputRefs.filter((ref) => ref.kind === 'source').map((ref) => ref.id)); setUncertain(true); onBusyChange(true); }
+        else setSelected(readTaskSelection(sessionStorage.getItem(selectionStorageKey)));
       } catch { /* The request stays in memory if this browser disallows tab storage. */ }
       setRestored(true);
     }, 0);
     return () => clearTimeout(timer);
-  }, [storageKey, workspaceId, projectId, onBusyChange]);
+  }, [storageKey, selectionStorageKey, workspaceId, projectId, onBusyChange]);
+  useEffect(() => {
+    if (!restored || request.current) return;
+    try { sessionStorage.setItem(selectionStorageKey, JSON.stringify(selected)); } catch { /* The in-memory selection remains available. */ }
+  }, [restored, selected, selectionStorageKey]);
   useEffect(() => {
     if (!selectedSource || restoredSource.current === selectedSource.sourceVersionId || request.current || !active) return;
     const controller = new AbortController();
@@ -67,9 +73,9 @@ export function ProjectTask({ ownerId, workspaceId, projectId, goal, sources, ac
       const attempt = request.current;
       const result = await run((signal) => runClient.create(attempt.input, attempt.key, { userId: ownerId, signal }));
       request.current = undefined;
-      try { sessionStorage.removeItem(storageKey); } catch { /* A confirmed request is safe to replay by its existing idempotency key. */ }
+      try { sessionStorage.removeItem(storageKey); sessionStorage.removeItem(selectionStorageKey); } catch { /* A confirmed request is safe to replay by its existing idempotency key. */ }
       setUncertain(false); onBusyChange(false);
-      router.push(`/app/runs/${result.id}`);
+      onStarted(result.id);
     } catch (failure) {
       const rejected = isDefiniteRequestRejection(failure);
       if (rejected) { request.current = undefined; try { sessionStorage.removeItem(storageKey); } catch { /* Keep memory authoritative. */ } }

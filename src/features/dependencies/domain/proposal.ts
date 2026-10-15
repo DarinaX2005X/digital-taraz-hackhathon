@@ -1,4 +1,5 @@
-import { FieldBindingSchema, type FieldBinding, type SourceRef } from '../../../contracts/artifacts';
+import { FieldBindingSchema, fieldBindingIdentity, fieldBindingProperty, type FieldBinding, type SourceRef } from '../../../contracts/artifacts';
+import { dependencyTargetProperty } from '../../../contracts/dependency-edges';
 import { z } from 'zod';
 import type { CommandGroupInput } from '../../../contracts/commands';
 import type { MaterialValue } from '../../../contracts/materials';
@@ -9,9 +10,9 @@ import { createArtifactState, collectSourceRefs, TargetLocksSchema } from '../..
 import { MerkleJson } from '../../artifacts/domain/merkle-json';
 import { ArtifactDraft, TargetConflictError, type ArtifactOperation } from '../../artifacts/domain/operations';
 import type { ArtifactState, TargetLock } from '../../artifacts/domain/targets';
-import { locateTarget } from '../../artifacts/domain/targets';
+import { locateTarget, targetPropertyValue, targetValue } from '../../artifacts/domain/targets';
 import { compileDependencies, dependencyKey, targetKey } from './graph';
-import { formatMaterialValue, replaceTargetScalar, targetScalar, transformValue, type DependencyScalar } from './transforms';
+import { exactScalarEqual, formatMaterialValue, replaceTargetScalar, targetScalar, transformValue, type DependencyScalar } from './transforms';
 
 /** The same pure input is used by private work and the isolated public example. */
 export interface DependencyArtifact {
@@ -31,17 +32,19 @@ export function artifactDraft(input: DependencyArtifact): ArtifactDraft {
   const state = createArtifactState(input.content, input.sourceRefs);
   const missing = new Set(input.missingTargets ?? []);
   const bindings = z.array(FieldBindingSchema).max(10000).parse(input.bindings), locks = TargetLocksSchema.parse(input.locks ?? {});
-  if (new Set(bindings.map((binding) => binding.targetElementId)).size !== bindings.length) throw new ContentValidationError('duplicate-binding-target');
+  if (new Set(bindings.map(fieldBindingIdentity)).size !== bindings.length) throw new ContentValidationError('duplicate-binding-target');
   const refs = new Set(input.sourceRefs.map((ref) => hashJson(ref as JsonValue)));
   for (const binding of bindings) {
-    if (!locateTarget(state.index, binding.targetElementId) && !missing.has(binding.targetElementId)) throw new ContentValidationError('missing-binding-target');
+    const locator = locateTarget(state.index, binding.targetElementId);
+    if (!locator && !missing.has(binding.targetElementId)) throw new ContentValidationError('missing-binding-target');
+    if (locator && binding.targetProperty) targetPropertyValue(locator.kind, targetValue(state.content, locator), fieldBindingProperty(binding));
     if (!refs.has(hashJson(binding.sourceRef as JsonValue))) throw new ContentValidationError('binding-source-not-declared');
   }
   for (const id of Object.keys(locks)) if (!locateTarget(state.index, id) && !missing.has(id)) throw new ContentValidationError('missing-lock-target');
   for (const id of missing) if (locateTarget(state.index, id)) throw new ContentValidationError('invalid-missing-target');
   const bindingRefs = new Set(bindings.map((binding) => hashJson(binding.sourceRef as JsonValue)));
   state.sourceRefs = state.sourceRefs.filter((ref) => !bindingRefs.has(hashJson(ref as JsonValue)));
-  state.bindings = Object.fromEntries(bindings.map((binding) => [binding.targetElementId, binding]));
+  state.bindings = Object.fromEntries(bindings.map((binding) => [fieldBindingIdentity(binding), binding]));
   state.locks = locks;
   state.retiredTargets = Object.fromEntries([...missing].map((id) => [id, true as const]));
   return new ArtifactDraft(graph, graph.encode(state as unknown as JsonValue));
@@ -52,7 +55,8 @@ export async function proposalPreview(input: ProposalInput): Promise<{ proposal:
   const facts = new Map(input.facts.map((fact) => [fact.key, fact])), blocked = new Set<string>(), changes: DependencyChange[] = [];
   for (const edge of graph.ordered) {
     const artifact = artifacts.get(edge.target.artifactId), draft = drafts.get(edge.target.artifactId);
-    const target = await draft?.target(edge.target.targetElementId);
+    const targetProperty = dependencyTargetProperty(edge.target);
+    const target = await draft?.target(edge.target.targetElementId, targetProperty);
     const change: DependencyChange = {
       edgeId: edge.id, groupId: graph.groupByEdge.get(edge.id)!, target: edge.target,
       title: artifact?.title ?? '', label: edge.label, state: 'unchanged', before: target?.value ?? null,
@@ -76,14 +80,15 @@ export async function proposalPreview(input: ProposalInput): Promise<{ proposal:
           if (!fact || fact.state !== 'current' || fact.value === undefined || !fact.sourceRef) { unavailable = 'missing-input'; break; }
           values.set(entry.key, edge.transform.kind === 'material-format' && fact.materialValue ? formatMaterialValue(fact.materialValue, edge.transform.locale) : fact.value); provenance.set(dependencyKey({ kind: 'source', sourceRef: fact.sourceRef }), fact.sourceRef);
         } else {
-          const upstream = await drafts.get(entry.ref.artifactId)?.target(entry.ref.targetElementId);
+          const upstream = await drafts.get(entry.ref.artifactId)?.target(entry.ref.targetElementId, dependencyTargetProperty(entry.ref));
           if (!upstream) { unavailable = 'missing-input'; break; }
           values.set(entry.key, targetScalar(upstream));
           if (upstream.binding) provenance.set(dependencyKey({ kind: 'source', sourceRef: upstream.binding.sourceRef }), upstream.binding.sourceRef);
         }
       }
       if (unavailable) { fail(unavailable); continue; }
-      const next = replaceTargetScalar(target, transformValue(edge.transform, values));
+      let next = replaceTargetScalar(target, transformValue(edge.transform, values));
+      if (target.kind === 'table-cell' && targetProperty === 'value' && typeof target.value !== 'object' && typeof next !== 'object' && exactScalarEqual(target.value, next)) next = target.value;
       const binding = target.binding;
       const boundKey = binding && dependencyKey({ kind: 'source', sourceRef: binding.sourceRef });
       const newRef = boundKey ? facts.get(boundKey)?.sourceRef ?? provenance.get(boundKey) : undefined;
@@ -96,13 +101,13 @@ export async function proposalPreview(input: ProposalInput): Promise<{ proposal:
       const root = draft.root;
       try {
         if (valueChanged) {
-          const operation: ArtifactOperation = { targetId: target.targetId, op: 'set', value: next, beforeHash: target.hash };
+          const operation: ArtifactOperation = { targetId: target.targetId, targetProperty, op: 'set', value: next, beforeHash: target.hash };
           await draft.apply([operation], { actorId: input.actorId, at: input.at, origin: 'import', reason: edge.label });
           change.operations.push(operation);
         }
         if (bindingChanged) {
-          const current = (await draft.target(target.targetId))!;
-          const operation: ArtifactOperation = { targetId: target.targetId, op: 'bind', beforeHash: current.hash, value: { sourceRef: newRef!, transformId: binding!.transformId, updateMode: binding!.updateMode } as unknown as JsonValue };
+          const current = (await draft.target(target.targetId, targetProperty))!;
+          const operation: ArtifactOperation = { targetId: target.targetId, targetProperty, op: 'bind', beforeHash: current.hash, value: { sourceRef: newRef!, transformId: binding!.transformId, updateMode: binding!.updateMode, ...(targetProperty === 'value' ? {} : { targetProperty }) } as unknown as JsonValue };
           await draft.apply([operation], { actorId: input.actorId, at: input.at, origin: 'import', reason: edge.label });
           change.operations.push(operation);
         }

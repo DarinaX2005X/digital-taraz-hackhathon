@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, FolderOpen, History, ImageIcon, ListChecks, PencilLine, ShieldCheck, Table2, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, FolderOpen, History, ImageIcon, PencilLine, ShieldCheck, Table2 } from "lucide-react";
 import type { Locale } from "@/i18n";
 import { useLocale } from "@/i18n/provider";
 import { LocaleSelect, ProductHeader } from "@/ui";
@@ -13,6 +13,7 @@ import { useIdentityAccount } from "@/features/identity/ui/identity-locale-provi
 import { publicCopy, type PublicCopy } from "./copy";
 import { StartWork } from './start-work';
 import { ConnectedMaterialsScene } from './connected-materials-scene';
+import { DecisionProof } from './decision-proof';
 import { identityClient } from '@/features/identity/ui';
 import { authHref } from '@/features/identity/ui/navigation';
 import styles from "./public-site.module.css";
@@ -24,12 +25,12 @@ function PublicLanguage({ locale, view }: { locale: Locale; view: PublicView }) 
   return <LocaleSelect compact selectedLocale={locale} onLocaleChange={(next) => router.replace(`/${next}${view === "home" ? "" : `/${view}`}`, { scroll: false })} />;
 }
 
-function PublicFooter({ locale, copy }: { locale: Locale; copy: PublicCopy }) {
+function PublicFooter({ locale, copy, signedIn }: { locale: Locale; copy: PublicCopy; signedIn: boolean }) {
   return <footer className={styles.footer}>
     <div className={styles.footerInner}>
       <div><Link href={`/${locale}`} className={styles.footerBrand}><Image src="/brand/tirlik-mark.svg" width={32} height={32} alt="" />Tirlik</Link><p>{copy.footerText}</p></div>
       <nav aria-label={copy.help}><Link href={`/${locale}/help`}>{copy.help}</Link><Link href={`/${locale}/privacy`}>{copy.privacy}</Link><a href="https://github.com/DarinaX2005X/digital-taraz-hackhathon">{copy.repository}</a></nav>
-      <nav aria-label={copy.account}><Link href="/sign-in">{copy.signIn}</Link><Link href="/sign-up">{copy.start}</Link><Link href="/settings/team">{copy.team}</Link></nav>
+      <nav aria-label={copy.account}>{signedIn ? <><Link href="/app/work">{copy.work}</Link><Link href="/settings">{copy.account}</Link><Link href="/settings/team">{copy.team}</Link></> : <><Link href="/sign-in">{copy.signIn}</Link><Link href="/sign-up">{copy.start}</Link></>}</nav>
     </div>
   </footer>;
 }
@@ -60,23 +61,26 @@ function Scenarios({ copy, onStart }: { copy: PublicCopy; onStart: (goal: string
   </section>;
 }
 
-function HomeContent({ copy, signedIn, locale, onDraftChange }: { copy: PublicCopy; signedIn: boolean; locale: Locale; onDraftChange: (value: string) => void }) {
+function HomeContent({ copy, signedIn, onDraftChange }: { copy: PublicCopy; signedIn: boolean; onDraftChange: (value: string) => void }) {
   const [scenarioGoal, setScenarioGoal] = useState<string>();
   const controlIcons = [PencilLine, ShieldCheck, History];
-  const stepIcons = [FolderOpen, ListChecks, Check];
   return <main id="public-main">
     <section className={styles.hero} aria-labelledby="tirlik-title">
       <Image className={styles.heroImage} src="/site/business-materials.png" alt={copy.illustration} fill sizes="100vw" preload />
       <div className={styles.heroContent}>
-        <h1 id="tirlik-title">Tirlik</h1>
+        <h1 id="tirlik-title">{copy.heroTitle}</h1>
         <p className={styles.tagline}>{copy.tagline}</p>
         <p className={styles.heroDescription}>{copy.description}</p>
+        <p className={styles.heroPath}>{copy.heroPath}</p>
         <div className={styles.heroActions}>
           <a href="#start" className="tl-button tl-button--primary">{copy.ownTaskAction}<ArrowRight size={19} aria-hidden="true" /></a>
-          <Link href={`/${locale}/demo`} className={styles.explore}>{copy.exampleAction}<ArrowRight size={18} aria-hidden="true" /></Link>
+          {signedIn
+            ? <Link href="/app/work" className={styles.explore}>{copy.resumeWork}<ArrowRight size={18} aria-hidden="true" /></Link>
+            : <a href="#process" className={styles.explore}>{copy.processAction}<ArrowRight size={18} aria-hidden="true" /></a>}
         </div>
       </div>
     </section>
+    <DecisionProof copy={copy} />
     <StartWork copy={copy} signedIn={signedIn} scenarioGoal={scenarioGoal} onDraftChange={onDraftChange} />
     <Scenarios copy={copy} onStart={setScenarioGoal} />
     <section className={styles.controlSection} aria-labelledby="control-title">
@@ -86,18 +90,11 @@ function HomeContent({ copy, signedIn, locale, onDraftChange }: { copy: PublicCo
         return <div key={item.title}><Icon size={24} aria-hidden="true" /><h3>{item.title}</h3><p>{item.text}</p></div>;
       })}</div>
     </section>
-    <section className={styles.process} id="process" aria-labelledby="process-title">
-      <h2 id="process-title">{copy.processTitle}</h2>
-      <ol className={styles.steps}>{copy.steps.map((item, index) => {
-        const Icon = stepIcons[index] ?? Check;
-        return <li key={item.title}><span className={styles.stepIcon}><Icon size={25} aria-hidden="true" /></span><h3>{item.title}</h3><p>{item.text}</p></li>;
-      })}</ol>
-    </section>
     <section className={styles.boundaries} aria-labelledby="boundary-title">
       <div><h2 id="boundary-title">{copy.boundaryTitle}</h2><p>{copy.boundaryText}</p></div>
       <ul>{copy.boundaryItems.map((item) => <li key={item}><Check size={20} aria-hidden="true" /><span>{item}</span></li>)}</ul>
     </section>
-    <section className={styles.access} aria-labelledby="access-title"><div><h2 id="access-title">{copy.accessTitle}</h2><p>{copy.accessText}</p></div><div className={styles.accessActions}><a className="tl-button tl-button--primary" href="#start"><Users size={20} aria-hidden="true" />{copy.ownTaskAction}</a><Link href={signedIn ? "/settings" : "/sign-in"}>{signedIn ? copy.account : copy.signIn}</Link></div></section>
+    <section className={styles.access} aria-labelledby="access-title"><div><h2 id="access-title">{copy.accessTitle}</h2><p>{copy.accessText}</p></div><div className={styles.accessActions}><a className="tl-button tl-button--primary" href="#start">{copy.ownTaskAction}<ArrowRight size={20} aria-hidden="true" /></a><Link href={signedIn ? "/app/work" : "/sign-in"}>{signedIn ? copy.resumeWork : copy.signIn}</Link></div></section>
   </main>;
 }
 
@@ -107,7 +104,12 @@ function InformationContent({ copy, locale, view }: { copy: PublicCopy; locale: 
     <Link className={styles.back} href={`/${locale}`}><ArrowLeft size={18} aria-hidden="true" />{copy.back}</Link>
     <h1>{view === "help" ? copy.helpTitle : copy.privacyTitle}</h1>
     <p className={styles.informationIntro}>{view === "help" ? copy.helpIntro : copy.privacyIntro}</p>
-    <div className={styles.informationSections}>{(view === "help" ? copy.helpSections : copy.privacySections).map((section) => <section key={section.title}><h2>{section.title}</h2><p>{section.text}</p>{section.link && <Link className={styles.informationLink} href={links[section.link]}>{section.action}<ArrowRight size={18} aria-hidden="true" /></Link>}</section>)}</div>
+    <div className={styles.informationSections}>{(view === "help" ? copy.helpSections : copy.privacySections).map((section) => {
+      const content = <><h2>{section.title}</h2><p>{section.text}</p>{section.link && <span className={styles.informationLink}>{section.action}<ArrowRight size={18} aria-hidden="true" /></span>}</>;
+      return section.link
+        ? <Link key={section.title} className={styles.informationCard} href={links[section.link]}><section>{content}</section></Link>
+        : <section key={section.title}>{content}</section>;
+    })}</div>
   </main>;
 }
 
@@ -146,7 +148,7 @@ export function PublicSite({ routeLocale, view = "home" }: { routeLocale?: Local
       {account.viewer ? <AccountMenu /> : <Link className="tl-button tl-button--secondary" href="/sign-in">{copy.signIn}</Link>}
     </ProductHeader>
     {authFailure && <p role="alert" className={styles.startError}>{copy.ownTaskError}</p>}
-    {view === "home" ? <HomeContent copy={copy} signedIn={Boolean(account.viewer)} locale={locale} onDraftChange={rememberGoal} /> : <InformationContent copy={copy} locale={locale} view={view} />}
-    <PublicFooter copy={copy} locale={locale} />
+    {view === "home" ? <HomeContent copy={copy} signedIn={Boolean(account.viewer)} onDraftChange={rememberGoal} /> : <InformationContent copy={copy} locale={locale} view={view} />}
+    <PublicFooter copy={copy} locale={locale} signedIn={Boolean(account.viewer)} />
   </div>;
 }

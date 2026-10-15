@@ -16,8 +16,13 @@ export const SourceRefSchema = z.strictObject({
   return fields.every((field) => field === undefined) || fields.every((field) => field !== undefined);
 }, { message: 'A record binding requires collection, record, field and fact revision.' });
 
+/** Finite semantic fields that can be linked independently. Never a JSON path. */
+export const BindingTargetPropertySchema = z.enum(['value', 'text', 'fill']);
+
 export const FieldBindingSchema = z.strictObject({
   targetElementId: ElementIdSchema,
+  // Omitted in legacy snapshots and interpreted as `value`.
+  targetProperty: BindingTargetPropertySchema.optional(),
   sourceRef: SourceRefSchema,
   transformId: ElementIdSchema,
   updateMode: z.enum(['deterministic', 'propose', 'manual']),
@@ -45,3 +50,17 @@ export type ArtifactKind = z.infer<typeof ArtifactKindSchema>;
 export type ArtifactEnvelope = z.infer<typeof ArtifactEnvelopeSchema>;
 export type SourceRef = z.infer<typeof SourceRefSchema>;
 export type FieldBinding = z.infer<typeof FieldBindingSchema>;
+export type BindingTargetProperty = z.infer<typeof BindingTargetPropertySchema>;
+
+export function fieldBindingProperty(binding: Pick<FieldBinding, 'targetProperty'>): BindingTargetProperty {
+  return binding.targetProperty ?? 'value';
+}
+
+/** Legacy value bindings keep their historical storage key byte-for-byte. */
+export function fieldBindingStateKey(targetElementId: string, targetProperty: BindingTargetProperty = 'value'): string {
+  return targetProperty === 'value' ? targetElementId : `binding:${targetProperty}:${targetElementId}`;
+}
+
+export function fieldBindingIdentity(binding: Pick<FieldBinding, 'targetElementId' | 'targetProperty'>): string {
+  return fieldBindingStateKey(binding.targetElementId, fieldBindingProperty(binding));
+}

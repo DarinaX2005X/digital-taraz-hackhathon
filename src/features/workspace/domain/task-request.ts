@@ -12,6 +12,19 @@ export function taskRequestKey(ownerId: string, projectId: string) {
   return `tirlik.task-request.v1:${ownerId}:${projectId}`;
 }
 
+export function taskSelectionKey(ownerId: string, projectId: string) {
+  return `tirlik.task-selection.v1:${ownerId}:${projectId}`;
+}
+
+export function readTaskSelection(value: string | null): string[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed) || parsed.length > 100 || parsed.some((item) => typeof item !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item))) return [];
+    return [...new Set(parsed)];
+  } catch { return []; }
+}
+
 export function readTaskRequest(raw: string | null, workspaceId: string, projectId: string, now = Date.now()): TaskRequest | undefined {
   if (!raw || raw.length > 100_000) return;
   try {

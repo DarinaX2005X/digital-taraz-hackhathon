@@ -11,6 +11,7 @@ import { modelProofRegistration } from './model-proof';
 import { createRunRegistry } from './registry';
 import { createRunService } from './service';
 import { lockBudget } from './budget';
+import { exceedsUsd, usd, usdString } from '../domain/money';
 
 const authorityRef = 'user-autonomy-2026-10-14-shared-maximum-usd10';
 const amount = z.union([z.string(), z.number()]).transform(String).pipe(z.string().regex(/^\d+(?:\.\d+)?$/));
@@ -21,7 +22,7 @@ async function metadata(route: string) {
   if (content.length > 12_000_000) throw new RunError('price_unknown');
   return JSON.parse(content) as unknown;
 }
-export async function inspectProofPricing(): Promise<PricingSnapshot> {
+export async function inspectProofPricing(options: { allowUnready?: boolean } = {}): Promise<PricingSnapshot> {
   const modelSchema = z.object({ id: z.string(), canonical_slug: z.string(), expiration_date: z.string().nullable().optional(), architecture: z.object({ input_modalities: z.array(z.string()) }) });
   const models = z.object({ data: z.array(modelSchema.passthrough()) }).parse(await metadata('models'));
   const model = models.data.find((item) => item.id === CURRENT_TEXT_ROUTE.model);
@@ -35,7 +36,7 @@ export async function inspectProofPricing(): Promise<PricingSnapshot> {
   if (endpoint.pricing.image && Number(endpoint.pricing.image) !== 0) throw new RunError('price_unknown');
   const now = Date.now();
   const price = PricingSnapshotSchema.parse({ ...CURRENT_TEXT_ROUTE, provider: endpoint.provider_name, inputUsd: endpoint.pricing.prompt, outputUsd: endpoint.pricing.completion, requestUsd: endpoint.pricing.request ?? '0', imageUsd: '0', contextTokens: endpoint.context_length, maxOutputTokens: Math.min(100_000, endpoint.max_completion_tokens), supportedParameters: endpoint.supported_parameters, checkedAt: new Date(now).toISOString(), expiresAt: new Date(now + 86_400_000).toISOString(), modelExpiresAt: model.expiration_date ? new Date(model.expiration_date).toISOString() : null, proof: 'unproven', proofRef: null, canonicalModel: model.canonical_slug, vision: true, jsonMode: 'json_schema' });
-  validatePricing(price, { kind: 'text', maxOutputTokens: 500, parameters: ['tools', 'tool_choice', 'response_format', 'max_tokens'], candidateProof: true });
+  if (!options.allowUnready) validatePricing(price, { kind: 'text', maxOutputTokens: 500, parameters: ['tools', 'tool_choice', 'response_format', 'max_tokens'], candidateProof: true });
   return price;
 }
 export async function registerProofCandidate(pool: Pool, price: PricingSnapshot) {
@@ -81,9 +82,80 @@ export async function activateProofAuthorization(pool: Pool) {
     await lockBudget(tx);
     await tx.query("INSERT INTO agent_budget_authorizations(id,provider,state,limit_usd,key_fingerprint,authority_ref,activated_at) VALUES($1,'openrouter','active','10',$2,$3,now()) ON CONFLICT(id) DO NOTHING", [CURRENT_MODEL_AUTHORIZATION, fingerprint, authorityRef]);
     const row = (await tx.query<{ state: string; limit_usd: string; key_fingerprint: string; authority_ref: string; reserved_usd: string; spent_usd: string }>('SELECT * FROM agent_budget_authorizations WHERE id=$1 FOR UPDATE', [CURRENT_MODEL_AUTHORIZATION])).rows[0];
-    if (!row || row.state !== 'active' || Number(row.limit_usd) !== 10 || row.key_fingerprint !== fingerprint || row.authority_ref !== authorityRef) throw new RunError('conflict');
+    if (!row || row.state !== 'active' || !usd(row.limit_usd).equals(10) || row.key_fingerprint !== fingerprint || row.authority_ref !== authorityRef) throw new RunError('conflict');
     return { authorizationId: CURRENT_MODEL_AUTHORIZATION, limitUsd: row.limit_usd, reservedUsd: row.reserved_usd, spentUsd: row.spent_usd };
   });
+}
+export async function modelProofReadiness(pool: Pool, inspectedPrice?: PricingSnapshot) {
+  const price = inspectedPrice ?? await inspectProofPricing({ allowUnready: true });
+  let quote: ReturnType<typeof validatePricing> | null = null;
+  let currentPricingFailure: string | null = null;
+  try { quote = validatePricing(price, { kind: 'text', maxOutputTokens: 500, parameters: ['max_tokens', 'tools', 'tool_choice', 'response_format'], candidateProof: true }); }
+  catch (error) {
+    if (!(error instanceof RunError)) throw error;
+    currentPricingFailure = error.failure;
+  }
+  const [grant, endpoint, proofRuns, unresolved] = await Promise.all([
+    pool.query<{ state: string; limit_usd: string; reserved_usd: string; spent_usd: string; key_fingerprint: string }>('SELECT state,limit_usd,reserved_usd,spent_usd,key_fingerprint FROM agent_budget_authorizations WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION]),
+    pool.query<ModelEndpointRow>('SELECT * FROM agent_model_endpoints WHERE model=$1 AND endpoint=$2 AND kind=$3', [price.model, price.endpoint, price.kind]),
+    pool.query<{ count: number }>('SELECT count(*)::integer AS count FROM agent_runs WHERE capability_id=$1', [MODEL_PROOF_CAPABILITY]),
+    pool.query<{ count: number }>("SELECT count(*)::integer AS count FROM agent_run_usage WHERE state IN ('reserved','dispatched','ambiguous')", []),
+  ]);
+  const authorization = grant.rows[0], registered = endpoint.rows[0];
+  const keyPresent = Boolean(process.env.OPENROUTER_API_KEY);
+  const keyMatches = Boolean(keyPresent && authorization && authorization.key_fingerprint === hashKey(process.env.OPENROUTER_API_KEY!));
+  const registeredPrice = registered ? PricingSnapshotSchema.safeParse(registered.pricing_snapshot) : null;
+  let registeredQuoteValid = false;
+  if (registeredPrice?.success) {
+    try {
+      validatePricing(registeredPrice.data, { kind: 'text', maxOutputTokens: 500, parameters: ['max_tokens', 'tools', 'tool_choice', 'response_format'], candidateProof: true });
+      registeredQuoteValid = true;
+    } catch { registeredQuoteValid = false; }
+  }
+  const endpointIdentityMatches = Boolean(registered && registeredPrice?.success
+    && registered.policy_revision === MODEL_POLICY_REVISION && registered.pricing_hash === hash(registeredPrice.data)
+    && ['model', 'endpoint', 'provider', 'quantization', 'kind', 'canonicalModel', 'vision', 'jsonMode']
+      .every((field) => registeredPrice.data[field as keyof PricingSnapshot] === price[field as keyof PricingSnapshot]));
+  const pricingCurrent = Boolean(registeredPrice?.success
+    && ['inputUsd', 'outputUsd', 'requestUsd', 'imageUsd', 'contextTokens', 'maxOutputTokens', 'modelExpiresAt']
+      .every((field) => registeredPrice.data[field as keyof PricingSnapshot] === price[field as keyof PricingSnapshot])
+    && [...registeredPrice.data.supportedParameters].sort().join('\u0000') === [...price.supportedParameters].sort().join('\u0000'));
+  const candidateRegistered = currentPricingFailure === null && endpointIdentityMatches && registeredQuoteValid && pricingCurrent && registered?.state === 'candidate'
+    && registered.proof_state === 'unproven' && registered.proof_ref === null;
+  const endpointProven = currentPricingFailure !== 'model_expired' && endpointIdentityMatches && registered?.state === 'enabled' && registered.proof_state === 'passed' && Boolean(registered.proof_ref);
+  const paidProofRequired = !endpointProven;
+  const requiredReservationUsd = quote ? usdString(usd(quote.reservedUsd).times(paidProofRequired ? 2 : 1)) : null;
+  const authorizationActive = Boolean(authorization?.state === 'active' && usd(authorization.limit_usd).equals(10) && keyMatches);
+  const authorizationHeadroom = Boolean(authorizationActive && requiredReservationUsd
+    && !exceedsUsd(authorization!.limit_usd, authorization!.reserved_usd, authorization!.spent_usd, requiredReservationUsd));
+  const commonChecks = {
+    keyPresent,
+    currentPricingFresh: currentPricingFailure === null,
+    authorizationActive,
+    authorizationHeadroom,
+    noRuntimeUnresolvedUsage: (unresolved.rows[0]?.count ?? 0) === 0,
+  };
+  const proofChecks = { candidateRegistered, noPriorProofRun: (proofRuns.rows[0]?.count ?? 0) === 0 };
+  const runtimeChecks = { endpointProven, priceFresh: endpointProven && registeredQuoteValid && pricingCurrent && currentPricingFailure === null };
+  const nextAction = currentPricingFailure === 'model_expired' ? 'register-candidate'
+    : currentPricingFailure !== null || (endpointProven && (!registeredQuoteValid || !pricingCurrent)) ? 'refresh-proven-price'
+    : !authorizationHeadroom ? 'insufficient-authorization-headroom'
+    : paidProofRequired && !candidateRegistered ? 'register-candidate'
+    : paidProofRequired ? 'release-and-run-proof-once' : 'release-runtime-call';
+  return {
+    paidReleaseRequired: true,
+    paidProofRequired,
+    readyForPaidProof: paidProofRequired && Object.values({ ...commonChecks, ...proofChecks }).every(Boolean),
+    readyForRuntimeCalls: !paidProofRequired && Object.values({ ...commonChecks, ...runtimeChecks }).every(Boolean),
+    nextAction,
+    checks: { ...commonChecks, ...proofChecks, ...runtimeChecks },
+    route: { model: price.model, canonicalModel: price.canonicalModel, endpoint: price.endpoint, provider: price.provider, quantization: price.quantization, vision: price.vision, jsonMode: price.jsonMode },
+    quote: { checkedAt: price.checkedAt, expiresAt: price.expiresAt, inputUsdPerToken: price.inputUsd, outputUsdPerToken: price.outputUsd, maximumPerRequestUsd: quote?.reservedUsd ?? null, maximumTwoRequestProofUsd: quote ? usdString(usd(quote.reservedUsd).times(2)) : null, requiredReservationUsd, currentPricingFailure },
+    authorization: authorization ? { state: authorization.state, limitUsd: authorization.limit_usd, reservedUsd: authorization.reserved_usd, spentUsd: authorization.spent_usd, keyMatches } : null,
+    endpoint: registered ? { state: registered.state, proofState: registered.proof_state, policyRevision: registered.policy_revision, proofRef: registered.proof_ref } : null,
+    existingProofRuns: proofRuns.rows[0]?.count ?? 0,
+    unresolvedRuntimeUsages: unresolved.rows[0]?.count ?? 0,
+  };
 }
 export async function startModelProof(pool: Pool, input: { userId: string; workspaceId: string; key: string }) {
   z.uuid().parse(input.userId); z.uuid().parse(input.workspaceId); z.uuid().parse(input.key);

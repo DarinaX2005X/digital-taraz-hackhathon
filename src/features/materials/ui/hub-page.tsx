@@ -30,7 +30,7 @@ export function MaterialsHub({ ownerId, initialWorkspaceId, initialProject, init
   useEffect(() => {
     if (!workspaceId || access.phase !== 'active' || selectedSource) return;
     const controller = new AbortController();
-    const timer = setTimeout(() => { setBusy(true); setError(undefined); void load(controller.signal).catch((error) => { if (!controller.signal.aborted) setError(error); }).finally(() => { if (!controller.signal.aborted) setBusy(false); }); }, 200);
+    const timer = setTimeout(() => { setBusy(true); setError(undefined); void load(controller.signal).catch((error) => { if (!controller.signal.aborted) setError(error); }).finally(() => { if (!controller.signal.aborted) setBusy(false); }); }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [workspaceId, access.phase, selectedSource, load, refresh]);
   const addHref = `/app/materials/add?${new URLSearchParams({ workspaceId, ...(project ? { projectId: project.id } : {}) })}`;
