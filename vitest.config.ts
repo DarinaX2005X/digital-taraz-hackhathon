@@ -8,5 +8,6 @@ export default defineConfig({
     include: ["tests/**/*.test.{ts,tsx,mjs}"],
     exclude: ["tests/**/*.integration.test.{ts,mjs}", "tests/deployed/**"],
     testTimeout: 10_000,
+    maxWorkers: 4,
   },
 });
