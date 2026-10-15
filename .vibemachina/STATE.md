@@ -38,7 +38,7 @@ Dashboard: http://127.0.0.1:4177/
 
 Mailpit: http://127.0.0.1:8029/
 
-После checkpoint штатный `node scripts/dev/start.mjs --port 59676` успешно поднимал product/PostgreSQL/Mailpit, и `/`, `/api/health`, Mailpit info возвращали200. Во время одновременной перекомпиляции активных feature-пакетов product health завис; `node scripts/dev/stop.mjs` вернул STOP_TIMEOUT, но owned supervisor/app PID фактически завершились, данные сохранены. `59676` сейчас не объявляется доступным до quiescent restart и новой health-проверки. PostgreSQL54329 и Mailpit8029 продолжают работать; Mailpit info200. Логи `.local-data/dev/start-1792063110129.log`, `app-ec1f6859-258f-4e8e-ac99-15aa32f77668.log`, `supervisor-ec1f6859-258f-4e8e-ac99-15aa32f77668.log`. Вкладки агентами не открывались.
+Windows сейчас держит exclusion range `59631-59830`, поэтому прежний порт59676 недоступен без владельца-процесса. Штатный launcher поднял текущий product на `http://127.0.0.1:59850/`: `/` и `/api/health` возвращают200, Mailpit `8029` возвращает200. Runtime instance `7162e25c-4d27-49dd-8447-6fd5222ed497`, supervisor179152, app198112, PostgreSQL54329. Логи текущего запуска лежат в `.local-data/dev/`; остановка только `node scripts/dev/stop.mjs`. Вкладки агентами не открывались.
 
 ## Работники
 
