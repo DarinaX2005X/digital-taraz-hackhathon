@@ -6,9 +6,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { LocalExportStorage } from '../../src/features/exports/server/storage';
 function r2Storage() {
   const objects = new Map<string, Uint8Array>();
+  const requests: Array<{ method: string; url: string; contentType: string | null; ifNoneMatch: string | null; authorization: string | null }> = [];
   let failAfterWrite = true;
   const fetcher = vi.fn<typeof fetch>(async (input, init) => {
     const request = input instanceof Request ? input : new Request(input, init), url = new URL(request.url);
+    requests.push({
+      method: request.method,
+      url: request.url,
+      contentType: request.headers.get('content-type'),
+      ifNoneMatch: request.headers.get('if-none-match'),
+      authorization: request.headers.get('authorization'),
+    });
     const key = decodeURIComponent(url.pathname.split('/').slice(2).join('/'));
     if (request.method === 'PUT') {
       if (objects.has(key)) return new Response(null, { status: 412 });
@@ -22,7 +30,7 @@ function r2Storage() {
     if (request.method === 'DELETE') { objects.delete(key); return new Response(null, { status: 204 }); }
     return new Response(null, { status: 405 });
   });
-  return { storage: new LocalExportStorage({ driver: 'r2', accountId: 'b'.repeat(32), bucketName: 'tirlik-test', accessKeyId: 'test-access', secretAccessKey: 'test-secret', fetcher }), objects };
+  return { storage: new LocalExportStorage({ driver: 'r2', accountId: 'b'.repeat(32), bucketName: 'tirlik-test', accessKeyId: 'test-access', secretAccessKey: 'test-secret', fetcher }), objects, requests };
 }
 describe('private immutable export bytes', () => {
   it('verifies hash and size and rejects traversal or overwritten bytes', async () => {
@@ -37,8 +45,14 @@ describe('private immutable export bytes', () => {
     } finally { await rm(root, { recursive: true, force: true }); }
   });
   it('reconciles an uncertain immutable R2 write and verifies every read', async () => {
-    const { storage, objects } = r2Storage(), bytes = new TextEncoder().encode('private r2 export');
+    const { storage, objects, requests } = r2Storage(), bytes = new TextEncoder().encode('private r2 export');
     const receipt = await storage.write(randomUUID(), randomUUID(), bytes);
+    const puts = requests.filter((request) => request.method === 'PUT');
+    expect(puts).toHaveLength(1);
+    expect(puts[0]).toMatchObject({ contentType: 'application/octet-stream', ifNoneMatch: '*', authorization: null });
+    const target = new URL(puts[0]!.url);
+    expect(target.searchParams.get('X-Amz-Signature')).toMatch(/^[a-f0-9]{64}$/);
+    expect(target.searchParams.get('X-Amz-SignedHeaders')).toBe('content-type;host;if-none-match');
     expect(receipt).toMatchObject({ sha256: expect.stringMatching(/^[a-f0-9]{64}$/), byteSize: bytes.byteLength });
     expect(await storage.read(receipt.key, receipt)).toEqual(Buffer.from(bytes));
     const stored = objects.get(receipt.key)!; stored[0] = stored[0]! ^ 1;

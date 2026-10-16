@@ -1,0 +1,41 @@
+{
+  "result": "passed",
+  "slides": 9,
+  "editable_text_boxes": 60,
+  "pptx_shapes": 175,
+  "pdf_text_characters_within_page": 1550,
+  "pdf_embedded_unicode_fonts": [
+    "/AAAAAA+NotoSans-Bold",
+    "/AAAAAA+NotoSans-Regular"
+  ],
+  "links": [
+    "https://github.com/DarinaX2005X/digital-taraz-hackhathon",
+    "https://tirlik.vercel.app"
+  ],
+  "pptx_zip_and_xml": "passed",
+  "text_and_notes_match_scene_model": true,
+  "evidence_paths_checked": 25,
+  "source_file_sha256": {
+    "README.md": "9073a77a966050443ee67a677cd424507df9ee919f065c0f9de90b9d017f5b75",
+    "src/features/agent-tools/server/business-work-adapter.ts": "c1965a783c7c583ca8844ef4dbb5d2ffc45411c0b7ac4ef8f11e4c8a2f6aeb67",
+    "src/features/artifacts/server/service.ts": "f7d717246f4b18d9a4030f26e3725ebf0d7a67e191b8bea9d260a9a16be71a3f",
+    "src/features/campaigns/server/build-campaign-work.ts": "2938a09cb3bd6ae1aefefd29e374e0abeb9cefd1a0d3a79ead4b514c08c8d66f",
+    "src/features/dependencies/server/service.ts": "5f9c629de917f4415eb989671b18c186a0d3a2914a8812985fa759859e302395",
+    "src/features/design-export/server/render.ts": "0c670928a7f273213843f483fc6bdfbb1875fc82e8ff3814ce443df9385058a2",
+    "src/features/designs/ui/design-editor.tsx": "335107bb72e6a86067270c44754411934cbaf5cda6a265c6b9a1d8f0d7e7ff7d",
+    "src/features/documents/ui/document-editor.tsx": "1e0153a4da26be690b8d38a9e16e5e8406f951f4e56f097f54fe1082a9643ae6",
+    "src/features/exports/server/documents/index.ts": "a7fd8443f97aa51fae82cadbd2e7e34374a19e5350a95708403b41544bd4c4ae",
+    "src/features/exports/server/sheets.ts": "df5c78fe0de2a58810f5c80165799ab3822da0f955e3371bc56aa26b034ddd84",
+    "src/features/operations/domain/propose-work-plan.ts": "bf0d3bdcc371653cc7f04cbc16f405e05ab7830158e43914ab6e7544702c1020",
+    "src/features/operations/server/exports.ts": "b521e7067c34c49dcb6335ab11f9d3013e9b7af2eb96653fdf42c162def3c802",
+    "src/features/procurement/domain/compare-suppliers.ts": "31abd87bf58bcc487e11b652f25c394348102e5ee3239568bbe2cf8602b4da12",
+    "src/features/public-site/copy.ts": "3aba4b3ba868fdb25d3332ae2b8c59ce626fb222529382a93598c36d70b23416",
+    "src/features/recurring-work/server/rules.ts": "c2807598218da9270b26e790268c8d88c1ef10e26e0a51260386f8841ff01c9e",
+    "src/features/runs/server/runtime.ts": "9de58dbe7a33a10bba3f21daa95026cc1886f5e96995c05ff947841832216ce8",
+    "tests/campaigns/build-work.integration.test.ts": "883f055656a3ac92ba59864e66e9360020be140c0a142f6abf253decfee1d87d",
+    "tests/finance/work-builder.integration.test.ts": "6a8c535bac3d275bcec22b75b598f83e1845e270e3b46929af8ed7653536fd73",
+    "tests/forecast/run-forecast.test.ts": "6280a39cfe5cabb2c592a05efce88e8150e65efb9d9f2d1fd4389a09416834ad",
+    "tests/project-packages/connected.integration.test.ts": "a2de3f4fc9a1ebeb7a3cfc97c60a88b80c09eadc452d9d42bb78979047b8cbc4"
+  },
+  "preview_source": "The actual PDF is rasterized with PDFium. Application-specific PPTX display remains unverified."
+}

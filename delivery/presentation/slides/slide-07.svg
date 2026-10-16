@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title">
+<title id="title">Команда продолжает с общего контекста</title>
+<rect width="1440" height="810" fill="#0A251F"/>
+<text font-family="Noto Sans, sans-serif" font-size="61" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="80" y="125.78">Команда работает</tspan>
+<tspan x="80" y="202.03">с одними условиями</tspan>
+</text>
+<polygon points="102,332 640,332 676,362 676,710 102,710" fill="#0B4035"/>
+<polygon points="676,362 692,372 692,722 676,710" fill="#062D26"/>
+<polygon points="102,710 676,710 692,722 118,722" fill="#05251F"/>
+<polygon points="106,336 636,336 646,346 116,346" fill="#2D6D5B"/>
+<polygon points="92,668 677,668 705,690 120,690" fill="#04100D"/>
+<polygon points="640,276 653,289 653,673 640,660" fill="#557C6D"/>
+<polygon points="80,660 640,660 653,673 93,673" fill="#78998A"/>
+<polygon points="80,276 595,276 640,321 640,660 80,660" fill="#98C7B0"/>
+<polygon points="595,276 595,321 640,321" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="35" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="115" y="344.3">Правила бизнеса</tspan>
+</text>
+<polygon points="148,706 733,706 761,728 176,728" fill="#04100D"/>
+<polygon points="696,383 709,396 709,711 696,698" fill="#557C6D"/>
+<polygon points="136,698 696,698 709,711 149,711" fill="#78998A"/>
+<polygon points="136,383 651,383 696,428 696,698 136,698" fill="#C8E1D2"/>
+<polygon points="651,383 651,428 696,428" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="171" y="446.38">Комментарии к версии</tspan>
+</text>
+<polygon points="204,728 789,728 817,750 232,750" fill="#04100D"/>
+<polygon points="752,496 765,509 765,733 752,720" fill="#557C6D"/>
+<polygon points="192,720 752,720 765,733 205,733" fill="#78998A"/>
+<polygon points="192,496 707,496 752,541 752,720 192,720" fill="#F3F6F4"/>
+<polygon points="707,496 707,541 752,541" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="33" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="227" y="563.34">Следующая работа</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="27" font-weight="400" fill="#4E6C5F" text-anchor="start">
+<tspan x="227" y="628.46">Свежие данные</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="32" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="840" y="335.36">Коллеги обсуждают</tspan>
+<tspan x="840" y="375.36">конкретную версию.</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#B7CFC4" text-anchor="start">
+<tspan x="840" y="487.42">Новая задача использует</tspan>
+<tspan x="840" y="523.6700000000001">ваши правила и свежие данные.</tspan>
+</text>
+</svg>

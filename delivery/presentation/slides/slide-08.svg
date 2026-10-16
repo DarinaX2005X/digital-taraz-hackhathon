@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title">
+<title id="title">Готовый комплект можно использовать дальше</title>
+<rect width="1440" height="810" fill="#16473C"/>
+<text font-family="Noto Sans, sans-serif" font-size="60" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="80" y="125.8">Готовый комплект</tspan>
+<tspan x="80" y="200.8">можно использовать дальше</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="28" font-weight="400" fill="#C7DFD2" text-anchor="start">
+<tspan x="80" y="292.44">Документы, расчёты, планы и макеты</tspan>
+<tspan x="80" y="327.44">переходят в привычные инструменты бизнеса.</tspan>
+</text>
+<polygon points="92,719 326,719 354,741 120,741" fill="#04100D"/>
+<polygon points="294,458 302,466 302,719 294,711" fill="#557C6D"/>
+<polygon points="80,711 294,711 302,719 88,719" fill="#78998A"/>
+<polygon points="80,458 268.32,458 294,483.68 294,711 80,711" fill="#D7E9DD"/>
+<polygon points="268.32,458 268.32,483.68 294,483.68" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="102" y="657.38">DOCX</tspan>
+</text>
+<polygon points="321,719 569,719 597,741 349,741" fill="#04100D"/>
+<polygon points="537,411 545,419 545,719 537,711" fill="#557C6D"/>
+<polygon points="309,711 537,711 545,719 317,719" fill="#78998A"/>
+<polygon points="309,411 509.64,411 537,438.36 537,711 309,711" fill="#E9F0E9"/>
+<polygon points="509.64,411 509.64,438.36 537,438.36" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="331" y="657.38">XLSX</tspan>
+</text>
+<polygon points="564,719 826,719 854,741 592,741" fill="#04100D"/>
+<polygon points="794,374 802,382 802,719 794,711" fill="#557C6D"/>
+<polygon points="552,711 794,711 802,719 560,719" fill="#78998A"/>
+<polygon points="552,374 764.96,374 794,403.04 794,711 552,711" fill="#B2DCC6"/>
+<polygon points="764.96,374 764.96,403.04 794,403.04" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="34" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="574" y="660.32">PDF</tspan>
+</text>
+<polygon points="821,719 1065,719 1093,741 849,741" fill="#04100D"/>
+<polygon points="1033,415 1041,423 1041,719 1033,711" fill="#557C6D"/>
+<polygon points="809,711 1033,711 1041,719 817,719" fill="#78998A"/>
+<polygon points="809,415 1006.12,415 1033,441.88 1033,711 809,711" fill="#E6A18C"/>
+<polygon points="1006.12,415 1006.12,441.88 1033,441.88" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="34" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="831" y="660.32">PNG</tspan>
+</text>
+<polygon points="1060,719 1225,719 1253,741 1088,741" fill="#04100D"/>
+<polygon points="1193,460 1201,468 1201,719 1193,711" fill="#557C6D"/>
+<polygon points="1048,711 1193,711 1201,719 1056,719" fill="#78998A"/>
+<polygon points="1048,460 1175.6,460 1193,477.4 1193,711 1048,711" fill="#B7D6C5"/>
+<polygon points="1175.6,460 1175.6,477.4 1193,477.4" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="34" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="1070" y="660.32">ICS</tspan>
+</text>
+<polygon points="1220,719 1385,719 1413,741 1248,741" fill="#04100D"/>
+<polygon points="1353,507 1361,515 1361,719 1353,711" fill="#557C6D"/>
+<polygon points="1208,711 1353,711 1361,719 1216,719" fill="#78998A"/>
+<polygon points="1208,507 1335.6,507 1353,524.4 1353,711 1208,711" fill="#DCE9DF"/>
+<polygon points="1335.6,507 1335.6,524.4 1353,524.4" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="34" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="1230" y="660.32">ZIP</tspan>
+</text>
+</svg>

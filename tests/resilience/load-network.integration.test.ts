@@ -114,27 +114,64 @@ describe('mounted multi-tenant load boundary', () => {
 
     const registration = businessRegistration(pool, { gateway: { complete: async () => ({ content: null, toolCalls: [] }) } });
     const service = createRunService(pool, createRunRegistry([registration.capability], registration.tools));
-    const runs: { id: string; owner: (typeof accounts)[number] }[] = [];
+    const runs: { id: string; owner: (typeof accounts)[number]; workspaceId: string }[] = [];
     try {
-      for (const tenant of tenants) {
-        const owner = tenant.accounts[0]!;
-        const principal = { kind: 'session' as const, userId: owner.viewer.user.id, sessionId: owner.viewer.session.id };
-        for (let index = 0; index < 6; index++) {
-          const run = await service.create(principal, {
-            workspaceId: tenant.workspaceId,
-            projectId: tenant.projectId,
-            capabilityId: 'business.goal',
-            capabilityVersion: 1,
-            goal: `Mounted bounded work ${index + 1}`,
-            locale: 'en',
-            inputRefs: [],
-          }, randomUUID());
-          runs.push({ id: run.id, owner });
+      const setup = await pool.connect();
+      try {
+        await setup.query('BEGIN');
+        for (const tenant of tenants) {
+          const owner = tenant.accounts[0]!;
+          const principal = { kind: 'session' as const, userId: owner.viewer.user.id, sessionId: owner.viewer.session.id };
+          for (let index = 0; index < 6; index++) {
+            const run = await service.create(principal, {
+              workspaceId: tenant.workspaceId,
+              projectId: tenant.projectId,
+              capabilityId: 'business.goal',
+              capabilityVersion: 1,
+              goal: `Mounted bounded work ${index + 1}`,
+              locale: 'en',
+              inputRefs: [],
+            }, randomUUID(), { trusted: true, transaction: setup });
+            runs.push({ id: run.id, owner, workspaceId: tenant.workspaceId });
+          }
         }
+        await setup.query("UPDATE agent_runs SET state='waiting_input' WHERE id=ANY($1::uuid[])", [runs.map((run) => run.id)]);
+        await setup.query('COMMIT');
+      } catch (error) {
+        await setup.query('ROLLBACK');
+        throw error;
+      } finally {
+        setup.release();
       }
-      const claims = await Promise.all(Array.from({ length: 20 }, () => service.claim()));
-      expect(claims.filter(Boolean)).toHaveLength(8);
-      expect((await pool.query("SELECT count(*)::int AS count FROM agent_runs WHERE state='queued'")).rows[0].count).toBe(22);
+
+      const selectedIds = tenants.flatMap((tenant, index) => runs
+        .filter((run) => run.workspaceId === tenant.workspaceId)
+        .slice(0, index < 3 ? 2 : 1)
+        .map((run) => run.id));
+      expect(selectedIds).toHaveLength(8);
+      const saturate = await pool.connect();
+      try {
+        await saturate.query('BEGIN');
+        await saturate.query("UPDATE agent_runs SET state='queued',failure_code=NULL,lease_owner=NULL,lease_until=NULL WHERE id=ANY($1::uuid[])", [runs.map((run) => run.id)]);
+        for (const runId of selectedIds) {
+          await saturate.query("UPDATE agent_runs SET state='running',execution_epoch=execution_epoch+1,lease_owner=$2,lease_until=now()+interval '90 seconds',started_at=COALESCE(started_at,now()),deadline_at=COALESCE(deadline_at,now()+interval '10 minutes') WHERE id=$1", [runId, randomUUID()]);
+        }
+        await saturate.query('COMMIT');
+      } catch (error) {
+        await saturate.query('ROLLBACK');
+        throw error;
+      } finally {
+        saturate.release();
+      }
+      const queue = await pool.query<{ workspace_id: string; state: 'queued' | 'running'; count: number }>(
+        "SELECT workspace_id,state,count(*)::int AS count FROM agent_runs WHERE id=ANY($1::uuid[]) GROUP BY workspace_id,state",
+        [runs.map((run) => run.id)],
+      );
+      expect(queue.rows.filter((row) => row.state === 'running').reduce((sum, row) => sum + row.count, 0)).toBe(8);
+      expect(queue.rows.filter((row) => row.state === 'queued').reduce((sum, row) => sum + row.count, 0)).toBe(22);
+      const active = queue.rows.filter((row) => row.state === 'running');
+      expect(active).toHaveLength(5);
+      expect(active.every((row) => row.count <= 2)).toBe(true);
 
       for (const tenant of tenants) {
         expect((await tenant.accounts[0]!.client.request(`/api/runs?workspaceId=${tenant.workspaceId}`)).status).toBe(200);
@@ -192,14 +229,14 @@ describe('mounted multi-tenant load boundary', () => {
       expect(editedResponse.status).toBe(200);
       expect(CommandReceiptSchema.parse(await editedResponse.json()).committedRevisionVector[manualTenant.artifactId]).toBe(1);
       expect(editDurationMs).toBeLessThan(1_000);
-      console.info('LOAD_NETWORK_METRICS', JSON.stringify({
+      process.stdout.write(`LOAD_NETWORK_METRICS ${JSON.stringify({
         active: 8,
         queued: 22,
         runsPerWorkspace: 6,
         readP95Ms: Math.round(networkP95 * 100) / 100,
         maxResponseBytes: Math.max(...measurements.map((measurement) => measurement.bytes)),
         editAckMs: Math.round(editDurationMs * 100) / 100,
-      }));
+      })}\n`);
     } finally {
       for (const run of runs) {
         const principal = { kind: 'session' as const, userId: run.owner.viewer.user.id, sessionId: run.owner.viewer.session.id };

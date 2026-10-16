@@ -25,7 +25,7 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   experimental: { globalNotFound: true },
-  serverExternalPackages: ["pg", "@napi-rs/canvas"],
+  serverExternalPackages: ["pg", "@napi-rs/canvas", "pdfkit"],
   distDir,
   typescript: { tsconfigPath: path.relative(process.cwd(), generatedConfig) },
 };

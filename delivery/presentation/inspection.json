@@ -1,0 +1,76 @@
+{
+  "file": "C:\\Users\\user\\Desktop\\digitaltaraz\\delivery\\presentation\\tirlik-presentation.pptx",
+  "sha256": "5bb3e6ea7162f53d6a397db2dd4d7e08552607201cbed3ae1311775e174ccede",
+  "slide_count": 9,
+  "size_in_inches": [
+    13.333,
+    7.5
+  ],
+  "slides": [
+    {
+      "slide": 1,
+      "shapes": 4,
+      "pictures": 1,
+      "characters": 77,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 2,
+      "shapes": 26,
+      "pictures": 0,
+      "characters": 205,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 3,
+      "shapes": 21,
+      "pictures": 0,
+      "characters": 216,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 4,
+      "shapes": 19,
+      "pictures": 0,
+      "characters": 272,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 5,
+      "shapes": 23,
+      "pictures": 1,
+      "characters": 211,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 6,
+      "shapes": 13,
+      "pictures": 0,
+      "characters": 162,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 7,
+      "shapes": 26,
+      "pictures": 0,
+      "characters": 188,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 8,
+      "shapes": 38,
+      "pictures": 0,
+      "characters": 139,
+      "inherited_texts": 0
+    },
+    {
+      "slide": 9,
+      "shapes": 5,
+      "pictures": 1,
+      "characters": 108,
+      "inherited_texts": 0
+    }
+  ],
+  "warnings": [],
+  "note": "Heuristics only. No automatic deletion, aesthetic grade or factual certification. Rotated/grouped extents, inherited theme fonts, chart labels and renderer-specific visibility require actual visual review."
+}

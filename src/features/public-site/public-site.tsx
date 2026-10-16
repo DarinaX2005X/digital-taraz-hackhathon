@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, Film, FolderOpen, History, ImageIcon, PencilLine, Presentation, ShieldCheck, Sparkles, Table2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, FolderOpen, History, ImageIcon, PencilLine, ShieldCheck, Sparkles, Table2 } from "lucide-react";
 import type { Locale } from "@/i18n";
 import { useLocale } from "@/i18n/provider";
 import { LocaleSelect, ProductHeader } from "@/ui";
@@ -15,6 +15,7 @@ import { StartWork } from './start-work';
 import { ConnectedMaterialsScene } from './connected-materials-scene';
 import { DecisionProof } from './decision-proof';
 import { HeroWorkflowScene } from './hero-workflow-scene';
+import { PublicMediaActions } from './public-media-actions';
 import { identityClient } from '@/features/identity/ui/transport';
 import { authHref } from '@/features/identity/ui/navigation';
 import styles from "./public-site.module.css";
@@ -74,10 +75,7 @@ function HomeContent({ copy, locale, signedIn, onDraftChange }: { copy: PublicCo
           {signedIn
             ? <Link href="/app/work" className="tl-button tl-button--primary">{copy.cabinet}<ArrowRight size={19} aria-hidden="true" /></Link>
             : <a href="#start" className="tl-button tl-button--primary">{copy.ownTaskAction}<ArrowRight size={19} aria-hidden="true" /></a>}
-          <div className={styles.mediaActions}>
-            <button type="button" className="tl-button tl-button--secondary" disabled title={copy.mediaPending}><Film size={19} aria-hidden="true" />{copy.watchDemo}</button>
-            <button type="button" className="tl-button tl-button--secondary" disabled title={copy.mediaPending}><Presentation size={19} aria-hidden="true" />{copy.presentation}</button>
-          </div>
+          <PublicMediaActions copy={copy} />
         </div>
       </div>
       <HeroWorkflowScene copy={copy} />

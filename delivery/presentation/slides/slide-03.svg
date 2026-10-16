@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title">
+<title id="title">Документы и таблицы для дальнейшей работы</title>
+<rect width="1440" height="810" fill="#102B26"/>
+<text font-family="Noto Sans, sans-serif" font-size="58" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="80" y="121.84">Документы и таблицы</tspan>
+<tspan x="80" y="194.34">для дальнейшей работы</tspan>
+</text>
+<polygon points="92,671 656,671 684,693 120,693" fill="#04100D"/>
+<polygon points="618,278 632,292 632,677 618,663" fill="#557C6D"/>
+<polygon points="80,663 618,663 632,677 94,677" fill="#78998A"/>
+<polygon points="80,278 573,278 618,323 618,663 80,663" fill="#F3F6F4"/>
+<polygon points="573,278 573,323 618,323" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="36" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="114" y="344.28">Предложение</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="114" y="425.42">Состав работ</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="114" y="491.42">Сроки и условия</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="114" y="557.42">Ваши формулировки</tspan>
+</text>
+<polygon points="743,671 1381,671 1409,693 771,693" fill="#04100D"/>
+<polygon points="1343,251 1357,265 1357,677 1343,663" fill="#557C6D"/>
+<polygon points="731,663 1343,663 1357,677 745,677" fill="#78998A"/>
+<polygon points="731,251 1298,251 1343,296 1343,663 731,663" fill="#C6E3D4"/>
+<polygon points="1298,251 1298,296 1343,296" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="36" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="765" y="317.28">Смета</tspan>
+</text>
+<rect x="763" y="365" width="549" height="89" rx="8" fill="#B1D3BF"/>
+<text font-family="Noto Sans, sans-serif" font-size="30" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="789" y="418.4">Количество × Цена</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="765" y="520.42">Формулы и источники</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="765" y="578.42">Связанные значения</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="27" font-weight="400" fill="#B7CFC4" text-anchor="start">
+<tspan x="80" y="746.46">Редактируйте нужную часть. Версии и основания остаются рядом.</tspan>
+</text>
+</svg>

@@ -218,7 +218,7 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     expect(changedRun.id).not.toBe(createdRun.runId); expect(changedRun.goal).toBe(changedGoal);
     expect((await pool.query('SELECT reason FROM agent_run_continuations WHERE parent_run_id=$1 AND child_run_id=$2', [createdRun.runId, changedRun.id])).rows[0]).toEqual({ reason: 'goal-change' });
 
-    await pool.query(`UPDATE agent_runs SET state='failed',failure_code='PROVIDER_FAILED',execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=now(),updated_at=now() WHERE id=$1`, [changedRun.id]);
+    await pool.query(`UPDATE agent_runs SET state='failed',failure_code='provider',execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=now(),updated_at=now() WHERE id=$1`, [changedRun.id]);
     const restartScope = DemoSessionSchema.parse(await (await client.request(`/api/demo/sessions/${started.sessionId}`)).json());
     const restartResponse = await client.request(`/api/demo/sessions/${started.sessionId}/runs`, 'POST', { goal: changedGoal, inputRefs: restartScope.inputRefs, expectedRevision: restartScope.revision }, randomUUID());
     expect(restartResponse.status).toBe(202);

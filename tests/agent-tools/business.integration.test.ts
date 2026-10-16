@@ -18,6 +18,7 @@ import { artifactFixture, artifactTestPool } from '../artifacts/server/test-fixt
 import { businessWorkToolExtension } from '../../src/features/agent-tools/server/business-work-adapter';
 import { materialContextBusinessToolExtension } from '../../src/features/agent-tools/server/material-context';
 import { BusinessWorkResultSchema, type BusinessWorkToolDescriptor } from '../../src/contracts/business-work';
+import { ProposeWorkPlanInputSchema } from '../../src/features/operations/domain/propose-work-plan';
 
 let pool: Pool;
 beforeAll(() => { pool = artifactTestPool(); });
@@ -77,7 +78,7 @@ const fixtureOperationsExtension: BusinessToolExtension = () => [{
   },
 }];
 
-type SetupOptions = { failLinks?: boolean; availability?: string; catalog?: string; gateway?: (request: ModelRequest) => Promise<ModelOutput> };
+type SetupOptions = { failLinks?: boolean; availability?: string; catalog?: string; gateway?: (request: ModelRequest) => Promise<ModelOutput>; extensions?: BusinessToolExtension[] };
 async function setup(options: SetupOptions = {}) {
   const fixture = await artifactFixture(pool);
   const input = { workspaceId: fixture.workspaceId, projectId: fixture.projectId, capabilityId: 'business.goal', capabilityVersion: 1, goal: 'Check whether we can deliver 2 custom service units by 2026-11-05 without a loss, show options and prepare a reply.', locale: 'en' as const, inputRefs: [] as { kind: 'source'; id: string; revision: number }[] };
@@ -98,7 +99,7 @@ async function setup(options: SetupOptions = {}) {
   await upload('Availability', options.availability ?? 'Workshop opens 2026-11-01. Available minutes before 2026-11-05: 960.');
 
   const complete = vi.fn(options.gateway ?? createDecisionGateway());
-  const registration = businessRegistration(pool, { gateway: { complete }, extensions: [fixtureOperationsExtension], ...(options.failLinks ? { registerOfferLinks: async () => { throw new Error('SYNTHETIC_AFTER_ARTIFACTS_BEFORE_RECEIPT'); } } : {}) });
+  const registration = businessRegistration(pool, { gateway: { complete }, extensions: [fixtureOperationsExtension, ...(options.extensions ?? [])], ...(options.failLinks ? { registerOfferLinks: async () => { throw new Error('SYNTHETIC_AFTER_ARTIFACTS_BEFORE_RECEIPT'); } } : {}) });
   const registry = createRunRegistry([registration.capability], registration.tools), service = createRunService(pool, registry);
   const handle = createRunHandlers({ pool, service, registry, origin: 'http://localhost:3000', wake: async () => undefined, getActor: async () => ({ user: { id: fixture.owner.userId, name: 'Synthetic owner', email: 'synthetic@example.test', locale: 'en' }, session: { id: fixture.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
   const request = (suffix: string, body?: unknown, key = randomUUID()) => handle(new Request(`http://localhost:3000/api/runs${suffix}`, { method: body ? 'POST' : 'GET', headers: { origin: 'http://localhost:3000', 'X-Tirlik-User-Id': fixture.owner.userId, 'Idempotency-Key': key, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) }));
@@ -187,6 +188,25 @@ function createDecisionGateway(): (request: ModelRequest) => Promise<ModelOutput
   };
 }
 
+const proposalInput = {
+  plan: {
+    kind: 'plan' as const, schemaVersion: 1 as const, timezone: 'Asia/Qyzylorda',
+    entries: [{
+      id: 'work', title: 'Checked work', status: 'todo' as const, resourceIds: [], dependencies: [], assignments: [],
+      effort: { decimal: '60', unit: 'person-minutes' }, durationMinutes: 60,
+      startAt: '2026-11-01T09:00:00.000Z', endAt: '2026-11-01T10:00:00.000Z', checklist: [], availabilityVersionIds: [],
+    }],
+  },
+  resourceRefs: [], window: { start: '2026-11-01T00:00:00.000Z', end: '2026-11-02T00:00:00.000Z' },
+  lockedEntryIds: [], materialConstraints: [], objective: 'earliest-finish' as const,
+};
+const proposalToolExtension: BusinessToolExtension = () => [{
+  name: 'propose_work_plan', description: 'Validate one canonical schedule proposal.',
+  schema: z.strictObject({ proposalId: z.string(), title: z.string(), input: ProposeWorkPlanInputSchema }),
+  output: z.strictObject({ accepted: z.literal(true) }), action: 'calculate', costClass: 'local',
+  effect: async (_tx, _raw, _context, state) => ({ output: { accepted: true }, context: state }),
+}];
+
 describe('J1 assistant decision procedure through durable runtime and canonical persistence', () => {
   it('offers and executes source-bound work tools only when pinned source evidence exists', async () => {
     const fixture = await artifactFixture(pool), artifact = await fixture.create();
@@ -230,15 +250,18 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     const normal = createDecisionGateway();
     let first = true;
     const f = await setup({ gateway: async (request) => {
-      if (request.jsonSchema) return verified();
       if (request.operationKey === 'business_decision_correction') {
         expect(request.maxReservedUsd).toBe('0.15');
-        const correction = JSON.parse(request.messages.at(-1)!.content!) as { validationErrors: string[]; offeredTools: string[] };
+        expect(request.tools).toBeUndefined();
+        expect(request.toolChoice).toBeUndefined();
+        expect(request.jsonSchema?.name).toBe('business_decision_correction');
+        const correction = JSON.parse(request.messages.at(-1)!.content!) as { validationErrors: string[]; correctionTools: string[] };
         expect(correction.validationErrors.length).toBeGreaterThan(0);
         expect(correction.validationErrors.length).toBeLessThanOrEqual(10);
-        expect(correction.offeredTools).toContain('plan_work');
-        return call('plan_work', { steps: ['Read the selected evidence', 'Prepare checked options'] });
+        expect(correction.correctionTools).toContain('plan_work');
+        return { content: JSON.stringify({ toolCalls: [{ id: 'corrected_plan', name: 'plan_work', arguments: { steps: ['Read the selected evidence', 'Prepare checked options'] } }] }), toolCalls: [] };
       }
+      if (request.jsonSchema) return verified();
       if (first) { first = false; return call('plan_work', { steps: [] }); }
       return normal(request);
     } });
@@ -250,6 +273,75 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     expect(corrected).toMatchObject({ state: 'running', failure: null });
     expect(f.complete.mock.calls.filter(([request]) => request.operationKey === 'business_decision_correction')).toHaveLength(1);
     await f.service.cancel(f.owner, run.id, { expectedEpoch: corrected.epoch }, randomUUID());
+  });
+
+  it('corrects the observed plan.calendar and fact-5 response through a strict structured envelope', async () => {
+    let first = true;
+    const f = await setup({ extensions: [proposalToolExtension], gateway: async (request) => {
+      if (request.jsonSchema) {
+        expect(request.operationKey).toBe('business_decision_correction');
+        expect(request.tools).toBeUndefined();
+        const correction = JSON.parse(request.messages.at(-1)!.content!) as {
+          validationErrors: string[];
+          correctionTools: string[];
+          authorizedSourceRefs: { sourceId: string; sourceVersionId: string; revision: number }[];
+          invalidToolCalls: { arguments: { input: { plan: { calendar?: unknown } } } }[];
+        };
+        expect(correction.validationErrors).toEqual(expect.arrayContaining([
+          expect.stringContaining('unrecognized_keys'),
+          expect.stringContaining('invalid_format'),
+        ]));
+        expect(correction.correctionTools).toEqual(['propose_work_plan']);
+        expect(correction.authorizedSourceRefs.length).toBeGreaterThan(0);
+        expect(correction.authorizedSourceRefs.every((ref) => ref.sourceId !== '00000000-0000-0000-0000-000000000000')).toBe(true);
+        expect(correction.invalidToolCalls[0]!.arguments.input.plan.calendar).toBeDefined();
+        const schema = request.jsonSchema.schema as { properties: { toolCalls: { items: { anyOf: { properties: { arguments: { properties: { input: { type: string; properties: { plan: { additionalProperties: boolean } } } } } } }[] } } } };
+        const inputSchema = schema.properties.toolCalls.items.anyOf[0]!.properties.arguments.properties.input;
+        expect(inputSchema.type).toBe('object');
+        expect(inputSchema.properties.plan.additionalProperties).toBe(false);
+        return { content: JSON.stringify({ toolCalls: [{ id: 'corrected_proposal', name: 'propose_work_plan', arguments: { proposalId: 'checked-work', title: 'Checked work', input: proposalInput } }] }), toolCalls: [] };
+      }
+      if (!first) throw new Error('UNEXPECTED_MODEL_CALL');
+      first = false;
+      const context = contextOf(request), source = context.sources[0]!.sourceRef;
+      const badInput = {
+        ...proposalInput,
+        plan: { ...proposalInput.plan, calendar: { uid: 'invented-calendar', sequence: 1 } },
+        materialConstraints: [{ entryId: 'work', sourceRef: { ...source, fragmentId: 'fact-5' }, availableAt: '2026-11-01T09:00:00.000Z' }],
+      };
+      return calls(
+        { name: 'propose_work_plan', id: 'observed_first', args: { proposalId: 'first', title: 'First', input: badInput } },
+        { name: 'propose_work_plan', id: 'observed_second', args: { proposalId: 'second', title: 'Second', input: badInput } },
+      );
+    } });
+    const run = await f.service.create(f.owner, f.input, randomUUID()), claim = await f.service.claim();
+    expect(await f.service.executeStep(claim!)).toBe('continue');
+    expect(await f.service.executeStep(claim!)).toBe('continue');
+    const corrected = await f.service.read(f.owner, run.id);
+    expect(corrected).toMatchObject({ state: 'running', failure: null });
+    expect(corrected.steps.some((step) => step.toolName === 'business.propose_work_plan' && step.state === 'planned')).toBe(true);
+    await f.service.cancel(f.owner, run.id, { expectedEpoch: corrected.epoch }, randomUUID());
+  });
+
+  it('rejects double-encoded nested input and invented SourceRefs after the one bounded correction', async () => {
+    for (const invalid of ['double-encoded', 'invented-source'] as const) {
+      let first = true;
+      const f = await setup({ extensions: [proposalToolExtension], gateway: async (request) => {
+        if (request.jsonSchema) {
+          const input = invalid === 'double-encoded'
+            ? JSON.stringify(proposalInput)
+            : { ...proposalInput, materialConstraints: [{ entryId: 'work', sourceRef: { sourceId: '00000000-0000-0000-0000-000000000000', sourceVersionId: '00000000-0000-0000-0000-000000000000', revision: 1 }, availableAt: '2026-11-01T09:00:00.000Z' }] };
+          return { content: JSON.stringify({ toolCalls: [{ id: `invalid_${invalid}`, name: 'propose_work_plan', arguments: { proposalId: 'invalid', title: 'Invalid', input } }] }), toolCalls: [] };
+        }
+        if (!first) throw new Error('UNEXPECTED_MODEL_CALL');
+        first = false;
+        return call('propose_work_plan', { proposalId: 'broken', title: 'Broken', input: { ...proposalInput, plan: { ...proposalInput.plan, calendar: {} } } });
+      } });
+      const run = await f.service.create(f.owner, f.input, randomUUID()), claim = await f.service.claim();
+      expect(await f.service.executeStep(claim!)).toBe('continue');
+      expect(await f.service.executeStep(claim!)).toBe('stopped');
+      expect(await f.service.read(f.owner, run.id)).toMatchObject({ state: 'waiting_input', failure: 'invalid_result' });
+    }
   });
 
   it('reads four source roles, compares trade-offs, waits for a human choice and atomically saves three editable artifacts', async () => {

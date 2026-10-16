@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title">
+<title id="title">AI готовит материалы по вашим условиям</title>
+<rect width="1440" height="810" fill="#081D18"/>
+<text font-family="Noto Sans, sans-serif" font-size="60" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="80" y="132.8">AI готовит материалы</tspan>
+<tspan x="80" y="207.8">по вашим условиям</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="400" fill="#B7CFC4" text-anchor="start">
+<tspan x="80" y="328.42">Сопоставляет исходники,</tspan>
+<tspan x="80" y="364.67">проверяет сроки, суммы и условия,</tspan>
+<tspan x="80" y="400.92">собирает новые материалы.</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="80" y="584.38">Результат сохраняется</tspan>
+<tspan x="80" y="623.13">в рабочем проекте.</tspan>
+</text>
+<polygon points="822,309 1246,309 1282,339 1282,669 822,669" fill="#0B4035"/>
+<polygon points="1282,339 1298,349 1298,681 1282,669" fill="#062D26"/>
+<polygon points="822,669 1282,669 1298,681 838,681" fill="#05251F"/>
+<polygon points="826,313 1242,313 1252,323 836,323" fill="#2D6D5B"/>
+<polygon points="757,614 1155,614 1183,636 785,636" fill="#04100D"/>
+<polygon points="1121,251 1131,261 1131,616 1121,606" fill="#557C6D"/>
+<polygon points="745,606 1121,606 1131,616 755,616" fill="#78998A"/>
+<polygon points="745,251 1076,251 1121,296 1121,606 745,606" fill="#8DBAA7"/>
+<polygon points="1076,251 1076,296 1121,296" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="775" y="309.38">План</tspan>
+</text>
+<polygon points="832,678 1230,678 1258,700 860,700" fill="#04100D"/>
+<polygon points="1196,332 1206,342 1206,680 1196,670" fill="#557C6D"/>
+<polygon points="820,670 1196,670 1206,680 830,680" fill="#78998A"/>
+<polygon points="820,332 1151,332 1196,377 1196,670 820,670" fill="#B5D3C4"/>
+<polygon points="1151,332 1151,377 1196,377" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="30" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="850" y="390.4">Предложение</tspan>
+</text>
+<polygon points="907,719 1307,719 1335,741 935,741" fill="#04100D"/>
+<polygon points="1271,417 1283,429 1283,723 1271,711" fill="#557C6D"/>
+<polygon points="895,711 1271,711 1283,723 907,723" fill="#78998A"/>
+<polygon points="895,417 1226,417 1271,462 1271,711 895,711" fill="#F3F6F4"/>
+<polygon points="1226,417 1226,462 1271,462" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="39" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="925" y="487.22">Смета</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="27" font-weight="400" fill="#4E6C5F" text-anchor="start">
+<tspan x="925" y="561.46">По вашим</tspan>
+<tspan x="925" y="595.21">исходным данным</tspan>
+</text>
+</svg>

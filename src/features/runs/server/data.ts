@@ -92,32 +92,60 @@ export async function emitEvent(transaction: PoolClient, runId: string, detail: 
   return event;
 }
 export async function snapshot(transaction: PoolClient, run: RunRow, projected?: RunProgressProjection): Promise<Run> {
-  const steps = (await transaction.query<StepRow>('SELECT * FROM agent_run_steps WHERE run_id=$1 ORDER BY ordinal', [run.id])).rows.map((step) => ({
-    id: step.id, runId: step.run_id, ordinal: step.ordinal, action: step.action, state: step.state, toolName: step.tool_name,
-    toolVersion: step.tool_version, attempt: step.attempt, failure: step.failure_code, retryable: step.retryable,
-    resultRefs: step.result_refs, startedAt: iso(step.started_at), finishedAt: iso(step.finished_at),
-  }));
-  const links = (await transaction.query<{ parent_run_id: string; child_run_id: string }>('SELECT parent_run_id,child_run_id FROM agent_run_continuations WHERE parent_run_id=$1 OR child_run_id=$1', [run.id])).rows;
-  const parentRunId = links.find((link) => link.child_run_id === run.id)?.parent_run_id ?? null;
-  const continuationRunId = links.find((link) => link.parent_run_id === run.id)?.child_run_id ?? null;
-  const publicProgress = RunProgressProjectionSchema.parse(projected ?? { plan: [], questions: [], summary: '', results: [], decision: null });
-  const progress = RunProgressSchema.parse({ ...publicProgress, parentRunId, continuationRunId });
-  const unsafeUsage = ((await transaction.query("SELECT 1 FROM agent_run_usage WHERE run_id=$1 AND state IN ('reserved','dispatched','ambiguous') LIMIT 1", [run.id])).rowCount ?? 0) > 0;
-  const replayableInvalidSteps = new Set((await transaction.query<{ id: string }>(`SELECT s.id FROM agent_run_steps s
-    WHERE s.run_id=$1 AND s.state='failed' AND s.failure_code='invalid_result' AND (
+  return required((await snapshots(transaction, [run], projected === undefined ? undefined : new Map([[run.id, projected]])))[0]);
+}
+
+/** Loads the relational parts of a run page in fixed-size queries instead of once per run. */
+export async function snapshots(transaction: PoolClient, runs: readonly RunRow[], projected?: ReadonlyMap<string, RunProgressProjection>): Promise<Run[]> {
+  if (!runs.length) return [];
+  const runIds = runs.map((run) => run.id);
+  const stepRows = await transaction.query<StepRow>('SELECT * FROM agent_run_steps WHERE run_id=ANY($1::uuid[]) ORDER BY run_id,ordinal', [runIds]);
+  const links = await transaction.query<{ parent_run_id: string; child_run_id: string }>('SELECT parent_run_id,child_run_id FROM agent_run_continuations WHERE parent_run_id=ANY($1::uuid[]) OR child_run_id=ANY($1::uuid[])', [runIds]);
+  const unsafeRows = await transaction.query<{ run_id: string }>("SELECT DISTINCT run_id FROM agent_run_usage WHERE run_id=ANY($1::uuid[]) AND state IN ('reserved','dispatched','ambiguous')", [runIds]);
+  const replayableRows = await transaction.query<{ run_id: string; id: string }>(`SELECT s.run_id,s.id FROM agent_run_steps s
+    WHERE s.run_id=ANY($1::uuid[]) AND s.state='failed' AND s.failure_code='invalid_result' AND (
       SELECT count(*) FROM agent_run_usage u JOIN agent_model_outputs o ON o.usage_id=u.id
       WHERE u.run_id=s.run_id AND u.step_id=s.id AND u.state='succeeded'
-    )=1`, [run.id])).rows.map((row) => row.id));
-  const withinLifetime = !run.deadline_at || run.deadline_at > new Date();
-  const canRevise = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed' && !unsafeUsage;
-  const canResume = !unsafeUsage && withinLifetime && ['waiting_input', 'failed'].includes(run.state)
-    && (steps.some((step) => step.retryable || replayableInvalidSteps.has(step.id)) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
-  return RunSchema.parse({
-    id: run.id, workspaceId: run.workspace_id, projectId: run.project_id, createdBy: run.created_by,
-    capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale,
-    state: run.state, epoch: run.execution_epoch, cursor: Number(run.event_sequence), failure: run.failure_code,
-    createdAt: iso(run.created_at), updatedAt: iso(run.updated_at), startedAt: iso(run.started_at), deadlineAt: iso(run.deadline_at),
-    budget: { limitUsd: run.budget_limit_usd, reservedUsd: run.reserved_usd, spentUsd: run.spent_usd, requestCount: run.request_count, requestLimit: 12 },
-    steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable || replayableInvalidSteps.has(step.id)).map((step) => step.id) : [] },
+    )=1`, [runIds]);
+  const stepsByRun = new Map<string, StepRow[]>();
+  for (const step of stepRows.rows) {
+    const rows = stepsByRun.get(step.run_id) ?? [];
+    rows.push(step);
+    stepsByRun.set(step.run_id, rows);
+  }
+  const parents = new Map(links.rows.map((link) => [link.child_run_id, link.parent_run_id]));
+  const continuations = new Map(links.rows.map((link) => [link.parent_run_id, link.child_run_id]));
+  const unsafeRuns = new Set(unsafeRows.rows.map((row) => row.run_id));
+  const replayableByRun = new Map<string, Set<string>>();
+  for (const row of replayableRows.rows) {
+    const ids = replayableByRun.get(row.run_id) ?? new Set<string>();
+    ids.add(row.id);
+    replayableByRun.set(row.run_id, ids);
+  }
+  const now = new Date();
+  return runs.map((run) => {
+    const steps = (stepsByRun.get(run.id) ?? []).map((step) => ({
+      id: step.id, runId: step.run_id, ordinal: step.ordinal, action: step.action, state: step.state, toolName: step.tool_name,
+      toolVersion: step.tool_version, attempt: step.attempt, failure: step.failure_code, retryable: step.retryable,
+      resultRefs: step.result_refs, startedAt: iso(step.started_at), finishedAt: iso(step.finished_at),
+    }));
+    const parentRunId = parents.get(run.id) ?? null;
+    const continuationRunId = continuations.get(run.id) ?? null;
+    const publicProgress = RunProgressProjectionSchema.parse(projected?.get(run.id) ?? { plan: [], questions: [], summary: '', results: [], decision: null });
+    const progress = RunProgressSchema.parse({ ...publicProgress, parentRunId, continuationRunId });
+    const unsafeUsage = unsafeRuns.has(run.id);
+    const replayableInvalidSteps = replayableByRun.get(run.id) ?? new Set<string>();
+    const withinLifetime = !run.deadline_at || run.deadline_at > now;
+    const canRevise = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed' && !unsafeUsage;
+    const canResume = !unsafeUsage && withinLifetime && ['waiting_input', 'failed'].includes(run.state)
+      && (steps.some((step) => step.retryable || replayableInvalidSteps.has(step.id)) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
+    return RunSchema.parse({
+      id: run.id, workspaceId: run.workspace_id, projectId: run.project_id, createdBy: run.created_by,
+      capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale,
+      state: run.state, epoch: run.execution_epoch, cursor: Number(run.event_sequence), failure: run.failure_code,
+      createdAt: iso(run.created_at), updatedAt: iso(run.updated_at), startedAt: iso(run.started_at), deadlineAt: iso(run.deadline_at),
+      budget: { limitUsd: run.budget_limit_usd, reservedUsd: run.reserved_usd, spentUsd: run.spent_usd, requestCount: run.request_count, requestLimit: 12 },
+      steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable || replayableInvalidSteps.has(step.id)).map((step) => step.id) : [] },
+    });
   });
 }

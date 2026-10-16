@@ -8,7 +8,7 @@ import { hasScope } from '../../identity/domain/policy';
 import { IdentityError } from '../../identity/server/http';
 import { RunError } from '../domain/errors';
 import { RUN_LIMITS } from '../domain/limits';
-import { assertFence, boundedObject, boundedTransaction, emitEvent, hash, loadRun, lockStep, requestKey, required, snapshot, terminal, withinSignal, type JsonObject, type RunFence, type RunRow, type StepRow } from './data';
+import { assertFence, boundedObject, boundedTransaction, emitEvent, hash, loadRun, lockStep, requestKey, required, snapshots, terminal, withinSignal, type JsonObject, type RunFence, type RunRow, type StepRow } from './data';
 import type { PlannedStep, RunCapability, RunRegistry, RunTool, ToolContext, ToolOutcome } from './registry';
 import { createBudgetLedger } from './budget';
 import { claimNextRun } from './queue';
@@ -56,10 +56,20 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     await emitEvent(tx, runId, { kind: 'projection_changed', projectionRevision: revision });
   }
   async function projectSnapshot(tx: PoolClient, run: RunRow) {
-    const capability = registry.capability(run.capability_id, run.capability_version);
-    if (!capability.projectProgress) return snapshot(tx, run);
-    const context = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1', [run.id])).rows[0]).state;
-    return snapshot(tx, run, projectCapability(capability, context));
+    return required((await projectSnapshots(tx, [run]))[0]);
+  }
+  async function projectSnapshots(tx: PoolClient, runs: readonly RunRow[]) {
+    const projectedRuns = runs.filter((run) => registry.capability(run.capability_id, run.capability_version).projectProgress);
+    const contexts = projectedRuns.length
+      ? (await tx.query<{ run_id: string; state: JsonObject }>('SELECT run_id,state FROM agent_run_contexts WHERE run_id=ANY($1::uuid[])', [projectedRuns.map((run) => run.id)])).rows
+      : [];
+    const stateByRun = new Map(contexts.map((context) => [context.run_id, context.state]));
+    const projections = new Map<string, RunProgressProjection>();
+    for (const run of projectedRuns) {
+      const capability = registry.capability(run.capability_id, run.capability_version);
+      projections.set(run.id, required(projectCapability(capability, required(stateByRun.get(run.id)))));
+    }
+    return snapshots(tx, runs, projections);
   }
   async function create(principal: IdentityPrincipal, raw: CreateRun, key: string, options: { trusted?: boolean; privateInput?: JsonObject; confidential?: boolean; transaction?: PoolClient; budgetLimitUsd?: string } = {}) {
     const input = CreateRunSchema.parse(raw);
@@ -105,16 +115,23 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
   }
   async function read(principal: IdentityPrincipal, runId: string) {
     const run = await peek(runId);
-    return access(principal, run, { scope: 'read', confidential: run.confidential }, async (tx, authorized) => visibleSnapshot(tx, await loadRun(tx, runId), authorized));
+    return access(principal, run, { scope: 'read', confidential: run.confidential }, async (tx, authorized) => required((await visibleSnapshots(tx, [await loadRun(tx, runId)], authorized))[0]));
   }
-  async function visibleSnapshot(tx: PoolClient, run: RunRow, authorized: WorkspaceAccess) {
-    const value = await projectSnapshot(tx, run);
-    const scoped = run.project_id && authorized.membership.role !== 'owner'
-      ? await lockProjectAccess(tx, authorized, { projectId: run.project_id, scope: 'read', confidential: run.confidential }) : authorized;
-    if (!hasScope({ ...scoped.membership, projectScopes: scoped.projectScopes, confidential: run.confidential }, run.required_scope)) {
-      value.actions = { cancel: false, resume: false, revise: false, retryStepIds: [] };
+  async function visibleSnapshots(tx: PoolClient, runs: readonly RunRow[], authorized: WorkspaceAccess) {
+    const values = await projectSnapshots(tx, runs);
+    const projectAccess = new Map<string, WorkspaceAccess>();
+    for (const run of runs) {
+      if (!run.project_id || authorized.membership.role === 'owner' || projectAccess.has(run.project_id)) continue;
+      projectAccess.set(run.project_id, await lockProjectAccess(tx, authorized, { projectId: run.project_id, scope: 'read', confidential: run.confidential }));
     }
-    return value;
+    for (const [index, run] of runs.entries()) {
+      const value = required(values[index]);
+      const scoped = run.project_id && authorized.membership.role !== 'owner' ? required(projectAccess.get(run.project_id)) : authorized;
+      if (!hasScope({ ...scoped.membership, projectScopes: scoped.projectScopes, confidential: run.confidential }, run.required_scope)) {
+        value.actions = { cancel: false, resume: false, revise: false, retryStepIds: [] };
+      }
+    }
+    return values;
   }
   async function list(principal: IdentityPrincipal, workspaceId: string, before?: string, projectId?: string) {
     IdSchema.parse(workspaceId);
@@ -131,8 +148,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
         ORDER BY r.created_at DESC,r.id DESC LIMIT 31`, [workspaceId, boundary?.at ?? null, authorized.membership.role, authorized.userId, authorized.membership.scopes, boundary?.id ?? null, projectId ?? null])).rows;
       const visible = rows.slice(0, 30);
       const last = visible.at(-1);
-      const runs = [];
-      for (const row of visible) runs.push(await visibleSnapshot(tx, row, authorized));
+      const runs = await visibleSnapshots(tx, visible, authorized);
       return RunListPageSchema.parse({ runs, nextCursor: rows.length > 30 && last ? Buffer.from(JSON.stringify({ at: last.cursor_at, id: last.id })).toString('base64url') : null });
     });
   }

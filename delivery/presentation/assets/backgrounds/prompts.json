@@ -1,0 +1,22 @@
+[
+  {
+    "key": "tirlik_dark_hero",
+    "prompt": "Use case: ads-marketing. Create an original premium 16:9 wide background image for a jury pitch of Tirlik, a business work-materials product. This is a background illustration, not a slide and not an interface. Art direction: a near-black forest-green seamless studio (#071C18 through #102B26), unusually refined tactile matte materials. On the RIGHT 40 percent, a sculptural arrangement of exactly three large folded opaque sheets and one deep teal document sleeve, with one warm ivory broad face, dark green side faces and one restrained coral inner edge. The physical silhouette suggests a coherent bundle of working materials, never a coffee shop or any specific customer. Close camera, slightly above eye level, bold crop extending beyond the right and bottom edges, coherent folds and visible thickness, plausible contact and occlusion. Upper-left soft key light, controlled neutral fill, no glowing rims. LEFT 58 percent remains dark, calm, low-detail and uniform enough for large white native typography. Beautiful precise product-photography/CGI quality, substantial objects, gentle natural grain, no black-and-gold look. No typography, no letters, no numbers, no logos, no charts, no GUI, no device screens, no buttons, no icons, no people, no cups, no particles, no neon, no light trails, no decorative lines, no wireframe grids. Keep the whole image dark and editorial; do not add text or a title.",
+    "date": "2026-10-17",
+    "generator": "Built-in ImageGen",
+    "file": "hero-paper.png",
+    "sha256": "9144e0063bdaccaa7b70c34f49d8dbad1b953e9679883a33635dae3cfc5b7463",
+    "width": 1672,
+    "height": 941
+  },
+  {
+    "key": "tirlik_dark_creative",
+    "prompt": "Use case: ads-marketing. Generate an original widescreen 16:9 art-directed background for a Tirlik product slide about creating a coordinated campaign. No text is to be drawn. A dark forest-green matte studio (#081C18), a tactile macro composition concentrated across the LOWER RIGHT quadrant: two generous unprinted ivory print sheets with crisply folded corners, one rich deep-teal coated card, a small muted-coral paper swatch partly tucked between sheets. Paper and coated surfaces are physically opaque with subtle fibre, softened edge thickness, accurate occlusion and natural contact shadows. A broad folded teal plane is dramatically cropped by the bottom edge. This is a crafted abstract still life of print materials, not a fake poster, screenshot, actual business example or image of a customer. Camera close, high oblique angle, soft raking light from upper left; distinct from a front-view document folder. Keep TOP 38 percent and LEFT 55 percent very dark and nearly empty for editable typography and a separate authored vector illustration. The scene should feel confident, calm, detailed and cinematic with real matte volume. No words, letters, numbers, logos, people, devices, UI, charts, arrows, repeated decorative rules, particle effects, meshes, glowing outlines, floating tiny objects, gold or purple. Large coherent surfaces, very limited coral, no garish lighting.",
+    "date": "2026-10-17",
+    "generator": "Built-in ImageGen",
+    "file": "campaign-paper.png",
+    "sha256": "8fb0fe34c32b18bdd6e8cc1db8cf55ae5b473c3e40b951d3f1c7ea9c7199fad1",
+    "width": 1672,
+    "height": 941
+  }
+]

@@ -85,9 +85,14 @@ describe("public-site contracts without browser rendering", () => {
     expect(page).toContain('/demo');
     expect(page).toContain('copy.exampleAction');
     expect(page).not.toContain('copy.demoHint');
-    expect(page).toContain('copy.watchDemo');
-    expect(page).toContain('copy.presentation');
-    expect(page).toContain('disabled title={copy.mediaPending}');
+    expect(page).toContain('<PublicMediaActions copy={copy} />');
+    const media = source("src/features/public-site/public-media-actions.tsx");
+    expect(media).toContain('copy.watchDemo');
+    expect(media).toContain('copy.presentation');
+    expect(media).toContain('/presentation/tirlik-presentation.pdf');
+    expect(media).toContain('/presentation/tirlik-presentation.pptx');
+    expect(media).toContain('{open && <video');
+    expect(media).toContain('preload="none"');
     expect(proof).not.toMatch(/<input|<form/);
     expect(proof).toContain('aria-pressed={index === activeStep}');
     expect(proof).toContain('aria-controls="assistant-plan-detail"');

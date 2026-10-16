@@ -148,11 +148,11 @@ export class R2ObjectStorage {
     let response: Response | undefined;
     let uncertain = false;
     try {
-      response = await this.request(key, {
+      const url = await this.presignImmutablePut(key);
+      response = await this.fetcher(url, {
         method: 'PUT',
         headers: { 'Content-Type': R2_UPLOAD_CONTENT_TYPE, 'If-None-Match': R2_UPLOAD_IF_NONE_MATCH },
         body: bytes.slice().buffer as ArrayBuffer,
-        aws: { allHeaders: true },
       });
       if (response.ok) return response.headers.get('etag');
       uncertain = response.status === 412 || response.status >= 500;

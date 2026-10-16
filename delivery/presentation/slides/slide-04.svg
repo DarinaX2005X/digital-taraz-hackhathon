@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1440" height="810" viewBox="0 0 1440 810" role="img" aria-labelledby="title">
+<title id="title">Сроки и деньги проверяются до решения</title>
+<rect width="1440" height="810" fill="#09221D"/>
+<text font-family="Noto Sans, sans-serif" font-size="60" font-weight="700" fill="#F3F6F4" text-anchor="start">
+<tspan x="80" y="140.8">Сроки и деньги</tspan>
+<tspan x="80" y="215.8">проверяются</tspan>
+<tspan x="80" y="290.8">до решения</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="28" font-weight="400" fill="#B7CFC4" text-anchor="start">
+<tspan x="80" y="394.44">Загрузка ресурсов, полные условия</tspan>
+<tspan x="80" y="429.44">поставщиков и денежные обязательства</tspan>
+<tspan x="80" y="464.44">учитываются в одной работе.</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="27" font-weight="400" fill="#B7CFC4" text-anchor="start">
+<tspan x="80" y="634.46">Прогноз опирается</tspan>
+<tspan x="80" y="668.21">на пригодную историю.</tspan>
+</text>
+<polygon points="864,648 1352,648 1380,670 892,670" fill="#04100D"/>
+<polygon points="1314,131 1328,145 1328,654 1314,640" fill="#557C6D"/>
+<polygon points="852,640 1314,640 1328,654 866,654" fill="#78998A"/>
+<polygon points="852,131 1269,131 1314,176 1314,640 852,640" fill="#B3D6C4"/>
+<polygon points="1269,131 1269,176 1314,176" fill="#B1CABC"/>
+<text font-family="Noto Sans, sans-serif" font-size="36" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="885" y="198.28">План работы</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="25" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="885" y="270.5">Ресурсы и ограничения</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="885" y="347.38">Рабочее время</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="885" y="424.38">Загрузка</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="31" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="885" y="501.38">Закрепления</tspan>
+</text>
+<text font-family="Noto Sans, sans-serif" font-size="25" font-weight="400" fill="#17332E" text-anchor="start">
+<tspan x="885" y="582.5">Доступность и сроки</tspan>
+</text>
+<polygon points="745,739 1129,739 1157,761 773,761" fill="#04100D"/>
+<polygon points="1095,603 1105,613 1105,741 1095,731" fill="#557C6D"/>
+<polygon points="733,731 1095,731 1105,741 743,741" fill="#78998A"/>
+<rect x="733" y="603" width="362" height="128" rx="12" fill="#D68C77"/>
+<text font-family="Noto Sans, sans-serif" font-size="29" font-weight="700" fill="#17332E" text-anchor="start">
+<tspan x="762" y="669.42">Условия закупки</tspan>
+</text>
+</svg>

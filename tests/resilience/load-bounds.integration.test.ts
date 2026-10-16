@@ -206,14 +206,14 @@ describe('bounded multi-tenant load', () => {
       expect(replenished.rows.reduce((sum, row) => sum + row.count, 0)).toBe(8);
       expect(replenished.rows).toHaveLength(5);
       expect(replenished.rows.every((row) => row.count <= 2)).toBe(true);
-      console.info('LOAD_BOUNDS_METRICS', JSON.stringify({
+      process.stdout.write(`LOAD_BOUNDS_METRICS ${JSON.stringify({
         active: 8,
         queued: 22,
         activePerWorkspace: [...activeByWorkspace.values()].sort((left, right) => left - right),
         readP95Ms: Math.round(p95 * 100) / 100,
         maxResponseBytes: Math.max(...reads.map((read) => read.bytes)),
         editAckMs: Math.round(editDurationMs * 100) / 100,
-      }));
+      })}\n`);
     } finally {
       for (const run of runs) {
         const current = await service.read(run.tenant.principal, run.id).catch(() => null);

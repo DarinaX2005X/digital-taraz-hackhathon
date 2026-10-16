@@ -1,26 +1,32 @@
 # 05 Демо-видео, презентация и финальный комплект
 Status: active
 
+Последнее поручение17октября о сдаче: дальнейшие product/file проверки остановлены, остаются только презентация, видео и README. Финальная подготовка не ждёт04.1–04.4; claims используют уже имеющееся evidence, незавершённые проверки не объявляются passed. Рендер собственных медиа остаётся частью создания результата. Полные последние реплики вBRIEF. Оба media owner остаютсяAstra; краткий запросзаменыvideo на5.6 пользовательсразуотменил.
+
 По прямому поручению17октября «отправь агентов на астре начать презу и демо видео» оба медиапакета начинаются сейчас параллельно исправлениям/04, каждый свежим GPT-6 Astra. Прежний запрет старта до04.4 отменён этим поручением. Финальные утверждения, реальные продуктовые states/exports и ссылки всё равно сверяются с проверенной поставкой04.4; подготовка не выдаёт незавершённое поведение за готовую демонстрацию. Сохраняются польза/широта, отсутствие выдуманных результатов и пользовательский запрет browser automation.
 
 ## 05.1 Подготовить выразительную презентацию по работающему продукту
-Status: active
+Status: done
 Requirements: R01, R02, R04, R12, R13, R64, R77, R78, R80, R90, R99, R101, R109
 Depends on: none
 Owner: SUBAGENT presentation_delivery
 Paths: delivery/presentation/
 
-**Результат.** Рекомендуемая структура 8–10 слайдов: реальная разрозненная работа бизнеса; кто/какой вход; Tirlik и короткий полезный путь; новые editable материалы; harness/tools/human control; breadth J1–J5 на содержательных примерах; проверяемый результат и ограничения; применение в регионе/возврат; запуск/репозиторий. Editable source и PDF. Число слайдов подчинено ясности, не обязательному шаблону. Изменения deadline/capacity/исходников объясняют пользу лучше отдельного расчёта.
+**Результат.** Продавать Tirlik через ключевые возможности и пользу, без подробных кейсов. Собственные предметные SVG и generated преимущественно тёмные backgrounds показывают свободную задачу/исходники, новые документы/таблицы/макеты/планы, предметные работы, сохранение человеческих решений, команду/повтор и пригодный комплект. Один содержательный тезис на сцену, короткий редактируемый текст, без декоративных фраз и линий. Editable PPTX/source и PDF; количество слайдов подчинено ясности.
 
-Только VibeMachina, без прежнего «вайбпреза» и любых других skills/plugins. Нативные установленные библиотеки/CLI для deck/PDF допустимы, browser renderer — нет. Screenshots только пользовательские, иначе явно схематичные иллюстрации фактических data/results. Не читать код чужого сайта. Имя/слоган/визуальный язык совпадают с продуктом; нет фиктивных клиентов/интервью/URL/QR.
+Пользователь явно назвал VibePreza; использовать C:/Users/user/.codex/skills/vibepreza/SKILL.md и её design/story/production/render guidance без второй системы памяти. Native image generation разрешена для фонов, meaningfultext остаётся editable; не генерировать evidence/UI. Screenshot направление отменено, browser/CUA не использовать. Имя/слоган совпадают с продуктом, нет фиктивных клиентов/метрик/правообладателей.
+
+Первый кейсовый draft отвергнут. Новый9слайдовый продуктовый deck уже заменил PPTX/PDF:2generateddarkbackgrounds, собственныеSVG/native shapes,57nativetextboxes. ActualPDF previews готовы вdelivery/presentation/previews, owner завершает собственную render/source передачу; не заявлять Officeviewercheck без приложения.
 
 ### 05.1.1 Содержание и редактируемый дизайн
-Status: active
+Status: done
 Каждое утверждение проверено против 04.4, layout поддерживает один конкретный тезис/результат на сцену. Данные/сравнения воспроизводимы, source/license credits сохранены.
 
 ### 05.1.2 Готовый комплект файлов
-Status: todo
+Status: done
 Editable deck и PDF открываемы по структуре, текст/шрифты/страницы/ссылки проверены инструментами. Содержимое синхронно видео/README; читабельность и отсутствие обрезки не объявляются подтверждёнными без пользователя.
+
+Финальный whole-file handover: delivery/presentation/tirlik-presentation.pdf(6,138,856bytes) и.pptx(4,046,616bytes),9слайдов/60editabletextblocks/175shapes,9SVG,2ImageGenbackgrounds,prompts/provenance/source/reproduction. Все9actualPDFpreviews просмотрены owner, PDFfont/PPTXZIPXML/geometry/links/SVGXML checksPASS, inspectorwarnings[]. Officeviewer отдельно unavailable/unverified. Nativeartifact проверки не являются productUIreview. Файлы готовы локально, productdeploy не выполнялся.
 
 По F013 готовые файлы подключаются к «Презентация» в hero и ссылкам README через один точный integration loan владельцу public-site после handover; кнопка открывает реальный файл, временный статус убран.
 
@@ -35,19 +41,27 @@ Paths: delivery/video/, tests/product-video/, public/video/
 
 **Исследование и история.** Полностью читать original BRIEF с двумя длинными verbatim video remarks и TESTING F003/F004, VibeMachina media/INDEX, reference-study, story. Найти и изучить все три предоставленных MP4: dense 6–8fps overview и consecutive source-fps frames для важных transitions с timecodes, не несколько случайных кадров. Существующее исследование переиспользовать после проверки coverage. Перенять camera-led focus, параллельные слои, связные morph/flight transitions, разные ритмы/акценты; не копировать чужой бренд/буквальный сценарий/музыку и не читать чужой сайт. Никакой новой бесконечной серии preview approval.
 
-**Производство.** Video packet сам ведёт storyboard→composition→sound→render; не ждёт deck 05.1. После04.4 владелец даёт пользователю один короткий capture brief: 1920×1080, 30fps, synthetic P1, 60–90сек исходной записи без персональных данных — вход в пример, явный запуск, готовые новые материалы, смена одного срока/назначения, сохранённое ручное решение, открытие реального экспорта; дополнительные короткие кадры P2/P3 по готовым состояниям. Передача — в течение первого часа производства ролика, пока автономно готовятся композиция/звук/титры; отсутствие ответа не считается согласием на автоматический захват. Только пользователь снимает настоящий UI. При отсутствии записи используется воспроизводимая нативная анимация проверенного сценария с настоящими экспортами/данными и визуальными компонентами продукта, явно обозначенная «Анимация интерфейса», без выдачи её за screen recording или доказательство визуальной работоспособности. Она обязана показать само действие и изменение editable результата, а не заменить демо общей схемой. Реальные экспортные файлы остаются проверяемым свидетельством результата. Эта граница включается в финальную передачу. Nonbrowser FFmpeg/native pipeline, allowed source vector/bitmap/text. Не запускать CUA/headless/Remotion capture и не обходить запрет через renderer. Разрешено смотреть готовые reference/media frames, не автоматизировать продуктовый UI.
+После прямой критики17октября source reference — C:/Users/user/Desktop/Arkiv_Hackathon/partfolk-media-production/revision-20261015-participation/build_all.bat. Найден актуальный chain bat→build_all.py→render_seg.py→fx/film.py→fx/engine.py+scenes; именно код/шейдеры нужны, не обзор кадров Partfolk/старых соседних scripts. Referencefolderread-only, не запускать чужиеcommands вслепую и не переноситьбренд/данные/музыку. Придуманные Copyright2026Partfolkcontributors/LICENSE-PARTFOLK удалены, не восстанавливать.
+
+**Производство.** Storyboard→composition→sound→native render, без ожиданияdeck/04/capture. Свой104сек/60fpsмонтаж из15сцен и14shadertransitions показывает предметные документы/таблицы/слои/план/изменение/комплект. Анимация явно обозначена и не выдаётся за screenrecording или visualproof. Новых syntheticexportfiles отchanges_release нет, плановые имена нельзя выдавать за evidence. NonbrowserFFmpeg/native pipeline; собственные mediaframes можно смотреть, productUI черезrenderer автоматизировать нельзя. Проверяющие productowners остановлены,CPUslotосвобождён дляfullrender.
 
 **Встраивание.** После handover media и public-site MAIN выдаёт exact exclusive loan src/features/public-site/video/ и parent entry для player; до этого media owner не пишет в active01.5 paths. Controls/captions/keyboard, no autoplay sound, lazy load, local static asset/range/MIME. Default poster не прячет настоящий основной CTA. Большие renders не засоряют Git; исходники/manifest/фактический локальный файл переданы. Никакого cloud upload без отдельного поручения.
+
+Новое прямое поручениепослеготовностимедиа: подключитьREADME/сайт,обновитьGitиVercel. Exactexclusiveintegrationloan video_delivery: src/features/public-site/{public-site.tsx,copy.ts,public-site.module.css,public-media-actions.tsx}, tests/public-site/copy.test.ts, public/presentation/. СуществующийDialog, nativevideocontrols/playsInline/preloadnone/VTT/безautoplayзвука;закрытиеunmount. «Презентация» открываетреальныйPDF, PPTXдоступенотдельно. RU/KK/ENсемантика, безперестройкиhero/другихfeatures. Никакихновыхproducttests/browser/paidcalls;actualpublicationbuildownedVercel послеMAINcommit.
+
+Этот integration source handover завершён: existingDialog монтирует video только при открытии, closeunmount/focusreturn, labelsRU/KK/EN, готовые public/presentationPDF/PPTX. Existing hero composition/primaryCTA сохранены. Wholefileloansвернуты frozen, producttests/browser/build ownerне запускал. README уже содержит audience-facing hostedmedia links и сохранённые relative source links; финальный deployment ожидает MAINcheckpoint.
 
 F013: «Смотреть демо» в hero открывает готовый player; видео и исходники доступны также из README. SVG media actions и primary CTA сохраняют согласованную геометрию, media не запускается само.
 
 ### 05.2.1 Изученные референсы и связный готовый монтаж
-Status: active
+Status: done
 Coverage референсов и shot/timing/audio plan кратко в исходнике/story, затем реальный рендер без бесконечной промежуточной отчётности. Формы движения/звука/содержания основаны на полном пользовательском описании и проверенных возможностях.
 
 ### 05.2.2 MP4, исходники и работающий player
-Status: todo
+Status: active
 ffprobe codec/duration/framerate/audio, subtitle timing, отсутствие технических gaps и HTTP range/MIME/markup проверки. Файл воспроизводим из исходника, deck/README/video согласованы. Пользователь принимает изображение/движение/звук; agent не заявляет визуальный просмотр продукта.
+
+Film handover готов: public/video/tirlik-product-film-ru.mp4,104.000s,1920×1080/60fps/6240frames,H.264/AACstereo48kHz,23,533,173bytes; рядомfinalposter/VTT,source/reproduction вdelivery/video. FulldecodePASS,encodedloudness−17.75LUFS/−3.44dBTP; SHA67068acc58f236e199b7e4ed2dfc5c2726740b24f4bcf3b07b23393da68e6ee9. No remaining heavyprocess. Normal-speedplayback/listening пользователем не подтверждены. Player сайта НЕизменён/неподключён, cloudpublication не выполнена; этот остаток не скрывать,05.2overallнеdone. По latestuserstop новые productchecks/review/deploy не запускаются автоматически; готовыеlocalmediaпередаютсясейчас.
 
 ## 05.3 Передать полный результат и его честное состояние
 Status: todo

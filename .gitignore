@@ -14,3 +14,4 @@ next-env.d.ts
 .vibemachina/BRIEF.md
 .vibemachina/TESTING.md
 /.swc
+__pycache__/

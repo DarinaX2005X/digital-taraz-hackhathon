@@ -5,7 +5,8 @@ type InformationSection = { title: string; text: string; link?: "signup" | "rese
 export type PublicCopy = {
   mechanismIllustration: string; mechanismSource: string; mechanismResult: string;
   ownTaskTitle: string; ownTaskDescription: string; ownTaskLabel: string; ownTaskPlaceholder: string; ownTaskAction: string; ownTaskError: string; ownTaskAccount: string; ownTaskSignedIn: string; useScenario: string;
-  cabinet: string; watchDemo: string; presentation: string; mediaPending: string;
+  cabinet: string; watchDemo: string; presentation: string;
+  videoTitle: string; videoDescription: string; videoDownload: string; presentationDownload: string;
   exampleTitle: string; exampleBody: string; exampleAction: string;
   heroTitle: string; description: string; heroPath: string; processAction: string; resumeWork: string; home: string; scenarios: string; process: string;
   start: string; signIn: string; account: string; work: string; explore: string; language: string;
@@ -27,7 +28,8 @@ export type PublicCopy = {
 };
 
 const ru: PublicCopy = {
-  cabinet: 'Мой кабинет', watchDemo: 'Смотреть демо', presentation: 'Презентация', mediaPending: 'Материал появится здесь после финальной подготовки',
+  cabinet: 'Мой кабинет', watchDemo: 'Смотреть демо', presentation: 'Презентация',
+  videoTitle: 'Демо Tirlik', videoDescription: 'Продуктовая анимация · 1:44 · на русском', videoDownload: 'Скачать видео', presentationDownload: 'Скачать PPTX',
   exampleTitle: 'Попробуйте Tirlik на готовом рабочем примере', exampleBody: 'В демо-пространстве уже есть запрос заказчика, прайс, текущая загрузка и ограничения. Пройдите тот же путь, что в своей работе: проверьте заказ, выберите решение и получите редактируемые материалы.', exampleAction: 'Попробовать на примере',
   mechanismIllustration: 'После решения смета, предложение и план остаются связанными живыми материалами.', mechanismSource: 'Новая цена или условие', mechanismResult: 'Показаны только затронутые изменения',
   ownTaskTitle: 'Поставьте реальную задачу', ownTaskDescription: 'Опишите цель своими словами. В рабочей сессии можно добавить запрос, прайс, правила расчёта и данные о загрузке.',
@@ -100,7 +102,8 @@ const ru: PublicCopy = {
 };
 
 const en: PublicCopy = {
-  cabinet: 'My workspace', watchDemo: 'Watch demo', presentation: 'Presentation', mediaPending: 'This material will appear after final production',
+  cabinet: 'My workspace', watchDemo: 'Watch demo', presentation: 'Presentation',
+  videoTitle: 'Tirlik demo', videoDescription: 'Product animation · 1:44 · in Russian', videoDownload: 'Download video', presentationDownload: 'Download PPTX',
   exampleTitle: 'Try Tirlik in a prepared workspace', exampleBody: 'The demo workspace already contains a customer request, pricing, current capacity and constraints. Follow the same path as your own work: check the order, choose a decision and receive editable materials.', exampleAction: 'Try the example',
   mechanismIllustration: 'After the decision, the estimate, proposal and work plan remain connected live materials.', mechanismSource: 'A new price or condition', mechanismResult: 'Only affected changes are proposed',
   ownTaskTitle: 'Bring a real business decision', ownTaskDescription: 'Describe the goal in your own words. In the work session, add the request, price list, calculation rules and current capacity.',
@@ -171,7 +174,8 @@ const en: PublicCopy = {
 };
 
 const kk: PublicCopy = {
-  cabinet: 'Менің кабинетім', watchDemo: 'Демоны көру', presentation: 'Презентация', mediaPending: 'Материал финалдық дайындықтан кейін осында шығады',
+  cabinet: 'Менің кабинетім', watchDemo: 'Демоны көру', presentation: 'Презентация',
+  videoTitle: 'Tirlik демосы', videoDescription: 'Өнім мүмкіндіктерінің анимациясы · 1:44 · орыс тілінде', videoDownload: 'Видеоны жүктеу', presentationDownload: 'PPTX жүктеу',
   exampleTitle: 'Tirlik-ті дайын жұмыс мысалында көріңіз', exampleBody: 'Демо кеңістігінде клиент сұрауы, бағалар, ағымдағы жүктеме және шектеулер дайын. Өз жұмысыңыздағыдай жолдан өтіңіз: тапсырысты тексеріп, шешім таңдап, өңделетін материалдарды алыңыз.', exampleAction: 'Мысалда байқап көру',
   mechanismIllustration: 'Шешімнен кейін смета, ұсыныс және жұмыс жоспары өзара байланысқан жанды материалдар болып қалады.', mechanismSource: 'Жаңа баға немесе шарт', mechanismResult: 'Тек өзгерген бөліктер ұсынылады',
   ownTaskTitle: 'Нақты бизнес шешімін қойыңыз', ownTaskDescription: 'Мақсатты өз сөзіңізбен жазыңыз. Жұмыс сеансында сұрауды, бағаларды, есептеу ережелерін және ағымдағы жүктемені қосуға болады.',

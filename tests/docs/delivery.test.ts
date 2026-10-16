@@ -25,6 +25,15 @@ describe('public delivery documentation', () => {
     expect(markdown).toContain('node scripts/ops/local-data.mjs verify --from');
     expect(markdown).toContain('node scripts/ops/local-data.mjs restore --from');
     expect(markdown).toContain('docs/operations/local-backup.md');
+    expect(markdown).toContain('node scripts/dev/stop.mjs --recover-lock');
+    expect(markdown).toContain('.local-data/files');
+    expect(markdown).toContain('.local-data/workflow');
+    expect(markdown).toContain('BETTER_AUTH_URL');
+    expect(markdown).toContain('SMTP_REQUIRE_TLS');
+    expect(markdown).toContain('https://tirlik.vercel.app/ru/demo');
+    expect(markdown).toContain('public/video/tirlik-product-film-ru.mp4');
+    expect(markdown).toContain('delivery/presentation/tirlik-presentation.pdf');
+    expect(markdown).toContain('delivery/presentation/tirlik-presentation.pptx');
     expect(markdown).toContain(`${SOURCE_MAX_BYTES / 1024 / 1024} МБ`);
     for (const format of SourceFormatSchema.options) {
       const displayed = format === 'text' ? 'TXT' : format === 'webp' ? 'WebP' : format.toUpperCase();
@@ -88,7 +97,7 @@ describe('public delivery documentation', () => {
       expect(text).toContain('R2_ACCESS_KEY_ID');
       expect(text).toContain('R2_SECRET_ACCESS_KEY');
     }
-    expect(readme).toContain('публичный адрес пока не заявлен');
+    expect(readme).toContain('[tirlik.vercel.app](https://tirlik.vercel.app)');
   });
 });
 

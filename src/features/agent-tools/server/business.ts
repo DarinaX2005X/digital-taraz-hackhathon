@@ -9,6 +9,7 @@ import { withWorkspaceAccess } from '../../identity/server/access';
 import { readPinnedSource } from '../../sources/server/pinned-source';
 import { ElementIdSchema, IdSchema, RevisionSchema } from '../../../contracts/primitives';
 import { currencyMinorUnitScale } from '../../../contracts/calculations';
+import { SourceRefSchema, type SourceRef } from '../../../contracts/artifacts';
 import { WorkExecutionAuthoritySchema } from '../../../contracts/business-work';
 import { excerptArtifact } from './artifact-context';
 import { createDependencyService } from '../../dependencies/server/service';
@@ -25,7 +26,7 @@ import {
 import { applicationModelGateway } from '../../runs/server/model-runtime';
 import type { ModelOutput, ModelRequest } from '../../runs/server/gateway';
 import type { PlannedStep, RunCapability, RunTool, ToolContext, ToolOutcome } from '../../runs/server/registry';
-import { boundedObject } from '../../runs/server/data';
+import { boundedObject, type JsonObject } from '../../runs/server/data';
 import { RunError } from '../../runs/domain/errors';
 import { BusinessContextSchema, businessContext, initialBusinessContext, modelMessages, principalFor, QuestionSchema, ReadSourcesSchema, readSources, toolReply, type BusinessContext } from './context';
 import { decisionFactorMessageKey } from '../locales/decision';
@@ -113,8 +114,33 @@ type PreparedBusinessDecision = {
   terminal: boolean;
 };
 
-function validateBusinessDecision(output: ModelOutput, available: readonly BusinessToolDefinition[]): { decision?: PreparedBusinessDecision; errors: string[] } {
+const sourceRefKey = (ref: SourceRef) => [ref.sourceId, ref.sourceVersionId, ref.revision, ref.fragmentId ?? '', ref.collectionId ?? '', ref.recordId ?? '', ref.fieldId ?? '', ref.factRevision ?? ''].join('|');
+function authorizedBusinessSourceRefs(state: BusinessContext) {
+  const refs = new Map<string, SourceRef>();
+  const add = (raw: unknown) => {
+    const parsed = SourceRefSchema.safeParse(raw);
+    if (parsed.success) refs.set(sourceRefKey(parsed.data), parsed.data);
+  };
+  for (const source of state.sources) {
+    add(source.sourceRef);
+    for (const fragment of source.fragments) add({ ...source.sourceRef, fragmentId: fragment.id });
+  }
+  for (const artifact of state.artifacts) {
+    for (const ref of artifact.sourceRefs) add(ref);
+    for (const target of artifact.targets) if (target.sourceRef) add(target.sourceRef);
+  }
+  return refs;
+}
+function sourceReferencesIn(value: unknown, path = 'arguments'): { path: string; ref: SourceRef }[] {
+  if (Array.isArray(value)) return value.flatMap((item, index) => sourceReferencesIn(item, `${path}.${index}`));
+  if (!value || typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) return [];
+  const parsed = SourceRefSchema.safeParse(value);
+  if (parsed.success) return [{ path, ref: parsed.data }];
+  return Object.entries(value).flatMap(([key, item]) => sourceReferencesIn(item, `${path}.${key}`));
+}
+function validateBusinessDecision(output: ModelOutput, available: readonly BusinessToolDefinition[], state: BusinessContext): { decision?: PreparedBusinessDecision; errors: string[] } {
   const errors: string[] = [];
+  const authorizedRefs = authorizedBusinessSourceRefs(state);
   if (!output.toolCalls.length) errors.push('At least one tool call is required.');
   if (output.toolCalls.length > 4) errors.push('At most four tool calls are allowed.');
   if (new Set(output.toolCalls.map((call) => call.id)).size !== output.toolCalls.length) errors.push('Tool call IDs must be unique.');
@@ -139,12 +165,92 @@ function validateBusinessDecision(output: ModelOutput, available: readonly Busin
       }
       continue;
     }
+    for (const located of sourceReferencesIn(parsed.data)) {
+      if (!authorizedRefs.has(sourceRefKey(located.ref))) errors.push(`Call ${index + 1} ${call.name}.${located.path}: source_ref_not_authorized.`);
+    }
     calls.push({ id: call.id, name: call.name, arguments: parsed.data });
   }
   const terminal = output.toolCalls.some((call) => available.find((definition) => definition.name === call.name)?.terminal);
   if (terminal && output.toolCalls.length !== 1) errors.push('A terminal tool must be the only call.');
   const boundedErrors = errors.slice(0, 10).map((error) => error.slice(0, 240));
   return boundedErrors.length ? { errors: boundedErrors } : { decision: { output, calls, terminal }, errors: [] };
+}
+
+const correctionResponseSchema = z.strictObject({
+  toolCalls: z.array(z.strictObject({
+    id: z.string().min(1).max(128),
+    name: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+    arguments: z.record(z.string(), z.unknown()),
+  })).min(1).max(4),
+});
+function parsedInvalidCalls(output: ModelOutput) {
+  return output.toolCalls.slice(0, 4).map((call) => {
+    let args: unknown;
+    try { args = boundedObject(JSON.parse(call.arguments), 32_768); }
+    catch { args = { invalidJson: call.arguments.slice(0, 2_000) }; }
+    return { id: call.id, name: call.name, arguments: args };
+  });
+}
+function correctionDefinitions(output: ModelOutput, available: readonly BusinessToolDefinition[]) {
+  const names = new Set(output.toolCalls.map((call) => call.name));
+  const attempted = available.filter((definition) => names.has(definition.name));
+  if (attempted.length) return attempted;
+  const selected: BusinessToolDefinition[] = [];
+  let bytes = 0;
+  for (const definition of available) {
+    const size = Buffer.byteLength(JSON.stringify(z.toJSONSchema(definition.schema)));
+    if (selected.length && bytes + size > 48_000) break;
+    selected.push(definition); bytes += size;
+  }
+  return selected;
+}
+function correctionJsonSchema(definitions: readonly BusinessToolDefinition[]): JsonObject {
+  if (!definitions.length) throw new RunError('invalid_result');
+  return boundedObject({
+    type: 'object',
+    properties: {
+      toolCalls: {
+        type: 'array', minItems: 1, maxItems: 4,
+        items: { anyOf: definitions.map((definition) => ({
+          type: 'object',
+          properties: {
+            id: { type: 'string', minLength: 1, maxLength: 128 },
+            name: { type: 'string', const: definition.name },
+            arguments: z.toJSONSchema(definition.schema),
+          },
+          required: ['id', 'name', 'arguments'],
+          additionalProperties: false,
+        })) },
+      },
+    },
+    required: ['toolCalls'],
+    additionalProperties: false,
+  });
+}
+function correctionEnvelope(state: BusinessContext, output: ModelOutput, errors: readonly string[], definitions: readonly BusinessToolDefinition[]) {
+  const sourceRefs = [...authorizedBusinessSourceRefs(state).values()];
+  const artifactTargets = state.artifacts.flatMap((artifact) => artifact.targets.map((target) => ({
+    artifactId: artifact.artifactId, revision: artifact.revision, targetId: target.targetId, sourceRef: target.sourceRef,
+  })));
+  return boundedObject({
+    kind: 'tool_call_correction',
+    instruction: 'Return the corrected calls in the required structured response. Each arguments value is an object, including every nested input. Keep only schema properties. Copy SourceRef values exactly from authorizedSourceRefs; an artifact targetId is not a SourceRef fragmentId. If no authorized SourceRef supports a material fact, leave that constraint unknown instead of inventing an ID.',
+    validationErrors: errors,
+    correctionTools: definitions.map((definition) => definition.name),
+    authorizedSourceRefs: sourceRefs.slice(0, 500),
+    authorizedSourceRefsTruncated: sourceRefs.length > 500,
+    artifactTargets: artifactTargets.slice(0, 200),
+    artifactTargetsTruncated: artifactTargets.length > 200,
+    invalidToolCalls: parsedInvalidCalls(output),
+  }, 180_000);
+}
+function correctedModelOutput(raw: ModelOutput): ModelOutput {
+  if (!raw.content || raw.toolCalls.length) throw new RunError('invalid_result');
+  let value: unknown;
+  try { value = JSON.parse(raw.content); } catch { throw new RunError('invalid_result'); }
+  const parsed = correctionResponseSchema.safeParse(value);
+  if (!parsed.success) throw new RunError('invalid_result');
+  return { content: null, toolCalls: parsed.data.toolCalls.map((call) => ({ ...call, arguments: JSON.stringify(call.arguments) })) };
 }
 
 const publicOutcome = (verdict: 'can' | 'can-with-conditions' | 'cannot-confirm') => verdict === 'can' ? 'feasible' as const : verdict === 'can-with-conditions' ? 'conditional' as const : 'not_confirmed' as const;
@@ -426,24 +532,19 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
       const state = businessContext(context), available = availableBusinessDefinitions(definitions, state);
       const messages = modelMessages(state);
       const first = await gateway.complete({ fence: context.fence, operationKey: 'business_decision', messages, maxOutputTokens: 6000, tools: available.map(modelTool), toolChoice: 'required', signal: context.signal });
-      const checked = validateBusinessDecision(first, available);
+      const checked = validateBusinessDecision(first, available, state);
       if (checked.decision) return checked.decision;
+      const correctionTools = correctionDefinitions(first, available);
       const correction = await gateway.complete({
         fence: context.fence,
         operationKey: 'business_decision_correction',
-        messages: [...messages, { role: 'user', content: JSON.stringify({
-          kind: 'tool_call_correction',
-          instruction: 'The previous tool calls failed local validation. Return a fresh complete set of valid tool calls using only the offered tools. Do not explain the error and do not ask the user to repair provider output.',
-          validationErrors: checked.errors,
-          offeredTools: available.map((definition) => definition.name),
-        }) }],
+        messages: [...messages, { role: 'user', content: JSON.stringify(correctionEnvelope(state, first, checked.errors, correctionTools)) }],
         maxOutputTokens: 6000,
         maxReservedUsd: '0.15',
-        tools: available.map(modelTool),
-        toolChoice: 'required',
+        jsonSchema: { name: 'business_decision_correction', schema: correctionJsonSchema(correctionTools) },
         signal: context.signal,
       });
-      const corrected = validateBusinessDecision(correction, available);
+      const corrected = validateBusinessDecision(correctedModelOutput(correction), available, state);
       if (!corrected.decision) throw new RunError('invalid_result');
       return corrected.decision;
     },
