@@ -3,12 +3,12 @@ Status: todo
 
 Старт по contract не равен готовности: обязательные producer handovers до done находятся в PLAN, включая K7; partial/mock результат не закрывает пакет.
 
-Работа остаётся пригодной после изменения входов, перехода к коллеге и возвращения через неделю. Два крупных пакета завершают среду вокруг разовой AI-сессии; они начинают по утверждённым C6/C10/K6 параллельно 01–02. Общую интеграцию принимает 04.1.
+Работа остаётся пригодной после изменения входов, перехода к коллеге и возвращения через неделю. Два крупных пакета завершают среду вокруг разовой AI-сессии; по последнему разрешению F013 они начинаются после завершения01–02, затем идут параллельно по утверждённым C6/C10/K6. Общую интеграцию принимает04.1.
 
 ## 03.1 Согласовать изменения и выпуск всего комплекта
 Status: todo
 Requirements: R10, R14, R16, R25, R32, R33, R39, R40, R43, R92, R93, R94, R95, R96, R102, R103, R105
-Depends on: none
+Depends on: 01.1, 01.2, 01.3, 01.4, 01.5, 01.6, 02.1, 02.2
 Owner: SUBAGENT to assign
 Paths: src/features/dependencies/, src/features/change-review/, src/features/project-packages/, tests/dependencies/, tests/change-review/, tests/project-packages/, src/app/api/changesets/, src/app/api/packages/
 
@@ -29,7 +29,7 @@ Apply selected group → persisted material revisions → реальный packa
 ## 03.2 Сохранить контекст бизнеса, передать работу и повторить её
 Status: todo
 Requirements: R01, R05, R10, R11, R12, R13, R16, R22, R23, R24, R25, R32, R34, R35, R36, R39, R41, R42, R43, R44, R45, R90, R91, R94, R96, R99, R103, R105, R109
-Depends on: none
+Depends on: 01.1, 01.2, 01.3, 01.4, 01.5, 01.6, 02.1, 02.2
 Owner: SUBAGENT to assign
 Paths: src/features/business-context/, src/features/collaboration/, src/features/recurring-work/, tests/business-context/, tests/collaboration/, tests/recurring-work/, evals/recurring-work/, src/app/api/business-context/, src/app/api/comments/, src/app/api/work-rules/, src/app/api/outcomes/, src/app/api/collaboration/, src/app/app/business/, src/app/app/team/
 

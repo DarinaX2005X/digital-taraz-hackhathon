@@ -33,6 +33,7 @@ import { buildForecastArtifacts } from '@/features/forecast/domain/artifact-buil
 import { normalizeProcurementFacts } from '@/features/procurement/server/normalization';
 import { compareSuppliers } from '@/features/procurement/domain/compare-suppliers';
 import { buildProcurementArtifacts } from '@/features/procurement/domain/artifact-builders';
+import { createFinanceWorkPreview } from './work-preview';
 
 const ForecastBusinessWorkResultSchema = BusinessWorkResultSchema.extend({ forecast: ForecastRunSchema });
 export type ForecastBusinessWorkResult = z.infer<typeof ForecastBusinessWorkResultSchema>;
@@ -50,46 +51,9 @@ function editablePreviewRef(saved: Awaited<ReturnType<ReturnType<typeof createAr
   return { artifactId: workbook.artifact.id, revision: workbook.version.revision };
 }
 
-function roundRobin<T>(groups: readonly (readonly T[])[], limit: number) {
-  const selected: T[] = [];
-  for (let offset = 0; selected.length < limit; offset++) {
-    let found = false;
-    for (const group of groups) {
-      if (group[offset] === undefined) continue;
-      selected.push(group[offset]!); found = true;
-      if (selected.length === limit) break;
-    }
-    if (!found) break;
-  }
-  return selected;
-}
-
 function alignedSample(length: number, limit: number) {
   if (length <= limit) return Array.from({ length }, (_, index) => index);
   return [...new Set(Array.from({ length: limit }, (_, index) => Math.round((index * (length - 1)) / (limit - 1))))];
-}
-
-function financePreview(input: ReturnType<typeof FinanceAnalysisInputSchema.parse>, result: ReturnType<typeof analyzeFinance>, saved: Awaited<ReturnType<ReturnType<typeof createArtifactService>['create']>>[]): BusinessWorkPreview {
-  const assumptions = roundRobin(input.scenarios.map((scenario) => scenario.assumptions.map((item) => ({
-    scenarioId: scenario.id, id: item.id, title: item.title.slice(0, 160), effectiveOn: item.effectiveOn,
-    direction: item.direction, amountMinorUnits: item.amount?.minorUnits ?? null, confirmed: item.confirmed,
-  }))), 12);
-  const calendar = roundRobin(result.scenarios.map((scenario) => scenario.calendar.map((row) => ({
-    scenarioId: scenario.id, date: row.date, knownInflowsMinorUnits: row.knownInflowsMinorUnits,
-    knownOutflowsMinorUnits: row.knownOutflowsMinorUnits, closingBalanceMinorUnits: row.closingBalanceMinorUnits,
-    unknownCount: row.unknownItemIds.length,
-  }))), 24);
-  return {
-    kind: 'finance', editable: editablePreviewRef(saved), currency: result.currency, period: result.period,
-    scenarios: result.scenarios.map((scenario) => ({
-      id: scenario.id, title: scenario.title, accounting: scenario.accounting,
-      knownIncomeMinorUnits: scenario.knownIncomeMinorUnits, knownExpenseMinorUnits: scenario.knownExpenseMinorUnits,
-      knownResultMinorUnits: scenario.knownResultMinorUnits, closingBalanceMinorUnits: scenario.closingBalanceMinorUnits,
-      minimumBalanceMinorUnits: scenario.minimumBalanceMinorUnits, unknownCount: scenario.unknownItemIds.length,
-    })),
-    assumptions, assumptionCount: input.scenarios.reduce((count, scenario) => count + scenario.assumptions.length, 0),
-    calendar, calendarRowCount: result.scenarios.reduce((count, scenario) => count + scenario.calendar.length, 0),
-  };
 }
 
 function forecastPreview(series: ReturnType<typeof normalizeForecastSeries>['series'], run: ReturnType<typeof runForecast>, saved: Awaited<ReturnType<ReturnType<typeof createArtifactService>['create']>>[]): BusinessWorkPreview {
@@ -209,7 +173,7 @@ export function createFinanceWorkBuilder(pool: Pool, options: BusinessWorkBuilde
     const unresolved = uniqueFindings([...factIssues, ...normalized.unresolved, ...scenario.unresolved, ...analysis.coverage.issues.map((issue) => ({ code: `finance.${issue.code.replaceAll('-', '_')}`, targetIds: [issue.transactionId], sourceRefs: issue.sourceRefs }))]);
     return BusinessWorkResultSchema.parse({
       artifacts: saved, inputRevisionVector: context.inputRevisionVector,
-      workPreview: financePreview(analysisInput, analysis, saved),
+      workPreview: createFinanceWorkPreview(analysisInput, analysis, editablePreviewRef(saved)),
       checks: [
         { code: 'finance.dataset.normalized', status: normalized.transactions.length ? 'passed' : 'unknown', targetIds: normalized.transactions.map((item) => item.id), sourceRefs: input.sourceRefs },
         { code: 'finance.cash_timing.checked', status: analysis.coverage.issues.some((issue) => issue.code === 'cash-date-unknown') ? 'unknown' : 'passed', targetIds: analysis.scenarios.map((item) => item.id), sourceRefs },

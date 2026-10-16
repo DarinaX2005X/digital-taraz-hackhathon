@@ -9,24 +9,25 @@ import { assertOrigin, errorResponse, IdentityError, json, limit, readJson, vali
 import { assertActorHeader, idempotencyKey, queryObject } from '../../artifacts/server/http';
 import { createSourceService } from './service';
 import { LocalSourceStorage } from './storage';
-import { createSourceDocumentAdapter } from './document-input';
-import { createSourceVisualAssetService } from './visual-assets';
-import { createSourceRecognitionService } from './review';
-import type { RunService } from '../../runs/server/service';
+import type { SourceRecognitionRuntimeLoader } from './review';
 import { withWorkspaceAccess } from '../../identity/server/access';
 import { authorizedUpload } from './service';
-import { sourcePageImage } from './page-image';
-import sharp from 'sharp';
 import { createSourceLibraryLifecycleService } from './library-lifecycle';
 
 const WorkspaceSchema = z.strictObject({ workspaceId: IdSchema });
 const integer = (value: string | undefined, fallback: number, maximum: number) => value === undefined ? fallback : validate(z.string().regex(/^(0|[1-9]\d*)$/).transform(Number).pipe(z.number().int().min(0).max(maximum)), value);
-export function createSourceHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor>; storage?: LocalSourceStorage; runtime?: { service: RunService; wake: () => Promise<unknown> } }) {
+export function createSourceHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor>; storage?: LocalSourceStorage; runtime?: SourceRecognitionRuntimeLoader }) {
   const service = createSourceService(options.pool, options.storage);
-  const documents = createSourceDocumentAdapter(options.pool, options.storage);
-  const assets = createSourceVisualAssetService(options.pool, options.storage);
-  const recognition = createSourceRecognitionService(options.pool, options.runtime, options.storage);
   const mutateLifecycle = createSourceLibraryLifecycleService(options.pool);
+  async function loadDocuments() { const loaded = await import('./document-input'); return loaded.createSourceDocumentAdapter(options.pool, options.storage); }
+  async function loadAssets() { const loaded = await import('./visual-assets'); return loaded.createSourceVisualAssetService(options.pool, options.storage); }
+  async function loadRecognition() { const loaded = await import('./review'); return loaded.createSourceRecognitionService(options.pool, options.runtime, options.storage); }
+  let documentsPromise: ReturnType<typeof loadDocuments> | undefined;
+  let assetsPromise: ReturnType<typeof loadAssets> | undefined;
+  let recognitionPromise: ReturnType<typeof loadRecognition> | undefined;
+  const documents = () => documentsPromise ??= loadDocuments();
+  const assets = () => assetsPromise ??= loadAssets();
+  const recognition = () => recognitionPromise ??= loadRecognition();
   return async function handle(request: Request): Promise<Response> {
     try {
       if (!['GET', 'POST', 'PUT'].includes(request.method)) throw new IdentityError('NOT_FOUND', 'sources.errors.notFound');
@@ -42,20 +43,21 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
           const values = queryObject(url, ['workspaceId', 'projectId', 'query', 'format', 'lifecycleState', 'from', 'to', 'limit', 'after']);
           return json(await service.listLibrary(principal, { ...values, workspaceId, limit: integer(values.limit, 30, 50) } as import('../../../contracts/sources').SourceLibraryQuery));
         }
-        if (parts.length === 1 && parts[0] === 'assets') return json(await assets.list(principal, { workspaceId, projectId: validate(IdSchema, query.projectId), kind: query.kind as 'image' | 'font' | undefined, after: query.after, limit: integer(query.limit, 30, 50) }));
+        if (parts.length === 1 && parts[0] === 'assets') return json(await (await assets()).list(principal, { workspaceId, projectId: validate(IdSchema, query.projectId), kind: query.kind as 'image' | 'font' | undefined, after: query.after, limit: integer(query.limit, 30, 50) }));
         if (parts.length === 2 && parts[0] === 'assets') {
           let asset;
-          try { asset = await assets.resolve(principal, { workspaceId, assetId: validate(IdSchema, parts[1]), purpose: 'display' }); }
-          catch (error) { if (!(error instanceof IdentityError) || error.code !== 'NOT_FOUND') throw error; asset = await documents.resolveImage(principal, { workspaceId, assetId: validate(IdSchema, parts[1]) }); }
+          try { asset = await (await assets()).resolve(principal, { workspaceId, assetId: validate(IdSchema, parts[1]), purpose: 'display' }); }
+          catch (error) { if (!(error instanceof IdentityError) || error.code !== 'NOT_FOUND') throw error; asset = await (await documents()).resolveImage(principal, { workspaceId, assetId: validate(IdSchema, parts[1]) }); }
           return new Response(new Uint8Array(asset.bytes), { headers: { 'Content-Type': asset.mediaType, 'Content-Length': String(asset.bytes.length), 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer' } });
         }
-        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'review') return json(await recognition.review(principal, workspaceId, validate(IdSchema, parts[1])));
-        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'recognition-quote') return json(await recognition.quote(principal, workspaceId, validate(IdSchema, parts[1]), integer(query.pageLimit, 3, 10)));
+        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'review') return json(await (await recognition()).review(principal, workspaceId, validate(IdSchema, parts[1])));
+        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'recognition-quote') return json(await (await recognition()).quote(principal, workspaceId, validate(IdSchema, parts[1]), integer(query.pageLimit, 3, 10)));
         if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'thumbnail') {
           const uploadId = validate(IdSchema, parts[1]);
           const selected = await withWorkspaceAccess(options.pool, principal, { workspaceId, scope: 'read' }, async (tx, auth) => (await authorizedUpload(tx, auth, uploadId, 'read')).upload);
           if (!['png', 'jpeg', 'webp'].includes(selected.format)) throw new IdentityError('NOT_FOUND', 'sources.errors.notFound');
           const original = await service.download(principal, workspaceId, selected.source_id, uploadId);
+          const { default: sharp } = await import('sharp');
           const bytes = await sharp(original.bytes, { limitInputPixels: 20_000_000, animated: false }).rotate().resize({ width: 320, height: 240, fit: 'inside', withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
           await withWorkspaceAccess(options.pool, principal, { workspaceId, scope: 'read' }, async (tx, auth) => { await authorizedUpload(tx, auth, uploadId, 'read'); });
           return new Response(new Uint8Array(bytes), { headers: { 'Content-Type': 'image/webp', 'Content-Length': String(bytes.length), 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' } });
@@ -65,6 +67,7 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
           if (page < 1) throw new IdentityError('VALIDATION_FAILED', 'sources.errors.validation');
           const selected = await withWorkspaceAccess(options.pool, principal, { workspaceId, scope: 'read' }, async (tx, auth) => (await authorizedUpload(tx, auth, uploadId, 'read')).upload);
           const original = await service.download(principal, workspaceId, selected.source_id, uploadId);
+          const { sourcePageImage } = await import('./page-image');
           const bytes = await sourcePageImage(original.bytes, selected.format, page);
           await withWorkspaceAccess(options.pool, principal, { workspaceId, scope: 'read' }, async (tx, auth) => { await authorizedUpload(tx, auth, uploadId, 'read'); });
           return new Response(new Uint8Array(bytes), { headers: { 'Content-Type': 'image/png', 'Content-Length': String(bytes.length), 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer' } });
@@ -90,8 +93,8 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
           return json(await mutateLifecycle(principal, input));
         }
         if (parts.length === 2 && parts[0] === 'uploads' && parts[1] === 'init') return json(await service.init(principal, idempotencyKey(request), validate(InitSourceUploadSchema, body)), 201);
-        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'recognize') return json(await recognition.start(principal, validate(IdSchema, parts[1]), idempotencyKey(request), validate(StartSourceOcrSchema, body)), 202);
-        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'review') return json(await recognition.accept(principal, validate(IdSchema, parts[1]), validate(AcceptSourcePageSchema, body)));
+        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'recognize') return json(await (await recognition()).start(principal, validate(IdSchema, parts[1]), idempotencyKey(request), validate(StartSourceOcrSchema, body)), 202);
+        if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'review') return json(await (await recognition()).accept(principal, validate(IdSchema, parts[1]), validate(AcceptSourcePageSchema, body)));
         if (parts.length === 3 && parts[0] === 'uploads' && ['finalize', 'cancel'].includes(parts[2]!)) {
           const { workspaceId } = validate(WorkspaceSchema, body);
           return json(await service[parts[2] as 'finalize' | 'cancel'](principal, workspaceId, validate(IdSchema, parts[1])));
@@ -100,6 +103,7 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
       throw new IdentityError('NOT_FOUND', 'sources.errors.notFound');
     } catch (error) {
       if (error instanceof z.ZodError) return errorResponse(new IdentityError('VALIDATION_FAILED', 'sources.errors.validation'));
+      if (!(error instanceof IdentityError)) console.error('SOURCE_HANDLER_UNEXPECTED', error);
       return errorResponse(error);
     }
   };

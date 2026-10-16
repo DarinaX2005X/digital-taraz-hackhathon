@@ -30,6 +30,16 @@ describe("owned runtime identity", () => {
     await expect(readRuntime(identity.root, identity.id)).rejects.toMatchObject({ code: "RUNTIME_IDENTITY_MISMATCH" });
   });
 
+  it("binds a production process identity to its verified build", async () => {
+    const identity = await fixture();
+    const record = newRuntime(identity, ports, "lock-hash", { mode: "production", distDir: ".local-data/build", buildId: "build_123", inputHash: "a".repeat(64) });
+    const file = runtimePaths(identity.root).file;
+    await writeJsonAtomic(file, record);
+    expect(await readRuntime(identity.root, identity.id)).toMatchObject({ mode: "production", distDir: ".local-data/build", buildId: "build_123", inputHash: "a".repeat(64) });
+    await writeJsonAtomic(file, { ...record, inputHash: null });
+    await expect(readRuntime(identity.root, identity.id)).rejects.toMatchObject({ code: "RUNTIME_IDENTITY_MISMATCH" });
+  });
+
   it("keeps the prior state when serializing an invalid replacement fails", async () => {
     const identity = await fixture();
     const file = runtimePaths(identity.root).file;

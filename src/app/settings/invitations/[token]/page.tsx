@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { InvitationTokenSchema } from '@/features/identity/contracts';
-import { InvitePage } from '@/features/identity/ui';
+import { InvitePage } from '@/features/identity/ui/invitation';
 
 export const metadata: Metadata = { referrer: 'no-referrer' };
 

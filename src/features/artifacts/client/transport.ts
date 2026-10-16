@@ -23,7 +23,13 @@ export class ArtifactRequestError extends ArtifactSubmissionError {
 }
 
 export type ArtifactRequestOptions = { viewer: ArtifactViewer; signal?: AbortSignal; allowAuthorityAdvance?: boolean; replayExpectedAuthzVersion?: number };
-type ClientOptions = { fetch?: typeof fetch; timeoutMs?: number; maxResponseBytes?: number };
+export type ArtifactClientOptions = {
+  fetch?: typeof fetch;
+  timeoutMs?: number;
+  maxResponseBytes?: number;
+  /** Maps a validated canonical API path to an isolated transport endpoint. */
+  resolvePath?: (path: string) => string;
+};
 const integer = (value: number, maximum = Number.MAX_SAFE_INTEGER) => z.number().int().min(0).max(maximum).parse(value);
 
 function retryAfter(value: string | null): number | undefined {
@@ -59,7 +65,7 @@ async function readJson(response: Response, maximum: number, signal: AbortSignal
   finally { signal.removeEventListener("abort", cancel); reader.releaseLock(); }
 }
 
-export function createArtifactClient(options: ClientOptions = {}) {
+export function createArtifactClient(options: ArtifactClientOptions = {}) {
   const fetcher = options.fetch ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? 20_000;
   const maxResponseBytes = options.maxResponseBytes ?? 32 * 1024 * 1024;
@@ -86,7 +92,7 @@ export function createArtifactClient(options: ClientOptions = {}) {
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
     let responseStatus = 0;
     try {
-      const response = await Promise.race([fetcher(path, {
+      const response = await Promise.race([fetcher(options.resolvePath?.(path) ?? path, {
         method: mutation ? "POST" : "GET", credentials: "same-origin", cache: "no-store", redirect: "error", referrerPolicy: "no-referrer",
         headers: { Accept: "application/json", "X-Tirlik-User-Id": viewer.userId, ...(mutation ? { "Content-Type": "application/json", ...(!mutation.readOnly ? { "Idempotency-Key": IdSchema.parse(mutation.key) } : {}) } : {}) },
         ...(mutation ? { body: JSON.stringify(mutation.body) } : {}), signal: controller.signal,

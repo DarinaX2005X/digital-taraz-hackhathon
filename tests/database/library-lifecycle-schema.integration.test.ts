@@ -59,7 +59,7 @@ async function seedBeforeLifecycleMigration(): Promise<Fixture> {
     projectId: randomUUID(), otherProjectId: randomUUID(), sourceId: randomUUID(), sourceVersionId: randomUUID(),
     trashedSourceId: randomUUID(), collectionId: randomUUID(),
   };
-  await pool.query("INSERT INTO identity_users(id,name,email,email_verified) VALUES($1,'Lifecycle owner',$2,true),($3,'Other owner',$4,true)", [fixture.userId, `${fixture.userId}@example.test`, fixture.otherUserId, `${fixture.otherUserId}@example.test`]);
+  await pool.query("INSERT INTO identity_users(id,name,email,email_verified) VALUES($1,'Lifecycle owner',$2,false),($3,'Other owner',$4,false)", [fixture.userId, `${fixture.userId}@example.test`, fixture.otherUserId, `${fixture.otherUserId}@example.test`]);
   await pool.query('BEGIN');
   try {
     await pool.query("INSERT INTO identity_workspaces(id,name,created_by) VALUES($1,'Lifecycle workspace',$2),($3,'Other workspace',$4)", [fixture.workspaceId, fixture.userId, fixture.otherWorkspaceId, fixture.otherUserId]);

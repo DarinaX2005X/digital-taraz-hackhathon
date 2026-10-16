@@ -4,7 +4,7 @@ import {
   ChangePasswordSchema, IdentityViewerSchema, IntentRestoredSchema, IntentSavedSchema,
   ProfileResultSchema, ProfileUpdateSchema, RequestMailSchema, ResetPasswordSchema,
   RestoreIntentSchema, RevokeSessionResultSchema, SaveIntentSchema, SessionsResultSchema,
-  SignInSchema, SignUpSchema, VerifyEmailSchema,
+  SignInSchema, SignUpSchema,
   AcceptInvitationSchema, AccountDeletionPreviewSchema, AccountDeletionResultSchema,
   CreateInvitationSchema, CreateWorkspaceSchema, DeleteAccountSchema, InvitationMutationSchema,
   InvitationMutationResultSchema, InvitationPreviewSchema, InvitationTokenSchema,
@@ -104,9 +104,7 @@ export function createIdentityClient(options: ClientOptions = {}) {
 
   return {
     signIn: (input: z.input<typeof SignInSchema>, opts?: RequestOptions) => request("/api/auth/sign-in/email", "POST", statusResult("signed-in"), validate(SignInSchema, input), opts),
-    signUp: (input: z.input<typeof SignUpSchema>, opts?: RequestOptions) => request("/api/auth/sign-up/email", "POST", statusResult("verification-pending"), validate(SignUpSchema, input), opts),
-    verifyEmail: (input: z.input<typeof VerifyEmailSchema>, opts?: RequestOptions) => request("/api/auth/verify-email", "POST", statusResult("verified"), validate(VerifyEmailSchema, input), opts),
-    sendVerification: (input: z.input<typeof RequestMailSchema>, opts?: RequestOptions) => request("/api/auth/send-verification-email", "POST", statusResult("accepted"), validate(RequestMailSchema, input), opts),
+    signUp: (input: z.input<typeof SignUpSchema>, opts?: RequestOptions) => request("/api/auth/sign-up/email", "POST", statusResult("signed-in"), validate(SignUpSchema, input), opts),
     requestPasswordReset: (input: z.input<typeof RequestMailSchema>, opts?: RequestOptions) => request("/api/auth/request-password-reset", "POST", statusResult("accepted"), validate(RequestMailSchema, input), opts),
     resetPassword: (input: z.input<typeof ResetPasswordSchema>, opts?: RequestOptions) => request("/api/auth/reset-password", "POST", statusResult("password-reset"), validate(ResetPasswordSchema, input), opts),
     changePassword: (input: z.input<typeof ChangePasswordSchema>, opts?: RequestOptions) => request("/api/auth/change-password", "POST", statusResult("password-changed"), validate(ChangePasswordSchema, input), opts),

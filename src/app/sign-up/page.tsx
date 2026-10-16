@@ -1,4 +1,4 @@
-import { SignUpPage } from '@/features/identity/ui';
+import { SignUpPage } from '@/features/identity/ui/credentials';
 import { readIdentityNavigation, type IdentitySearchParams } from '@/server/identity-navigation';
 
 export default async function Page({ searchParams }: { searchParams: Promise<IdentitySearchParams> }) {

@@ -17,6 +17,12 @@ describe("artifact HTTP boundary", () => {
     await createArtifactClient({ fetch: fetcher }).snapshot(ids.artifact, { viewer }, ids.project);
     expect(fetcher).toHaveBeenCalledWith(`/api/artifacts/${ids.artifact}?workspaceId=${ids.workspace}`, expect.objectContaining({ method: "GET", cache: "no-store", credentials: "same-origin", redirect: "error", referrerPolicy: "no-referrer", headers: { Accept: "application/json", "X-Tirlik-User-Id": ids.user } }));
   });
+  it("maps a validated canonical path into an isolated session endpoint", async () => {
+    const fetcher = fakeFetch(Response.json(snapshot()));
+    const prefix = `/api/demo/sessions/${ids.group}`;
+    await createArtifactClient({ fetch: fetcher, resolvePath: (path) => `${prefix}${path.slice(4)}` }).snapshot(ids.artifact, { viewer }, ids.project);
+    expect(fetcher).toHaveBeenCalledWith(`${prefix}/artifacts/${ids.artifact}?workspaceId=${ids.workspace}`, expect.any(Object));
+  });
   it("posts the immutable group ID as idempotency key", async () => {
     const fetcher = fakeFetch(Response.json(receipt()));
     const client = createArtifactClient({ fetch: fetcher });

@@ -2,7 +2,7 @@ import type { Locale } from "@/i18n";
 import { colorValue } from "@/ui/tokens";
 import { identityTranslator } from "./catalog";
 
-export type IdentityMailInput = { kind: "verify" | "reset" | "invite"; locale: Locale; url: string; workspaceName?: string };
+export type IdentityMailInput = { kind: "reset" | "invite"; locale: Locale; url: string; workspaceName?: string };
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!);
 

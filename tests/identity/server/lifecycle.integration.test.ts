@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { ErrorEnvelopeSchema } from '../../../src/contracts/errors';
 import { IdentityViewerSchema, IntentRestoredSchema, IntentSavedSchema, SessionsResultSchema } from '../../../src/features/identity/contracts';
 
 let pool: Pool;
@@ -30,14 +29,14 @@ class HttpClient {
   }
 }
 
-async function mailLink(email: string, kind: 'verify' | 'reset'): Promise<URL> {
+async function mailLink(email: string): Promise<URL> {
   const search = new URL('/api/v1/search', mailOrigin);
   search.searchParams.set('query', `to:${email}`);
   const list = await (await fetch(search)).json() as { messages: { ID: string }[] };
   for (const item of list.messages) {
     const mail = await (await fetch(`${mailOrigin}/api/v1/message/${item.ID}`)).json() as { Text: string; To: { Address: string }[] };
     expect(mail.To.some((to) => to.Address === email)).toBe(true);
-    const candidate = mail.Text.match(new RegExp(`http://127\\.0\\.0\\.1:\\d+/auth/${kind}\\?[^\\s]+`))?.[0];
+    const candidate = mail.Text.match(/http:\/\/127\.0\.0\.1:\d+\/auth\/reset\?[^\s]+/)?.[0];
     if (candidate) return new URL(candidate);
   }
   throw new Error('OWNED_SYNTHETIC_MAIL_LINK_MISSING');
@@ -46,13 +45,8 @@ async function mailLink(email: string, kind: 'verify' | 'reset'): Promise<URL> {
 async function signup(client: HttpClient, email: string, locale = 'ru') {
   const response = await client.request('/api/auth/sign-up/email', 'POST', { name: 'Synthetic Owner', email, password, locale, returnTo: '/app/projects' });
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ status: 'verification-pending' });
-}
-async function verify(client: HttpClient, email: string) {
-  const link = await mailLink(email, 'verify');
-  const response = await client.request('/api/auth/verify-email', 'POST', { token: link.searchParams.get('token') });
-  expect(response.status).toBe(200);
-  return link;
+  expect(await response.json()).toEqual({ status: 'signed-in', returnTo: '/app/projects' });
+  expect(response.headers.getSetCookie().some((value) => /HttpOnly/i.test(value) && /SameSite=Lax/i.test(value))).toBe(true);
 }
 async function login(client: HttpClient, email: string, currentPassword = password) {
   const response = await client.request('/api/auth/sign-in/email', 'POST', { email, password: currentPassword });
@@ -72,24 +66,20 @@ beforeAll(() => {
 afterAll(async () => { await pool?.end(); });
 
 describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
-  it('verifies once, persists the same identity and revokes sessions authoritatively', async () => {
+  it('enters immediately without a verification feature, persists identity and revokes sessions authoritatively', async () => {
     const email = `lifecycle-${randomUUID()}@example.test`;
     const owner = new HttpClient();
     await signup(owner, email, 'kk');
-    expect((await owner.request('/api/identity/me')).status).toBe(401);
-    const unverified = await owner.request('/api/auth/sign-in/email', 'POST', { email, password });
-    expect(unverified.status).toBe(403);
-    expect(ErrorEnvelopeSchema.parse(await unverified.json()).messageKey).toBe('identity.errors.emailNotVerified');
-    const link = await mailLink(email, 'verify');
-    expect(link.pathname).toBe('/auth/verify');
-    expect(link.searchParams.get('returnTo')).toBe('/app/projects');
-    expect((await owner.request(`/api/auth/verify-email?token=${link.searchParams.get('token')}`)).status).toBe(404);
-    expect((await pool.query('SELECT email_verified FROM identity_users WHERE email=$1', [email])).rows[0].email_verified).toBe(false);
-    const invalid = await owner.request('/api/auth/verify-email', 'POST', { token: 'invalid-token-value-long-enough' });
-    expect(invalid.status).toBe(422);
-    await verify(owner, email);
-    expect((await owner.request('/api/auth/verify-email', 'POST', { token: link.searchParams.get('token') })).status).toBe(422);
-    await login(owner, email);
+    const immediate = IdentityViewerSchema.parse(await (await owner.request('/api/identity/me')).json());
+    expect(immediate.user).not.toHaveProperty('emailVerified');
+    const secondLogin = new HttpClient();
+    await login(secondLogin, email);
+    expect(IdentityViewerSchema.parse(await (await secondLogin.request('/api/identity/me')).json()).user.id).toBe(immediate.user.id);
+    expect((await secondLogin.request('/api/auth/sign-out', 'POST', {})).status).toBe(200);
+    expect((await owner.request('/api/auth/send-verification-email', 'POST', { email, locale: 'kk' })).status).toBe(404);
+    expect((await owner.request('/api/auth/verify-email', 'POST', { token: 'invalid-token-value-long-enough' })).status).toBe(404);
+    const mailSearch = new URL('/api/v1/search', mailOrigin); mailSearch.searchParams.set('query', `to:${email}`);
+    expect((await (await fetch(mailSearch)).json() as { total: number }).total).toBe(0);
     const first = IdentityViewerSchema.parse(await (await owner.request('/api/identity/me')).json());
     const second = IdentityViewerSchema.parse(await (await owner.request('/api/identity/me')).json());
     expect(first.user.id).toBe(second.user.id);
@@ -100,9 +90,6 @@ describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
     expect(IdentityViewerSchema.parse(await (await owner.request('/api/identity/me')).json()).user.name).toBe('Changed Owner');
     const otherDevice = new HttpClient();
     await login(otherDevice, email);
-    const accountPage = await otherDevice.request('/settings', 'GET', undefined, { 'Accept-Language': 'ru' });
-    expect(accountPage.status).toBe(200);
-    expect(await accountPage.text()).toContain('lang="en"');
     const sessions = SessionsResultSchema.parse(await (await owner.request('/api/identity/sessions')).json()).sessions;
     expect(sessions).toHaveLength(2);
     expect(sessions.filter((session) => session.current)).toHaveLength(1);
@@ -124,19 +111,17 @@ describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
     const email = `reset-${randomUUID()}@example.test`;
     const owner = new HttpClient();
     await signup(owner, email);
-    await verify(owner, email);
-    await login(owner, email);
     const unknown = await owner.request('/api/auth/request-password-reset', 'POST', { email: `unknown-${randomUUID()}@example.test`, locale: 'ru' });
     expect(await unknown.json()).toEqual({ status: 'accepted' });
     const requested = await owner.request('/api/auth/request-password-reset', 'POST', { email, locale: 'ru' });
     expect(await requested.json()).toEqual({ status: 'accepted' });
-    const expiredLink = await mailLink(email, 'reset');
+    const expiredLink = await mailLink(email);
     const token = expiredLink.searchParams.get('token');
     await pool.query("UPDATE identity_verifications SET expires_at=now()-interval '1 minute' WHERE identifier=$1", [`reset-password:${token}`]);
     const newPassword = 'Changed synthetic password 43';
     expect((await owner.request('/api/auth/reset-password', 'POST', { token, newPassword })).status).toBe(422);
     await owner.request('/api/auth/request-password-reset', 'POST', { email, locale: 'ru' });
-    const freshLink = await mailLink(email, 'reset');
+    const freshLink = await mailLink(email);
     const reset = await owner.request('/api/auth/reset-password', 'POST', { token: freshLink.searchParams.get('token'), newPassword });
     expect(reset.status).toBe(200);
     expect((await owner.request('/api/identity/me')).status).toBe(401);
@@ -164,8 +149,6 @@ describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
     expect(repeated.intentToken).toBe(saved.intentToken);
     expect((await owner.request('/api/identity/intents', 'POST', { ...draft, goal: 'changed' }, { 'Idempotency-Key': key })).status).toBe(409);
     await signup(owner, email);
-    await verify(owner, email);
-    await login(owner, email);
     const restored = IntentRestoredSchema.parse(await (await owner.request('/api/identity/intents/restore', 'POST', { intentToken: saved.intentToken })).json());
     expect(restored).toEqual({ goal: draft.goal, returnTo: '/app/projects' });
     const another = new HttpClient();
@@ -173,8 +156,6 @@ describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
     expect((await another.request('/api/identity/intents/restore', 'POST', { intentToken: saved.intentToken })).status).toBe(404);
     const foreignEmail = `foreign-${randomUUID()}@example.test`;
     await signup(another, foreignEmail);
-    await verify(another, foreignEmail);
-    await login(another, foreignEmail);
     another.cookies.set('tirlik.intent-browser', owner.cookies.get('tirlik.intent-browser')!);
     expect((await another.request('/api/identity/intents/restore', 'POST', { intentToken: saved.intentToken })).status).toBe(404);
     const current = IdentityViewerSchema.parse(await (await owner.request('/api/identity/me')).json());
@@ -188,15 +169,14 @@ describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
     expect((await owner.request('/api/auth/sign-in/email', 'POST', { email, password, returnTo: 'https://evil.example' })).status).toBe(200);
   }, 90000);
 
-  it('does not enumerate duplicates, rejects expired verification and enforces persistent attempt limits', async () => {
+  it('does not enumerate duplicates and enforces persistent attempt limits', async () => {
     const email = `expiry-${randomUUID()}@example.test`;
     const client = new HttpClient();
     await signup(client, email);
-    await signup(client, email);
+    const duplicate = await client.request('/api/auth/sign-up/email', 'POST', { name: 'Synthetic Owner', email, password, locale: 'ru', returnTo: '/app/projects' });
+    expect(duplicate.status).toBe(200);
+    expect(await duplicate.json()).toEqual({ status: 'signed-in', returnTo: '/app/projects' });
     expect((await pool.query('SELECT count(*)::int AS count FROM identity_users WHERE email=$1', [email])).rows[0].count).toBe(1);
-    const link = await mailLink(email, 'verify');
-    await pool.query("UPDATE identity_email_tokens SET expires_at=now()-interval '1 minute' WHERE user_id=(SELECT id FROM identity_users WHERE email=$1)", [email]);
-    expect((await client.request('/api/auth/verify-email', 'POST', { token: link.searchParams.get('token') })).status).toBe(422);
     for (let index = 0; index < 10; index++) expect((await client.request('/api/auth/sign-in/email', 'POST', { email, password: 'wrong password long enough' })).status).toBe(401);
     const throttled = await client.request('/api/auth/sign-in/email', 'POST', { email, password });
     expect(throttled.status).toBe(429);

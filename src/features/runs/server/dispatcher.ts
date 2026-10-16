@@ -1,10 +1,9 @@
-import { start } from 'workflow/api';
 import type { Pool } from 'pg';
+import { getDatabasePool } from '../../../server/db/pool';
 import { RUN_LIMITS } from '../domain/limits';
-import { getRunRuntime } from './runtime';
-import type { BudgetLedger } from './budget';
+import { createBudgetLedger, type BudgetLedger } from './budget';
+import { claimNextRun } from './queue';
 import type { Claim, RunService } from './service';
-import { executeRunWorkflow } from './workflow';
 
 export interface QueueDispatcherOptions {
   pool: Pool; service: Pick<RunService, 'claim'>; ledger: Pick<BudgetLedger, 'recoverExpired'>;
@@ -47,18 +46,28 @@ const singleton = globalThis as typeof globalThis & {
   tirlikRunDispatcher?: { tick: () => Promise<number>; timer: ReturnType<typeof setInterval> };
 };
 
+async function enqueueRun(claim: Claim) {
+  // Workflow and its application registry enter the process only after a real
+  // queue claim. Ordinary page/API requests keep the startup graph small.
+  const [{ start }, { executeRunWorkflow }] = await Promise.all([import('workflow/api'), import('./workflow')]);
+  return start(executeRunWorkflow, [claim]);
+}
+
+function lightweightDispatcher() {
+  const pool = getDatabasePool();
+  return createQueueDispatcher({ pool, service: { claim: () => claimNextRun(pool) }, ledger: createBudgetLedger(pool), enqueue: enqueueRun });
+}
+
 export async function dispatchRunQueue() {
   const active = singleton.tirlikRunDispatcher;
   if (active) return active.tick();
-  const runtime = getRunRuntime();
-  return createQueueDispatcher({ ...runtime, enqueue: (claim) => start(executeRunWorkflow, [claim]) }).tick();
+  return lightweightDispatcher().tick();
 }
 
 export function startLocalRunDispatcher() {
   if (singleton.tirlikRunDispatcher) return;
   if (process.env.WORKFLOW_TARGET_WORLD !== 'local' || !process.env.DATABASE_URL) return;
-  const runtime = getRunRuntime();
-  const dispatcher = createQueueDispatcher({ ...runtime, enqueue: (claim) => start(executeRunWorkflow, [claim]) });
+  const dispatcher = lightweightDispatcher();
   const tick = () => dispatcher.tick();
   const timer = setInterval(() => { void tick().catch(() => console.error('RUN_QUEUE_UNAVAILABLE')); }, 10_000);
   timer.unref();

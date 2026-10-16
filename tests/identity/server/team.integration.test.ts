@@ -30,14 +30,13 @@ class Client {
     return response;
   }
 }
-async function mailLink(email: string, kind: 'verify' | 'invite') {
+async function mailLink(email: string) {
   const search = new URL('/api/v1/search', mailOrigin);
   search.searchParams.set('query', `to:${email}`);
   const list = await (await fetch(search)).json() as { messages: { ID: string }[] };
   for (const item of list.messages) {
     const mail = await (await fetch(`${mailOrigin}/api/v1/message/${item.ID}`)).json() as { Text: string };
-    const route = kind === 'invite' ? 'settings/invitations/[a-f0-9]{64}' : 'auth/verify\\?[^\\s]+';
-    const candidate = mail.Text.match(new RegExp(`http://127\\.0\\.0\\.1:\\d+/${route}`))?.[0];
+    const candidate = mail.Text.match(/http:\/\/127\.0\.0\.1:\d+\/settings\/invitations\/[a-f0-9]{64}/)?.[0];
     if (candidate) return new URL(candidate);
   }
   throw new Error('SYNTHETIC_TEAM_MAIL_MISSING');
@@ -46,9 +45,6 @@ async function account(email?: string) {
   const client = new Client();
   if (email) client.email = email;
   expect((await client.request('/api/auth/sign-up/email', 'POST', { email: client.email, name: 'Synthetic teammate', password, locale: 'ru' })).status).toBe(200);
-  const link = await mailLink(client.email, 'verify');
-  expect((await client.request('/api/auth/verify-email', 'POST', { token: link.searchParams.get('token') })).status).toBe(200);
-  expect((await client.request('/api/auth/sign-in/email', 'POST', { email: client.email, password })).status).toBe(200);
   const viewer = IdentityViewerSchema.parse(await (await client.request('/api/identity/me')).json());
   client.principal = { kind: 'session', userId: viewer.user.id, sessionId: viewer.session.id };
   return client;
@@ -68,7 +64,7 @@ async function invite(owner: Client, current: WorkspaceMembership, recipient: Cl
   expect(response.status).toBe(201);
   const sent = InvitationMutationResultSchema.parse(await response.json());
   expect(sent.delivery).toBe('sent');
-  const link = await mailLink(recipient.email, 'invite');
+  const link = await mailLink(recipient.email);
   return { ...sent, token: link.pathname.split('/').at(-1)!, key: randomUUID() };
 }
 async function accept(recipient: Client, invitation: { token: string; key: string }) {
@@ -93,7 +89,7 @@ beforeAll(async () => {
 afterAll(async () => { if (effectTable) await pool.query(`DROP TABLE IF EXISTS ${effectTable}`); await pool?.end(); });
 
 describe('real workspace invitations and authorization', () => {
-  it('creates idempotently, hides invitations until verified matching login and consumes only once', async () => {
+  it('creates idempotently, hides invitations until matching login and consumes only once', async () => {
     const key = randomUUID();
     const name = 'Private synthetic workspace';
     const first = await owner.request('/api/identity/workspaces', 'POST', { name }, key);
@@ -172,7 +168,7 @@ describe('real workspace invitations and authorization', () => {
     const resend = await owner.request(`/api/identity/workspaces/${current.workspaceId}/invitations/${invitation.invitationId}/resend`, 'POST', { expectedAuthzVersion: invitation.authzVersion });
     expect(resend.status).toBe(200);
     const sent = InvitationMutationResultSchema.parse(await resend.json());
-    const newToken = (await mailLink(colleague.email, 'invite')).pathname.split('/').at(-1)!;
+    const newToken = (await mailLink(colleague.email)).pathname.split('/').at(-1)!;
     expect(newToken).not.toBe(invitation.token);
     expect((await colleague.request(`/api/identity/invitations/${invitation.token}`)).status).toBe(404);
     expect((await colleague.request(`/api/identity/invitations/${newToken}`)).status).toBe(200);
@@ -225,7 +221,7 @@ describe('real workspace invitations and authorization', () => {
     const delegated = await colleague.request(invitationsPath, 'POST', { email: stranger.email, role: 'editor', scopes: ['read', 'edit'], locale: 'ru', expectedAuthzVersion: managerRevision });
     expect(delegated.status).toBe(201);
     const pending = InvitationMutationResultSchema.parse(await delegated.json());
-    const token = (await mailLink(stranger.email, 'invite')).pathname.split('/').at(-1)!;
+    const token = (await mailLink(stranger.email)).pathname.split('/').at(-1)!;
     expect((await stranger.request(`/api/identity/invitations/${token}`)).status).toBe(200);
     const demoted = await owner.request(targetPath, 'PATCH', { role: 'reviewer', expectedAuthzVersion: pending.authzVersion });
     expect(demoted.status).toBe(200);

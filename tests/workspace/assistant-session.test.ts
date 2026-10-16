@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Run } from '@/contracts/runs';
+import type { Run, RunResultRef } from '@/contracts/runs';
 import { assistantSessionState, sessionArtifactResultHrefs, sessionResultHref, sessionResults } from '@/features/runs/ui/session-state';
 
 const id = (tail: string) => `00000000-0000-4000-8000-${tail.padStart(12, '0')}`;
@@ -39,5 +39,12 @@ describe('assistant-first session state', () => {
     expect(sessionArtifactResultHrefs(value, [id('5'), id('7'), id('5')])).toEqual({
       [id('5')]: { href: `/app/projects/${value.projectId}/artifacts/${id('5')}?run=${value.id}`, title: 'Campaign direction' },
     });
+  });
+
+  it('uses an injected result boundary for every committed result and can suppress demo links', () => {
+    const value = run('review_ready', [{ kind: 'artifact', id: id('5'), revision: 2, title: 'Campaign direction' }]);
+    const scoped = (current: Pick<Run, 'id'>, result: RunResultRef) => `/scoped/${current.id}/${result.kind}/${result.id}`;
+    expect(sessionResultHref(value, value.progress.results[0]!, scoped)).toBe(`/scoped/${value.id}/artifact/${id('5')}`);
+    expect(sessionArtifactResultHrefs(value, [id('5')], () => null)).toEqual({});
   });
 });

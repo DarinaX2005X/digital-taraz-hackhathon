@@ -46,24 +46,35 @@ export async function readRuntime(root, projectId) {
     if (error.code === "ENOENT") return null;
     throw new CliError("RUNTIME_INVALID", "Cannot read the local runtime identity.", "Preserve .local-data/dev/runtime.json and inspect its format before retrying.");
   }
+  const mode = data.mode ?? "development";
+  const distDir = data.distDir ?? ".next";
+  const buildId = data.buildId ?? null;
+  const inputHash = data.inputHash ?? null;
   if (data.version !== 1 || data.projectId !== projectId || data.root !== root
     || data.composeProject !== `tirlik-${projectId}`
     || !/^[a-f0-9-]{36}$/.test(data.instanceId ?? "")
     || !/^[a-f0-9]{64}$/.test(data.token ?? "")
     || !["starting", "ready", "stopping", "stopped", "failed"].includes(data.status)
     || [data.appPort, data.databasePort, data.smtpPort, data.mailPort].some((port) => !Number.isInteger(port) || port < 1024 || port > 65535)
-    || (data.controlPort !== null && (!Number.isInteger(data.controlPort) || data.controlPort < 1024 || data.controlPort > 65535))) {
+    || (data.controlPort !== null && (!Number.isInteger(data.controlPort) || data.controlPort < 1024 || data.controlPort > 65535))
+    || !["development", "production"].includes(mode)
+    || (mode === "development" && (distDir !== ".next" || buildId !== null || inputHash !== null))
+    || (mode === "production" && (distDir !== ".local-data/build" || !/^[A-Za-z0-9_-]{1,128}$/.test(buildId ?? "") || !/^[a-f0-9]{64}$/.test(inputHash ?? "")))) {
     throw new CliError("RUNTIME_IDENTITY_MISMATCH", "The saved runtime does not match this checkout.", "Inspect .local-data/dev/runtime.json; no process or volume has been stopped.");
   }
-  return data;
+  return { ...data, mode, distDir, buildId, inputHash };
 }
 
-export function newRuntime(identity, ports, lockHash) {
+export function newRuntime(identity, ports, lockHash, application = {}) {
+  const mode = application.mode ?? "development";
+  const distDir = application.distDir ?? (mode === "production" ? ".local-data/build" : ".next");
+  const buildId = application.buildId ?? null;
+  const inputHash = application.inputHash ?? null;
   return {
     version: 1, root: identity.root, projectId: identity.id, composeProject: identity.composeProject,
     instanceId: randomUUID(), token: randomBytes(32).toString("hex"), status: "starting",
     appPort: ports.app, databasePort: ports.database, smtpPort: ports.smtp, mailPort: ports.mail,
-    controlPort: null, supervisorPid: null, appPid: null, lockHash, startedAt: new Date().toISOString(),
+    controlPort: null, supervisorPid: null, appPid: null, lockHash, mode, distDir, buildId, inputHash, startedAt: new Date().toISOString(),
   };
 }
 

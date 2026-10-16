@@ -18,18 +18,16 @@ Import from `@/features/identity/ui`:
 | --- | --- |
 | `IdentityEntryPage` | `/`, links to the available account routes, no future shell claims |
 | `SignInPage`, `SignUpPage` | `/sign-in`, `/sign-up`; optional `returnTo`, `intentToken` |
-| `VerifyEmailPage` | `/auth/verify`; optional opaque `token`, `returnTo`, `intentToken` |
 | `ResetPasswordPage` | `/auth/reset`; optional opaque `token`, `returnTo`, `intentToken` |
 | `SettingsPage` | `/settings`; optional safe `initialViewer` DTO, never auth tokens |
 | `TeamSettingsPage` | `/settings/team`; optional `initialWorkspaceId`, a single validated UUID query value |
 | `InvitePage` | `/settings/invitations/[token]`; opaque 64-character lowercase hex `token` |
 | `AccountMenu` | Existing signed-in navigation; optional `beforeSignOut`, `onSignedOut` |
 
-Set document `referrer: "no-referrer"` on email-token routes. API request policy is
-already no-referrer; it does not replace HTML document policy. Email verification
-requires an explicit button press, never an effect/GET mutation. A missing reset
-token displays the request form, not a broken password form. Email requests use
-neutral responses and do not reveal whether an account exists.
+Set document `referrer: "no-referrer"` on the password-reset token route. API request
+policy is already no-referrer; it does not replace HTML document policy. A missing
+reset token displays the request form, not a broken password form. Email requests
+use neutral responses and do not reveal whether an account exists.
 
 Account, auth, team and route-state pages use `ProductHeader` with a compact,
 labelled language selector. `IdentityFrame.headerActions` accepts optional trailing

@@ -27,7 +27,7 @@ describe("identity HTTP client", () => {
   });
 
   it("preserves opaque destination state, without attaching the original goal to auth requests", async () => {
-    const { client, fetcher } = setup({ status: "verification-pending" });
+    const { client, fetcher } = setup({ status: "signed-in", returnTo: "/app" });
     const intentToken = "a".repeat(64);
     await client.signUp({ name: " Person ", email: "person@example.test", password: secret, locale: "kk", returnTo: "/app", intentToken });
     expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toEqual({ name: "Person", email: "person@example.test", password: secret, locale: "kk", returnTo: "/app", intentToken });
@@ -60,7 +60,7 @@ describe("identity HTTP client", () => {
   });
 
   it("rejects a valid but wrong operation result", async () => {
-    const { client } = setup({ status: "signed-in" });
+    const { client } = setup({ status: "accepted" });
     await expect(client.signUp({ name: "Person", email: "p@example.test", password: secret })).rejects.toMatchObject({ failure: { messageKey: "identity.errors.unexpected" } });
   });
 

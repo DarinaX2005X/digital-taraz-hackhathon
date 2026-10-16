@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { assertNodeVersion, loadEnvironment } from "./dev/environment.mjs";
 import { reportCliError } from "./dev/errors.mjs";
 import { runNpm, runPackageCheck } from "./dev/process.mjs";
-import { createTestContext } from "./dev/test-context.mjs";
+import { createTestContext, pruneCompletedTestOutputs } from "./dev/test-context.mjs";
 import { assertDockerAvailable, cleanupTestCompose, composeSpecHash, startCompose } from "./dev/compose.mjs";
 import { startAppProcess, waitForAppHealth } from "./dev/app-process.mjs";
 
@@ -46,6 +46,7 @@ async function runPhase(phase) {
   }
   const specHash = await composeSpecHash(root);
   let composeStarted = false;
+  let passed = false;
   let app;
   try {
     await assertDockerAvailable(options);
@@ -71,11 +72,16 @@ async function runPhase(phase) {
       const result = await runNpm(["run", "test:integration", "--", ...selectedFiles], { ...testOptions, label: "test:integration:selected" });
       console.log(result.output);
     } else await runPackageCheck("test:integration", testOptions);
+    passed = true;
   } finally {
     await app?.stop();
     if (composeStarted && (!app || app.closed)) {
       await cleanupTestCompose(root, context, specHash, options);
       console.log(`Removed only the ${phase} phase's isolated containers and test volume.`);
+      if (passed) {
+        const pruned = await pruneCompletedTestOutputs(root);
+        if (pruned.removed) console.log(`Pruned ${pruned.removed} generated test output directories (${pruned.bytes} bytes); retained integration and application logs.`);
+      }
     }
   }
 }

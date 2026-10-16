@@ -26,10 +26,10 @@ describe("public-site contracts without browser rendering", () => {
 
   it("keeps help actions connected to real account journeys", () => {
     for (const copy of Object.values(publicCopy)) {
-      expect(copy.helpSections.filter((section) => section.link).map((section) => section.link)).toEqual(['tour', "signup", "verify", "reset", "team"]);
+      expect(copy.helpSections.filter((section) => section.link).map((section) => section.link)).toEqual(['tour', "signup", "reset", "team"]);
       for (const section of copy.helpSections) if (section.link) expect(section.action).toBeTruthy();
     }
-    for (const path of ["sign-up", "auth/verify", "auth/reset", "settings/team"]) {
+    for (const path of ["sign-up", "auth/reset", "settings/team"]) {
       expect(existsSync(fileURLToPath(new URL(`src/app/${path}/page.tsx`, root)))).toBe(true);
     }
   });
@@ -83,7 +83,11 @@ describe("public-site contracts without browser rendering", () => {
     expect(page).toContain('<DecisionProof copy={copy} />');
     expect(page).toContain('href="/app/work"');
     expect(page).toContain('/demo');
-    expect(page).toContain('copy.tryDemo');
+    expect(page).toContain('copy.exampleAction');
+    expect(page).not.toContain('copy.demoHint');
+    expect(page).toContain('copy.watchDemo');
+    expect(page).toContain('copy.presentation');
+    expect(page).toContain('disabled title={copy.mediaPending}');
     expect(proof).not.toMatch(/<input|<form/);
     expect(proof).toContain('aria-pressed={index === activeStep}');
     expect(proof).toContain('aria-controls="assistant-plan-detail"');
@@ -97,6 +101,8 @@ describe("public-site contracts without browser rendering", () => {
     expect(css).toContain('.proofPlan button:hover');
     expect(css).toContain('.proofPlan button:focus-visible');
     expect(css).toContain('.informationCard:focus-visible');
+    expect(css).toContain('.exampleBand>:global(.tl-button--primary:hover)');
+    expect(css).toContain('background:#eaf0ec; color:#17332e');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (prefers-reduced-transparency: reduce)');
   });

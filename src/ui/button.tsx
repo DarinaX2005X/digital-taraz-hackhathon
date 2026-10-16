@@ -18,6 +18,8 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 export function Button({ variant = "secondary", icon: Icon, pending, pendingLabel, disabled, disabledReason, children, className = "", ref, type = "button", ...props }: ButtonProps) {
   const reasonId = useId();
   const describedBy = [props["aria-describedby"], disabled && disabledReason ? reasonId : null].filter(Boolean).join(" ") || undefined;
+  const progressWithoutIcon = !Icon && pending;
+  const canShowProgressWithoutIcon = !Icon && pending !== undefined;
   return <>
     <Ariakit.Button
       {...props}
@@ -29,11 +31,13 @@ export function Button({ variant = "secondary", icon: Icon, pending, pendingLabe
       aria-busy={pending || undefined}
       aria-describedby={describedBy}
       data-pending={pending || undefined}
+      data-progress-capable={canShowProgressWithoutIcon || undefined}
     >
-      {(Icon || pending !== undefined) && <span className="tl-button__icon">
-        {Icon && <Icon className="tl-button__rest-icon" aria-hidden="true" size={20} />}
+      {Icon && <span className="tl-button__icon">
+        <Icon className="tl-button__rest-icon" aria-hidden="true" size={20} />
         {pending && <LoaderCircle className="tl-button__progress tl-spin" aria-hidden="true" size={20} />}
       </span>}
+      {progressWithoutIcon && <LoaderCircle className="tl-button__progress tl-button__progress--standalone tl-spin" aria-hidden="true" size={20} />}
       <span className="tl-button__label">
         <span aria-hidden={pending && pendingLabel !== undefined ? true : undefined}>{children}</span>
         {pendingLabel !== undefined && <span aria-hidden={!pending ? true : undefined}>{pendingLabel}</span>}

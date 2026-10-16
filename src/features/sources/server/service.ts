@@ -7,12 +7,12 @@ import { hasScope } from '../../identity/domain/policy';
 import { withWorkspaceAccess, lockProjectAccess, type SessionPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
 import { createPendingSource, publishSourceVersion } from './source-heads';
-import { extractSourceToSink, SOURCE_MEDIA, validateSourceMagic, type SourceChunkEmission } from './parser';
+import type { SourceChunkEmission } from './parser';
 import { LocalSourceStorage, sourceHash } from './storage';
 import { listSourceLibrary } from './library';
 import type { SourceLibraryQuery } from '../../../contracts/sources';
 import { readPinnedSource } from './pinned-source';
-import { prepareOriginalVisualAsset, registerOriginalVisualAsset } from './visual-assets';
+import { SOURCE_MEDIA, validateSourceMagic } from './source-format';
 
 export interface UploadRow {
   id: string; workspace_id: string; source_id: string; actor_id: string; operation_id: string; body_hash: string;
@@ -148,12 +148,14 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
         });
         lease = nextLease;
       };
+      const { extractSourceToSink } = await import('./parser');
       const extracted = await extractSourceToSink(bytes, claimed.upload.format, SourceOptionsSchema.parse(claimed.upload.options), async (chunk) => {
         staged.push(chunk);
         if (staged.length === SOURCE_CHUNK_WRITE_BATCH) await flush();
       });
       await flush();
-      const visualAsset = extracted.manifest.complete ? await prepareOriginalVisualAsset(claimed.upload, bytes) : null;
+      const visualAssets = extracted.manifest.complete ? await import('./visual-assets') : null;
+      const visualAsset = visualAssets ? await visualAssets.prepareOriginalVisualAsset(claimed.upload, bytes) : null;
       return await access(principal, workspaceId, 'edit', async (tx, auth) => {
         const { upload } = await authorizedUpload(tx, auth, uploadId, 'edit', true);
         if (upload.status !== 'processing' || upload.lease_until?.getTime() !== lease.getTime() || lease <= new Date()) throw fail('conflict');
@@ -163,7 +165,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
         if (extracted.pages.length) await tx.query('INSERT INTO source_pages(upload_id,page,state) SELECT $1,page,state FROM jsonb_to_recordset($2::jsonb) AS x(page integer,state text)', [uploadId, JSON.stringify(extracted.pages)]);
         if (extracted.manifest.complete) {
           await publishSourceVersion(tx, auth, { sourceId: upload.source_id, versionId: upload.reserved_version_id, expectedRevision: upload.expected_revision, snapshotHash: extracted.snapshotHash });
-          await registerOriginalVisualAsset(tx, auth, upload, visualAsset);
+          await visualAssets!.registerOriginalVisualAsset(tx, auth, upload, visualAsset);
         }
         const row = (await tx.query<UploadRow>("UPDATE source_uploads SET status=$3,manifest=$4,published_version_id=$5,lease_until=NULL,error_code=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2 RETURNING *", [workspaceId, uploadId, extracted.manifest.complete ? 'ready' : 'partial', JSON.stringify(extracted.manifest), extracted.manifest.complete ? upload.reserved_version_id : null])).rows[0]!;
         return { upload: uploadDto(row) };

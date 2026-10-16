@@ -8,7 +8,9 @@ import { assertDevVolumeOwnership, assertDockerAvailable, inspectOwnedServices, 
 import { runPackageCheck } from "./process.mjs";
 import { dependencyHash, ensureDependencies } from "./dependencies.mjs";
 import { resolveLocalConfig } from "./local-config.mjs";
+import { productionDistDir, verifyProductionBuild } from "./production-build.mjs";
 import { acquireStartLock, controlRequest, delay, isProcessAlive, newRuntime, readRuntime, runtimePaths, writeJsonAtomic } from "./runtime.mjs";
+import { parseStartOptions } from "./start-options.mjs";
 import { waitForAppHealth } from "./app-process.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -19,36 +21,43 @@ let supervisor;
 try {
   const args = process.argv.slice(2);
   if (args.length === 1 && args[0] === "--help") {
-    console.log("Usage: node scripts/dev/start.mjs [--port 3000]\nStarts the owned local services and application; preserves database and files.");
+    console.log("Usage: node scripts/dev/start.mjs [--mode development|production] [--port 3000]\nStarts the owned local services and application; production requires a current verified build. Preserves database and files.");
   } else {
-    if (args.length && !(args.length === 2 && args[0] === "--port")) throw new CliError("ARGUMENT_INVALID", "Unsupported startup arguments.", "Use node scripts/dev/start.mjs [--port 3000].");
+    const requested = parseStartOptions(args);
     assertNodeVersion();
     const identity = await projectIdentity(root);
     const paths = runtimePaths(identity.root);
     release = await acquireStartLock(identity.root);
     const previous = await readRuntime(identity.root, identity.id);
     const active = await controlRequest(previous);
+    const inherited = await loadEnvironment(identity.root, { mode: requested.mode });
+    const currentLockHash = await dependencyHash(root);
     if (active) {
       if (active.status !== "ready") throw new CliError("APP_STATE_BUSY", "The owned application is still starting or stopping.", "Wait briefly and rerun node scripts/dev/start.mjs.");
-      if (previous.lockHash !== await dependencyHash(root)) throw new CliError("DEPENDENCIES_CHANGED", "The lockfile changed while the owned application is running.", "Run node scripts/dev/stop.mjs, then node scripts/dev/start.mjs to install the new lockfile.");
-      if (args[1] && Number(args[1]) !== previous.appPort) throw new CliError("APP_ALREADY_RUNNING", "The owned application is already running on another local port.", "Run node scripts/dev/stop.mjs before selecting a different port.");
+      if (previous.lockHash !== currentLockHash) throw new CliError("DEPENDENCIES_CHANGED", "The lockfile changed while the owned application is running.", "Run node scripts/dev/stop.mjs, then node scripts/dev/start.mjs to install the new lockfile.");
+      if (previous.mode !== requested.mode) throw new CliError("APP_ALREADY_RUNNING", `The owned application is already running in ${previous.mode} mode.`, "Run node scripts/dev/stop.mjs before changing the local serving mode.");
+      if (requested.port && Number(requested.port) !== previous.appPort) throw new CliError("APP_ALREADY_RUNNING", "The owned application is already running on another local port.", "Run node scripts/dev/stop.mjs before selecting a different port.");
+      if (requested.mode === "production") {
+        const build = await verifyProductionBuild(root, { env: { ...inherited, NEXT_DIST_DIR: productionDistDir }, lockHash: currentLockHash });
+        if (previous.buildId !== build.buildId || previous.inputHash !== build.inputHash) throw new CliError("PRODUCTION_BUILD_CHANGED", "A different verified production build is available than the one currently running.", "Run node scripts/dev/stop.mjs, then node scripts/dev/start.mjs --mode production.");
+      }
       await waitForAppHealth(previous.appPort, { timeoutMs: 10_000 });
-      console.log(`Tirlik is already running: http://127.0.0.1:${previous.appPort}/`);
+      console.log(`Tirlik is already running in ${previous.mode} mode: http://127.0.0.1:${previous.appPort}/`);
       console.log(`Local mail: http://127.0.0.1:${previous.mailPort}/`);
     } else {
       if (previous && !["stopped", "failed"].includes(previous.status) && isProcessAlive(previous.supervisorPid)) {
         throw new CliError("CONTROL_UNAVAILABLE", "The recorded supervisor is alive but its private control endpoint did not respond.", "Inspect .local-data/dev logs; no PID from disk will be used to stop a process.");
       }
-      const inherited = await loadEnvironment(identity.root);
       const logFile = path.join(paths.directory, `start-${Date.now()}.log`);
       const preflight = { cwd: identity.root, env: inherited, logFile };
       await assertDockerAvailable(preflight);
       const services = await inspectOwnedServices(identity.root, identity.composeProject, preflight);
       await assertDevVolumeOwnership(identity.composeProject, preflight);
-      const config = await resolveLocalConfig(identity.root, inherited, previous, services, args[1]);
+      const config = await resolveLocalConfig(identity.root, inherited, previous, services, requested.port, { mode: requested.mode, distDir: requested.mode === "production" ? productionDistDir : ".next" });
       const options = { cwd: identity.root, env: config.env, logFile };
       const dependencies = await ensureDependencies(identity.root, options);
-      created = newRuntime(identity, config.ports, dependencies.lockHash);
+      const build = requested.mode === "production" ? await verifyProductionBuild(root, { env: config.env, lockHash: dependencies.lockHash }) : null;
+      created = newRuntime(identity, config.ports, dependencies.lockHash, { mode: requested.mode, distDir: config.env.NEXT_DIST_DIR, buildId: build?.buildId, inputHash: build?.inputHash });
       await writeJsonAtomic(paths.file, created);
       await mkdir(config.env.TIRLIK_DATA_DIR, { recursive: true });
       console.log("Starting the owned PostgreSQL and mail services...");
@@ -76,7 +85,7 @@ try {
       }
       if (!ready) throw new CliError("SUPERVISOR_TIMEOUT", "The supervisor did not finish startup before its deadline.", "Run node scripts/dev/stop.mjs, inspect the local logs, and retry.");
       supervisor.unref();
-      console.log(`Tirlik is ready: http://127.0.0.1:${created.appPort}/`);
+      console.log(`Tirlik is ready in ${created.mode} mode${created.buildId ? ` (build ${created.buildId})` : ""}: http://127.0.0.1:${created.appPort}/`);
       console.log(`Local mail: http://127.0.0.1:${created.mailPort}/`);
       console.log("Stop the application with: node scripts/dev/stop.mjs");
     }

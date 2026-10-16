@@ -1,5 +1,7 @@
 import type { Run, RunResultRef } from '@/contracts/runs';
 
+export type SessionResultHrefResolver = (run: Pick<Run, 'id' | 'workspaceId' | 'projectId'>, result: RunResultRef) => string | null;
+
 export type AssistantSessionState =
   | 'empty'
   | 'entered'
@@ -33,7 +35,8 @@ export function assistantSessionState(run: Run | null | undefined, hasEnteredGoa
   return hasResult ? 'partial' : 'interrupted';
 }
 
-export function sessionResultHref(run: Pick<Run, 'id' | 'workspaceId' | 'projectId'>, result: RunResultRef): string | null {
+export function sessionResultHref(run: Pick<Run, 'id' | 'workspaceId' | 'projectId'>, result: RunResultRef, resolve?: SessionResultHrefResolver): string | null {
+  if (resolve) return resolve(run, result);
   if (result.kind === 'artifact' && run.projectId) {
     const query = new URLSearchParams({ run: run.id });
     return `/app/projects/${run.projectId}/artifacts/${result.id}?${query}`;
@@ -42,12 +45,12 @@ export function sessionResultHref(run: Pick<Run, 'id' | 'workspaceId' | 'project
   return null;
 }
 
-export function sessionArtifactResultHrefs(run: Pick<Run, 'id' | 'workspaceId' | 'projectId' | 'steps' | 'progress'>, artifactIds: readonly string[]) {
+export function sessionArtifactResultHrefs(run: Pick<Run, 'id' | 'workspaceId' | 'projectId' | 'steps' | 'progress'>, artifactIds: readonly string[], resolve?: SessionResultHrefResolver) {
   const available = new Map(sessionResults(run).filter((result) => result.kind === 'artifact').map((result) => [result.id, result]));
   const titles = new Map(run.progress.results.filter((result) => result.kind === 'artifact').map((result) => [result.id, result.title]));
   return Object.fromEntries([...new Set(artifactIds)].flatMap((artifactId) => {
     const result = available.get(artifactId);
-    const href = result && sessionResultHref(run, result);
+    const href = result && sessionResultHref(run, result, resolve);
     return href ? [[artifactId, { href, ...(titles.get(artifactId) ? { title: titles.get(artifactId) } : {}) }]] : [];
   }));
 }

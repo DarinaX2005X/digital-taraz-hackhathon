@@ -11,12 +11,12 @@ import type { ArtifactListResult, ArtifactSnapshot } from '@/features/artifacts/
 import type { Run } from '@/contracts/runs';
 import { useArtifactSession } from '@/features/artifacts/ui/use-artifact-session';
 import { requireTable } from '@/features/sheets/domain/model';
-import { ExportPanel, type ExportBundleItem } from '@/features/exports/client/ExportPanel';
+import { ExportPanel, type ExportBundleItem, type ExportPanelTransport } from '@/features/exports/client/ExportPanel';
 import { ChangeReviewPanel } from '@/features/change-review';
 import { ArtifactError } from '@/features/artifacts/ui/common';
 import { ArtifactSignOutGuard } from '@/features/artifacts/ui/recovery-panel';
 import { SourceFreshnessPanel } from '@/features/artifacts/ui/source-freshness';
-import { artifactClient } from '@/features/artifacts/client/transport';
+import { artifactClient, type ArtifactClient } from '@/features/artifacts/client/transport';
 import { Button, Dialog, EmptyState, LoadingState, SaveStatus, type OptionLoader, type SelectOption } from '@/ui';
 import { WorkspaceShell, useWorkspaceCopy } from './shell';
 import styles from './workspace.module.css';
@@ -29,6 +29,36 @@ import { ArtifactActionDialog, createActionDraft, type ArtifactAction, type Arti
 import { useArtifactTranslations } from '@/features/artifacts/ui/common';
 import type { ArtifactOperation } from '@/features/artifacts/client/operations';
 import type { ArtifactOperationResult } from '@/features/artifacts/client/execute-operation';
+import type { ArtifactCacheOptions } from '@/features/artifacts/client/indexed-db';
+
+export type ArtifactWorkspaceCapabilities = {
+  shell: boolean;
+  navigation: boolean;
+  rail: boolean;
+  recordView: boolean;
+  events: boolean;
+  assistant: boolean;
+  review: boolean;
+  export: boolean;
+  lifecycle: boolean;
+  tour: boolean;
+  sourceFreshness: boolean;
+};
+
+export type ArtifactWorkspaceTransport = {
+  artifacts: ArtifactClient;
+  exports?: ExportPanelTransport;
+  cache?: ArtifactCacheOptions;
+};
+
+export type ArtifactWorkspacePageProps = {
+  initial: ArtifactSnapshot;
+  projectTitle: string;
+  initialRunId?: string;
+  mode?: 'authenticated' | 'scoped';
+  transport?: ArtifactWorkspaceTransport;
+  capabilities?: Partial<ArtifactWorkspaceCapabilities>;
+};
 
 function EditorLoading() { const t = useWorkspaceCopy(); return <LoadingState label={t.loadingEditor} />; }
 const DocumentEditor = dynamic(() => import('@/features/documents/ui/document-editor').then((module) => module.DocumentEditor), { ssr: false, loading: EditorLoading });
@@ -42,9 +72,25 @@ class EditorBoundary extends Component<{ children: ReactNode; fallback: ReactNod
   render() { return this.state.failed ? this.props.fallback : this.props.children; }
 }
 
-export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: { initial: ArtifactSnapshot; projectTitle: string; initialRunId?: string }) {
+export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mode = 'authenticated', transport, capabilities: capabilityOverrides }: ArtifactWorkspacePageProps) {
   const t = useWorkspaceCopy(), artifactText = useArtifactTranslations(), router = useRouter(), { locale } = useLocale();
-  const { state, identity, privateVisible, session, resume, refreshAccount } = useArtifactSession(initial);
+  const scoped = mode === 'scoped';
+  const client = transport?.artifacts ?? artifactClient;
+  const capabilities: ArtifactWorkspaceCapabilities = {
+    shell: !scoped,
+    navigation: !scoped,
+    rail: !scoped,
+    recordView: !scoped,
+    events: true,
+    assistant: !scoped,
+    review: !scoped,
+    export: !scoped || Boolean(transport?.exports),
+    lifecycle: !scoped,
+    tour: !scoped,
+    sourceFreshness: !scoped,
+    ...capabilityOverrides,
+  };
+  const { state, identity, privateVisible, session, resume, refreshAccount } = useArtifactSession(initial, { client, identity: scoped ? 'scoped' : 'account', cache: transport?.cache });
   const [authOpen, setAuthOpen] = useState(false), [resuming, setResuming] = useState(false), [error, setError] = useState<unknown>();
   const [rail, setRail] = useState<ArtifactListResult>();
   const [railAfter, setRailAfter] = useState<string>(), [railReload, setRailReload] = useState(0), [railLoading, setRailLoading] = useState(false);
@@ -84,8 +130,8 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
   const selectRun = useCallback((runId: string) => {
     if (activeRunRef.current === runId) return;
     activeRunRef.current = runId; setActiveRunId(runId);
-    router.replace(`${artifactHref}?run=${runId}`, { scroll: false });
-  }, [artifactHref, router]);
+    if (capabilities.navigation) router.replace(`${artifactHref}?run=${runId}`, { scroll: false });
+  }, [artifactHref, router, capabilities.navigation]);
   useEffect(() => {
     if (initialRunId && initialRunId !== activeRunRef.current) { activeRunRef.current = initialRunId; setActiveRunId(initialRunId); }
   }, [initialRunId]);
@@ -93,7 +139,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
   if (wasPrivate !== privateVisible) { setWasPrivate(privateVisible); if (!privateVisible) setRail(undefined); }
   useEffect(() => () => { exitResolver.current?.(false); }, []);
   useEffect(() => {
-    if (!privateVisible || !viewerUserId || !viewerWorkspaceId || viewerAuthzVersion === undefined || !projectId || !artifactId) return;
+    if (!capabilities.recordView || !privateVisible || !viewerUserId || !viewerWorkspaceId || viewerAuthzVersion === undefined || !projectId || !artifactId) return;
     const controller = new AbortController();
     void workspaceClient.recordView(projectId, { workspaceId: viewerWorkspaceId, expectedAuthzVersion: viewerAuthzVersion, selectedArtifactId: artifactId }, { userId: viewerUserId, signal: controller.signal }).catch(async (failure) => {
       if (controller.signal.aborted) return;
@@ -102,14 +148,14 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
       if (status === 403 || status === 404 || status === 409) await session.refresh();
     }).catch(setError);
     return () => controller.abort();
-  }, [privateVisible, viewerUserId, viewerWorkspaceId, viewerAuthzVersion, projectId, artifactId, session]);
+  }, [capabilities.recordView, privateVisible, viewerUserId, viewerWorkspaceId, viewerAuthzVersion, projectId, artifactId, session]);
   useEffect(() => {
-    if (!privateVisible) return;
+    if (!capabilities.rail || !privateVisible) return;
     if (!viewerUserId || !viewerWorkspaceId || viewerAuthzVersion === undefined || !projectId) return;
     const controller = new AbortController(), serial = ++railSerial.current;
     const timer = setTimeout(() => {
       setRailLoading(true);
-      void artifactClient.list({ workspaceId: viewerWorkspaceId, projectId, limit: 30, after: railAfter }, { viewer: { userId: viewerUserId, workspaceId: viewerWorkspaceId, authzVersion: viewerAuthzVersion }, signal: controller.signal }).then((result) => {
+      void client.list({ workspaceId: viewerWorkspaceId, projectId, limit: 30, after: railAfter }, { viewer: { userId: viewerUserId, workspaceId: viewerWorkspaceId, authzVersion: viewerAuthzVersion }, signal: controller.signal }).then((result) => {
       if (controller.signal.aborted || serial !== railSerial.current) return;
       setRailError(undefined);
       setRail((previous) => railAfter && previous ? { ...result, artifacts: [...previous.artifacts, ...result.artifacts.filter((item) => !previous.artifacts.some((old) => old.id === item.id))] } : result);
@@ -123,9 +169,9 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
       }).catch(setError).finally(() => { if (!controller.signal.aborted && serial === railSerial.current) setRailLoading(false); });
     }, 0);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [privateVisible, viewerUserId, viewerWorkspaceId, viewerAuthzVersion, projectId, railAfter, railReload, session]);
+  }, [capabilities.rail, client, privateVisible, viewerUserId, viewerWorkspaceId, viewerAuthzVersion, projectId, railAfter, railReload, session]);
   useEffect(() => {
-    if (!privateVisible) return;
+    if (!capabilities.events || !privateVisible) return;
     let stopped = false, timer: ReturnType<typeof setTimeout>, failures = 0;
     const tick = async () => {
       let changed = false;
@@ -139,7 +185,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
     };
     timer = setTimeout(() => { void tick(); }, 3000);
     return () => { stopped = true; clearTimeout(timer); };
-  }, [privateVisible, session]);
+  }, [capabilities.events, privateVisible, session]);
   async function continueSession() { setResuming(true); setError(undefined); try { await refreshAccount(); await resume(); } catch (failure) { setError(failure); } finally { setResuming(false); } }
   async function beforeSignOut() {
     if (editorFlush.current) await editorFlush.current();
@@ -180,7 +226,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
     const current = session.getSnapshot();
     if (current.phase !== 'ready' || !current.snapshot) return [];
     try {
-      const page = await artifactClient.projects({ viewer: current.snapshot.viewer, signal }, { query });
+      const page = await client.projects({ viewer: current.snapshot.viewer, signal }, { query });
       const latest = session.getSnapshot();
       if (latest.phase !== 'ready' || latest.snapshot?.viewer.authzVersion !== current.snapshot.viewer.authzVersion) return [];
       return page.projects.map((entry) => ({ id: entry.id, label: entry.title }));
@@ -188,7 +234,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
       if (!signal.aborted) await session.refresh();
       throw failure;
     }
-  }, [session]);
+  }, [client, session]);
   async function prepareLifecycle(kind: ArtifactLifecycleKind) {
     if (lifecyclePreparing || state.operation.operation) return;
     setLifecyclePreparing(true); setError(undefined);
@@ -233,10 +279,13 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
     }
   }
   async function signedOut() { if (await session.confirmedSignedOut()) { router.replace('/sign-in'); router.refresh(); } }
-  if (!privateVisible || !snapshot) return <WorkspaceShell><main className={styles.main}>
-    {identity.phase === 'checking' ? <LoadingState /> : <EmptyState icon={LogIn} title={t[identity.phase === 'account-changed' || state.phase === 'access-changed' ? 'forbidden' : 'auth']} description={t.authDescription} action={<><Button icon={RefreshCw} pending={resuming} onClick={() => { void continueSession(); }}>{t.resume}</Button><Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{t.signIn}</Button><Link className="tl-button tl-button--secondary" href="/app/work">{t.back}</Link></>} />}
-    <ArtifactError error={error ?? state.storageError} /><AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={returnTo} onAuthenticated={() => { void continueSession(); }} />
-  </main></WorkspaceShell>;
+  if (!privateVisible || !snapshot) {
+    const unavailable = <main className={styles.main}>
+      {identity.phase === 'checking' || scoped && state.loading ? <LoadingState /> : <EmptyState icon={LogIn} title={t[identity.phase === 'account-changed' || state.phase === 'access-changed' ? 'forbidden' : 'auth']} description={t.authDescription} action={scoped ? undefined : <><Button icon={RefreshCw} pending={resuming} onClick={() => { void continueSession(); }}>{t.resume}</Button><Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{t.signIn}</Button><Link className="tl-button tl-button--secondary" href="/app/work">{t.back}</Link></>} />}
+      <ArtifactError error={error ?? state.storageError} />{!scoped && <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={returnTo} onAuthenticated={() => { void continueSession(); }} />}
+    </main>;
+    return capabilities.shell ? <WorkspaceShell>{unavailable}</WorkspaceShell> : unavailable;
+  }
   const resultList = <>
     <ArtifactError error={railError} />
     {railLoading && !visibleRail && <LoadingState />}
@@ -248,35 +297,36 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
   const table = snapshot.content.kind === 'table' ? requireTable(snapshot.content) : undefined;
   const exportSheets = table?.workbook.sheetOrder.map((id) => ({ id, name: table.workbook.sheets[id]!.name }));
   const exportPages = snapshot.content.kind === 'design' ? snapshot.content.pages.map((page, index) => ({ id: page.id, label: `${t.page} ${index + 1}` })) : undefined;
-  return <WorkspaceShell workspaceId={snapshot.viewer.workspaceId} beforeSignOut={beforeSignOut} onSignedOut={() => { void signedOut(); }} onClickCapture={beforeNavigate}><main className={styles.main}>
-    <TourGuide ownerId={snapshot.viewer.userId} anchors={{ ...(snapshot.permissions.edit ? { edit: 'artifact-editor' } : {}), history: 'artifact-history', export: 'artifact-export' }} />
-    <Link href={`/app/projects/${projectId}${activeRunId ? `?run=${activeRunId}` : ''}`} className={styles.back}><ArrowLeft size={18} />{projectTitle}</Link>
+  const content = <main className={styles.main} onClickCapture={capabilities.shell ? undefined : beforeNavigate}>
+    {capabilities.tour && <TourGuide ownerId={snapshot.viewer.userId} anchors={{ ...(snapshot.permissions.edit ? { edit: 'artifact-editor' } : {}), history: 'artifact-history', export: 'artifact-export' }} />}
+    {capabilities.navigation && <Link href={`/app/projects/${projectId}${activeRunId ? `?run=${activeRunId}` : ''}`} className={styles.back}><ArrowLeft size={18} />{projectTitle}</Link>}
     <header className={styles.pageHeading}><h1>{snapshot.artifact.title}</h1><div className={styles.actions}>
-      <Button className={styles.mobileOnly} icon={FileText} onClick={() => setRailOpen(true)}>{t.results}</Button>
+      {capabilities.rail && <Button className={styles.mobileOnly} icon={FileText} onClick={() => setRailOpen(true)}>{t.results}</Button>}
       <SaveStatus state={state.autosave?.status === 'saving' ? 'saving' : hasRecovery ? state.autosave?.locallyPersisted ? 'local' : 'unsaved' : 'saved'} />
-      <Link className="tl-button tl-button--secondary" href={`/app/materials?workspaceId=${snapshot.viewer.workspaceId}&projectId=${snapshot.artifact.projectId}`}><FolderOpen size={18} />{t.source}</Link>
-      <Link id="artifact-history" className="tl-button tl-button--secondary" href={historyHref}><FileClock size={18} />{t.history}</Link>
-      <ChangeReviewPanel key={`${viewerUserId}:${viewerWorkspaceId}:${projectId}:${viewerAuthzVersion}`} viewer={snapshot.viewer} projectId={snapshot.artifact.projectId} locale={locale} disabled={state.loading || Boolean(state.operation.operation)} beforeReview={beforeReview} onCommitted={afterLinkedChange} onUndo={async (groupId) => { const prepared = await session.prepareHistory('undo', groupId); if (prepared.operation) { await session.run(prepared.operation); await afterLinkedChange(); } }} />
-      <div id="artifact-export" tabIndex={-1}><ExportPanel workspaceId={snapshot.viewer.workspaceId} artifactId={snapshot.artifact.id} userId={snapshot.viewer.userId} expectedAuthzVersion={snapshot.viewer.authzVersion} kind={snapshot.content.kind} revision={snapshot.artifact.currentRevision} locale={locale} sheets={exportSheets} pages={exportPages} bundleItems={fixedExportBundle} disabled={state.loading || Boolean(state.operation.operation)} beforeExport={beforeExport} /></div>
-      <ArtifactLifecycleMenu snapshot={snapshot} disabled={state.loading || lifecyclePreparing || hasRecovery || state.autosave?.status === 'saving' || Boolean(state.operation.operation)} onAction={(kind) => { void prepareLifecycle(kind); }} />
+      {capabilities.navigation && <Link className="tl-button tl-button--secondary" href={`/app/materials?workspaceId=${snapshot.viewer.workspaceId}&projectId=${snapshot.artifact.projectId}`}><FolderOpen size={18} />{t.source}</Link>}
+      {capabilities.navigation && <Link id="artifact-history" className="tl-button tl-button--secondary" href={historyHref}><FileClock size={18} />{t.history}</Link>}
+      {capabilities.review && <ChangeReviewPanel key={`${viewerUserId}:${viewerWorkspaceId}:${projectId}:${viewerAuthzVersion}`} viewer={snapshot.viewer} projectId={snapshot.artifact.projectId} locale={locale} disabled={state.loading || Boolean(state.operation.operation)} beforeReview={beforeReview} onCommitted={afterLinkedChange} onUndo={async (groupId) => { const prepared = await session.prepareHistory('undo', groupId); if (prepared.operation) { await session.run(prepared.operation); await afterLinkedChange(); } }} />}
+      {capabilities.export && <div id="artifact-export" tabIndex={-1}><ExportPanel workspaceId={snapshot.viewer.workspaceId} artifactId={snapshot.artifact.id} userId={snapshot.viewer.userId} expectedAuthzVersion={snapshot.viewer.authzVersion} kind={snapshot.content.kind} revision={snapshot.artifact.currentRevision} locale={locale} sheets={exportSheets} pages={exportPages} bundleItems={fixedExportBundle} transport={transport?.exports} disabled={state.loading || Boolean(state.operation.operation)} beforeExport={beforeExport} /></div>}
+      {capabilities.lifecycle && <ArtifactLifecycleMenu snapshot={snapshot} disabled={state.loading || lifecyclePreparing || hasRecovery || state.autosave?.status === 'saving' || Boolean(state.operation.operation)} onAction={(kind) => { void prepareLifecycle(kind); }} />}
     </div></header>
     <ArtifactError error={error ?? state.error ?? state.storageError} />
-    {hasRecovery && <div className={styles.error}><p>{t.recover}</p><Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link></div>}
-    <div className={styles.sessionSwitch} role="group" aria-label={t.sessionView}><Button variant={mobileView === 'assistant' ? 'primary' : 'quiet'} onClick={() => setMobileView('assistant')}>{t.assistant}</Button><Button variant={mobileView === 'result' ? 'primary' : 'quiet'} onClick={() => setMobileView('result')}>{t.results}</Button></div>
-    <div className={`${styles.sessionLayout} ${assistantCollapsed ? styles.sessionLayoutCollapsed : ''}`} data-mobile-view={mobileView}>
-      <div className={styles.sessionAssistant}><AssistantSession userId={snapshot.viewer.userId} workspaceId={snapshot.viewer.workspaceId} projectId={snapshot.artifact.projectId} initialRunId={activeRunId} sessionPath={artifactHref} collapsed={assistantCollapsed} onCollapsedChange={setAssistantCollapsed} onRunChange={selectRun} onRunData={setAssistantRun} onAccessLost={handleAssistantAccessLost} /><section className={styles.sessionResultList} aria-labelledby="session-result-list-title"><h2 id="session-result-list-title">{t.results}</h2>{resultList}</section></div>
+    {hasRecovery && <div className={styles.error}><p>{t.recover}</p>{capabilities.navigation && <Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link>}</div>}
+    {capabilities.assistant && <div className={styles.sessionSwitch} role="group" aria-label={t.sessionView}><Button variant={mobileView === 'assistant' ? 'primary' : 'quiet'} onClick={() => setMobileView('assistant')}>{t.assistant}</Button><Button variant={mobileView === 'result' ? 'primary' : 'quiet'} onClick={() => setMobileView('result')}>{t.results}</Button></div>}
+    <div className={`${styles.sessionLayout} ${assistantCollapsed ? styles.sessionLayoutCollapsed : ''}`} data-mobile-view={mobileView} style={capabilities.assistant || capabilities.rail ? undefined : { gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      {(capabilities.assistant || capabilities.rail) && <div className={styles.sessionAssistant}>{capabilities.assistant && <AssistantSession userId={snapshot.viewer.userId} workspaceId={snapshot.viewer.workspaceId} projectId={snapshot.artifact.projectId} initialRunId={activeRunId} sessionPath={artifactHref} collapsed={assistantCollapsed} onCollapsedChange={setAssistantCollapsed} onRunChange={selectRun} onRunData={setAssistantRun} onAccessLost={handleAssistantAccessLost} />}{capabilities.rail && <section className={styles.sessionResultList} aria-labelledby="session-result-list-title"><h2 id="session-result-list-title">{t.results}</h2>{resultList}</section>}</div>}
       <section id="artifact-editor" tabIndex={-1} className={`${styles.editorMain} ${styles.sessionResult}`} aria-label={snapshot.artifact.title}>
-        <EditorBoundary key={`${viewerUserId}:${artifactId}`} fallback={<div className={styles.editorFailure} role="alert"><h2>{t.editorUnavailable}</h2><p>{t.editorReloadHint}</p><Button icon={RefreshCw} onClick={() => window.location.reload()}>{t.reloadEditor}</Button><Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link></div>}>
+        <EditorBoundary key={`${viewerUserId}:${artifactId}`} fallback={<div className={styles.editorFailure} role="alert"><h2>{t.editorUnavailable}</h2><p>{t.editorReloadHint}</p><Button icon={RefreshCw} onClick={() => window.location.reload()}>{t.reloadEditor}</Button>{capabilities.navigation && <Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link>}</div>}>
         {snapshot.content.kind === 'document' ? <DocumentEditor key={`${viewerUserId}:${artifactId}:${viewerAuthzVersion}`} session={session} onFlushReady={registerEditorFlush} />
           : snapshot.content.kind === 'table' ? <SheetEditor key={`${viewerUserId}:${artifactId}`} session={session} locale={locale} onFlushReady={registerEditorFlush} />
             : snapshot.content.kind === 'design' ? <DesignEditor key={`${viewerUserId}:${artifactId}`} session={session} state={state} onFlushReady={registerEditorFlush} />
               : <PlanEditor key={`${viewerUserId}:${artifactId}`} session={session} onFlushReady={registerEditorFlush} />}
         </EditorBoundary>
-        {snapshot.sourceFreshness.length > 0 && <SourceFreshnessPanel snapshot={snapshot} />}
+        {capabilities.sourceFreshness && snapshot.sourceFreshness.length > 0 && <SourceFreshnessPanel snapshot={snapshot} />}
       </section>
     </div>
-    <Dialog open={railOpen} onOpenChange={setRailOpen} placement="side" title={t.results}>{resultList}</Dialog>
-    {lifecycleAction && lifecycleDraft && <ArtifactActionDialog key={`${lifecycleAction.kind}:${lifecycleAction.snapshot.artifact.currentRevision}`} action={lifecycleAction} draft={lifecycleDraft} onDraftChange={setLifecycleDraft} onClose={closeLifecycle} onRun={(operation) => { void runLifecycle(operation).catch(setError); }} onRetry={() => { void retryLifecycle().catch(setError); }} onRefresh={() => { void (async () => { await session.dismissRejected(); await session.refresh(); closeLifecycle(); })().catch(setError); }} operation={state.operation} project={lifecycleProject} onProjectChange={setLifecycleProject} loadProjects={loadLifecycleProjects} />}
-    {exitPending && <ArtifactSignOutGuard state={state} session={session} onDecision={(proceed) => { exitResolver.current?.(proceed); exitResolver.current = undefined; setExitPending(false); }} />}
-  </main></WorkspaceShell>;
+    {capabilities.rail && <Dialog open={railOpen} onOpenChange={setRailOpen} placement="side" title={t.results}>{resultList}</Dialog>}
+    {capabilities.lifecycle && lifecycleAction && lifecycleDraft && <ArtifactActionDialog key={`${lifecycleAction.kind}:${lifecycleAction.snapshot.artifact.currentRevision}`} action={lifecycleAction} draft={lifecycleDraft} onDraftChange={setLifecycleDraft} onClose={closeLifecycle} onRun={(operation) => { void runLifecycle(operation).catch(setError); }} onRetry={() => { void retryLifecycle().catch(setError); }} onRefresh={() => { void (async () => { await session.dismissRejected(); await session.refresh(); closeLifecycle(); })().catch(setError); }} operation={state.operation} project={lifecycleProject} onProjectChange={setLifecycleProject} loadProjects={loadLifecycleProjects} />}
+    {capabilities.shell && exitPending && <ArtifactSignOutGuard state={state} session={session} onDecision={(proceed) => { exitResolver.current?.(proceed); exitResolver.current = undefined; setExitPending(false); }} />}
+  </main>;
+  return capabilities.shell ? <WorkspaceShell workspaceId={snapshot.viewer.workspaceId} beforeSignOut={beforeSignOut} onSignedOut={() => { void signedOut(); }} onClickCapture={beforeNavigate}>{content}</WorkspaceShell> : content;
 }

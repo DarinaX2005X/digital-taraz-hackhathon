@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, realpath, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { projectIdentity, localDatabaseUrl } from "./environment.mjs";
 import { selectAvailablePorts } from "./ports.mjs";
@@ -49,4 +49,58 @@ export async function createTestContext(root, inherited = process.env) {
       BETTER_AUTH_SECRET: randomBytes(48).toString("base64url"),
     },
   };
+}
+
+const generatedNames = ["next", "files", "workflow"];
+
+async function completedRun(root, identity, runId, directory) {
+  const logPath = path.join(directory, "integration.log");
+  let info;
+  try { info = await stat(logPath); } catch (error) { if (error.code === "ENOENT") return false; throw error; }
+  if (!info.isFile() || info.size > 32 * 1024 * 1024) return false;
+  const log = await readFile(logPath, "utf8");
+  const project = `tirlik-test-${identity.id}-${runId}`;
+  return /Test Files\s+\d+ passed \(\d+\)/.test(log)
+    && !/Test Files\s+\d+ failed \(\d+\)/.test(log)
+    && log.includes("[Isolated test cleanup]")
+    && log.includes(`Volume ${project}_postgres-data Removed`)
+    && log.includes(`Network ${project}_default Removed`);
+}
+
+/** Removes only generated output from completed, fully cleaned isolated runs. Logs stay available. */
+export async function pruneCompletedTestOutputs(root) {
+  const identity = await projectIdentity(root), testsRoot = path.join(identity.root, ".local-data", "tests");
+  await mkdir(testsRoot, { recursive: true });
+  const canonicalTestsRoot = await realpath(testsRoot);
+  let removed = 0, bytes = 0;
+  for (const entry of await readdir(canonicalTestsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !/^[a-f0-9]{32}$/.test(entry.name)) continue;
+    const directory = path.join(canonicalTestsRoot, entry.name), canonicalDirectory = await realpath(directory);
+    if (path.dirname(canonicalDirectory) !== canonicalTestsRoot || path.basename(canonicalDirectory) !== entry.name) throw new Error("TEST_OUTPUT_CLEANUP_REFUSED");
+    if (!await completedRun(identity.root, identity, entry.name, canonicalDirectory)) continue;
+    for (const name of generatedNames) {
+      const target = path.join(canonicalDirectory, name);
+      let targetInfo;
+      try { targetInfo = await lstat(target); } catch (error) { if (error.code === "ENOENT") continue; throw error; }
+      if (!targetInfo.isDirectory() || targetInfo.isSymbolicLink()) throw new Error("TEST_OUTPUT_CLEANUP_REFUSED");
+      const canonicalTarget = await realpath(target);
+      if (path.dirname(canonicalTarget) !== canonicalDirectory || path.basename(canonicalTarget) !== name) throw new Error("TEST_OUTPUT_CLEANUP_REFUSED");
+      const size = await directoryBytes(canonicalTarget);
+      await rm(canonicalTarget, { recursive: true, force: false, maxRetries: 3, retryDelay: 100 });
+      removed++; bytes += size;
+    }
+  }
+  return { removed, bytes };
+}
+
+async function directoryBytes(directory) {
+  let total = 0;
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const item = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) throw new Error("TEST_OUTPUT_CLEANUP_REFUSED");
+    if (entry.isDirectory()) total += await directoryBytes(item);
+    else if (entry.isFile()) total += (await stat(item)).size;
+    else throw new Error("TEST_OUTPUT_CLEANUP_REFUSED");
+  }
+  return total;
 }

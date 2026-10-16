@@ -18,7 +18,7 @@ afterAll(async () => { await pool?.end(); });
 
 function actor(principal: SessionPrincipal) {
   return {
-    user: { id: principal.userId, name: 'Design importer', email: `${principal.userId}@example.test`, emailVerified: true, locale: 'ru' as const },
+    user: { id: principal.userId, name: 'Design importer', email: `${principal.userId}@example.test`, locale: 'ru' as const },
     session: { id: principal.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000) },
   };
 }

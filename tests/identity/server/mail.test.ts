@@ -13,7 +13,7 @@ describe('transactional mail configuration', () => {
   it('uses unauthenticated loopback SMTP only for the local Mailpit path', async () => {
     const mailer = createIdentityMailer({ SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025', SMTP_FROM: 'Tirlik tests <no-reply@tirlik.invalid>' }, format);
     mailer.assertReady();
-    await mailer.send('synthetic@example.test', { kind: 'verify', locale: 'ru', url: 'http://127.0.0.1:3000/auth/verify?token=synthetic' });
+    await mailer.send('synthetic@example.test', { kind: 'reset', locale: 'ru', url: 'http://127.0.0.1:3000/auth/reset?token=synthetic' });
     expect(mocked.createTransport).toHaveBeenCalledWith(expect.objectContaining({ auth: undefined, requireTLS: false, disableFileAccess: true, disableUrlAccess: true }));
     expect(mocked.sendMail).toHaveBeenCalledOnce();
   });

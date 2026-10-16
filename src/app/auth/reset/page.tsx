@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ResetPasswordPage } from '@/features/identity/ui';
+import { ResetPasswordPage } from '@/features/identity/ui/recovery';
 import { readIdentityNavigation, type IdentitySearchParams } from '@/server/identity-navigation';
 
 export const metadata: Metadata = { referrer: 'no-referrer' };

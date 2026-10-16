@@ -22,7 +22,7 @@ export function createInvitationService(options: IdentityOptions) {
   const { pool, secret, mailer, origin } = options;
   const tokenFor = (id: string, nonce: string) => createHmac('sha256', secret).update(`invitation:${id}:${nonce}`).digest('hex');
   async function inviterCanGrant(transaction: PoolClient, invitation: InvitationRow) {
-    const member = (await transaction.query<MembershipRow>("SELECT m.* FROM identity_memberships m JOIN identity_users u ON u.id=m.user_id WHERE m.workspace_id=$1 AND m.user_id=$2 AND m.state='active' AND u.deletion_requested_at IS NULL AND u.email_verified=true", [invitation.workspace_id, invitation.created_by])).rows[0];
+    const member = (await transaction.query<MembershipRow>("SELECT m.* FROM identity_memberships m JOIN identity_users u ON u.id=m.user_id WHERE m.workspace_id=$1 AND m.user_id=$2 AND m.state='active' AND u.deletion_requested_at IS NULL", [invitation.workspace_id, invitation.created_by])).rows[0];
     return !!member && canGrant(member, invitation);
   }
   async function mutation(principal: SessionPrincipal, workspaceId: string, key: string, kind: string, body: { expectedAuthzVersion: number }, effect: (transaction: PoolClient, access: WorkspaceAccess) => Promise<{ invitationId: string; deliveryId: string }>): Promise<DeliveryReceipt> {

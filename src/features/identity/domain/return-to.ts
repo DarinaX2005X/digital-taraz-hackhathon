@@ -1,12 +1,13 @@
 import { z } from 'zod';
 
 const allowedRoots = ['/app', '/settings', '/demo'];
+const localizedPublicDemo = /^\/(?:ru|kk|en)\/demo$/;
 
 export function safeReturnTo(input: unknown): string {
   if (typeof input !== 'string' || input.length > 1024 || /[\\\u0000-\u0020\u007f]/.test(input) || !input.startsWith('/') || input.startsWith('//')) return '/app';
   try {
     const url = new URL(input, 'https://tirlik.invalid');
-    if (url.origin !== 'https://tirlik.invalid' || !allowedRoots.some((root) => url.pathname === root || url.pathname.startsWith(`${root}/`))) return '/app';
+    if (url.origin !== 'https://tirlik.invalid' || !(localizedPublicDemo.test(url.pathname) || allowedRoots.some((root) => url.pathname === root || url.pathname.startsWith(`${root}/`)))) return '/app';
     // Only explicitly supported opaque navigation state survives authentication.
     const result = new URLSearchParams();
     const intents = url.searchParams.getAll('intent');

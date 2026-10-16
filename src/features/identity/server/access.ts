@@ -26,7 +26,7 @@ export async function identityTransaction<T>(pool: Pool, action: (transaction: P
 }
 
 export async function lockIdentityActor(transaction: PoolClient, principal: IdentityPrincipal, exclusive = false) {
-  const user = await transaction.query<{ id: string; email: string }>(`SELECT id,email FROM identity_users WHERE id=$1 AND email_verified=true AND deletion_requested_at IS NULL FOR ${exclusive ? 'UPDATE' : 'SHARE'}`, [principal.userId]);
+  const user = await transaction.query<{ id: string; email: string }>(`SELECT id,email FROM identity_users WHERE id=$1 AND deletion_requested_at IS NULL FOR ${exclusive ? 'UPDATE' : 'SHARE'}`, [principal.userId]);
   if (!user.rows[0]) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.unauthenticated');
   if (principal.kind === 'session') {
     const session = await transaction.query('SELECT id FROM identity_sessions WHERE id=$1 AND user_id=$2 AND expires_at>now() FOR SHARE', [principal.sessionId, principal.userId]);

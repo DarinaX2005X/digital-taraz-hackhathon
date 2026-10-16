@@ -27,6 +27,10 @@
 .tl-button__label > span { grid-area: 1 / 1; }
 .tl-button__label > [aria-hidden="true"] { visibility: hidden; }
 
+.tl-button[data-progress-capable] {
+  padding-inline: var(--space-8);
+}
+
 .tl-button__icon,
 .tl-button > svg {
   display: inline-flex;
@@ -48,6 +52,7 @@
 .tl-button--secondary {
   background: var(--color-surface);
   border-color: var(--color-control-border);
+  color: var(--color-text);
 }
 
 .tl-button--danger {
@@ -75,6 +80,13 @@
   position: absolute;
   inset: 0;
   margin: auto;
+}
+
+.tl-button__progress--standalone {
+  inset-block: 0;
+  inset-inline: var(--space-3) auto;
+  margin-block: auto;
+  margin-inline: 0;
 }
 
 .tl-icon-button {
@@ -1071,8 +1083,14 @@
     background: var(--color-action-hover);
   }
 
-  .tl-button:is(.tl-button--secondary, .tl-button--quiet, .tl-button--danger):not(:disabled, [aria-disabled="true"]):hover {
+  .tl-button:is(.tl-button--secondary, .tl-button--quiet):not(:disabled, [aria-disabled="true"]):hover {
     background: var(--color-inset);
+    color: var(--color-text);
+  }
+
+  .tl-button--danger:not(:disabled, [aria-disabled="true"]):hover {
+    background: var(--color-danger-surface);
+    color: var(--color-danger);
   }
 
   .tl-combobox__option:not([aria-disabled="true"]):hover {

@@ -47,7 +47,10 @@ export async function rebuildRecognizedManifest(tx: PoolClient, auth: WorkspaceA
   return complete;
 }
 
-export function createSourceRecognitionService(pool: Pool, runtime?: { service: RunService; wake: () => Promise<unknown> }, storage = new LocalSourceStorage()) {
+export interface SourceRecognitionRuntime { service: RunService; wake: () => Promise<unknown> }
+export type SourceRecognitionRuntimeLoader = SourceRecognitionRuntime | (() => Promise<SourceRecognitionRuntime>);
+
+export function createSourceRecognitionService(pool: Pool, runtime?: SourceRecognitionRuntimeLoader, storage = new LocalSourceStorage()) {
   const access = <T>(principal: SessionPrincipal, workspaceId: string, effect: (tx: PoolClient, auth: WorkspaceAccess) => Promise<T>, edit = false) => withWorkspaceAccess(pool, principal, { workspaceId: validate(IdSchema, workspaceId), scope: edit ? 'edit' : 'read' }, effect);
   async function review(principal: SessionPrincipal, workspaceId: string, uploadId: string) {
     validate(IdSchema, uploadId);
@@ -92,6 +95,7 @@ export function createSourceRecognitionService(pool: Pool, runtime?: { service: 
   }
   async function start(principal: SessionPrincipal, uploadId: string, operationId: string, raw: unknown) {
     if (!runtime) throw new IdentityError('CONFLICT', 'sources.errors.recognitionUnavailable');
+    const activeRuntime = typeof runtime === 'function' ? await runtime() : runtime;
     const input = validate(StartSourceOcrSchema, raw); validate(IdSchema, uploadId); validate(IdSchema, operationId);
     const bodyHash = hash({ ...input, uploadId });
     const existing = await access(principal, input.workspaceId, async (tx, auth) => {
@@ -121,9 +125,9 @@ export function createSourceRecognitionService(pool: Pool, runtime?: { service: 
       return { batch, projectId: source.project_id, confidential: source.access_class === 'confidential' };
     }, true);
     const batch = prepared.batch;
-    const run = await runtime.service.create(principal, { workspaceId: input.workspaceId, projectId: prepared.projectId, capabilityId: 'source.ocr', capabilityVersion: 1, goal: { ru: 'Распознать страницы материала', kk: 'Материал беттерін тану', en: 'Recognize material pages' }[input.locale], locale: input.locale, inputRefs: [] }, operationId, { trusted: true, confidential: prepared.confidential, privateInput: { batchId: batch.id, uploadId, sourceId: batch.source_id, sourceVersionId: batch.source_version_id, byteHash: batch.byte_hash, pages: batch.pages, maximumPageUsd: batch.maximum_page_usd } });
+    const run = await activeRuntime.service.create(principal, { workspaceId: input.workspaceId, projectId: prepared.projectId, capabilityId: 'source.ocr', capabilityVersion: 1, goal: { ru: 'Распознать страницы материала', kk: 'Материал беттерін тану', en: 'Recognize material pages' }[input.locale], locale: input.locale, inputRefs: [] }, operationId, { trusted: true, confidential: prepared.confidential, privateInput: { batchId: batch.id, uploadId, sourceId: batch.source_id, sourceVersionId: batch.source_version_id, byteHash: batch.byte_hash, pages: batch.pages, maximumPageUsd: batch.maximum_page_usd } });
     await access(principal, input.workspaceId, async (tx, auth) => { await authorizedUpload(tx, auth, uploadId, 'edit', true); await tx.query('UPDATE source_ocr_batches SET run_id=$2 WHERE id=$1 AND (run_id IS NULL OR run_id=$2)', [batch.id, run.id]); await tx.query('UPDATE source_pages SET run_id=$3 WHERE upload_id=$1 AND batch_id=$2 AND run_id IS NULL', [uploadId, batch.id, run.id]); }, true);
-    await runtime.wake().catch(() => undefined);
+    await activeRuntime.wake().catch(() => undefined);
     return run;
   }
   async function accept(principal: SessionPrincipal, uploadId: string, raw: unknown) {

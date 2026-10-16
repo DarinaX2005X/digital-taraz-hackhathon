@@ -68,15 +68,14 @@ describe("identity source contracts, without browser or rendering", () => {
     }
   });
 
-  it("leaves email verification and password reset mutations behind explicit user actions", () => {
+  it("keeps password reset mutations behind explicit user actions and exposes no verification flow", () => {
     const { calls, tree } = parse("recovery.tsx");
     expect(calls.filter((call) => call.expression.getText(tree) === "useEffect")).toHaveLength(0);
-    const verify = parse("recovery.tsx").named("Button").find((node) => attribute(node, "onClick")?.includes("identityClient.verifyEmail"));
-    expect(verify).toBeDefined();
     expect(read("recovery.tsx")).toContain("onSubmit={submit}");
+    expect(read("recovery.tsx")).not.toMatch(/verifyEmail|sendVerification|VerifyEmail/);
+    expect(read("credentials.tsx")).not.toMatch(/verification|verifyEmail|sendVerification/i);
     expect(read("credentials.tsx")).not.toContain("restoreIntent(");
     expect(attribute(parse("recovery.tsx").named("ResetPasswordScreen")[0]!, "key")).toBe('props.token ?? "request"');
-    expect(attribute(parse("recovery.tsx").named("VerifyEmailScreen")[0]!, "key")).toBe('props.token ?? "request"');
   });
 
   it("uses native forms, field associations and password-manager hints", () => {
@@ -141,8 +140,12 @@ describe("identity source contracts, without browser or rendering", () => {
     expect(content?.getText(menu.tree)).toContain("const [signOutOpen, setSignOutOpen] = useState(false)");
   });
 
-  it("uses the same header and compact language control across current account surfaces", () => {
-    for (const file of ["common.tsx", "settings.tsx", "team.tsx"]) {
+  it("keeps language controls in account settings, outside the focused auth frame", () => {
+    const auth = parse("common.tsx");
+    expect(auth.named("ProductHeader")).toHaveLength(1);
+    expect(auth.named("LocaleSelect")).toHaveLength(0);
+    expect(parse("credentials.tsx").named("LocaleSelect")).toHaveLength(0);
+    for (const file of ["settings.tsx", "team.tsx"]) {
       const source = parse(file);
       expect(source.named("ProductHeader"), file).toHaveLength(1);
       expect(source.named("LocaleSelect").some((node) => attribute(node, "compact") === "true"), file).toBe(true);
@@ -252,8 +255,8 @@ describe("identity source contracts, without browser or rendering", () => {
     const tokens = readFileSync(resolve(root, "src/ui/tokens.css"), "utf8");
     const declared = new Set([...tokens.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
     for (const match of css.matchAll(/var\((--[\w-]+)/g)) expect(declared.has(match[1]), match[1]).toBe(true);
-    expect(css).toContain("width: min(100%, 460px)");
-    expect(css).toContain("grid-template-columns: minmax(0, 1fr)");
+    expect(css).toContain("width:min(100%,480px)");
+    expect(css).toContain("grid-template-columns:minmax(0,1fr)");
     expect(css).toContain("env(safe-area-inset-bottom)");
     expect(css).toContain("overflow-wrap: anywhere");
     expect(css).toContain("min-height: var(--size-touch)");

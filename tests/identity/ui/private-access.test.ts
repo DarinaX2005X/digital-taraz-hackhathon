@@ -6,7 +6,7 @@ import { createIdentityClient, IdentityTransportError } from "@/features/identit
 
 const idA = "e05249af-70de-4c74-948d-9e01c88a06c3";
 const idB = "c5eaf8c7-9e87-45f8-bd16-b31db3a8a169";
-const viewer = (id = idA): IdentityViewer => ({ user: { id, name: "Test person", email: "person@example.test", emailVerified: true, locale: "ru" }, session: { id: "cec4dc21-d704-422b-a3a1-f974d27898c8", expiresAt: "2026-10-14T10:00:00.000Z" }, workspaces: [] });
+const viewer = (id = idA): IdentityViewer => ({ user: { id, name: "Test person", email: "person@example.test", locale: "ru" }, session: { id: "cec4dc21-d704-422b-a3a1-f974d27898c8", expiresAt: "2026-10-14T10:00:00.000Z" }, workspaces: [] });
 const signedIn = (id = idA, authEpoch = 0): AccountSnapshot => ({ viewer: viewer(id), ready: true, authEpoch });
 const active = (): PrivateAccess => ({ ownerId: idA, authEpoch: 0, phase: "active" });
 const failure = (status: number) => new IdentityTransportError({ status, messageKey: status === 401 ? "identity.errors.unauthenticated" : "identity.errors.conflict", fieldErrors: {} });

@@ -1,4 +1,4 @@
-import { TeamSettingsPage } from '@/features/identity/ui';
+import { TeamSettingsPage } from '@/features/identity/ui/team';
 import { readWorkspaceSelection, type IdentitySearchParams } from '@/server/identity-navigation';
 import { RouteState } from '@/ui/route-state';
 

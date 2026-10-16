@@ -29,12 +29,6 @@ let workspaceId: string, authzVersion: number, projectId: string, artifactId: st
 beforeAll(async () => {
   const email = `sheet-http-${randomUUID()}@example.test`, password = 'Synthetic spreadsheet password 42';
   expect((await client.request('/api/auth/sign-up/email', 'POST', { email, password, name: 'Synthetic spreadsheet owner', locale: 'ru' })).status).toBe(200);
-  const mailOrigin = `http://127.0.0.1:${process.env.TIRLIK_MAIL_UI_PORT}`, search = new URL('/api/v1/search', mailOrigin); search.searchParams.set('query', `to:${email}`);
-  const messages = await (await fetch(search, { signal: AbortSignal.timeout(10000) })).json() as { messages: { ID: string }[] };
-  let token: string | null = null;
-  for (const message of messages.messages) { const mail = await (await fetch(`${mailOrigin}/api/v1/message/${message.ID}`, { signal: AbortSignal.timeout(10000) })).json() as { Text: string }; const link = mail.Text.match(/http:\/\/127\.0\.0\.1:\d+\/auth\/verify\?[^\s]+/)?.[0]; if (link) { token = new URL(link).searchParams.get('token'); break; } }
-  expect(token).not.toBeNull(); expect((await client.request('/api/auth/verify-email', 'POST', { token })).status).toBe(200);
-  expect((await client.request('/api/auth/sign-in/email', 'POST', { email, password })).status).toBe(200);
   client.userId = IdentityViewerSchema.parse(await (await client.request('/api/identity/me')).json()).user.id;
   const workspace = WorkspaceResultSchema.parse(await (await client.request('/api/identity/workspaces', 'POST', { name: 'Synthetic spreadsheet workspace' }, { 'idempotency-key': randomUUID() })).json()).workspace;
   workspaceId = workspace.workspaceId; authzVersion = workspace.authzVersion;

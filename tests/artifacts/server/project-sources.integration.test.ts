@@ -42,7 +42,7 @@ async function fixture() {
   const workspaceId = randomUUID();
   await identityTransaction(pool, async (transaction) => {
     for (const principal of [owner, member]) {
-      await transaction.query('INSERT INTO identity_users(id,name,email,email_verified) VALUES($1,$2,$3,true)', [principal.userId, 'Synthetic fixture account', `${principal.userId}@example.test`]);
+      await transaction.query('INSERT INTO identity_users(id,name,email,email_verified) VALUES($1,$2,$3,false)', [principal.userId, 'Synthetic fixture account', `${principal.userId}@example.test`]);
       await transaction.query("INSERT INTO identity_sessions(id,user_id,token,expires_at) VALUES($1,$2,$3,now()+interval '1 day')", [principal.sessionId, principal.userId, randomUUID()]);
     }
     await transaction.query('INSERT INTO identity_workspaces(id,name,created_by) VALUES($1,$2,$3)', [workspaceId, 'Synthetic source workspace', owner.userId]);

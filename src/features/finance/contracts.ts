@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { SourceRefSchema } from '@/contracts/artifacts';
-import { CalendarDateSchema, CurrencySchema, ElementIdSchema, MoneySchema } from '@/contracts/primitives';
+import { ArtifactSnapshotRefSchema, BusinessWorkResultSchema } from '@/contracts/business-work';
+import { CalendarDateSchema, CurrencySchema, ElementIdSchema, IdSchema, MoneySchema } from '@/contracts/primitives';
+import { WorkPreviewArtifactRefSchema } from '@/contracts/work-preview';
 
 export const FinanceTransactionKindSchema = z.enum([
   'sale', 'return', 'cost', 'tax', 'receivable', 'payable', 'payment-in', 'payment-out',
@@ -88,8 +90,54 @@ export const FinanceAnalysisResultSchema = z.strictObject({
   scenarios: z.array(FinanceScenarioResultSchema).min(1),
 });
 
+export const FinanceAssumptionEditSchema = z.strictObject({
+  assumptionId: ElementIdSchema,
+  title: z.string().trim().min(1).max(240).optional(),
+  effectiveOn: CalendarDateSchema.optional(),
+  direction: z.enum(['inflow', 'outflow']).optional(),
+  amount: MoneySchema.nullable().optional(),
+  confirmed: z.boolean().optional(),
+}).refine((edit) => edit.title !== undefined || edit.effectiveOn !== undefined || edit.direction !== undefined || edit.amount !== undefined || edit.confirmed !== undefined, {
+  message: 'An assumption edit must change at least one field.',
+});
+
+export const FinanceScenarioEditSchema = z.strictObject({
+  scenarioId: ElementIdSchema,
+  title: z.string().trim().min(1).max(240).optional(),
+  assumptions: z.array(FinanceAssumptionEditSchema).max(200).default([]),
+}).refine((edit) => edit.title !== undefined || edit.assumptions.length > 0, {
+  message: 'A scenario edit must change its title or an assumption.',
+});
+
+export const FinanceRecalculateRequestSchema = z.strictObject({
+  workspaceId: IdSchema,
+  projectId: IdSchema,
+  base: ArtifactSnapshotRefSchema,
+  branchTitle: z.string().trim().min(1).max(240),
+  scenarios: z.array(FinanceScenarioEditSchema).max(12).default([]),
+}).superRefine((input, context) => {
+  if (new Set(input.scenarios.map((scenario) => scenario.scenarioId)).size !== input.scenarios.length) {
+    context.addIssue({ code: 'custom', path: ['scenarios'], message: 'Finance scenario edits must be unique.' });
+  }
+  for (const [index, scenario] of input.scenarios.entries()) {
+    if (new Set(scenario.assumptions.map((assumption) => assumption.assumptionId)).size !== scenario.assumptions.length) {
+      context.addIssue({ code: 'custom', path: ['scenarios', index, 'assumptions'], message: 'Finance assumption edits must be unique within a scenario.' });
+    }
+  }
+});
+
+export const FinanceRecalculateResultSchema = z.strictObject({
+  work: BusinessWorkResultSchema,
+  comparison: z.strictObject({
+    base: WorkPreviewArtifactRefSchema,
+    branch: WorkPreviewArtifactRefSchema,
+  }),
+});
+
 export type FinanceTransaction = z.infer<typeof FinanceTransactionSchema>;
 export type FinanceAssumption = z.infer<typeof FinanceAssumptionSchema>;
 export type FinanceAnalysisInput = z.infer<typeof FinanceAnalysisInputSchema>;
 export type FinanceAnalysisResult = z.infer<typeof FinanceAnalysisResultSchema>;
+export type FinanceRecalculateRequest = z.infer<typeof FinanceRecalculateRequestSchema>;
+export type FinanceRecalculateResult = z.infer<typeof FinanceRecalculateResultSchema>;
 

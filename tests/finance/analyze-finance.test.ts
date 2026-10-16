@@ -53,7 +53,7 @@ describe('finance scenario analysis', () => {
       scenarios: [{ id: 'base', title: 'Base', assumptions: [] }],
     };
     const built = buildFinanceArtifacts(input, analyzeFinance(input), 'ru');
-    expect(built.workbook.workbook.sheetOrder).toEqual(['finance_overview', 'cash_calendar', 'transactions', 'assumptions', 'coverage']);
+    expect(built.workbook.workbook.sheetOrder).toEqual(['finance_overview', 'cash_calendar', 'transactions', 'assumptions', 'coverage', 'finance_settings']);
     expect(built.workbook.workbook.sheets.finance_overview?.charts?.[0]?.valueColumnIds).toEqual(['result']);
     expect(built.report.document.type).toBe('doc');
     expect(built.sourceRefs).toEqual([ref]);

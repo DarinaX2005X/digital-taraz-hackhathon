@@ -46,7 +46,7 @@ describe('project work lifecycle', () => {
 
   it('mounts real create, update and list handlers with origin and actor checks', async () => {
     const f = await artifactFixture(pool);
-    const handler = createWorkspaceHandlers({ pool, origin: 'http://127.0.0.1:59676', getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', emailVerified: true, locale: 'ru' }, session: { id: f.owner.sessionId, expiresAt: new Date(Date.now() + 86400000), createdAt: new Date() } }) });
+    const handler = createWorkspaceHandlers({ pool, origin: 'http://127.0.0.1:59676', getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', locale: 'ru' }, session: { id: f.owner.sessionId, expiresAt: new Date(Date.now() + 86400000), createdAt: new Date() } }) });
     const request = (path: string, body?: unknown, origin = 'http://127.0.0.1:59676') => new Request(`http://127.0.0.1:59676/api/projects${path}`, { method: body ? 'POST' : 'GET', headers: { 'X-Tirlik-User-Id': f.owner.userId, 'Content-Type': 'application/json', Origin: origin, 'Idempotency-Key': randomUUID() }, ...(body ? { body: JSON.stringify(body) } : {}) });
     expect((await handler(request('', { workspaceId: f.workspaceId, title: 'Owned work', expectedAuthzVersion: 1 }))).status).toBe(201);
     const body = { workspaceId: f.workspaceId, title: 'Renamed', goal: 'Prepare quote', expectedAuthzVersion: 1, expectedRevision: 1 };

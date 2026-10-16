@@ -9,7 +9,7 @@ Status: active
 Status: done
 Requirements: R09, R31, R32, R33, R34, R38, R39, R40, R44, R45, R46, R47, R48, R49, R60, R101, R108
 Depends on: none
-Owner: SUBAGENT visual_system
+Owner: SUBAGENT shared_controls
 Paths: src/ui/, src/i18n/, public/brand/, public/fonts/, tests/ui-contracts/
 
 **Результат и граница.** Полная замена шаблонных токенов/компонентов по DESIGN с сохранением имени, слогана, brand mark и совместимых API. Это общий reusable контракт для остальных владельцев, а не отдельный набор демонстрационных кнопок. Параллельно 01.2–01.6 и 02–03; глобальный layout меняет только 01.3 по готовому handover.
@@ -30,11 +30,15 @@ Status: done
 
 Focused compatibility принята вместе с01.1.1. Общий стабильный checkpoint6a2f6c7 прошёл check-plan, diff check, typecheck/lint/unit/domain/locale/contracts и production build; отправлен в origin/main. Подключённые consumers компилируются, существующие API сохранены. Внешний вид остаётся пользовательской проверкой.
 
+F013 вновь открыл конкретный shared regression: idle loading indicator оставляет пустое место у «Начать обучение», а hover светлого состояния сохраняет белую подпись у нескольких кнопок. shared_controls получает точечное продолжение общих controls/CSS с проверкой реальных color pairs и idle/busy geometry; feature overrides исправляет01.2. Это не повтор полной визуальной переработки.
+
+Shared F013 repair принят: Button при pending=false не выводит пустой icon slot, spinner существует только в busy; симметричный padding центрирует подпись без изменения API/aria-busy/disabled. Secondary/quiet hover: #17332E на #EAF0EC, contrast11.73:1; danger #B42318 на #FDECE8,5.74:1. Focused UI contracts8files/73tests, scoped ESLint и diff PASS. Четыре whole files src/ui/button.tsx,src/ui/controls.css,tests/ui-contracts/control-contracts.test.ts,tests/ui-contracts/tokens.test.ts переданы, writer остановлен; входят в следующий содержательный checkpoint. Feature overrides01.2 и пользовательская визуальная проверка остаются отдельными границами.
+
 ## 01.2 Объединить свободную сессию, материалы и рабочий контекст
 Status: active
-Requirements: R08, R10, R14, R16, R21, R25, R31, R32, R33, R34, R35, R36, R37, R38, R39, R40, R41, R42, R43, R44, R45, R76, R92, R97, R99, R103, R105, R106, R107, R108, R109
+Requirements: R08, R10, R14, R16, R21, R25, R26, R31, R32, R33, R34, R35, R36, R37, R38, R39, R40, R41, R42, R43, R44, R45, R76, R92, R97, R99, R103, R105, R106, R107, R108, R109
 Depends on: none
-Owner: SUBAGENT working_session
+Owner: SUBAGENT session_integration
 Paths: src/features/workspace/, src/features/materials/, src/features/sources/, src/features/runs/client/, src/features/runs/ui/, src/features/runs/locales/, tests/workspace/, tests/materials/, tests/sources/, src/app/api/projects/, src/app/api/materials/, src/app/api/sources/, src/app/app/work/, src/app/app/projects/, src/app/app/materials/, src/app/app/runs/
 
 **Результат.** «Начать работу» открывает поле свободной задачи с вложениями сразу, без предварительного пустого проекта и длинной настройки. Сохранённые работы остаются рядом; «Создать материал» открывает ручной документ/таблицу/макет/план. Рабочая сессия удерживает разговор, источники, новые материалы, историю и переход обратно. Entry — существующие work-page/project-page/artifact-page; K1/K3 и C3–C6 являются единственными контрактами.
@@ -53,13 +57,15 @@ HTTP/DB: создать работу с двумя неоднородными и
 Status: active
 Реальные редакторы mounted, reopen/history/move/trash/reuse и context return проверены через server/domain contracts. Список работ, результаты сессии и фактический artifact GET показывают одну ревизию; новые UI состояния включены в этот пакет.
 
-Промежуточный whole-file handover включает собственные файлы в composer, idempotent project/upload/run recovery, source/session return context, lifecycle services и mounts. Current shared typecheck PASS; это не полный01.2 proof. Ещё требуются реальные lifecycle command cases, mapping/correction в общем own-work path и100k bounded dataset case. Money preview/action consumer также остаётся отдельным незавершённым соединением в01.2/02.1.
+Промежуточный whole-file handover включает собственные файлы в composer, idempotent project/upload/run recovery, source/session return context, lifecycle services и mounts; сохранён f04ff7c с общими checks/build PASS. Дополнительный tests/workspace/own-work-lifecycle.integration.test.ts расширен до3 realDBcases и PASS: mapping/correction→runrefs→selected-artifact reopen; destination ACL/replay/body mismatch/move/duplicate/independent edits/trash/restore;100k mapped rows, две bounded50-row pages, exactaggregate и10-row context. Прежний owner завершил запись; новый session_integration получает продолжение UI/transport, без повторной реализации этих сервисов. Остаток: money preview/action consumer, F013 hover overrides и общий рабочий интерфейс demo по K5 injectable transport.
+
+Следующий handover session_integration принят как quiescent: реальные Finance/Forecast/ProcurementWorkspaces mounted, явный recalculation обновляет локальный preview и ссылки base/branch без изменения исторической Run projection. AssistantSession принимает явные scoped transport/hrefs, auth defaults сохранены. Source init освобождён от eager OCR/Sharp/Office/полного registry: лёгкий source-format и динамическое извлечение по необходимости. Scoped session/source lint и20source tests PASS. ONEsource97a27fb прошёл init201, PUT200/replay409, finalize200, version/detail/list/library/preview/original200 за74–103ms; исходный503 устранён. Общий HTTP test истёк90s только при cold compile страницы исходника, поэтому целиком PASS не заявляется. Demo consumer и mounted HTTP остаются следующей границей.
 
 ## 01.3 Научить харнесс доводить задачу до новых рабочих материалов
 Status: active
-Requirements: R01, R02, R03, R04, R05, R07, R08, R10, R12, R14, R15, R16, R17, R42, R43, R56, R75, R76, R79, R82, R83, R84, R85, R86, R90, R91, R96, R99, R100, R105, R106, R107, R109
+Requirements: R01, R02, R03, R04, R05, R07, R08, R10, R12, R14, R15, R16, R17, R26, R42, R43, R56, R75, R76, R79, R82, R83, R84, R85, R86, R90, R91, R96, R99, R100, R105, R106, R107, R109, R110
 Depends on: none
-Owner: SUBAGENT harness_integration
+Owner: SUBAGENT runtime_completion
 Paths: src/features/agent-tools/, src/features/commercial/, src/features/runs/server/, src/features/runs/domain/, src/contracts/, src/server/db/, src/app/api/runs/, src/app/layout.tsx, src/app/app/layout.tsx, tests/agent-tools/, tests/commercial/, tests/runs/, evals/agent-tools/, evals/commercial/, package.json, package-lock.json, scripts/dev/, scripts/check.mjs, scripts/check-build.mjs, scripts/check-integration.mjs, scripts/eval-live.mjs, tests/foundation/, vitest.integration.config.ts, migrations/0021_library_lifecycle.sql, migrations/0022_demo_execution_scopes.sql, tests/database/library-lifecycle-schema.integration.test.ts
 
 **Результат.** Свободная цель приводит к работе предметных инструментов и пригодному комплекту, а не к обещаниям в чате. Для J1: запрос клиента, нормы/прайс, текущие заказы, сроки и ресурсы → варианты выполнения с основаниями → выбор → связанные редактируемые смета, предложение и план. Цена сама по себе не является ценностью; убирается ручное согласование исходников, ограничений и выходных материалов. K1 сохраняет существующий strict DTO; K2 даёт новый планировщик, K3 — canonical commands и transactional bundle.
@@ -68,9 +74,15 @@ Paths: src/features/agent-tools/, src/features/commercial/, src/features/runs/se
 
 **Интеграция.** Единственный владелец runtime tool registry, общих contracts/schema/migration registry/package files и указанных root layouts. Feature owners создают свои domain exports/routes, shared изменения передают сюда точным diff/contract; общая DB миграция имеет совместимость и rollback/restore plan без потери пользовательских данных. Базовая реализация J1 идёт параллельно 01.4; настоящий совместный proof обязателен до завершения пакета. J2/J3/J5 descriptors подключаются этим владельцем по готовности, общий join в 04.1. Только назначенный в STATE executor делает оплачиваемые вызовы; остальные используют deterministic fixtures с честной маркировкой.
 
-Точный независимый subloan library_lifecycle внутри01.3: src/contracts/library-lifecycle.ts, src/contracts/sources.ts, src/contracts/materials.ts, src/server/db/library-lifecycle-schema.ts, migrations/0021_library_lifecycle.sql, tests/database/library-lifecycle-schema.integration.test.ts. Только этот worker пишет шесть файлов; metadataRevision источников/коллекций отделён от immutable content revision. Existing list query/summary schemas расширяются без второго DTO. Services/handlers/UI остаются01.2. Registration в src/server/db/schema.ts и vitest.integration.config.ts сохраняет harness_integration; root config loan включает классификацию реальных новых DB suites. Runtime/J1/demo этим subloan не разделяются.
+Завершённый subloan library_lifecycle внутри01.3: src/contracts/library-lifecycle.ts, src/contracts/sources.ts, src/contracts/materials.ts, src/server/db/library-lifecycle-schema.ts, migrations/0021_library_lifecycle.sql, tests/database/library-lifecycle-schema.integration.test.ts. Writer остановлен, принятые шесть файлов сохраняются; metadataRevision источников/коллекций отделён от immutable content revision. Services/handlers/UI остаются01.2. Registration в src/server/db/schema.ts и vitest.integration.config.ts принадлежит runtime_completion; root config loan включает классификацию реальных новых DB suites. Runtime/J1/demo этим subloan не разделяются.
 
 **Проверка.** P1 с реальным economical endpoint и новым существенным ограничением: инструмент строит план, создаёт три typed artifacts, read-back совпадает, edit/reopen/export использует их же. Missing provider/invalid tool args/несовпадение units/timeout/cancel не даёт success; invalid model step исправляется ограниченно. Injection в файле не даёт authority. J1 прежнего кода проверен scripted gateway, это не live acceptance.
+
+F013: сначала измерить причины медленных local HTTP/compiles и роста .local-data; read-only runtime_efficiency под01.3 исследует процессы/нагрузку/storage и source startup boundary без UI/новых компиляторов. Правки и очистка только после конкретного handover, через существующего exclusive integration owner; пользовательские данные/active runtimes не удаляются. Полная повторная performance/storage проверка остаётся04.1/04.4.
+
+R110 audit принят: cold /settings111s содержит107s Next compile и3.2s application; editor packages на этом пути отсутствуют, root/identity barrels расширяют graph. Runtime owner вводит direct leaf imports и явный production launcher после новой проверенной сборки. Пользователь F015 подтвердил задержки на разных страницах, поэтому итоговая проверка включает несколько маршрутов. Безопасно удалено4,195,802,981bytes неактивных compiler/test caches с сохранением logs/DB/user files. После принадлежащего приложению restart working set4.800GB→1.830GB, private6.800GB→2.112GB; это cold health baseline, не равная прогретая нагрузка и не закрытие performance задачи.
+
+Read-only checkpoint_boundary (Paths: none) принял dependency closure143selected paths относительно HEADf04ff7c: auth removal/leaf imports, money/session/source/editor adapters и runtime producer/launcher. Recursive static resolution470local modules:0unresolved imports,0crossings в13excluded demo consumer WIP paths; HEAD версии шести существовавших excluded files сохраняют совместимость. Проверка только bounded source/dependency review, без сборки/серверов/визуального тестирования. Общие checks/build выполняет штатный checkpoint helper.
 
 ### 01.3.1 Совместимые предметные процедуры и tool loop
 Status: active
@@ -95,7 +107,7 @@ Paths: src/features/operations/, tests/operations/, evals/operations/, src/app/a
 
 **Порядок.** Реализовать solver и proof receipts на canonical OperationalPlanContent; затем tool descriptor для 01.3 и ручной solve/compare/apply path; переработать plan/resource/availability UI по DESIGN, calendar/list/assignment detail, narrow alternative и экспорт ICS/PDF. Общие migration/schema changes через 01.3. Параллельно все 01–03, общие acceptance P1/P4.
 
-Точный integration subloan: src/features/operations/server/ai-business-tool.ts после подтверждённого whole-file handover01.4 пишет только harness_integration для runtime/J1 wiring до handback. Остальные operations files остаются work_planner; параллельных writers одного файла нет.
+Точный integration subloan: src/features/operations/server/ai-business-tool.ts после whole-file handover01.4 пишет только runtime_completion для runtime/J1 wiring до handback. Остальные operations files переданы work_planner и quiescent; параллельных writers одного файла нет.
 
 ### 01.4.1 Планировщик действительно находит решение
 Status: done
@@ -107,13 +119,13 @@ Status: done
 Status: done
 Tool → candidate → human edit/lock → apply → reopen/export: revisions совпадают. Удалённый ресурс, concurrent apply и отозванное право не портят принятый план. Capacity conflict виден у задачи; пользователь проверяет удобство calendar/list и навигации.
 
-Принят whole-file handover01.4.2: proposal HTTP/transport, plan input JSON Schema, persistent locks, candidate compare/apply с повторной проверкой content hash, pinned resource/availability revisions, локали и editor states.44 focused tests и5 isolated PostgreSQL/handler cases PASS, scoped ESLint/strict TypeScript/diff PASS. Actual-file bridge в tests/operations/service.integration.test.ts применяет candidate, заново читает сохранённый plan, архивирует ресурс и проверяет ICS через parsePlanCalendar и PDF через pdfjs: принятая revision, расписание и историческое имя ресурса совпадают. Bounded rerun5/5 PASS, миграция/seed/cleanup выполнены. Пакет передан без дальнейшей записи, ожидает следующего Git checkpoint; UI не проверялся браузером.
+Принят whole-file handover01.4.2: proposal HTTP/transport, plan input JSON Schema, persistent locks, candidate compare/apply с повторной проверкой content hash, pinned resource/availability revisions, локали и editor states.44 focused tests и5 isolated PostgreSQL/handler cases PASS, scoped ESLint/strict TypeScript/diff PASS. Actual-file bridge в tests/operations/service.integration.test.ts применяет candidate, заново читает сохранённый plan, архивирует ресурс и проверяет ICS через parsePlanCalendar и PDF через pdfjs: принятая revision, расписание и историческое имя ресурса совпадают. Bounded rerun5/5 PASS, миграция/seed/cleanup выполнены. Пакет сохранён в checkpointf04ff7c, все общие checks/build PASS, push origin/main; UI не проверялся браузером.
 
 ## 01.5 Сделать ясный вход, содержательный лендинг и живой пример
 Status: active
-Requirements: R02, R07, R08, R09, R10, R11, R15, R19, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33, R34, R38, R39, R40, R41, R43, R44, R45, R46, R47, R48, R49, R56, R64, R75, R76, R82, R83, R90, R97, R98, R99, R101, R106, R107, R108, R109
+Requirements: R02, R07, R08, R09, R10, R11, R15, R19, R21, R22, R23, R24, R25, R26, R27, R28, R29, R30, R31, R32, R33, R34, R38, R39, R40, R41, R43, R44, R45, R46, R47, R48, R49, R56, R64, R67, R75, R76, R82, R83, R90, R97, R98, R99, R101, R106, R107, R108, R109
 Depends on: none
-Owner: SUBAGENT first_use
+Owner: SUBAGENT first_entry_finish
 Paths: src/features/public-site/, src/features/demo/, src/features/onboarding/, src/features/identity/, public/site/, tests/public-site/, tests/demo/, tests/onboarding/, tests/identity/, src/app/page.tsx, src/app/demo/, src/app/api/demo/, src/app/api/auth/, src/app/auth/, src/app/app/profile/
 
 **Результат.** DESIGN задаёт выразительный сайт с предметной сценой, разными работами, конкретными результатами, входом и полезным футером. «Попробовать пример» открывает synthetic заказ на занятую неделю; «Начать работу» сохраняет своё намерение. Лендинг не содержит отчёт разработчика/техническую архитектуру/тарифы. Пользователь понимает смысл за пять секунд и получает существенный результат примерно за две минуты; это цель timed pass, не выдуманный показатель.
@@ -122,13 +134,19 @@ Paths: src/features/public-site/, src/features/demo/, src/features/onboarding/, 
 
 **Границы.** 01.3 предоставляет canonical demo execution scope/runtime extension; 01.2 предоставляет source-add semantic anchors и workspace resume, этот пакет не пишет их страницы. `/demo` и API имеют явные routes K5; demo export использует canonical 01.6. Можно начать сайт/auth/контроллеры параллельно по контрактам; закрыть K5 только реальным producer, не scripted gateway. Видео slot предусмотрен, сам ролик приходит из 05.2.
 
-Exact producer subloan01.3: новый src/features/demo/server/execution-scope.ts пишет исключительно harness_integration; first_use потребляет его exports и сохраняет остальные demo routes/client/UI/tests. Canonical migration migrations/0022_demo_execution_scopes.sql принадлежит harness_integration;0021 зарезервирована library_lifecycle. Wire/schema contracts согласуются напрямую между этими двумя владельцами, без дублирующего demo runtime.
+Exact producer subloan01.3: src/features/demo/server/execution-scope.ts пишет исключительно runtime_completion; first_entry_finish потребляет его exports и сохраняет остальные demo routes/client/UI/tests. Canonical migration migrations/0022_demo_execution_scopes.sql принадлежит runtime_completion;0021 завершена library_lifecycle. Wire/schema contracts согласуются напрямую между текущими владельцами, без дублирующего demo runtime.
+
+Текущий01.5 owner first_entry_finish получил exclusive F014 loan migrations/0023_remove_email_verification.sql и src/server/db/identity-schema.ts; runtime_completion подтвердил отсутствие записи в оба пути. Удаляется только identity_email_tokens; identity_verifications для password recovery и identity_invitations сохраняются. Existing migrate.ts автоматически читает sorted SQL, нового registry нет. Execution-scope/0022 остаются runtime_completion.
 
 **Состояния.** Auth failed/cancel/signed-out/stale cookies, session expired, provider unavailable, rate cap, partial result и retry сохраняют контекст. Onboarding skip/resume/replay не делает неожиданный переход в «Материалы» и не запускается вновь после refresh. RU/KK/EN и mobile сохраняют CTA/пример/профиль, все public/private границы server-checked.
+
+Последующее F013 и прямое уточнение16октября входят в эту же задачу: полностью удалить email verification, включая optional flow/UI/routes/code/mail/callback/guard/locales; signup сразу выдаёт сессию, login email/password. Одна primary hero action по auth state, равные video/deck actions со SVG и широкий зелёный example band по DESIGN. Обычный demo workspace переиспользует01.2 session/editor components и настоящие K5 scoped endpoints, а не отдельный UI. Реальный найденный auth defect safe /ru/demo→/app устраняется здесь. Commercial decision и workDecision оба позволяют явно продолжить до сохранённых материалов; голое HTTP200 не закрывает пример.
 
 ### 01.5.1 Новый сайт и сохранённое намерение
 Status: active
 Content/route/HTTP/auth checks подтверждают правильные действия, profile/menu/logout и return. F001–F012 читаются полностью; проверка кода не закрывает пользовательскую оценку визуала и понятности.
+
+F014 функционально закрыт: HTTP/PostgreSQL/Mailpit lifecycle d2d03b630d764fbfa3e373d393127ed6 —4/4PASS. Signup сразу выдаёт сессию, другой device входит email/password, удалённые verify/resend routes404 и писем подтверждения нет; password recovery/session revocation/intent binding сохранены. Focused10files102tests/type/lint PASS. Остаток F015/F016: readable hover example band, цельный layout login/signup без отдельного language selector, с сохранением текущей локали сайта. Первичная public/auth передача не закрывает эти новые пользовательские замечания; внешний вид проверяет пользователь.
 
 ### 01.5.2 Полезный пример на настоящем механизме
 Status: active
@@ -138,8 +156,10 @@ P6 и K5: start → real plan/materials → change one constraint → explicit c
 Status: active
 Requirements: R10, R12, R13, R14, R16, R25, R34, R35, R36, R39, R40, R42, R43, R44, R45, R91, R92, R93, R94, R95, R102, R105
 Depends on: none
-Owner: SUBAGENT editable_materials
+Owner: SUBAGENT material_completion
 Paths: src/features/artifacts/, src/features/documents/, src/features/sheets/, src/features/exports/, tests/artifacts/, tests/documents/, tests/sheets/, tests/exports/, src/app/api/artifacts/, src/app/api/documents/, src/app/api/sheets/, src/app/api/exports/
+
+F013 completion: прежний editable_materials передал01.6 и прекратил запись. material_completion сохраняет прошедшие DB/format checks, адаптирует общий ArtifactSession/редакторы к scoped K5 client и завершает mounted HTTP. Exact loan src/features/workspace/ui/artifact-page.tsx от01.2 — после явного quiescent handover — для внедрения транспорта/capabilities в ту же страницу и layout, без отдельного demo editor. Session bootstrap использует access/events/versions/version кроме snapshot/history/commands; runtime01.3 предоставляет проверенные scope методы,01.5 routes/adapter. Auth defaults сохранены, ни одно demo действие не уходит в authenticated endpoint с synthetic userId.
 
 **Результат.** Новый документ/таблица создаётся вручную или инструментом и открывается именно редактором. Существующий artifact/version/commands engine сохраняется. Document: полноценные блоки/таблицы/списки/ссылки/изображения/формат/find/selection. Sheet: formulas, ranges, copy/paste/fill, insert/delete, sort/filter/freeze/find, formats и связанные charts; narrow — редактирование выбранной ячейки с координатами. Справки источников не заслоняют материал.
 
@@ -160,3 +180,5 @@ Actual OOXML/PDF/CSV структуры/Unicode/formula caches проверен�
 Свежий isolated DB proof:5files/39tests PASS по artifacts/project-sources/retention/exports/calculation. Strengthened frozen DOCX/PDF/XLSX/CSV job:1file/11tests PASS; парсинг PDF/OOXML/XLSX/CSV подтверждает ручную русскую фразу, формулуA2+B2=143600 и тот же revision vector. Дополнительно4files/17tests по форматам/glyph errors/formula injection PASS. Mounted HTTP proof повторяется после исправления shared startup schema; полный01.6 пока не закрыт.
 
 Разрыв mapped fact freshness закрыт: canonical readMaterialSourceFreshness используется artifact snapshot/retained reads. Reviewed current fact разрешает normal export; correction делает старую fact revision stale; unreviewed/unknown/missing и отозванный project grant не раскрывают закрытые факты и не получают false current. Actual material import/correction/export regression7/7 и повтор только затронутых5DB files40/40 PASS с migrate/seed/cleanup.02.1 подтвердил normal XLSX/DOCX без historicalDraft. Три новых whole files готовы к checkpoint. Остался mounted HTTP proof, который выполняется последовательно после demo runner; bounded cold-health allowance240s не меняет application assertions.
+
+Следующий9-file scoped editor/F014-fixture handover material_completion принят quiescent. Canonical ArtifactClient resolvePath, injected session client/cache/identity, ExportPanel capabilities и SAME ArtifactWorkspacePage scoped composition не импортируют demo WIP и сохраняют auth defaults.39owned unit files252tests/type/lint PASS; DB8a2247bb8fd142368587b7164665348b —3files24testsPASS, cleanup выполнен. Эти adapters требуют реального demo consumer01.5; mounted artifacts/sheets HTTP выполняется одним изолированным lifecycle после fresh checkpoint, без параллельных Next компиляторов.

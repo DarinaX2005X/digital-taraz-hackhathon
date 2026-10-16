@@ -3,7 +3,8 @@ import { CliError } from "./errors.mjs";
 import { assertOwnedDatabaseUrl, parsePort } from "./environment.mjs";
 import { selectAvailablePorts } from "./ports.mjs";
 
-export async function resolveLocalConfig(root, inherited, previous, services, requestedPort) {
+export async function resolveLocalConfig(root, inherited, previous, services, requestedPort, { mode = "development", distDir = mode === "production" ? ".local-data/build" : ".next" } = {}) {
+  if (!["development", "production"].includes(mode)) throw new CliError("APP_MODE_INVALID", "Unsupported local application mode.", "Use development or a verified production build.");
   const specs = {
     database: { envName: "TIRLIK_DB_PORT", saved: previous?.databasePort, own: services.postgres?.running ? services.postgres.ports["5432/tcp"] : undefined, fallback: 54329 },
     smtp: { envName: "TIRLIK_SMTP_PORT", saved: previous?.smtpPort, own: services.mailpit?.running ? services.mailpit.ports["1025/tcp"] : undefined, fallback: 10259 },
@@ -30,7 +31,7 @@ export async function resolveLocalConfig(root, inherited, previous, services, re
       ...inherited,
       DATABASE_URL: databaseUrl,
       TIRLIK_DB_PORT: String(ports.database), TIRLIK_SMTP_PORT: String(ports.smtp), TIRLIK_MAIL_UI_PORT: String(ports.mail), TIRLIK_APP_PORT: String(ports.app),
-      TIRLIK_DATA_DIR: dataDir, NEXT_DIST_DIR: ".next", NODE_ENV: "development",
+      TIRLIK_DATA_DIR: dataDir, NEXT_DIST_DIR: distDir, NODE_ENV: mode,
       SMTP_HOST: "127.0.0.1", SMTP_PORT: String(ports.smtp), SMTP_USER: "", SMTP_PASSWORD: "", SMTP_FROM: "Tirlik local <no-reply@tirlik.invalid>",
       SMTP_REQUIRE_TLS: "false", BREVO_API_KEY: "", BREVO_SMTP_KEY: "",
       BETTER_AUTH_URL: `http://127.0.0.1:${ports.app}`,

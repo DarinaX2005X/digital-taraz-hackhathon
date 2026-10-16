@@ -29,6 +29,7 @@ describe("implemented semantic colors", () => {
     for (const [foreground, background, minimum] of [
       ["warning", "warningSurface", 4.5], ["success", "successSurface", 4.5],
       ["danger", "dangerSurface", 4.5], ["onDeep", "deepSurface", 4.5],
+      ["text", "inset", 4.5],
       ["onSelected", "selected", 4.5], ["onAction", "action", 4.5], ["onAction", "actionHover", 4.5],
       ["controlBorder", "surface", 3], ["controlBorder", "canvas", 3], ["focus", "focusGap", 3],
     ] as const) expect(contrast(colorValue(foreground), colorValue(background))).toBeGreaterThanOrEqual(minimum);

@@ -2,7 +2,7 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { headers } from 'next/headers';
 import { ErrorEnvelopeSchema } from '@/contracts/errors';
-import { getIdentityHandlers } from '@/features/identity/server';
+import { getIdentityHandlers } from './identity-runtime';
 
 export async function readIdentityLocale() {
   const requestHeaders = await headers();

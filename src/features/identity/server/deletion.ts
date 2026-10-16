@@ -11,7 +11,7 @@ import { incrementAuthzVersion, revokeInvalidInvitations } from './workspaces';
 interface DeletionWorkspace extends WorkspaceRow { role: MembershipRow['role'] }
 interface DeletionMember { user_id: string; name: string; email: string; role: MembershipRow['role'] }
 async function members(transaction: PoolClient, workspaceId: string) {
-  return (await transaction.query<DeletionMember>("SELECT m.user_id,m.role,u.name,u.email FROM identity_memberships m JOIN identity_users u ON u.id=m.user_id WHERE m.workspace_id=$1 AND m.state='active' AND u.deletion_requested_at IS NULL AND u.email_verified=true ORDER BY m.created_at,m.id", [workspaceId])).rows;
+  return (await transaction.query<DeletionMember>("SELECT m.user_id,m.role,u.name,u.email FROM identity_memberships m JOIN identity_users u ON u.id=m.user_id WHERE m.workspace_id=$1 AND m.state='active' AND u.deletion_requested_at IS NULL ORDER BY m.created_at,m.id", [workspaceId])).rows;
 }
 
 export function createDeletionService(pool: Pool, secret: string) {
@@ -74,7 +74,6 @@ export function createDeletionService(pool: Pool, secret: string) {
         }
         await transaction.query('DELETE FROM identity_sessions WHERE user_id=$1', [principal.userId]);
         await transaction.query('DELETE FROM identity_accounts WHERE user_id=$1', [principal.userId]);
-        await transaction.query('DELETE FROM identity_email_tokens WHERE user_id=$1', [principal.userId]);
         await transaction.query('DELETE FROM identity_verifications WHERE value=$1 OR identifier=$2', [principal.userId, actor.email]);
         await transaction.query('DELETE FROM identity_intents WHERE claimed_by=$1', [principal.userId]);
         await transaction.query("UPDATE identity_users SET name='Deleted account',email=$2,email_verified=false,image=NULL,deletion_requested_at=now(),updated_at=now() WHERE id=$1", [principal.userId, anonymousEmail]);

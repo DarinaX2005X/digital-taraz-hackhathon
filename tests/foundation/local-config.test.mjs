@@ -44,4 +44,12 @@ describe("local startup configuration", () => {
     await expect(resolveLocalConfig(root, { TIRLIK_DATA_DIR: "../foreign-data" }, undefined, {}))
       .rejects.toMatchObject({ code: "DATA_DIRECTORY_OUTSIDE_LOCAL_ROOT" });
   });
+
+  it("selects the isolated verified build directory only for explicit production mode", async () => {
+    const root = await fixture();
+    const development = await resolveLocalConfig(root, {}, undefined, {});
+    const production = await resolveLocalConfig(root, {}, undefined, {}, undefined, { mode: "production", distDir: ".local-data/build" });
+    expect(development.env).toMatchObject({ NODE_ENV: "development", NEXT_DIST_DIR: ".next" });
+    expect(production.env).toMatchObject({ NODE_ENV: "production", NEXT_DIST_DIR: ".local-data/build" });
+  });
 });

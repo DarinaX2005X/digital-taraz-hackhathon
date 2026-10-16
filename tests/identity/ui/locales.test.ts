@@ -31,8 +31,8 @@ describe("identity catalog", () => {
 });
 
 describe("transactional mail", () => {
-  it.each(locales)("formats actual verification/reset/invitation text in %s", (locale) => {
-    for (const kind of ["verify", "reset", "invite"] as const) {
+  it.each(locales)("formats actual reset/invitation text in %s", (locale) => {
+    for (const kind of ["reset", "invite"] as const) {
       const input = kind === "invite" ? { kind, workspaceName: "Example workspace", locale, url: "https://tirlik.example/auth/invite?token=opaque" } : { kind, locale, url: `https://tirlik.example/auth/${kind}?token=opaque` };
       const mail = formatIdentityMail(input);
       expect(mail.subject).toBe(identityTranslator(locale)(`identity.mail.${kind}.subject`));
@@ -55,7 +55,7 @@ describe("transactional mail", () => {
   });
 
   it.each(["javascript:alert(1)", "data:text/html,hello", "https://user:password@evil.example/", "//evil.example/path", "https:\\evil.example", "https://example.test/\n"]) ("rejects unsafe mail URL %s", (url) => {
-    expect(() => formatIdentityMail({ kind: "verify", locale: "ru", url })).toThrow();
+    expect(() => formatIdentityMail({ kind: "reset", locale: "ru", url })).toThrow();
   });
 
   it("supports the explicitly local Mailpit development URL but requires an invitation name", () => {

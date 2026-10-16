@@ -12,8 +12,12 @@ import {
 } from '@/contracts/demo-execution';
 import { IdSchema, LocaleSchema } from '@/contracts/primitives';
 import { CreateRunSchema, ResumeRunSchema, RunEventsPageSchema, RunSchema, type Run } from '@/contracts/runs';
+import { ArtifactAccessRequestSchema, ArtifactCommandRequestSchema, ArtifactHistoryActionSchema, BranchArtifactSchema } from '@/features/artifacts/contracts';
+import { createWorkspaceEventFeed, WorkspaceEventInputSchema } from '@/features/artifacts/server/event-feed';
 import { createArtifactService } from '@/features/artifacts/server/service';
 import type { ArtifactContent, DocumentNode } from '@/features/artifacts/domain/content-models';
+import { CreateExportSchema } from '@/features/exports/contracts';
+import type { ExportService } from '@/features/exports/server/service';
 import { identityTransaction, withWorkspaceAccessInTransaction, type IdentityPrincipal, type SessionPrincipal } from '@/features/identity/server/access';
 import { hasScope } from '@/features/identity/domain/policy';
 import type { getRunRuntime } from '@/features/runs/server/runtime';
@@ -61,16 +65,16 @@ function paragraph(id: string, text: string): DocumentNode { return { type: 'par
 function seedContent(locale: 'ru' | 'kk' | 'en', ids: { cutter: string; printer: string; cutterAvailability: string; printerAvailability: string }, now: Date) {
   const monday = nextMonday(now), friday = addDays(monday, 4), mondayDate = date(monday), fridayDate = date(friday);
   const facts = {
-    ru: ['Заказ: навигация, меню и печатные материалы для открытия кофейни.', 'Согласованная база цены: полный объём — 1 450 000 KZT; сокращённый первый выпуск — 980 000 KZT. Лимит клиента — 1 480 000 KZT.', 'Прямые затраты полного объёма: печать 510 000 KZT, материалы 230 000 KZT, монтаж 180 000 KZT. Прямые затраты первого выпуска: печать 340 000 KZT, материалы 160 000 KZT, монтаж 120 000 KZT.', `Открытие: ${fridayDate}. Работы можно начинать ${mondayDate}. Полный объём требует 960 минут, первый выпуск — 540 минут.`, 'Два подтверждённых заказа уже занимают большую часть недели. Нельзя обещать срок без проверки доступности.', 'Подготовьте два честных варианта: полный объём и сокращённый первый выпуск. Ничего не отправляйте клиенту.'],
-    kk: ['Тапсырыс: кофехана ашылуына арналған навигация, мәзір және баспа материалдары.', 'Келісілген баға негізі: толық көлем — 1 450 000 KZT; қысқартылған алғашқы шығарылым — 980 000 KZT. Клиент лимиті — 1 480 000 KZT.', 'Толық көлемнің тікелей шығындары: баспа 510 000 KZT, материалдар 230 000 KZT, монтаж 180 000 KZT. Алғашқы шығарылымның тікелей шығындары: баспа 340 000 KZT, материалдар 160 000 KZT, монтаж 120 000 KZT.', `Ашылу күні: ${fridayDate}. Жұмысты ${mondayDate} бастауға болады. Толық көлемге 960 минут, алғашқы шығарылымға 540 минут қажет.`, 'Екі расталған тапсырыс аптаның көп бөлігін алып тұр. Қолжетімділікті тексермей мерзімге уәде беруге болмайды.', 'Екі адал нұсқа дайындаңыз: толық көлем және қысқартылған алғашқы шығарылым. Клиентке ештеңе жібермеңіз.'],
-    en: ['Order: wayfinding, menus and print materials for a café opening.', 'Approved quoting basis: full scope KZT 1,450,000; reduced first release KZT 980,000. Customer ceiling: KZT 1,480,000.', 'Full-scope direct costs: printing KZT 510,000, materials KZT 230,000, installation KZT 180,000. First-release direct costs: printing KZT 340,000, materials KZT 160,000, installation KZT 120,000.', `Opening date: ${fridayDate}. Work may start ${mondayDate}. Full scope needs 960 minutes; the first release needs 540 minutes.`, 'Two confirmed jobs already occupy most of the week. Do not promise the date without checking availability.', 'Prepare two honest options: full scope and a reduced first release. Send nothing to the customer.'],
+    ru: ['Синтетический пример. Срочный заказ мастерской вывесок «Арман Принт»: комплект для аптеки «Сары-Арқа №12» — фасадная вывеска, 18 м² оконной плёнки, 14 навигационных табличек и монтаж.', 'Согласованная база цены: полный комплект — 1 450 000 KZT; первая очередь — 980 000 KZT. Лимит клиента — 1 480 000 KZT.', 'Прямые затраты полного комплекта: печать 510 000 KZT, материалы 230 000 KZT, монтаж 180 000 KZT. Первая очередь: печать 340 000 KZT, материалы 160 000 KZT, монтаж 120 000 KZT.', `Монтаж нужен до 18:00 ${fridayDate}. Работы можно начинать ${mondayDate}. Полный комплект требует 960 минут, первая очередь — 540 минут.`, 'Изменение от поставщика: белая плёнка поступит только в четверг в 14:00. На складе 11 м²; полный комплект требует 18 м², первая очередь — 9 м².', 'Заказы «Qadam Market — фасадные панели» и «Orda Logistics — оклейка фургонов» уже подтверждены и занимают большую часть недели. Нельзя обещать срок без проверки загрузки.', 'Подготовьте два честных варианта: полный комплект и первую очередь. Ничего не отправляйте клиенту.'],
+    kk: ['Синтетикалық мысал. «Арман Принт» маңдайша шеберханасының шұғыл тапсырысы: «Сары-Арқа №12» дәріханасына қасбет маңдайшасы, 18 м² терезе үлдірін, 14 навигациялық тақтайша және монтаж дайындау.', 'Келісілген баға негізі: толық жинақ — 1 450 000 KZT; бірінші кезек — 980 000 KZT. Клиент лимиті — 1 480 000 KZT.', 'Толық жинақтың тікелей шығындары: баспа 510 000 KZT, материалдар 230 000 KZT, монтаж 180 000 KZT. Бірінші кезек: баспа 340 000 KZT, материалдар 160 000 KZT, монтаж 120 000 KZT.', `Монтаж ${fridayDate} күні сағат 18:00-ге дейін қажет. Жұмысты ${mondayDate} бастауға болады. Толық жинаққа 960 минут, бірінші кезекке 540 минут қажет.`, 'Жеткізушіден өзгеріс: ақ үлдір бейсенбі күні сағат 14:00-де ғана келеді. Қоймада 11 м² бар; толық жинаққа 18 м², бірінші кезекке 9 м² қажет.', '«Qadam Market — қасбет панельдері» және «Orda Logistics — фургондарды қаптау» тапсырыстары расталған және аптаның көп бөлігін алып тұр. Жүктемені тексермей мерзімге уәде беруге болмайды.', 'Екі адал нұсқа дайындаңыз: толық жинақ және бірінші кезек. Клиентке ештеңе жібермеңіз.'],
+    en: ['Synthetic example. Urgent order for the Arman Print signage workshop: a Sary-Arqa Pharmacy #12 package with a fascia sign, 18 m² of window vinyl, 14 wayfinding panels and installation.', 'Approved quoting basis: full package KZT 1,450,000; first release KZT 980,000. Customer ceiling: KZT 1,480,000.', 'Full-package direct costs: printing KZT 510,000, materials KZT 230,000, installation KZT 180,000. First release: printing KZT 340,000, materials KZT 160,000, installation KZT 120,000.', `Installation is due by 18:00 on ${fridayDate}. Work may start ${mondayDate}. The full package needs 960 minutes; the first release needs 540 minutes.`, 'Supplier change: white vinyl will now arrive only at 14:00 on Thursday. Stock on hand is 11 m²; the full package needs 18 m² and the first release needs 9 m².', 'The confirmed Qadam Market fascia-panel job and Orda Logistics van-wrap run already occupy most of the week. Do not promise the date without checking capacity.', 'Prepare two honest options: the full package and a first release. Send nothing to the customer.'],
   }[locale];
   const document: ArtifactContent = { kind: 'document', schemaVersion: 1, document: { type: 'doc', attrs: { id: 'demo-brief' }, content: facts.map((text, index) => paragraph(`fact-${index + 1}`, text)) } };
   const instant = (day: number, hour: number) => `${date(addDays(monday, day))}T${String(hour).padStart(2, '0')}:00:00.000Z`;
   const plan: ArtifactContent = { kind: 'plan', schemaVersion: 1, timezone: 'Asia/Qyzylorda', entries: [
-    { id: 'existing-signage', title: 'Existing signage job', status: 'in-progress', startAt: instant(0, 9), endAt: instant(1, 17), resourceIds: [ids.cutter, ids.printer], assignments: [{ resourceId: ids.cutter, resourceRevision: 1, availabilityVersionId: ids.cutterAvailability, effort: { decimal: '720', unit: 'person-minutes' } }, { resourceId: ids.printer, resourceRevision: 1, availabilityVersionId: ids.printerAvailability, effort: { decimal: '480', unit: 'person-minutes' } }], dependencies: [], checklist: [], availabilityVersionIds: [ids.cutterAvailability, ids.printerAvailability], durationMinutes: 1_920, effort: { decimal: '1200', unit: 'person-minutes' }, notes: 'Locked confirmed work.' },
-    { id: 'existing-packaging', title: 'Existing packaging run', status: 'todo', startAt: instant(2, 9), endAt: instant(3, 15), resourceIds: [ids.printer], assignments: [{ resourceId: ids.printer, resourceRevision: 1, availabilityVersionId: ids.printerAvailability, effort: { decimal: '840', unit: 'person-minutes' } }], dependencies: [], checklist: [], availabilityVersionIds: [ids.printerAvailability], durationMinutes: 1_800, effort: { decimal: '840', unit: 'person-minutes' }, notes: 'Locked confirmed work.' },
-    { id: 'urgent-cafe', title: 'Urgent café opening package', status: 'todo', resourceIds: [], assignments: [], dependencies: [], checklist: [{ id: 'proof', text: 'Approve print proof', done: false }, { id: 'install', text: 'Install wayfinding', done: false }], availabilityVersionIds: [], durationMinutes: 960, effort: { decimal: '960', unit: 'person-minutes' }, notes: `Must finish before ${fridayDate}; compare a full and reduced scope.` },
+    { id: 'qadam-market', title: 'Qadam Market — fascia panels', status: 'in-progress', startAt: instant(0, 9), endAt: instant(1, 17), resourceIds: [ids.cutter, ids.printer], assignments: [{ resourceId: ids.cutter, resourceRevision: 1, availabilityVersionId: ids.cutterAvailability, effort: { decimal: '720', unit: 'person-minutes' } }, { resourceId: ids.printer, resourceRevision: 1, availabilityVersionId: ids.printerAvailability, effort: { decimal: '480', unit: 'person-minutes' } }], dependencies: [], checklist: [], availabilityVersionIds: [ids.cutterAvailability, ids.printerAvailability], durationMinutes: 1_920, effort: { decimal: '1200', unit: 'person-minutes' }, notes: 'Confirmed work; dates are locked.' },
+    { id: 'orda-logistics', title: 'Orda Logistics — van-wrap run', status: 'todo', startAt: instant(2, 9), endAt: instant(3, 15), resourceIds: [ids.printer], assignments: [{ resourceId: ids.printer, resourceRevision: 1, availabilityVersionId: ids.printerAvailability, effort: { decimal: '840', unit: 'person-minutes' } }], dependencies: [], checklist: [], availabilityVersionIds: [ids.printerAvailability], durationMinutes: 1_800, effort: { decimal: '840', unit: 'person-minutes' }, notes: 'Confirmed work; dates are locked.' },
+    { id: 'sary-arqa-pharmacy', title: 'Sary-Arqa Pharmacy #12 — urgent signage package', status: 'todo', resourceIds: [], assignments: [], dependencies: [], checklist: [{ id: 'proof', text: 'Approve print proof', done: false }, { id: 'vinyl', text: 'Confirm white-vinyl allocation', done: false }, { id: 'install', text: 'Install fascia and wayfinding', done: false }], availabilityVersionIds: [], durationMinutes: 960, effort: { decimal: '960', unit: 'person-minutes' }, notes: `Must finish by 18:00 on ${fridayDate}; compare the full package with a viable first release.` },
   ] };
   return { document, plan, effectiveFrom: mondayDate, effectiveTo: fridayDate };
 }
@@ -88,7 +92,22 @@ async function insertResource(tx: PoolClient, scope: { actorId: string; workspac
 
 export function createDemoExecutionScopeService(dependencies: DemoExecutionScopeDependencies) {
   if (dependencies.secret.length < 32) throw new Error('DEMO_CAPABILITY_SECRET_REQUIRED');
-  const now = dependencies.now ?? (() => new Date()), artifacts = createArtifactService(dependencies.pool);
+  const now = dependencies.now ?? (() => new Date()), artifacts = createArtifactService(dependencies.pool), artifactEvents = createWorkspaceEventFeed(dependencies.pool);
+  let exportsPromise: Promise<ExportService> | undefined;
+
+  function exportService() {
+    return exportsPromise ??= Promise.all([
+      import('@/features/exports/server/service'), import('@/features/exports/server/registry'), import('@/features/exports/server/documents'),
+      import('@/features/exports/server/sheets'), import('@/features/exports/server/designs'), import('@/features/operations/server/exports'),
+      import('@/features/operations/server/service'), import('@/features/operations/domain/model'),
+    ]).then(([service, registry, documents, sheets, designs, operations, operationService, operationModel]) => service.createExportService({
+      pool: dependencies.pool,
+      registry: new registry.ExportRegistry([documents.documentExportAdapter, sheets.sheetExportAdapter, designs.designExportAdapter, operations.operationsExportAdapter]),
+      resolvePlanResources: (tx, access, content) => operationService.resolvePlanExportResources(tx, access, operationModel.requirePlan(content)),
+      authorizePlanResources: operationService.authorizePlanExportResources,
+      assets: () => ({ image: async () => { throw new DemoExecutionError('DEMO_FORBIDDEN'); }, authorize: async () => { throw new DemoExecutionError('DEMO_FORBIDDEN'); } }),
+    }));
+  }
 
   async function lockScope(tx: PoolClient, sessionId: string, token: string, exclusive = false) {
     IdSchema.parse(sessionId); DemoCapabilityTokenSchema.parse(token);
@@ -98,7 +117,34 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
     return row;
   }
 
-  async function scopeSnapshot(scope: ScopeRow): Promise<DemoExecutionScope> {
+  async function assertOwnedArtifacts(tx: PoolClient, scope: ScopeRow, artifactIds: readonly string[]) {
+    const ids = [...new Set(artifactIds.map((id) => IdSchema.parse(id)))].sort();
+    if (!ids.length) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    const rows = (await tx.query<{ id: string }>('SELECT id FROM artifacts WHERE workspace_id=$1 AND project_id=$2 AND id=ANY($3::uuid[])', [scope.workspace_id, scope.project_id, ids])).rows;
+    if (rows.length !== ids.length) throw new DemoExecutionError('DEMO_FORBIDDEN');
+  }
+
+  async function currentInputRefs(tx: Pick<PoolClient, 'query'>, scope: ScopeRow) {
+    const artifactIds = scope.input_refs.filter((ref) => ref.kind === 'artifact').map((ref) => ref.id);
+    if (!artifactIds.length) return scope.input_refs;
+    const rows = (await tx.query<{ id: string; current_revision: number }>('SELECT id,current_revision FROM artifacts WHERE workspace_id=$1 AND project_id=$2 AND id=ANY($3::uuid[])', [scope.workspace_id, scope.project_id, artifactIds])).rows;
+    const revisions = new Map(rows.map((row) => [row.id, row.current_revision]));
+    if (revisions.size !== new Set(artifactIds).size) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return scope.input_refs.map((ref) => ref.kind === 'artifact' ? { ...ref, revision: revisions.get(ref.id)! } : ref);
+  }
+
+  async function refreshInputRefs(tx: PoolClient, scope: ScopeRow, bumpRevision: boolean) {
+    const inputRefs = await currentInputRefs(tx, scope);
+    const changed = hash(inputRefs) !== hash(scope.input_refs);
+    if (changed || bumpRevision) {
+      const row = (await tx.query<{ revision: number }>('UPDATE demo_execution_scopes SET input_refs=$2,revision=revision+$3,updated_at=now() WHERE id=$1 RETURNING revision', [scope.id, JSON.stringify(inputRefs), bumpRevision ? 1 : 0])).rows[0]!;
+      scope.input_refs = inputRefs; scope.revision = row.revision;
+    }
+    return inputRefs;
+  }
+
+  async function scopeSnapshot(scope: ScopeRow, tx: Pick<PoolClient, 'query'> = dependencies.pool): Promise<DemoExecutionScope> {
+    const inputRefs = await currentInputRefs(tx, scope);
     const rows = (await dependencies.pool.query<{ id: string }>('SELECT id FROM agent_runs WHERE workspace_id=$1 AND project_id=$2 AND created_by=$3 ORDER BY created_at,id LIMIT 21', [scope.workspace_id, scope.project_id, scope.actor_id])).rows;
     if (rows.length > 20) throw new DemoExecutionError('DEMO_LIMIT');
     const runs: Run[] = [];
@@ -107,7 +153,7 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
       const ref = { kind: item.kind, id: item.id, ...(item.revision === undefined ? {} : { revision: item.revision }) };
       return [`${item.kind}:${item.id}:${item.revision ?? ''}`, ref] as const;
     })).values()].slice(0, 40);
-    return DemoExecutionScopeSchema.parse({ sessionId: scope.id, expiresAt: scope.expires_at.toISOString(), revision: scope.revision, locale: scope.locale, actorId: scope.actor_id, workspaceId: scope.workspace_id, projectId: scope.project_id, inputRefs: scope.input_refs, results, runIds: runs.map((run) => run.id) });
+    return DemoExecutionScopeSchema.parse({ sessionId: scope.id, expiresAt: scope.expires_at.toISOString(), revision: scope.revision, locale: scope.locale, actorId: scope.actor_id, workspaceId: scope.workspace_id, projectId: scope.project_id, inputRefs, results, runIds: runs.map((run) => run.id) });
   }
 
   async function create(rawLocale: unknown, rawStartKey: string) {
@@ -118,32 +164,152 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
       if (prior) {
         if (prior.locale !== locale) throw new DemoExecutionError('DEMO_CONFLICT');
         if (prior.expires_at <= now()) throw new DemoExecutionError('DEMO_EXPIRED');
-        return DemoExecutionCreatedSchema.parse({ scope: await scopeSnapshot(prior), capabilityToken: token });
+        return DemoExecutionCreatedSchema.parse({ scope: await scopeSnapshot(prior, tx), capabilityToken: token });
       }
       const sessionId = randomUUID(), actorId = randomUUID(), workspaceId = randomUUID(), projectId = randomUUID(), membershipId = randomUUID();
       const cutter = randomUUID(), printer = randomUUID(), cutterAvailability = randomUUID(), printerAvailability = randomUUID();
       const seeded = seedContent(locale, { cutter, printer, cutterAvailability, printerAvailability }, now());
-      await tx.query('INSERT INTO identity_users(id,name,email,email_verified,locale) VALUES($1,$2,$3,true,$4)', [actorId, 'Tirlik Demo', `demo+${sessionId}@tirlik.invalid`, locale]);
+      await tx.query('INSERT INTO identity_users(id,name,email,email_verified,locale) VALUES($1,$2,$3,false,$4)', [actorId, 'Tirlik Demo', `demo+${sessionId}@tirlik.invalid`, locale]);
       await tx.query('INSERT INTO identity_workspaces(id,name,created_by) VALUES($1,$2,$3)', [workspaceId, 'Tirlik Demo', actorId]);
       await tx.query('INSERT INTO identity_memberships(id,workspace_id,user_id,role,scopes) VALUES($1,$2,$3,\'owner\',$4)', [membershipId, workspaceId, actorId, fullScopes]);
-      await tx.query('INSERT INTO projects(id,workspace_id,title,goal,created_by,creation_key,creation_body_hash) VALUES($1,$2,$3,$4,$5,$6,$7)', [projectId, workspaceId, 'Urgent café opening', 'Check deadline, capacity and economics before committing.', actorId, randomUUID(), digest(sessionId)]);
-      await insertResource(tx, { actorId, workspaceId }, { id: cutter, availabilityId: cutterAvailability, name: 'Layout and installation team', kind: 'person', effectiveFrom: seeded.effectiveFrom, effectiveTo: seeded.effectiveTo });
+      await tx.query('INSERT INTO projects(id,workspace_id,title,goal,created_by,creation_key,creation_body_hash) VALUES($1,$2,$3,$4,$5,$6,$7)', [projectId, workspaceId, 'Sary-Arqa Pharmacy #12 — urgent signage', 'Check the changed material constraint, deadline, capacity and economics before committing.', actorId, randomUUID(), digest(sessionId)]);
+      await insertResource(tx, { actorId, workspaceId }, { id: cutter, availabilityId: cutterAvailability, name: 'Prepress and installation team', kind: 'person', effectiveFrom: seeded.effectiveFrom, effectiveTo: seeded.effectiveTo });
       await insertResource(tx, { actorId, workspaceId }, { id: printer, availabilityId: printerAvailability, name: 'Wide-format printer', kind: 'equipment', effectiveFrom: seeded.effectiveFrom, effectiveTo: seeded.effectiveTo });
       const principal: IdentityPrincipal = { kind: 'job', userId: actorId, authzVersion: 1 };
-      const brief = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Café opening order and constraints', content: seeded.document, sourceRefs: [] });
-      const plan = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Current workload and urgent order', content: seeded.plan, sourceRefs: [] });
+      const brief = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Sary-Arqa #12 order, costs and supplier change', content: seeded.document, sourceRefs: [] });
+      const plan = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Arman Print weekly workload and urgent order', content: seeded.plan, sourceRefs: [] });
       const inputRefs = [{ kind: 'artifact' as const, id: brief.artifact.id, revision: brief.artifact.currentRevision }, { kind: 'artifact' as const, id: plan.artifact.id, revision: plan.artifact.currentRevision }];
       const expiresAt = new Date(now().getTime() + TTL_HOURS * 3_600_000);
       await tx.query(`INSERT INTO demo_execution_scopes(id,token_hash,start_key_hash,locale,actor_id,workspace_id,project_id,input_refs,expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [sessionId, digest(token), startKeyHash, locale, actorId, workspaceId, projectId, JSON.stringify(inputRefs), expiresAt]);
       const scope: ScopeRow = { id: sessionId, token_hash: digest(token), locale, actor_id: actorId, workspace_id: workspaceId, project_id: projectId, revision: 0, input_refs: inputRefs, expires_at: expiresAt };
-      return DemoExecutionCreatedSchema.parse({ scope: await scopeSnapshot(scope), capabilityToken: token });
+      return DemoExecutionCreatedSchema.parse({ scope: await scopeSnapshot(scope, tx), capabilityToken: token });
     });
   }
 
   async function read(sessionId: string, token: string) {
     const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
     return scopeSnapshot(scope);
+  }
+
+  async function artifactSnapshot(sessionId: string, token: string, artifactId: string) {
+    return identityTransaction(dependencies.pool, async (tx) => {
+      const scope = await lockScope(tx, sessionId, token);
+      await assertOwnedArtifacts(tx, scope, [artifactId]);
+      return artifacts.readInTransaction(tx, demoPrincipal(scope), { workspaceId: scope.workspace_id, artifactId, expectedProjectId: scope.project_id });
+    });
+  }
+
+  async function artifactAccess(sessionId: string, token: string, raw: unknown) {
+    const input = ArtifactAccessRequestSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token);
+      if (input.workspaceId !== value.workspace_id) throw new DemoExecutionError('DEMO_FORBIDDEN');
+      await assertOwnedArtifacts(tx, value, input.artifactIds);
+      return value;
+    });
+    return artifacts.access(demoPrincipal(scope), input);
+  }
+
+  async function artifactHistory(sessionId: string, token: string, artifactId: string) {
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token); await assertOwnedArtifacts(tx, value, [artifactId]); return value;
+    });
+    return artifacts.history(demoPrincipal(scope), { workspaceId: scope.workspace_id, artifactId, expectedProjectId: scope.project_id });
+  }
+
+  async function artifactVersions(sessionId: string, token: string, artifactId: string, beforeRevision?: number, limit?: number) {
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token); await assertOwnedArtifacts(tx, value, [artifactId]); return value;
+    });
+    return artifacts.versions(demoPrincipal(scope), { workspaceId: scope.workspace_id, artifactId, expectedProjectId: scope.project_id, beforeRevision, limit });
+  }
+
+  async function artifactVersion(sessionId: string, token: string, artifactId: string, revision: number) {
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token); await assertOwnedArtifacts(tx, value, [artifactId]); return value;
+    });
+    return artifacts.version(demoPrincipal(scope), { workspaceId: scope.workspace_id, artifactId, expectedProjectId: scope.project_id, revision });
+  }
+
+  async function workspaceEvents(sessionId: string, token: string, raw: unknown) {
+    const input = WorkspaceEventInputSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (input.workspaceId !== scope.workspace_id) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return artifactEvents(demoPrincipal(scope), input);
+  }
+
+  async function applyArtifactCommand(sessionId: string, token: string, raw: unknown) {
+    const input = ArtifactCommandRequestSchema.parse(raw);
+    return identityTransaction(dependencies.pool, async (tx) => {
+      const scope = await lockScope(tx, sessionId, token, true);
+      if (input.workspaceId !== scope.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+      await assertOwnedArtifacts(tx, scope, input.group.commands.map((command) => command.artifactId));
+      const receipt = await artifacts.applyInTransaction(tx, demoPrincipal(scope), input);
+      await refreshInputRefs(tx, scope, true);
+      return receipt;
+    });
+  }
+
+  async function artifactHistoryAction(sessionId: string, token: string, action: 'undo' | 'redo', raw: unknown) {
+    const input = ArtifactHistoryActionSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token);
+      if (input.workspaceId !== value.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+      await assertOwnedArtifacts(tx, value, Object.keys(input.expectedArtifactRevisions));
+      return value;
+    });
+    const receipt = await artifacts[action](demoPrincipal(scope), input);
+    await identityTransaction(dependencies.pool, async (tx) => {
+      const locked = await lockScope(tx, sessionId, token, true); await refreshInputRefs(tx, locked, true);
+    });
+    return receipt;
+  }
+
+  async function branchArtifact(sessionId: string, token: string, artifactId: string, raw: unknown, operationId: string) {
+    const input = BranchArtifactSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token);
+      if (input.workspaceId !== value.workspace_id || input.projectId !== value.project_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+      await assertOwnedArtifacts(tx, value, [artifactId]);
+      return value;
+    });
+    const result = await artifacts.branch(demoPrincipal(scope), IdSchema.parse(operationId), IdSchema.parse(artifactId), input);
+    await identityTransaction(dependencies.pool, async (tx) => {
+      const locked = await lockScope(tx, sessionId, token, true); await refreshInputRefs(tx, locked, true);
+    });
+    return result;
+  }
+
+  async function createExport(sessionId: string, token: string, raw: unknown, operationId: string) {
+    const input = CreateExportSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, async (tx) => {
+      const value = await lockScope(tx, sessionId, token);
+      if (input.workspaceId !== value.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+      await assertOwnedArtifacts(tx, value, input.items.map((item) => item.artifactId));
+      return value;
+    });
+    return (await exportService()).create(demoPrincipal(scope), IdSchema.parse(operationId), input);
+  }
+
+  async function readExport(sessionId: string, token: string, exportId: string) {
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    return (await exportService()).read(demoPrincipal(scope), scope.workspace_id, IdSchema.parse(exportId));
+  }
+
+  async function renderExport(sessionId: string, token: string, exportId: string, signal?: AbortSignal) {
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    return (await exportService()).render(demoPrincipal(scope), scope.workspace_id, IdSchema.parse(exportId), 1, signal);
+  }
+
+  async function downloadExport(sessionId: string, token: string, exportId: string, fileId: string) {
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    return (await exportService()).download(demoPrincipal(scope), scope.workspace_id, IdSchema.parse(exportId), IdSchema.parse(fileId));
+  }
+
+  async function downloadExportBundle(sessionId: string, token: string, exportId: string) {
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    return (await exportService()).downloadBundle(demoPrincipal(scope), scope.workspace_id, IdSchema.parse(exportId));
   }
 
   async function operationReceipt<T>(tx: PoolClient, scope: ScopeRow, kind: 'run' | 'copy' | 'resume', key: string, body: unknown, parse: (value: unknown) => T) {
@@ -159,6 +325,7 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
     const result = await identityTransaction(dependencies.pool, async (tx) => {
       const scope = await lockScope(tx, sessionId, token, true), receipt = await operationReceipt(tx, scope, 'run', key, input, (value) => RunSchema.pick({ id: true, cursor: true }).parse(value));
       if (receipt.result) return receipt.result;
+      await refreshInputRefs(tx, scope, false);
       if (scope.revision !== input.expectedRevision) throw new DemoExecutionError('DEMO_CONFLICT');
       if (hash(input.inputRefs) !== hash(scope.input_refs)) throw new DemoExecutionError('DEMO_FORBIDDEN');
       const count = (await tx.query<{ count: number }>('SELECT count(*)::int AS count FROM agent_runs WHERE workspace_id=$1 AND created_by=$2', [scope.workspace_id, scope.actor_id])).rows[0]!.count;
@@ -212,7 +379,7 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
       const output = await withWorkspaceAccessInTransaction(tx, destinationPrincipal, { workspaceId: input.destinationWorkspaceId, scope: 'edit' }, async (transaction, access) => {
         if (!hasScope(access.membership, 'edit')) throw new DemoExecutionError('DEMO_FORBIDDEN');
         const projectId = randomUUID();
-        await transaction.query('INSERT INTO projects(id,workspace_id,title,goal,created_by,creation_key,creation_body_hash) VALUES($1,$2,$3,$4,$5,$6,$7)', [projectId, input.destinationWorkspaceId, 'Café opening decision', 'Copied from the isolated Tirlik example after explicit confirmation.', access.userId, randomUUID(), digest(`${scope.id}:${key}`)]);
+        await transaction.query('INSERT INTO projects(id,workspace_id,title,goal,created_by,creation_key,creation_body_hash) VALUES($1,$2,$3,$4,$5,$6,$7)', [projectId, input.destinationWorkspaceId, 'Sary-Arqa #12 signage decision', 'Copied from the isolated Tirlik synthetic example after explicit confirmation.', access.userId, randomUUID(), digest(`${scope.id}:${key}`)]);
         const copied: { id: string; revision: number }[] = [];
         for (const [index, artifactId] of input.artifactIds.entries()) {
           const source = await artifacts.readInTransaction(transaction, demoPrincipal(scope), { workspaceId: scope.workspace_id, artifactId, expectedProjectId: scope.project_id });
@@ -227,7 +394,7 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
     });
   }
 
-  return { create, read, createRun, readRun, resumeRun, events, copy };
+  return { create, read, artifactAccess, artifactSnapshot, artifactHistory, artifactVersions, artifactVersion, workspaceEvents, applyArtifactCommand, artifactHistoryAction, branchArtifact, createExport, readExport, renderExport, downloadExport, downloadExportBundle, createRun, readRun, resumeRun, events, copy };
 }
 
 function derivedId(key: string, index: number) {

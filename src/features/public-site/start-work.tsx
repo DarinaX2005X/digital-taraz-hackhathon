@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { Button, TextareaField } from '@/ui';
-import { identityClient } from '@/features/identity/ui';
+import { identityClient } from '@/features/identity/ui/transport';
 import { publicWorkDestination } from './entry';
 import type { PublicCopy } from './copy';
 import styles from './public-site.module.css';

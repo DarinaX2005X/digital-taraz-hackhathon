@@ -29,10 +29,6 @@ export const identityVerifications = pgTable('identity_verifications', {
   id: uuid('id').primaryKey(), identifier: text('identifier').notNull().unique('identity_verifications_identifier_key'), value: text('value').notNull(), expiresAt: instant('expires_at').notNull(),
   createdAt: instant('created_at').notNull().defaultNow(), updatedAt: instant('updated_at').notNull().defaultNow(),
 });
-export const identityEmailTokens = pgTable('identity_email_tokens', {
-  tokenHash: text('token_hash').primaryKey(), userId: uuid('user_id').notNull(),
-  expiresAt: instant('expires_at').notNull(), consumedAt: instant('consumed_at'),
-}, (table) => [index('identity_email_tokens_expiry_idx').on(table.expiresAt), check('identity_email_tokens_token_hash_check', sql`${table.tokenHash} ~ '^[a-f0-9]{64}$'`)]);
 export const identityIntents = pgTable('identity_intents', {
   tokenHash: text('token_hash').primaryKey(), browserHash: text('browser_hash').notNull(), goal: text('goal').notNull(), returnTo: text('return_to').notNull(),
   idempotencyHash: text('idempotency_hash').notNull().unique('identity_intents_idempotency_hash_key'), bodyHash: text('body_hash').notNull(),

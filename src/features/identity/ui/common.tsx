@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, LogIn, Mail, ShieldCheck, Users, UserRound } from "lucide-react";
 import { useId, useState, type InputHTMLAttributes, type ReactNode, type Ref } from "react";
-import { Button, IconButton, LoadingState, LocaleSelect, ProductHeader } from "@/ui";
+import { Button, IconButton, LoadingState, ProductHeader } from "@/ui";
 import { FieldLabel, FieldMessages, fieldDescriptionIds } from "@/ui/field";
 import { useIdentityTranslations } from "./hooks";
 import type { IdentityFailure } from "./transport";
@@ -20,7 +20,7 @@ export function IdentityFrame({ title, description, children, headerActions }: {
   const t = useIdentityTranslations();
   const { locale } = useLocale();
   return <div className={styles.page}>
-    <ProductHeader wide homeLabel={t("identity.navigation.home")} homeHref={`/${locale}`}><LocaleSelect compact />{headerActions}</ProductHeader>
+    <ProductHeader wide homeLabel={t("identity.navigation.home")} homeHref={`/${locale}`}>{headerActions}</ProductHeader>
     <main className={styles.authMain}>
       <aside className={styles.authStory} aria-labelledby="auth-story-title">
         <div className={styles.authStoryText}><h2 id="auth-story-title">{t("identity.frame.title")}</h2><p>{t("identity.frame.description")}</p></div>

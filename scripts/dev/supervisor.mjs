@@ -17,7 +17,7 @@ let persistence = Promise.resolve();
 let authorized = false;
 const startup = new AbortController();
 
-const publicState = () => ({ projectId: record.projectId, instanceId: record.instanceId, status: record.status, appPort: record.appPort, supervisorPid: record.supervisorPid, appPid: record.appPid });
+const publicState = () => ({ projectId: record.projectId, instanceId: record.instanceId, status: record.status, mode: record.mode, buildId: record.buildId, appPort: record.appPort, supervisorPid: record.supervisorPid, appPid: record.appPid });
 const persist = (patch) => {
   Object.assign(record, patch);
   const snapshot = { ...record };
@@ -36,7 +36,8 @@ try {
   const identity = await projectIdentity(root);
   record = await readRuntime(identity.root, identity.id);
   if (!record || record.status !== "starting" || record.supervisorPid !== null || record.controlPort !== null
-    || record.instanceId !== process.env.TIRLIK_DEV_INSTANCE || record.token !== process.env.TIRLIK_DEV_TOKEN) {
+    || record.instanceId !== process.env.TIRLIK_DEV_INSTANCE || record.token !== process.env.TIRLIK_DEV_TOKEN
+    || process.env.NODE_ENV !== record.mode || process.env.NEXT_DIST_DIR !== record.distDir) {
     throw new CliError("SUPERVISOR_IDENTITY_INVALID", "The supervisor was not launched by this checkout's start command.", "Use node scripts/dev/start.mjs.");
   }
   authorized = true;
@@ -44,7 +45,7 @@ try {
   const env = { ...process.env };
   delete env.TIRLIK_DEV_TOKEN;
   delete env.TIRLIK_DEV_INSTANCE;
-  launching = startAppProcess(root, { port: record.appPort, env, logFile: path.join(runtimePaths(root).directory, `app-${record.instanceId}.log`) });
+  launching = startAppProcess(root, { port: record.appPort, env, mode: record.mode, logFile: path.join(runtimePaths(root).directory, `app-${record.instanceId}.log`) });
   control = http.createServer({ maxHeaderSize: 8192 }, (request, response) => {
     const authorization = Buffer.from(request.headers.authorization ?? "");
     if (request.headers.origin || request.socket.remoteAddress !== "127.0.0.1" || authorization.length !== expected.length || !timingSafeEqual(authorization, expected)) {

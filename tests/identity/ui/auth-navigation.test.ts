@@ -14,7 +14,7 @@ describe('same-surface account recovery', () => {
     const token = 'a'.repeat(64);
     const destination = accountAuthDestination('/app/work', `?intent=${token}&goal=private`);
     expect(destination).toEqual({ returnTo: `/app/work?intent=${token}`, stay: true });
-    for (const path of ['/auth/reset', '/auth/verify', '/sign-up'] as const) {
+    for (const path of ['/auth/reset', '/sign-up'] as const) {
       const url = new URL(authHref(path, destination), 'https://tirlik.invalid');
       expect(url.searchParams.get('returnTo')).toBe(`/app/work?intent=${token}`);
       expect(url.href).not.toContain('private');

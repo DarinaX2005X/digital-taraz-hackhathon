@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 let pool: Pool;
 let origin: string;
 const invitePath = `/settings/invitations/${'a'.repeat(64)}`;
-const publicPaths = ['/', '/sign-in', '/sign-up', '/auth', '/auth/verify', '/auth/reset', '/app/profile', '/settings', '/settings/team', invitePath];
+const publicPaths = ['/', '/sign-in', '/sign-up', '/auth', '/auth/reset', '/app/profile', '/settings', '/settings/team', invitePath];
 
 function request(path: string, language?: string) {
   return fetch(`${origin}${path}`, {

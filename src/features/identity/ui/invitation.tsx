@@ -7,7 +7,7 @@ import { Button, LoadingState } from "@/ui";
 import { useLocale } from "@/i18n/provider";
 import { formatInstant } from "@/i18n/format";
 import { InvitationTokenSchema, type IdentityUser, type InvitationPreview, type WorkspaceMembership } from "../contracts";
-import { authHref, IdentityFrame, OperationError, SuccessNotice } from "./common";
+import { IdentityFrame, OperationError, SuccessNotice } from "./common";
 import { AuthDialog } from "./credentials";
 import { SignOutDialog } from "./account-menu";
 import { useIdentityGuard, useIdentityOperation, useIdentityTranslations } from "./hooks";
@@ -28,12 +28,11 @@ function InvitationContent({ token, user, onSignIn, onSwitchAccount }: { token: 
   const { run, cancel } = preview;
   const userId = user.id;
   const valid = InvitationTokenSchema.safeParse(token).success;
-  const returnTo = `/settings/invitations/${token}`;
   const load = useCallback(() => {
     cancel();
     return run((signal) => guard(signal, () => identityClient.invitation(token, { signal, expectedUserId: userId })));
   }, [cancel, run, token, userId, guard]);
-  useEffect(() => { if (valid && user.emailVerified) void load(); return cancel; }, [valid, user.emailVerified, load, cancel]);
+  useEffect(() => { if (valid) void load(); return cancel; }, [valid, load, cancel]);
   async function join() {
     const result = await accept.run((signal) => guard(signal, async () => {
       const key = await intent.keyFor({ userId, action: "accept-invitation", token }, signal);
@@ -48,7 +47,7 @@ function InvitationContent({ token, user, onSignIn, onSwitchAccount }: { token: 
   const unavailable = !valid || preview.failure?.status === 404 || accept.failure?.status === 404;
   return <div className={styles.stack}>
     <div><p className={styles.meta}>{t("identity.workspace.currentAccount")}</p><PersonIdentity name={user.name} email={user.email} /></div>
-    {!user.emailVerified ? <><p>{t("identity.invitation.verify")}</p><Link href={authHref("/auth/verify", { returnTo })} className={styles.textLink}>{t("identity.verification.resend")}</Link></> : unavailable ? <><p role="alert">{t("identity.invitation.unavailable")}</p><p className={styles.muted}>{t("identity.invitation.requestAnother")}</p></> : <>
+    {unavailable ? <><p role="alert">{t("identity.invitation.unavailable")}</p><p className={styles.muted}>{t("identity.invitation.requestAnother")}</p></> : <>
       {preview.pending && <LoadingState label={t("identity.invitation.loading")} />}
       <OperationError failure={preview.failure} />
       {preview.failure?.status === 401 ? <Button icon={LogIn} onClick={onSignIn}>{t("identity.navigation.signIn")}</Button> : preview.failure && <Button icon={RefreshCw} onClick={() => { void load(); }}>{t("identity.invitation.retry")}</Button>}

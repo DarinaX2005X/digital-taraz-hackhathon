@@ -192,7 +192,7 @@ describe('transactional runtime service', () => {
   it('serves authenticated idempotent run commands and actor-fenced read endpoints', async () => {
     const owner = await scope();
     const tools = registry(); const service = createRunService(pool, tools); const wake = vi.fn().mockResolvedValue(undefined);
-    const handle = createRunHandlers({ pool, service, registry: tools, wake, origin: 'http://localhost:3000', getActor: async () => ({ user: { id: owner.userId, name: 'Synthetic', email: 'synthetic@example.invalid', emailVerified: true, locale: 'en' }, session: { id: owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
+    const handle = createRunHandlers({ pool, service, registry: tools, wake, origin: 'http://localhost:3000', getActor: async () => ({ user: { id: owner.userId, name: 'Synthetic', email: 'synthetic@example.invalid', locale: 'en' }, session: { id: owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
     const input = { workspaceId: owner.workspaceId, projectId: null, capabilityId: 'runtime.synthetic', capabilityVersion: 1, goal: 'Synthetic API proof', locale: 'en', inputRefs: [] };
     const key = randomUUID();
     const request = (path: string, method = 'GET', body?: unknown, origin = 'http://localhost:3000', userId = owner.userId) => new Request(`http://localhost:3000/api/runs${path}`, { method, headers: { origin, 'X-Tirlik-User-Id': userId, 'Content-Type': 'application/json', 'Idempotency-Key': key }, ...(body ? { body: JSON.stringify(body) } : {}) });

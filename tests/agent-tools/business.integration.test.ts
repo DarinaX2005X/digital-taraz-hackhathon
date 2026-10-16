@@ -96,7 +96,7 @@ async function setup(options: SetupOptions = {}) {
   const complete = vi.fn(options.gateway ?? createDecisionGateway());
   const registration = businessRegistration(pool, { gateway: { complete }, extensions: [fixtureOperationsExtension], ...(options.failLinks ? { registerOfferLinks: async () => { throw new Error('SYNTHETIC_AFTER_ARTIFACTS_BEFORE_RECEIPT'); } } : {}) });
   const registry = createRunRegistry([registration.capability], registration.tools), service = createRunService(pool, registry);
-  const handle = createRunHandlers({ pool, service, registry, origin: 'http://localhost:3000', wake: async () => undefined, getActor: async () => ({ user: { id: fixture.owner.userId, name: 'Synthetic owner', email: 'synthetic@example.test', emailVerified: true, locale: 'en' }, session: { id: fixture.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
+  const handle = createRunHandlers({ pool, service, registry, origin: 'http://localhost:3000', wake: async () => undefined, getActor: async () => ({ user: { id: fixture.owner.userId, name: 'Synthetic owner', email: 'synthetic@example.test', locale: 'en' }, session: { id: fixture.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
   const request = (suffix: string, body?: unknown, key = randomUUID()) => handle(new Request(`http://localhost:3000/api/runs${suffix}`, { method: body ? 'POST' : 'GET', headers: { origin: 'http://localhost:3000', 'X-Tirlik-User-Id': fixture.owner.userId, 'Idempotency-Key': key, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) }));
   const drain = async (runId: string) => {
     const claim = await service.claim(); expect(claim?.runId).toBe(runId);

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler } from "react";
-import { ArrowLeft, ArrowRight, Check, FileText, FolderOpen, History, ImageIcon, PencilLine, ShieldCheck, Table2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileText, Film, FolderOpen, History, ImageIcon, PencilLine, Presentation, ShieldCheck, Sparkles, Table2 } from "lucide-react";
 import type { Locale } from "@/i18n";
 import { useLocale } from "@/i18n/provider";
 import { LocaleSelect, ProductHeader } from "@/ui";
@@ -15,7 +15,7 @@ import { StartWork } from './start-work';
 import { ConnectedMaterialsScene } from './connected-materials-scene';
 import { DecisionProof } from './decision-proof';
 import { HeroWorkflowScene } from './hero-workflow-scene';
-import { identityClient } from '@/features/identity/ui';
+import { identityClient } from '@/features/identity/ui/transport';
 import { authHref } from '@/features/identity/ui/navigation';
 import styles from "./public-site.module.css";
 
@@ -71,15 +71,21 @@ function HomeContent({ copy, locale, signedIn, onDraftChange }: { copy: PublicCo
         <h1 id="tirlik-title">{copy.heroTitle}</h1>
         <p className={styles.heroDescription}>{copy.description}</p>
         <div className={styles.heroActions}>
-          <a href="#start" className="tl-button tl-button--primary">{copy.ownTaskAction}<ArrowRight size={19} aria-hidden="true" /></a>
-          <Link href={`/${locale}/demo`} className="tl-button tl-button--secondary">{copy.tryDemo}<ArrowRight size={18} aria-hidden="true" /></Link>
           {signedIn
-            ? <Link href="/app/work" className={styles.explore}>{copy.resumeWork}<ArrowRight size={18} aria-hidden="true" /></Link>
-            : <a href="#process" className={styles.explore}>{copy.processAction}<ArrowRight size={18} aria-hidden="true" /></a>}
+            ? <Link href="/app/work" className="tl-button tl-button--primary">{copy.cabinet}<ArrowRight size={19} aria-hidden="true" /></Link>
+            : <a href="#start" className="tl-button tl-button--primary">{copy.ownTaskAction}<ArrowRight size={19} aria-hidden="true" /></a>}
+          <div className={styles.mediaActions}>
+            <button type="button" className="tl-button tl-button--secondary" disabled title={copy.mediaPending}><Film size={19} aria-hidden="true" />{copy.watchDemo}</button>
+            <button type="button" className="tl-button tl-button--secondary" disabled title={copy.mediaPending}><Presentation size={19} aria-hidden="true" />{copy.presentation}</button>
+          </div>
         </div>
-        <p className={styles.demoHint}>{copy.demoHint}</p>
       </div>
       <HeroWorkflowScene copy={copy} />
+    </section>
+    <section className={styles.exampleBand} aria-labelledby="example-title">
+      <div className={styles.exampleIllustration} aria-hidden="true"><Sparkles size={26} /><span /><span /><span /></div>
+      <div><h2 id="example-title">{copy.exampleTitle}</h2><p>{copy.exampleBody}</p></div>
+      <Link href={`/${locale}/demo`} className="tl-button tl-button--primary">{copy.exampleAction}<ArrowRight size={19} aria-hidden="true" /></Link>
     </section>
     <DecisionProof copy={copy} />
     <StartWork copy={copy} signedIn={signedIn} scenarioGoal={scenarioGoal} onDraftChange={onDraftChange} />
@@ -100,7 +106,7 @@ function HomeContent({ copy, locale, signedIn, onDraftChange }: { copy: PublicCo
 }
 
 function InformationContent({ copy, locale, view }: { copy: PublicCopy; locale: Locale; view: Exclude<PublicView, "home"> }) {
-  const links = { signup: "/sign-up", verify: "/auth/verify", reset: "/auth/reset", team: "/settings/team", tour: '/settings#tour' };
+  const links = { signup: "/sign-up", reset: "/auth/reset", team: "/settings/team", tour: '/settings#tour' };
   return <main id="public-main" className={styles.information}>
     <Link className={styles.back} href={`/${locale}`}><ArrowLeft size={18} aria-hidden="true" />{copy.back}</Link>
     <h1>{view === "help" ? copy.helpTitle : copy.privacyTitle}</h1>

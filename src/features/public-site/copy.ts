@@ -1,11 +1,12 @@
 import type { Locale } from "@/i18n";
 
-type InformationSection = { title: string; text: string; link?: "signup" | "verify" | "reset" | "team" | 'tour'; action?: string };
+type InformationSection = { title: string; text: string; link?: "signup" | "reset" | "team" | 'tour'; action?: string };
 
 export type PublicCopy = {
   mechanismIllustration: string; mechanismSource: string; mechanismResult: string;
   ownTaskTitle: string; ownTaskDescription: string; ownTaskLabel: string; ownTaskPlaceholder: string; ownTaskAction: string; ownTaskError: string; ownTaskAccount: string; ownTaskSignedIn: string; useScenario: string;
-  tryDemo: string; demoHint: string;
+  cabinet: string; watchDemo: string; presentation: string; mediaPending: string;
+  exampleTitle: string; exampleBody: string; exampleAction: string;
   heroTitle: string; description: string; heroPath: string; processAction: string; resumeWork: string; home: string; scenarios: string; process: string;
   start: string; signIn: string; account: string; work: string; explore: string; language: string;
   illustration: string; introTitle: string; intro: string;
@@ -26,7 +27,8 @@ export type PublicCopy = {
 };
 
 const ru: PublicCopy = {
-  tryDemo: 'Попробовать на срочном заказе', demoHint: 'Две минуты: заказ, занятая неделя, проверка срока и полезный комплект материалов.',
+  cabinet: 'Мой кабинет', watchDemo: 'Смотреть демо', presentation: 'Презентация', mediaPending: 'Материал появится здесь после финальной подготовки',
+  exampleTitle: 'Попробуйте Tirlik на готовом рабочем примере', exampleBody: 'В демо-пространстве уже есть запрос заказчика, прайс, текущая загрузка и ограничения. Пройдите тот же путь, что в своей работе: проверьте заказ, выберите решение и получите редактируемые материалы.', exampleAction: 'Попробовать на примере',
   mechanismIllustration: 'После решения смета, предложение и план остаются связанными живыми материалами.', mechanismSource: 'Новая цена или условие', mechanismResult: 'Показаны только затронутые изменения',
   ownTaskTitle: 'Поставьте реальную задачу', ownTaskDescription: 'Опишите цель своими словами. В рабочей сессии можно добавить запрос, прайс, правила расчёта и данные о загрузке.',
   ownTaskLabel: 'Что нужно решить?', ownTaskPlaceholder: 'Проверь, сможем ли мы выполнить этот заказ к открытию без убыточных условий, и подготовь ответ.', ownTaskAction: 'Начать задачу', ownTaskError: 'Не удалось продолжить. Ваш текст остался здесь. Попробуйте ещё раз.', ownTaskAccount: 'После входа эта цель откроется в рабочей сессии и не потеряется.', ownTaskSignedIn: 'Выберите рабочее пространство и добавьте материалы.', useScenario: 'Начать такую задачу',
@@ -81,8 +83,7 @@ const ru: PublicCopy = {
   helpTitle: "Как начать работу", helpIntro: "От деловой цели и своих материалов к решению, живым результатам и возврату к сохранённой работе.",
   helpSections: [
     { title: 'Первый результат', text: 'Начните с цели и добавьте только нужные материалы. Проверьте план AI, ответьте на существенный вопрос и примите решение. После этого смета, документ или план откроются для прямой правки и экспорта. Обучение можно пропустить и повторить.', link: 'tour', action: 'Открыть обучение' },
-    { title: "Создание аккаунта", text: "Укажите имя, электронную почту и пароль. Затем откройте письмо и подтвердите адрес, чтобы перейти к работе.", link: "signup", action: "Создать аккаунт" },
-    { title: "Письмо не пришло", text: "Проверьте адрес и папку со спамом, затем запросите новое письмо. Используйте ссылку из последнего полученного письма.", link: "verify", action: "Запросить письмо" },
+    { title: "Создание аккаунта", text: "Укажите имя, электронную почту и пароль — после регистрации можно сразу перейти к работе.", link: "signup", action: "Создать аккаунт" },
     { title: "Забыли пароль", text: "Запросите ссылку на адрес, с которым создавали аккаунт. После смены пароля нужно войти снова; остальные сеансы завершатся.", link: "reset", action: "Восстановить доступ" },
     { title: "Работа с коллегами", text: "В разделе команды можно создать пространство, пригласить коллегу и определить его права. Приглашённый человек получает доступ после принятия приглашения.", link: "team", action: "Перейти к команде" },
     { title: "Сеанс завершился", text: "Войдите снова в тот же аккаунт и явно продолжите работу. Проверьте сохранившийся ввод перед повторной отправкой. Пароли и подтверждения опасных действий не восстанавливаются." },
@@ -91,7 +92,7 @@ const ru: PublicCopy = {
   privacySections: [
     { title: "Данные аккаунта", text: "Tirlik хранит имя, адрес электронной почты, выбранный язык, сведения о сеансах и участие в командах. Пароль используется для входа и хранится в виде криптографического хеша." },
     { title: "Доступ к рабочим материалам", text: "Доступ определяется участием в пространстве и назначенными правами. Публичная главная не открывает личные материалы. Выход из аккаунта закрывает текущий сеанс." },
-    { title: "Письма аккаунта", text: "Электронная почта используется для подтверждения адреса, восстановления доступа и приглашений в команду. Не передавайте ссылки для входа и восстановления другим людям." },
+    { title: "Письма аккаунта", text: "Электронная почта используется для восстановления доступа и приглашений в команду. Не передавайте другим людям ссылки для восстановления и приглашения." },
     { title: "ИИ и внешние сервисы", text: "Для выполнения задачи выбранные материалы могут передаваться внешнему провайдеру ИИ. Добавляйте только те данные, которые вы вправе использовать и передавать для обработки." },
     { title: "Управление аккаунтом", text: "В настройках доступны смена пароля, завершение сеансов и удаление аккаунта. Если вы владеете пространством, сначала нужно решить, кому передать владение или какие данные удалить. Последствия показываются перед подтверждением." },
     { title: "Совместная работа", text: "Проверяйте состав команды и права участников, прежде чем добавлять рабочие материалы. Владелец пространства управляет приглашениями, ролями и доступом коллег." },
@@ -99,7 +100,8 @@ const ru: PublicCopy = {
 };
 
 const en: PublicCopy = {
-  tryDemo: 'Try the urgent-order example', demoHint: 'Two minutes: an order, a busy week, a deadline check and useful work materials.',
+  cabinet: 'My workspace', watchDemo: 'Watch demo', presentation: 'Presentation', mediaPending: 'This material will appear after final production',
+  exampleTitle: 'Try Tirlik in a prepared workspace', exampleBody: 'The demo workspace already contains a customer request, pricing, current capacity and constraints. Follow the same path as your own work: check the order, choose a decision and receive editable materials.', exampleAction: 'Try the example',
   mechanismIllustration: 'After the decision, the estimate, proposal and work plan remain connected live materials.', mechanismSource: 'A new price or condition', mechanismResult: 'Only affected changes are proposed',
   ownTaskTitle: 'Bring a real business decision', ownTaskDescription: 'Describe the goal in your own words. In the work session, add the request, price list, calculation rules and current capacity.',
   ownTaskLabel: 'What do you need to decide?', ownTaskPlaceholder: 'Check whether we can complete this order by opening day without unprofitable terms, and prepare a response.', ownTaskAction: 'Start a task', ownTaskError: 'Could not continue. Your text is still here. Please try again.', ownTaskAccount: 'After sign-in, this goal opens in your work session and is not lost.', ownTaskSignedIn: 'Choose a workspace and add your materials.', useScenario: 'Start this kind of task',
@@ -152,8 +154,7 @@ const en: PublicCopy = {
   helpTitle: "How to start working", helpIntro: "From a business goal and your own materials to a decision, live results and a saved work session.",
   helpSections: [
     { title: 'Your first result', text: 'Start with a goal and only the materials it needs. Review the AI plan, answer a consequential question and make the decision. The estimate, document or plan then opens for direct editing and export. Skip the guidance or replay it later.', link: 'tour', action: 'Open getting started' },
-    { title: "Create an account", text: "Enter your name, email and password. Open the email and verify your address to start working.", link: "signup", action: "Create an account" },
-    { title: "An email has not arrived", text: "Check the address and spam folder, then request a new email. Use the link in the most recent message.", link: "verify", action: "Request an email" },
+    { title: "Create an account", text: "Enter your name, email and password, then start working immediately.", link: "signup", action: "Create an account" },
     { title: "Forgotten password", text: "Request a link for the email used to create your account. After changing your password, sign in again. Other sessions will end.", link: "reset", action: "Recover access" },
     { title: "Work with colleagues", text: "Create a space in the team section, invite a colleague and choose their permissions. They gain access after accepting the invitation.", link: "team", action: "Open team" },
     { title: "Your session ended", text: "Sign in to the same account and explicitly resume your work. Review retained input before submitting again. Passwords and confirmations for dangerous actions are not restored." },
@@ -162,7 +163,7 @@ const en: PublicCopy = {
   privacySections: [
     { title: "Account data", text: "Tirlik stores your name, email address, language preference, session details and team memberships. Your password is used for authentication and stored as a cryptographic hash." },
     { title: "Access to work materials", text: "Space membership and assigned permissions determine access. The public website does not expose private materials. Signing out ends the current session." },
-    { title: "Account emails", text: "Your email is used to verify your address, recover access and receive team invitations. Do not share sign-in or recovery links with anyone else." },
+    { title: "Account emails", text: "Your email is used to recover access and receive team invitations. Do not share recovery or invitation links with anyone else." },
     { title: "AI and external services", text: "Selected materials may be sent to an external AI provider to complete a task. Only add data you have permission to use and share for processing." },
     { title: "Manage your account", text: "Settings let you change your password, end sessions and delete your account. Space owners must first decide whether to transfer ownership or delete the relevant data. Consequences are shown before confirmation." },
     { title: "Working together", text: "Review team membership and permissions before adding work materials. The space owner manages invitations, roles and colleagues’ access." },
@@ -170,7 +171,8 @@ const en: PublicCopy = {
 };
 
 const kk: PublicCopy = {
-  tryDemo: 'Шұғыл тапсырыс мысалын көру', demoHint: 'Екі минут: тапсырыс, жүктемесі көп апта, мерзімді тексеру және пайдалы жұмыс материалдары.',
+  cabinet: 'Менің кабинетім', watchDemo: 'Демоны көру', presentation: 'Презентация', mediaPending: 'Материал финалдық дайындықтан кейін осында шығады',
+  exampleTitle: 'Tirlik-ті дайын жұмыс мысалында көріңіз', exampleBody: 'Демо кеңістігінде клиент сұрауы, бағалар, ағымдағы жүктеме және шектеулер дайын. Өз жұмысыңыздағыдай жолдан өтіңіз: тапсырысты тексеріп, шешім таңдап, өңделетін материалдарды алыңыз.', exampleAction: 'Мысалда байқап көру',
   mechanismIllustration: 'Шешімнен кейін смета, ұсыныс және жұмыс жоспары өзара байланысқан жанды материалдар болып қалады.', mechanismSource: 'Жаңа баға немесе шарт', mechanismResult: 'Тек өзгерген бөліктер ұсынылады',
   ownTaskTitle: 'Нақты бизнес шешімін қойыңыз', ownTaskDescription: 'Мақсатты өз сөзіңізбен жазыңыз. Жұмыс сеансында сұрауды, бағаларды, есептеу ережелерін және ағымдағы жүктемені қосуға болады.',
   ownTaskLabel: 'Қандай шешім қабылдау керек?', ownTaskPlaceholder: 'Бұл тапсырысты ашылу күніне дейін тиімсіз шарттарсыз орындай аламыз ба, тексеріп, жауап дайында.', ownTaskAction: 'Тапсырманы бастау', ownTaskError: 'Жалғастыру мүмкін болмады. Мәтініңіз осында қалды. Қайталап көріңіз.', ownTaskAccount: 'Кіргеннен кейін бұл мақсат жұмыс сеансында ашылып, жоғалмайды.', ownTaskSignedIn: 'Жұмыс кеңістігін таңдап, материалдарыңызды қосыңыз.', useScenario: 'Осындай тапсырманы бастау',
@@ -221,8 +223,7 @@ const kk: PublicCopy = {
   helpTitle: "Жұмысты қалай бастауға болады", helpIntro: "Бизнес мақсаты мен өз материалдарыңыздан шешімге, жанды нәтижелерге және сақталған сеансқа дейін.",
   helpSections: [
     { title: 'Алғашқы нәтиже', text: 'Мақсаттан бастап, қажетті материалдарды ғана қосыңыз. AI жоспарын тексеріп, маңызды сұраққа жауап беріңіз және шешім қабылдаңыз. Содан кейін смета, құжат немесе жоспар тікелей өңдеу мен экспортқа ашылады. Нұсқаулықты өткізіп жіберуге немесе кейін қайталауға болады.', link: 'tour', action: 'Бастау нұсқаулығын ашу' },
-    { title: "Аккаунт ашу", text: "Атыңызды, электрондық поштаңызды және құпиясөзді енгізіңіз. Жұмысты бастау үшін хатты ашып, мекенжайды растаңыз.", link: "signup", action: "Аккаунт ашу" },
-    { title: "Хат келмеді", text: "Мекенжай мен спам бумасын тексеріп, жаңа хат сұраңыз. Соңғы келген хаттағы сілтемені пайдаланыңыз.", link: "verify", action: "Хат сұрау" },
+    { title: "Аккаунт ашу", text: "Атыңызды, электрондық поштаңызды және құпиясөзді енгізіп, бірден жұмысты бастаңыз.", link: "signup", action: "Аккаунт ашу" },
     { title: "Құпиясөз ұмытылды", text: "Аккаунт ашқан поштаңызға сілтеме сұраңыз. Құпиясөз өзгергеннен кейін қайта кіру керек. Басқа сеанстар аяқталады.", link: "reset", action: "Кіруді қалпына келтіру" },
     { title: "Әріптестермен жұмыс", text: "Команда бөлімінде кеңістік ашып, әріптесті шақырыңыз және рұқсаттарын таңдаңыз. Шақыруды қабылдағаннан кейін оған қолжетімділік беріледі.", link: "team", action: "Командаға өту" },
     { title: "Сеанс аяқталды", text: "Сол аккаунтқа қайта кіріп, жұмысты жалғастыруды таңдаңыз. Қайта жібермес бұрын сақталған енгізуді тексеріңіз. Құпиясөздер мен қауіпті әрекеттерді растау қалпына келтірілмейді." },
@@ -231,7 +232,7 @@ const kk: PublicCopy = {
   privacySections: [
     { title: "Аккаунт деректері", text: "Tirlik атыңызды, пошта мекенжайын, таңдаған тілді, сеанс мәліметтерін және команда мүшелігін сақтайды. Құпиясөз кіру үшін қолданылады және криптографиялық хеш түрінде сақталады." },
     { title: "Жұмыс материалдарына қолжетімділік", text: "Қолжетімділік кеңістік мүшелігі мен тағайындалған рұқсаттарға байланысты. Басты бет жеке материалдарды ашпайды. Аккаунттан шығу ағымдағы сеансты аяқтайды." },
-    { title: "Аккаунт хаттары", text: "Пошта мекенжайды растау, кіруді қалпына келтіру және команда шақырулары үшін қолданылады. Кіру немесе қалпына келтіру сілтемелерін басқа адамға бермеңіз." },
+    { title: "Аккаунт хаттары", text: "Пошта кіруді қалпына келтіру және команда шақырулары үшін қолданылады. Қалпына келтіру немесе шақыру сілтемелерін басқа адамға бермеңіз." },
     { title: "ЖИ және сыртқы сервистер", text: "Міндетті орындау үшін таңдалған материалдар сыртқы ЖИ провайдеріне берілуі мүмкін. Пайдалануға және өңдеуге беруге рұқсатыңыз бар деректерді ғана қосыңыз." },
     { title: "Аккаунтты басқару", text: "Баптауларда құпиясөзді өзгерту, сеанстарды аяқтау және аккаунтты жою бар. Кеңістік иесі алдымен иелікті беру немесе тиісті деректерді жою туралы шешім қабылдайды. Салдары растаудан бұрын көрсетіледі." },
     { title: "Бірлескен жұмыс", text: "Жұмыс материалдарын қоспас бұрын команда құрамын және қатысушылар рұқсаттарын тексеріңіз. Кеңістік иесі шақыруларды, рөлдерді және әріптестер қолжетімділігін басқарады." },

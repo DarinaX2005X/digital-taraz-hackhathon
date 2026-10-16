@@ -67,8 +67,7 @@ function ProfileForm({ user, guard, draft, setDraft }: { user: IdentityUser; gua
   }
   return <form onSubmit={submit} className={styles.form} noValidate aria-busy={operation.pending || undefined}>
     <InputField ref={input} name="name" label={t("identity.fields.name")} hint={t("identity.profile.nameHint")} autoComplete="name" value={name} required readOnly={operation.pending} error={error ? t(error) : operation.failure?.fieldErrors.name ? t(operation.failure.fieldErrors.name) : undefined} onBlur={() => setError(validateName(name))} onChange={(event) => { setDraft((previous) => ({ ...previous, name: event.target.value })); setError(undefined); operation.clear(); }} />
-    <InputField name="email" label={t("identity.fields.email")} value={user.email} readOnly autoComplete="username" hint={t(user.emailVerified ? "identity.profile.emailVerified" : "identity.profile.emailUnverified")} />
-    {!user.emailVerified && <Link href="/auth/verify" className={styles.textLink}>{t("identity.verification.resend")}</Link>}
+    <InputField name="email" label={t("identity.fields.email")} value={user.email} readOnly autoComplete="username" hint={t("identity.profile.emailHint")} />
     <OperationError failure={operation.failure?.status === 401 ? undefined : operation.failure} />
     {operation.result && <SuccessNotice>{t("identity.profile.saved")}</SuccessNotice>}
     <div className={styles.actions}><Button icon={Save} type="submit" variant="primary" pending={operation.pending} pendingLabel={t("identity.settings.savingProfile")} disabled={name.trim() === savedName}>{t("identity.profile.save")}</Button></div>

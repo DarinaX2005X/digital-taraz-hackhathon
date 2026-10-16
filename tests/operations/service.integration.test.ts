@@ -33,7 +33,7 @@ describe('operations persistence and canonical plan history', () => {
     const created = await service.create(f.owner, randomUUID(), { workspaceId: f.workspaceId, expectedAuthzVersion: authz, displayName: 'Aruzhan', kind: 'person', timezone: 'Asia/Qyzylorda', accessClass: 'internal' });
     expect(created.resource.membershipId).toBeNull();
     expect((await service.read(f.member, f.workspaceId, created.resource.id)).resource.displayName).toBe('Aruzhan');
-    const origin = 'http://127.0.0.1:59676', handler = createOperationsHandlers({ pool, origin, getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', emailVerified: true, locale: 'en' }, session: { id: f.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
+    const origin = 'http://127.0.0.1:59676', handler = createOperationsHandlers({ pool, origin, getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', locale: 'en' }, session: { id: f.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
     const response = await handler(new Request(`${origin}/api/operations/resources/${created.resource.id}?workspaceId=${f.workspaceId}`, { headers: { 'X-Tirlik-User-Id': f.owner.userId } }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ resource: { id: created.resource.id, membershipId: null, displayName: 'Aruzhan' } });
@@ -93,7 +93,7 @@ describe('operations persistence and canonical plan history', () => {
     const direct = await service.propose(f.owner, request);
     expect(direct).toMatchObject({ status: 'feasible', changedEntryIds: ['prepare'], candidate: { entries: [{ startAt: '2026-01-05T04:00:00.000Z', resourceIds: [created.resource.id] }] } });
     const origin = 'http://127.0.0.1:59676';
-    const handler = createOperationsHandlers({ pool, origin, getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', emailVerified: true, locale: 'en' }, session: { id: f.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
+    const handler = createOperationsHandlers({ pool, origin, getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', locale: 'en' }, session: { id: f.owner.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
     const response = await handler(new Request(`${origin}/api/operations/plan-proposals`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', 'X-Tirlik-User-Id': f.owner.userId }, body: JSON.stringify(request) }));
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ status: 'feasible', checkReceipt: { algorithmVersion: 'k2-interval-search-v1', inputRevisionVector: { [created.resource.id]: available.resource.revision, [available.version.id]: available.version.revision } } });
@@ -157,7 +157,7 @@ describe('operations persistence and canonical plan history', () => {
 
     await expect(f.service.apply(f.member, { workspaceId: f.workspaceId, expectedAuthzVersion: memberSnapshot.viewer.authzVersion, group: commandGroup(draft!) })).rejects.toMatchObject({ code: 'NOT_FOUND' });
     const origin = 'http://127.0.0.1:59676';
-    const handler = createOperationsHandlers({ pool, origin, getActor: async () => ({ user: { id: f.member.userId, name: 'Revoked member', email: 'revoked@example.test', emailVerified: true, locale: 'en' }, session: { id: f.member.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
+    const handler = createOperationsHandlers({ pool, origin, getActor: async () => ({ user: { id: f.member.userId, name: 'Revoked member', email: 'revoked@example.test', locale: 'en' }, session: { id: f.member.sessionId, createdAt: new Date(), expiresAt: new Date(Date.now() + 60_000) } }) });
     const proposalRequest = { workspaceId: f.workspaceId, expectedAuthzVersion: memberSnapshot.viewer.authzVersion, input: { plan: initial, resourceRefs: [], window: { start: '2026-02-02T00:00:00.000Z', end: '2026-02-03T00:00:00.000Z' }, lockedEntryIds: [], materialConstraints: [], objective: 'earliest-finish' as const } };
     const response = await handler(new Request(`${origin}/api/operations/plan-proposals`, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', 'X-Tirlik-User-Id': f.member.userId }, body: JSON.stringify(proposalRequest) }));
     expect(response.status).toBe(404);

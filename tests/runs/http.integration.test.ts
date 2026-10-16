@@ -32,18 +32,6 @@ class Client {
 async function account() {
   const client = new Client(), email = `runtime-http-${randomUUID()}@example.test`, password = 'Synthetic runtime password 42';
   expect((await client.request('/api/auth/sign-up/email', 'POST', { email, password, name: 'Synthetic runtime owner', locale: 'en' })).status).toBe(200);
-  const mailOrigin = `http://127.0.0.1:${process.env.TIRLIK_MAIL_UI_PORT}`;
-  const search = new URL('/api/v1/search', mailOrigin); search.searchParams.set('query', `to:${email}`);
-  const messages = await (await fetch(search)).json() as { messages: { ID: string }[] };
-  let token: string | null = null;
-  for (const message of messages.messages) {
-    const mail = await (await fetch(`${mailOrigin}/api/v1/message/${message.ID}`)).json() as { Text: string };
-    const link = mail.Text.match(/http:\/\/127\.0\.0\.1:\d+\/auth\/verify\?[^\s]+/)?.[0];
-    if (link) { token = new URL(link).searchParams.get('token'); break; }
-  }
-  expect(token).not.toBeNull();
-  expect((await client.request('/api/auth/verify-email', 'POST', { token })).status).toBe(200);
-  expect((await client.request('/api/auth/sign-in/email', 'POST', { email, password })).status).toBe(200);
   const viewer = IdentityViewerSchema.parse(await (await client.request('/api/identity/me')).json()); client.userId = viewer.user.id;
   const workspace = WorkspaceResultSchema.parse(await (await client.request('/api/identity/workspaces', 'POST', { name: 'Synthetic runtime HTTP' }, { 'idempotency-key': randomUUID() })).json()).workspace;
   return { client, viewer, workspace };

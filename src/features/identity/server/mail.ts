@@ -3,7 +3,7 @@ import type { IdentityLocale } from '../contracts';
 import { IdentityError } from './http';
 
 export type IdentityMail = { locale: IdentityLocale; url: string } & (
-  | { kind: 'verify' | 'reset'; workspaceName?: never }
+  | { kind: 'reset'; workspaceName?: never }
   | { kind: 'invite'; workspaceName: string }
 );
 export type IdentityMailFormatter = (mail: IdentityMail) => { subject: string; text: string; html: string };

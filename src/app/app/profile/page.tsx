@@ -1,4 +1,4 @@
-import { SettingsPage } from '@/features/identity/ui';
+import { SettingsPage } from '@/features/identity/ui/settings';
 
 export default function Page() {
   return <SettingsPage returnTo="/app/profile" />;

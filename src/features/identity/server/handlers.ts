@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { serializeLocaleCookie } from '../../../i18n/cookie';
-import { ChangePasswordSchema, IdentityUserSchema, ProfileUpdateSchema, RequestMailSchema, ResetPasswordSchema, RestoreIntentSchema, SaveIntentSchema, SignInSchema, SignUpSchema, VerifyEmailSchema, type IdentitySession, type IdentityUser } from '../contracts';
+import { ChangePasswordSchema, IdentityUserSchema, ProfileUpdateSchema, RequestMailSchema, ResetPasswordSchema, RestoreIntentSchema, SaveIntentSchema, SignInSchema, SignUpSchema, type IdentitySession, type IdentityUser } from '../contracts';
 import { authReturnTo, safeReturnTo } from '../domain/return-to';
 import { createIdentityAuth, type IdentityOptions } from './auth';
 import { identityTransaction, lockIdentityActor, type SessionPrincipal } from './access';
@@ -11,8 +11,7 @@ import { createTeamHandlers } from './team-handlers';
 export interface IdentityActor { user: IdentityUser; session: { id: string; expiresAt: Date; createdAt: Date } }
 const browserCookie = 'tirlik.intent-browser';
 const authSchemas = {
-  '/sign-up/email': SignUpSchema, '/sign-in/email': SignInSchema, '/verify-email': VerifyEmailSchema,
-  '/send-verification-email': RequestMailSchema, '/request-password-reset': RequestMailSchema,
+  '/sign-up/email': SignUpSchema, '/sign-in/email': SignInSchema, '/request-password-reset': RequestMailSchema,
   '/reset-password': ResetPasswordSchema, '/change-password': ChangePasswordSchema, '/sign-out': z.strictObject({}),
 };
 type AuthPath = keyof typeof authSchemas;
@@ -25,9 +24,9 @@ export function createIdentityHandlers(options: IdentityOptions) {
   const browserAttributes = `Path=/; HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`;
   async function getActor(headers: Headers): Promise<IdentityActor> {
     const session = await auth.api.getSession({ headers, query: { disableCookieCache: true } });
-    if (!session || !session.user.emailVerified) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.unauthenticated');
+    if (!session) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.unauthenticated');
     if (!(await pool.query('SELECT id FROM identity_users WHERE id=$1 AND deletion_requested_at IS NULL', [session.user.id])).rowCount) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.unauthenticated');
-    return { user: IdentityUserSchema.parse({ id: session.user.id, name: session.user.name, email: session.user.email, emailVerified: session.user.emailVerified, locale: session.user.locale }), session: { id: session.session.id, expiresAt: session.session.expiresAt, createdAt: session.session.createdAt } };
+    return { user: IdentityUserSchema.parse({ id: session.user.id, name: session.user.name, email: session.user.email, locale: session.user.locale }), session: { id: session.session.id, expiresAt: session.session.expiresAt, createdAt: session.session.createdAt } };
   }
   function assertExpectedActor(request: Request, actor: IdentityActor) {
     const expected = request.headers.get('x-tirlik-user-id');
@@ -46,7 +45,7 @@ export function createIdentityHandlers(options: IdentityOptions) {
       padded = !!email;
       await limit(pool, `auth:global:${path}`, 120, 60);
       if (email) await limit(pool, `auth:email:${path}:${email}`, path === '/sign-in/email' ? 10 : 5, 600);
-      if (['/sign-up/email', '/send-verification-email', '/request-password-reset'].includes(path)) mailer.assertReady();
+      if (path === '/request-password-reset') mailer.assertReady();
       const headers = new Headers(request.headers);
       headers.delete('content-length');
       headers.set('x-tirlik-return-to', safeReturnTo(body.returnTo));
@@ -56,16 +55,14 @@ export function createIdentityHandlers(options: IdentityOptions) {
       delete libraryBody.intentToken;
       if (path === '/change-password') libraryBody.revokeOtherSessions = true;
       if (path !== '/sign-up/email') delete libraryBody.locale;
-      let libraryRequest: Request;
-      if (path === '/verify-email') {
-        const claimed = await pool.query(`UPDATE identity_email_tokens SET consumed_at=now() WHERE token_hash=$1 AND consumed_at IS NULL AND expires_at>now() RETURNING token_hash`, [digest(String(body.token))]);
-        if (!claimed.rowCount) throw new IdentityError('VALIDATION_FAILED', 'identity.errors.invalidToken');
-        libraryRequest = new Request(`${origin}/api/auth/verify-email?token=${encodeURIComponent(String(body.token))}`, { headers });
-      } else libraryRequest = new Request(`${origin}/api/auth${path}`, { method: 'POST', headers, body: JSON.stringify(libraryBody) });
+      const libraryRequest = new Request(`${origin}/api/auth${path}`, { method: 'POST', headers, body: JSON.stringify(libraryBody) });
       const response = await auth.handler(libraryRequest);
       if (!response.ok) {
         const failure = await response.json().catch(() => ({})) as { code?: string };
-        if (failure.code === 'EMAIL_NOT_VERIFIED') throw new IdentityError('FORBIDDEN', 'identity.errors.emailNotVerified');
+        if (path === '/sign-up/email' && failure.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') {
+          // Match a successful signup response without creating a session or exposing whether the address exists.
+          return json({ status: 'signed-in', returnTo: authReturnTo(body.returnTo, typeof body.intentToken === 'string' ? body.intentToken : undefined) });
+        }
         if (path === '/change-password' && failure.code === 'INVALID_PASSWORD') throw new IdentityError('VALIDATION_FAILED', 'identity.errors.invalidPassword', { currentPassword: ['identity.errors.invalidPassword'] });
         if (['INVALID_EMAIL_OR_PASSWORD', 'INVALID_PASSWORD', 'PASSWORD_MISMATCH'].includes(failure.code ?? '')) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.invalidCredentials');
         if (['INVALID_TOKEN', 'TOKEN_EXPIRED'].includes(failure.code ?? '')) throw new IdentityError('VALIDATION_FAILED', 'identity.errors.invalidToken');
@@ -76,9 +73,9 @@ export function createIdentityHandlers(options: IdentityOptions) {
       }
       const resultHeaders = new Headers();
       for (const value of response.headers.getSetCookie()) resultHeaders.append('Set-Cookie', value);
-      const statuses = { '/sign-up/email': 'verification-pending', '/sign-in/email': 'signed-in', '/verify-email': 'verified', '/send-verification-email': 'accepted', '/request-password-reset': 'accepted', '/reset-password': 'password-reset', '/change-password': 'password-changed', '/sign-out': 'signed-out' } as const;
+      const statuses = { '/sign-up/email': 'signed-in', '/sign-in/email': 'signed-in', '/request-password-reset': 'accepted', '/reset-password': 'password-reset', '/change-password': 'password-changed', '/sign-out': 'signed-out' } as const;
       if (path === '/sign-out') resultHeaders.append('Set-Cookie', `${browserCookie}=; Max-Age=0; ${browserAttributes}`);
-      const returnTo = ['/sign-in/email', '/verify-email'].includes(path) ? authReturnTo(body.returnTo, typeof body.intentToken === 'string' ? body.intentToken : undefined) : undefined;
+      const returnTo = ['/sign-up/email', '/sign-in/email'].includes(path) ? authReturnTo(body.returnTo, typeof body.intentToken === 'string' ? body.intentToken : undefined) : undefined;
       return json({ status: statuses[path as AuthPath], ...(returnTo ? { returnTo } : {}) }, 200, resultHeaders);
     } catch (error) { return errorResponse(error); }
     finally {

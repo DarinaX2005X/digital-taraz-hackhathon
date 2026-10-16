@@ -1,7 +1,7 @@
 export { IdentityLocaleProvider, useIdentityAccount } from "./identity-locale-provider";
 export { IdentityEntryPage } from "./entry";
 export { SignInPage, SignUpPage, AuthDialog } from "./credentials";
-export { VerifyEmailPage, ResetPasswordPage } from "./recovery";
+export { ResetPasswordPage } from "./recovery";
 export { SettingsPage } from "./settings";
 export { TeamSettingsPage } from "./team";
 export { InvitePage } from "./invitation";

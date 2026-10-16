@@ -56,7 +56,6 @@ describe("source-level accessibility contracts (not browser validation)", () => 
     const spans = parse("button.tsx").named("span");
     expect(spans.some((span) => attribute(span, "aria-hidden") === "pending && pendingLabel !== undefined ? true : undefined")).toBe(true);
     expect(spans.some((span) => attribute(span, "aria-hidden") === "!pending ? true : undefined")).toBe(true);
-    expect(source).toContain("Icon || pending !== undefined");
     expect(source).toContain("pendingLabel?: ReactNode");
   });
 

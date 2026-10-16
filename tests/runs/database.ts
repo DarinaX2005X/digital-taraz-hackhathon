@@ -13,7 +13,7 @@ export async function syntheticWorkspace(transaction: PoolClient) {
   const userId = randomUUID();
   const workspaceId = randomUUID();
   const sessionId = randomUUID();
-  await transaction.query('INSERT INTO identity_users(id,name,email,email_verified) VALUES($1,$2,$3,true)', [userId, 'Synthetic runtime owner', `${userId}@example.test`]);
+  await transaction.query('INSERT INTO identity_users(id,name,email,email_verified) VALUES($1,$2,$3,false)', [userId, 'Synthetic runtime owner', `${userId}@example.test`]);
   await transaction.query('INSERT INTO identity_workspaces(id,name,created_by) VALUES($1,$2,$3)', [workspaceId, 'Synthetic runtime workspace', userId]);
   await transaction.query('INSERT INTO identity_memberships(id,workspace_id,user_id,role,scopes) VALUES($1,$2,$3,$4,$5)', [randomUUID(), workspaceId, userId, 'owner', scopesForRole('owner')]);
   await transaction.query("INSERT INTO identity_sessions(id,user_id,token,expires_at) VALUES($1,$2,$3,now()+interval '1 hour')", [sessionId, userId, randomUUID()]);

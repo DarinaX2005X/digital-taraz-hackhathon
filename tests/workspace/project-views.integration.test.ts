@@ -62,7 +62,7 @@ describe('private recent work and selected result', () => {
 
   it('mounts strict authenticated view endpoints without accepting foreign project selections', async () => {
     const f = await artifactFixture(pool), result = await f.create();
-    const handler = createWorkspaceHandlers({ pool, origin: 'http://127.0.0.1:59676', getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', emailVerified: true, locale: 'ru' }, session: { id: f.owner.sessionId, expiresAt: new Date(Date.now() + 86400000), createdAt: new Date() } }) });
+    const handler = createWorkspaceHandlers({ pool, origin: 'http://127.0.0.1:59676', getActor: async () => ({ user: { id: f.owner.userId, name: 'Synthetic owner', email: 'owner@example.test', locale: 'ru' }, session: { id: f.owner.sessionId, expiresAt: new Date(Date.now() + 86400000), createdAt: new Date() } }) });
     const headers = { 'X-Tirlik-User-Id': f.owner.userId, 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:59676', 'Idempotency-Key': randomUUID() };
     const url = `http://127.0.0.1:59676/api/projects/${f.projectId}/view`;
     const saved = await handler(new Request(url, { method: 'POST', headers, body: JSON.stringify({ workspaceId: f.workspaceId, expectedAuthzVersion: 1, selectedArtifactId: result.artifact.id }) }));

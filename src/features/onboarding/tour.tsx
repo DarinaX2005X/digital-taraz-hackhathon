@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, LocateFixed, Pause, RotateCcw } from 'lucide-react';
 import { useLocale } from '@/i18n/provider';
-import { useIdentityAccount } from '@/features/identity/ui';
+import { useIdentityAccount } from '@/features/identity/ui/identity-locale-provider';
 import { Button } from '@/ui';
 import { requestTour, TourRequestError } from './client';
 import { TOUR_VERSION, type TourProgress, type TourStep, type UpdateTour } from './contracts';

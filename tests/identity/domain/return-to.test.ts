@@ -13,6 +13,8 @@ describe('identity navigation and input boundaries', () => {
     const token = 'a'.repeat(64);
     expect(authReturnTo('/app/projects?goal=secret', token)).toBe(`/app/projects?intent=${token}`);
     expect(safeReturnTo(`/demo?intent=${token}`)).toBe(`/demo?intent=${token}`);
+    for (const locale of ['ru', 'kk', 'en']) expect(safeReturnTo(`/${locale}/demo?goal=private`)).toBe(`/${locale}/demo`);
+    expect(safeReturnTo('/de/demo')).toBe('/app');
   });
   it('bounds account input and never accepts ownership from signup', () => {
     expect(PasswordSchema.safeParse('short').success).toBe(false);

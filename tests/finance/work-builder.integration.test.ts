@@ -18,6 +18,7 @@ import { createImportService } from '../../src/features/materials/server/imports
 import { createSourceService } from '../../src/features/sources/server/service';
 import { LocalSourceStorage } from '../../src/features/sources/server/storage';
 import { createFinanceWorkBuilder } from '../../src/features/finance/server/work-builder';
+import { createFinanceRecalculationService } from '../../src/features/finance/server/recalculation';
 import { CreateExportSchema } from '../../src/features/exports/contracts';
 import { documentExportAdapter } from '../../src/features/exports/server/documents';
 import { ExportRegistry } from '../../src/features/exports/server/registry';
@@ -156,6 +157,25 @@ describe('finance, forecast and procurement durable work journeys', () => {
     const reopenedDocument = await reopenedService.read(f.owner, { workspaceId: f.workspaceId, artifactId: documentId });
     expect(reopenedDocument.sourceFreshness.every((source) => source.status === 'current' && source.sourceStatus === 'current' && source.factStatus === 'current')).toBe(true);
     expect(reopenedDocument.missingTargets).toEqual([]);
+
+    const recalculation = createFinanceRecalculationService(pool), recalculateId = randomUUID();
+    const revised = await recalculation.recalculate(f.owner, recalculateId, {
+      workspaceId: f.workspaceId, projectId: f.projectId, base: { artifactId: tableId, revision: 1 }, branchTitle: 'Revised cash plan',
+      scenarios: [{ scenarioId: 'expected_inflow', title: 'Upside plan', assumptions: [{ assumptionId: 'expected_inflow_total', amount: { currency: 'KZT', minorUnits: '200000' }, confirmed: true }] }],
+    });
+    expect(revised.comparison).toEqual({ base: { artifactId: tableId, revision: 1 }, branch: { artifactId: expect.any(String), revision: 0 } });
+    expect(revised.work.workPreview).toMatchObject({ kind: 'finance', editable: revised.comparison.branch, scenarios: [{ id: 'expected_inflow', title: 'Upside plan' }] });
+    const branch = await reopenedService.read(f.owner, { workspaceId: f.workspaceId, artifactId: revised.comparison.branch.artifactId });
+    expect(branch.version.branchParent).toEqual(expect.objectContaining({ artifactId: tableId, revision: 1 }));
+    expect(requireTable(branch.content).workbook.sheets.assumptions!.cellData[1]![2]).toMatchObject({ v: 'Reviewed expected inflow' });
+    expect(requireTable(branch.content).workbook.sheets.finance_overview!.cellData[1]![0]).toMatchObject({ v: 'Upside plan' });
+    expect((await recalculation.recalculate(f.owner, recalculateId, {
+      workspaceId: f.workspaceId, projectId: f.projectId, base: { artifactId: tableId, revision: 1 }, branchTitle: 'Revised cash plan',
+      scenarios: [{ scenarioId: 'expected_inflow', title: 'Upside plan', assumptions: [{ assumptionId: 'expected_inflow_total', amount: { currency: 'KZT', minorUnits: '200000' }, confirmed: true }] }],
+    })).comparison.branch).toEqual(revised.comparison.branch);
+    const retained = await reopenedService.read(f.owner, { workspaceId: f.workspaceId, artifactId: tableId });
+    expect(retained.artifact.currentRevision).toBe(1);
+    expect(requireTable(retained.content).workbook.sheets.assumptions!.cellData[1]![2]).toMatchObject({ v: 'Reviewed expected inflow' });
 
     const directory = await mkdtemp(path.join(os.tmpdir(), 'tirlik-business-work-')); exportDirectories.push(directory);
     const exports = createExportService({ pool, storage: new LocalExportStorage(directory), registry: new ExportRegistry([documentExportAdapter, sheetExportAdapter]), assets: () => ({ async image() { throw new Error('UNEXPECTED_IMAGE'); } }) });

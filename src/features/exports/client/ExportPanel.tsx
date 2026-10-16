@@ -13,8 +13,14 @@ export interface ExportPanelProps {
   beforeExport?: () => Promise<{ revision: number; expectedAuthzVersion: number; bundleItems?: ExportBundleItem[] } | null>;
   sheets?: { id: string; name: string }[]; pages?: { id: string; label: string }[];
   bundleItems?: ExportBundleItem[];
+  transport?: ExportPanelTransport;
 }
 export interface ExportBundleItem { artifactId: string; title: string; kind: keyof typeof formatsForKind; revision: number; formats: ExportFormat[]; options?: ExportOptions }
+export interface ExportPanelTransport {
+  resolvePath: (canonicalPath: string) => string;
+  headers?: HeadersInit;
+  capabilities?: Partial<Record<'history' | 'versions' | 'fonts' | 'cancel' | 'remove' | 'bundle', boolean>>;
+}
 class ExportRequestError extends Error { constructor(public code: string, public key: string) { super(key); } }
 export function ExportPanel(props: ExportPanelProps) {
   const identity = [props.workspaceId, props.artifactId, props.userId, props.kind, ...(props.bundleItems ?? []).flatMap((item) => [item.artifactId, String(item.revision)])].join(':');
@@ -35,6 +41,15 @@ function ScopedExportPanel(props: ExportPanelProps) {
   const [view, setView] = useState<{ scope: string; jobs: ExportJob[] }>({ scope, jobs: [] }), [error, setError] = useState(''), [busy, setBusy] = useState(''), [unknownCreate, setUnknownCreate] = useState(false), [denied, setDenied] = useState(false);
   const operation = useRef<{ id: string; body: CreateExport; scope: string } | null>(null), abort = useRef<AbortController | null>(null), live = useRef(scope), busyRef = useRef(false), epoch = useRef(props.expectedAuthzVersion), cancelled = useRef(false);
   const jobs = view.scope === scope && !denied ? view.jobs : [];
+  const supports = (capability: keyof NonNullable<ExportPanelTransport['capabilities']>) => props.transport?.capabilities?.[capability] !== false;
+  const resolvePath = (path: string) => props.transport?.resolvePath(path) ?? path;
+  const requestHeaders = (headers?: HeadersInit, hasBody = false) => {
+    const result = new Headers(props.transport?.headers);
+    new Headers(headers).forEach((value, name) => result.set(name, value));
+    result.set('X-Tirlik-User-Id', props.userId);
+    if (hasBody && !result.has('Content-Type')) result.set('Content-Type', 'application/json');
+    return result;
+  };
   useEffect(() => { live.current = scope; return () => { live.current = ''; abort.current?.abort(); }; }, [scope]);
   useEffect(() => { epoch.current = props.expectedAuthzVersion; }, [props.expectedAuthzVersion]);
   const message = (cause: unknown) => {
@@ -54,12 +69,12 @@ function ScopedExportPanel(props: ExportPanelProps) {
   };
   const handleError = (cause: unknown) => { if (live.current !== scope) return; setError(message(cause)); if (cause instanceof ExportRequestError && ['UNAUTHENTICATED', 'FORBIDDEN', 'NOT_FOUND'].includes(cause.code)) { setDenied(true); setView({ scope, jobs: [] }); setFontChoices({ scope, families: [], assets: [] }); setFontAssets({}); } };
   async function request<T>(url: string, init: RequestInit = {}): Promise<T> {
-    const response = await fetch(url, { ...init, credentials: 'same-origin', headers: { 'X-Tirlik-User-Id': props.userId, ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...init.headers } });
+    const response = await fetch(resolvePath(url), { ...init, credentials: 'same-origin', headers: requestHeaders(init.headers, Boolean(init.body)) });
     if (!response.ok) { const detail = await response.json().catch(() => ({})) as { code?: string; messageKey?: string }; throw new ExportRequestError(detail.code ?? 'UNAVAILABLE', detail.messageKey ?? 'exports.errors.unavailable'); }
     return response.json() as Promise<T>;
   }
   async function loadFonts(revision = selectedRevision) {
-    if (props.kind !== 'document' || fixedBundle) return;
+    if (props.kind !== 'document' || fixedBundle || !supports('fonts')) return;
     const serial = ++fontRequest.current;
     const current = await request<{ artifact: { projectId: string }; content: ArtifactContent }>(`/api/artifacts/${props.artifactId}?workspaceId=${props.workspaceId}`);
     const selected = revision === 'current' ? current : await request<{ content: ArtifactContent }>(`/api/artifacts/${props.artifactId}/versions/${revision}?workspaceId=${props.workspaceId}`);
@@ -78,7 +93,14 @@ function ScopedExportPanel(props: ExportPanelProps) {
   function accept(job: ExportJob) { if (live.current !== scope) return; epoch.current = job.authzVersion; setDenied(false); setView((previous) => ({ scope, jobs: [job, ...(previous.scope === scope ? previous.jobs.filter((item) => item.id !== job.id) : [])] })); }
   async function refresh() {
     if (busyRef.current) return; busyRef.current = true; setBusy('refresh'); setError('');
-    try { const [result, saved] = await Promise.all([request<{ jobs: ExportJob[]; authzVersion: number }>(`/api/exports?workspaceId=${props.workspaceId}&artifactId=${props.artifactId}`), request<{ versions: { revision: number; createdAt: string }[] }>(`/api/artifacts/${props.artifactId}/versions?workspaceId=${props.workspaceId}&limit=50`), loadFonts()]); if (live.current === scope) { epoch.current = result.authzVersion; setDenied(false); setView({ scope, jobs: result.jobs }); setVersions({ scope, revisions: saved.versions }); } }
+    try {
+      const [result, saved] = await Promise.all([
+        supports('history') ? request<{ jobs: ExportJob[]; authzVersion: number }>(`/api/exports?workspaceId=${props.workspaceId}&artifactId=${props.artifactId}`) : Promise.resolve({ jobs: [] as ExportJob[], authzVersion: props.expectedAuthzVersion }),
+        supports('versions') ? request<{ versions: { revision: number; createdAt: string }[] }>(`/api/artifacts/${props.artifactId}/versions?workspaceId=${props.workspaceId}&limit=50`) : Promise.resolve({ versions: [] as { revision: number; createdAt: string }[] }),
+        loadFonts(),
+      ]);
+      if (live.current === scope) { epoch.current = result.authzVersion; setDenied(false); setView({ scope, jobs: result.jobs }); setVersions({ scope, revisions: saved.versions }); }
+    }
     catch (cause) { handleError(cause); } finally { busyRef.current = false; if (live.current === scope) setBusy(''); }
   }
   async function render(job: ExportJob, signal?: AbortSignal) { const result = await request<ExportJob>(`/api/exports/${job.id}/render`, { method: 'POST', body: JSON.stringify({ workspaceId: props.workspaceId, expectedAuthzVersion: epoch.current }), signal }); accept(result); return result; }
@@ -110,14 +132,14 @@ function ScopedExportPanel(props: ExportPanelProps) {
     if (actionName !== 'cancel') { busyRef.current = true; cancelled.current = false; setBusy(job.id); } setError('');
     try {
       if (actionName === 'render') await render(job);
-      else if (actionName === 'cancel') { const result = await request<ExportJob>(`/api/exports/${job.id}/cancel`, { method: 'POST', body: JSON.stringify({ workspaceId: props.workspaceId, expectedAuthzVersion: epoch.current }) }); cancelled.current = true; accept(result); abort.current?.abort(); }
-      else { await request(`/api/exports/${job.id}`, { method: 'DELETE', body: JSON.stringify({ workspaceId: props.workspaceId, expectedAuthzVersion: epoch.current }) }); if (live.current === scope) setView((previous) => ({ scope, jobs: previous.jobs.filter((item) => item.id !== job.id) })); }
+      else if (actionName === 'cancel' && supports('cancel')) { const result = await request<ExportJob>(`/api/exports/${job.id}/cancel`, { method: 'POST', body: JSON.stringify({ workspaceId: props.workspaceId, expectedAuthzVersion: epoch.current }) }); cancelled.current = true; accept(result); abort.current?.abort(); }
+      else if (actionName === 'remove' && supports('remove')) { await request(`/api/exports/${job.id}`, { method: 'DELETE', body: JSON.stringify({ workspaceId: props.workspaceId, expectedAuthzVersion: epoch.current }) }); if (live.current === scope) setView((previous) => ({ scope, jobs: previous.jobs.filter((item) => item.id !== job.id) })); }
     } catch (cause) { if (!cancelled.current) handleError(cause); } finally { if (actionName !== 'cancel') { busyRef.current = false; if (live.current === scope) setBusy(''); } }
   }
   async function download(job: ExportJob, file?: ExportFile) {
     if (busyRef.current) return; busyRef.current = true; setBusy(file?.id ?? `bundle-${job.id}`); setError('');
     try {
-      const response = await fetch(`/api/exports/${job.id}/${file ? `files/${file.id}` : 'bundle'}?workspaceId=${props.workspaceId}`, { credentials: 'same-origin', headers: { 'X-Tirlik-User-Id': props.userId } });
+      const response = await fetch(resolvePath(`/api/exports/${job.id}/${file ? `files/${file.id}` : 'bundle'}?workspaceId=${props.workspaceId}`), { credentials: 'same-origin', headers: requestHeaders() });
       if (!response.ok) { const detail = await response.json() as { code: string; messageKey: string }; throw new ExportRequestError(detail.code, detail.messageKey); }
       const blob = await response.blob(); if (live.current !== scope) return;
       const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = file?.fileName ?? job.bundle?.fileName ?? 'Tirlik.zip'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -136,9 +158,9 @@ function ScopedExportPanel(props: ExportPanelProps) {
         <CheckboxField label={copy.historical} hint={copy.historicalHint} checked={historicalDraft} disabled={Boolean(busy) || unknownCreate} onChange={(event) => setHistoricalDraft(event.target.checked)} />
         {historicalDraft && <p role="status" className={styles.warning}>{copy.dependencyWarning}</p>}
         {error && <p role="alert" className={styles.error}>{error}</p>}
-        <section aria-label={copy.history} className={styles.history}><div className={styles.historyHeading}><h3>{copy.history}</h3><Button variant="quiet" icon={RefreshCw} pending={busy === 'refresh'} disabled={Boolean(busy)} onClick={() => void refresh()}>{copy.refresh}</Button></div>
+        <section aria-label={copy.history} className={styles.history}><div className={styles.historyHeading}><h3>{copy.history}</h3>{supports('history') && <Button variant="quiet" icon={RefreshCw} pending={busy === 'refresh'} disabled={Boolean(busy)} onClick={() => void refresh()}>{copy.refresh}</Button>}</div>
           {!jobs.length && <p className={styles.muted}>{copy.empty}</p>}
-          {jobs.map((job) => <article className={styles.job} key={job.id}><header><span>{new Intl.DateTimeFormat(props.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(job.createdAt))}</span><strong role="status">{copy.statuses[job.status]}</strong></header><p className={styles.muted}>{copy.frozen} {job.revisions.map((item) => `${copy.revision} ${item.revision}`).join(', ')}{job.historicalDraft ? ` ${copy.historical}` : ''}</p><ul className={styles.files}>{job.files.map((file) => <li key={file.id}><div className={styles.fileInfo}><strong>{file.fileName}</strong><span>{copy.revision} {file.revision} · {copy.statuses[file.status]}{file.byteSize ? ` · ${new Intl.NumberFormat(props.locale, { maximumFractionDigits: 1 }).format(file.byteSize / 1024)} KB` : ''}</span>{file.errorKey && <span className={styles.error}>{message(new ExportRequestError('VALIDATION_FAILED', file.errorKey))}</span>}{file.warnings.length > 0 && <details><summary>{copy.warnings}</summary><ul>{file.warnings.map((warning, index) => <li key={`${warning.code}:${index}`}>{warning.message ?? copy.warnings}</li>)}</ul></details>}</div>{file.status === 'ready' && <Button icon={Download} pending={busy === file.id} disabled={Boolean(busy)} onClick={() => void download(job, file)}>{copy.download}</Button>}</li>)}</ul><p className={styles.muted}>{copy.notSent}</p><div className={styles.actions}>{job.bundle && <Button icon={Download} pending={busy === `bundle-${job.id}`} disabled={Boolean(busy)} onClick={() => void download(job)}>{copy.bundleDownload}</Button>}{job.status !== 'ready' && job.status !== 'rendering' && <Button pending={busy === job.id} disabled={Boolean(busy)} onClick={() => void action(job, 'render')}>{copy.retry}</Button>}{(job.status === 'rendering' || busy === job.id) && <Button onClick={() => void action(job, 'cancel')}>{copy.cancel}</Button>}{job.status !== 'rendering' && <Button variant="quiet" disabled={Boolean(busy)} onClick={() => void action(job, 'remove')}>{copy.remove}</Button>}</div></article>)}
+          {jobs.map((job) => <article className={styles.job} key={job.id}><header><span>{new Intl.DateTimeFormat(props.locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(job.createdAt))}</span><strong role="status">{copy.statuses[job.status]}</strong></header><p className={styles.muted}>{copy.frozen} {job.revisions.map((item) => `${copy.revision} ${item.revision}`).join(', ')}{job.historicalDraft ? ` ${copy.historical}` : ''}</p><ul className={styles.files}>{job.files.map((file) => <li key={file.id}><div className={styles.fileInfo}><strong>{file.fileName}</strong><span>{copy.revision} {file.revision} · {copy.statuses[file.status]}{file.byteSize ? ` · ${new Intl.NumberFormat(props.locale, { maximumFractionDigits: 1 }).format(file.byteSize / 1024)} KB` : ''}</span>{file.errorKey && <span className={styles.error}>{message(new ExportRequestError('VALIDATION_FAILED', file.errorKey))}</span>}{file.warnings.length > 0 && <details><summary>{copy.warnings}</summary><ul>{file.warnings.map((warning, index) => <li key={`${warning.code}:${index}`}>{warning.message ?? copy.warnings}</li>)}</ul></details>}</div>{file.status === 'ready' && <Button icon={Download} pending={busy === file.id} disabled={Boolean(busy)} onClick={() => void download(job, file)}>{copy.download}</Button>}</li>)}</ul><p className={styles.muted}>{copy.notSent}</p><div className={styles.actions}>{job.bundle && supports('bundle') && <Button icon={Download} pending={busy === `bundle-${job.id}`} disabled={Boolean(busy)} onClick={() => void download(job)}>{copy.bundleDownload}</Button>}{job.status !== 'ready' && job.status !== 'rendering' && <Button pending={busy === job.id} disabled={Boolean(busy)} onClick={() => void action(job, 'render')}>{copy.retry}</Button>}{supports('cancel') && (job.status === 'rendering' || busy === job.id) && <Button onClick={() => void action(job, 'cancel')}>{copy.cancel}</Button>}{supports('remove') && job.status !== 'rendering' && <Button variant="quiet" disabled={Boolean(busy)} onClick={() => void action(job, 'remove')}>{copy.remove}</Button>}</div></article>)}
         </section>
       </div>
     </Dialog>

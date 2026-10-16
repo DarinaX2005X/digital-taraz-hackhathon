@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { IdentityLocaleProvider } from "@/features/identity/ui";
-import { getLocalMailInbox } from "@/features/identity/server";
+import { IdentityLocaleProvider } from "@/features/identity/ui/identity-locale-provider";
 import { readRequestLocale } from "@/i18n/server";
 import { readIdentityLocale } from "@/server/identity";
+import { getLocalMailInbox } from "@/server/local-mail";
 import { tirlikFont } from "@/ui/font";
 import { ToastProvider } from "@/ui/toast";
 import "@/ui/foundation.css";
