@@ -3,6 +3,7 @@ import { ArtifactMutationResultSchema } from '../features/artifacts/contracts';
 import { SourceRefSchema } from './artifacts';
 import { CalculationSpecSchema } from './calculations';
 import { RevisionVectorSchema } from './commands';
+import { ChangeSetSchema } from './dependencies';
 import { DatasetQuerySchema } from './materials';
 import {
   CalendarDateSchema,
@@ -15,7 +16,7 @@ import {
   QuantitySchema,
   RevisionSchema,
 } from './primitives';
-import { RunInputRefSchema } from './runs';
+import { CapabilityIdSchema, RunInputRefSchema, UsdSchema } from './runs';
 import { ProposeWorkPlanInputSchema } from '../features/operations/domain/propose-work-plan';
 import { BusinessWorkPreviewSchema } from './work-preview';
 
@@ -28,9 +29,72 @@ export const ArtifactSnapshotRefSchema = z.strictObject({
   revision: RevisionSchema,
 });
 
+export const BusinessContextValueSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('text'), value: z.string().max(4000) }),
+  z.strictObject({ kind: z.literal('money'), value: MoneySchema }),
+  z.strictObject({ kind: z.literal('quantity'), value: QuantitySchema }),
+  z.strictObject({ kind: z.literal('date'), value: CalendarDateSchema }),
+  z.strictObject({ kind: z.literal('asset-ref'), assetId: IdSchema }),
+]);
+
+export const BusinessContextSelectionSchema = z.strictObject({
+  contextId: IdSchema,
+  revision: RevisionSchema,
+  itemIds: z.array(ElementIdSchema).max(200),
+}).refine((selection) => new Set(selection.itemIds).size === selection.itemIds.length, {
+  message: 'Business context item ids must be unique.',
+});
+
+export const BusinessContextRefSchema = z.strictObject({
+  kind: z.literal('business-context'),
+  id: IdSchema,
+  revision: RevisionSchema,
+});
+
+export const BusinessContextItemSchema = z.strictObject({
+  id: ElementIdSchema,
+  category: z.enum(['profile', 'customer', 'supplier', 'contact', 'assumption', 'rule']),
+  label: z.string().trim().min(1).max(240),
+  value: BusinessContextValueSchema,
+  sourceRefs: z.array(SourceRefSchema).max(100),
+  confirmed: z.boolean(),
+  ownerId: IdSchema,
+});
+
+const uniqueStrings = <Schema extends z.ZodType<string>>(schema: Schema, maximum: number, message: string) => z.array(schema).max(maximum)
+  .refine((values) => new Set(values).size === values.length, { message });
+
+export const BusinessBrandKitSchema = z.strictObject({
+  assetRefs: uniqueStrings(IdSchema, 200, 'Business brand assets must be unique.'),
+  colors: uniqueStrings(z.string().regex(/^#[0-9A-Fa-f]{6}$/), 32, 'Business brand colors must be unique.'),
+  fontFamilies: uniqueStrings(z.string().trim().min(1).max(120), 20, 'Business brand font families must be unique.'),
+  voiceRules: uniqueStrings(z.string().trim().min(1).max(1000), 40, 'Business brand voice rules must be unique.'),
+});
+
+export const ReadBusinessContextInputSchema = z.strictObject({
+  workspaceId: IdSchema,
+  contextId: IdSchema,
+  revision: RevisionSchema,
+  itemIds: z.array(ElementIdSchema).max(200),
+}).refine((input) => new Set(input.itemIds).size === input.itemIds.length, {
+  message: 'Requested business context item ids must be unique.',
+});
+
+export const BusinessContextReadSchema = z.strictObject({
+  ref: BusinessContextRefSchema,
+  items: z.array(BusinessContextItemSchema).max(200),
+  brandKit: BusinessBrandKitSchema,
+  permissions: z.strictObject({ read: z.literal(true), edit: z.boolean(), confirm: z.boolean() }),
+}).superRefine((context, refinement) => {
+  if (new Set(context.items.map((item) => item.id)).size !== context.items.length) {
+    refinement.addIssue({ code: 'custom', path: ['items'], message: 'Business context items must be unique.' });
+  }
+});
+
 export const WorkExecutionAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('user'), userId: IdSchema }),
   z.strictObject({ kind: z.literal('demo'), sessionId: IdSchema, userId: IdSchema, expiresAt: InstantSchema }),
+  z.strictObject({ kind: z.literal('rule'), userId: IdSchema, ruleId: IdSchema, ruleVersion: z.number().int().positive(), occurrenceId: IdSchema }),
 ]);
 
 /**
@@ -44,9 +108,87 @@ export const WorkExecutionContextSchema = z.strictObject({
   projectId: IdSchema,
   expectedAuthzVersion: z.number().int().positive(),
   allowedInputRefs: z.array(RunInputRefSchema).max(100),
+  // Legacy user/demo runs carry no business context authority; absence means none.
+  allowedBusinessContextRefs: z.array(BusinessContextSelectionSchema).max(20).optional(),
   inputRevisionVector: RevisionVectorSchema,
   cancelEpoch: z.number().int().nonnegative(),
   locale: LocaleSchema,
+});
+
+export const WorkRuleSourceSelectorSchema = z.strictObject({
+  sourceId: IdSchema,
+  required: z.boolean(),
+  collectionId: IdSchema.optional(),
+  mappingVersionId: IdSchema.optional(),
+}).refine((selector) => Boolean(selector.collectionId) === Boolean(selector.mappingVersionId), {
+  message: 'Collection and mapping version must be selected together.',
+});
+
+export const WorkRuleTriggerSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('manual') }),
+  z.strictObject({
+    kind: z.literal('source-update'),
+    sourceIds: z.array(IdSchema).min(1).max(100).refine((ids) => new Set(ids).size === ids.length, { message: 'Trigger source ids must be unique.' }),
+  }),
+  z.strictObject({ kind: z.literal('schedule'), rrule: z.string().trim().min(1).max(500), timezone: z.string().trim().min(1).max(80) }),
+]);
+
+export const WorkRuleDefinitionSchema = z.strictObject({
+  goal: z.string().trim().min(1).max(12_000),
+  sourceSelectors: z.array(WorkRuleSourceSelectorSchema).max(100),
+  contextRefs: z.array(BusinessContextSelectionSchema).max(20),
+  capability: z.strictObject({ id: CapabilityIdSchema, version: z.number().int().positive() }),
+  procedureVersion: z.number().int().positive(),
+  trigger: WorkRuleTriggerSchema,
+  timezone: z.string().trim().min(1).max(80),
+  outputPolicy: z.strictObject({
+    mode: z.literal('new-branch'),
+    baseArtifact: ArtifactSnapshotRefSchema.nullable(),
+    reviewRequired: z.literal(true),
+    externalEffects: z.literal('forbidden'),
+  }),
+  budget: z.strictObject({ maximumUsd: UsdSchema, maxOccurrencesPerDay: z.number().int().min(1).max(96) }),
+}).superRefine((definition, refinement) => {
+  if (new Set(definition.sourceSelectors.map((selector) => selector.sourceId)).size !== definition.sourceSelectors.length) {
+    refinement.addIssue({ code: 'custom', path: ['sourceSelectors'], message: 'Work rule source selectors must be unique.' });
+  }
+  const contextKeys = definition.contextRefs.map((ref) => `${ref.contextId}:${ref.revision}`);
+  if (new Set(contextKeys).size !== contextKeys.length) {
+    refinement.addIssue({ code: 'custom', path: ['contextRefs'], message: 'Work rule context references must be unique.' });
+  }
+});
+
+export const StartWorkOccurrenceInputSchema = z.strictObject({
+  ruleId: IdSchema,
+  ruleVersion: z.number().int().positive(),
+  occurrenceId: IdSchema,
+  trigger: z.strictObject({
+    kind: z.enum(['manual', 'schedule', 'source-update']),
+    at: InstantSchema,
+    sourceRefs: z.array(SourceRefSchema).max(100),
+  }),
+});
+
+export const StartWorkOccurrenceResultSchema = z.strictObject({
+  occurrenceId: IdSchema,
+  runId: IdSchema.nullable(),
+  branchId: IdSchema.nullable(),
+  state: z.enum(['queued', 'waiting_input', 'paused']),
+  reused: z.boolean(),
+  reasonCode: z.string().max(120).regex(/^[a-z][a-z0-9_.-]*$/).optional(),
+});
+
+export const PrepareWorkChangesInputSchema = z.strictObject({
+  projectId: IdSchema,
+  artifactIds: z.array(IdSchema).min(1).max(40),
+  sourceRevisionVector: RevisionVectorSchema,
+}).refine((input) => new Set(input.artifactIds).size === input.artifactIds.length, {
+  message: 'Prepared work artifact ids must be unique.',
+});
+
+export const PrepareWorkChangesResultSchema = z.strictObject({
+  changeSet: ChangeSetSchema,
+  inputRevisionVector: RevisionVectorSchema,
 });
 
 const WorkFindingSchema = z.strictObject({
@@ -225,8 +367,22 @@ export interface BusinessWorkToolDescriptor<Input, Result extends BusinessWorkRe
 }
 
 export type ArtifactSnapshotRef = z.infer<typeof ArtifactSnapshotRefSchema>;
+export type BusinessContextValue = z.infer<typeof BusinessContextValueSchema>;
+export type BusinessContextSelection = z.infer<typeof BusinessContextSelectionSchema>;
+export type BusinessContextRef = z.infer<typeof BusinessContextRefSchema>;
+export type BusinessContextItem = z.infer<typeof BusinessContextItemSchema>;
+export type BusinessBrandKit = z.infer<typeof BusinessBrandKitSchema>;
+export type ReadBusinessContextInput = z.infer<typeof ReadBusinessContextInputSchema>;
+export type BusinessContextRead = z.infer<typeof BusinessContextReadSchema>;
 export type WorkExecutionAuthority = z.infer<typeof WorkExecutionAuthoritySchema>;
 export type WorkExecutionContext = z.infer<typeof WorkExecutionContextSchema>;
+export type WorkRuleSourceSelector = z.infer<typeof WorkRuleSourceSelectorSchema>;
+export type WorkRuleTrigger = z.infer<typeof WorkRuleTriggerSchema>;
+export type WorkRuleDefinition = z.infer<typeof WorkRuleDefinitionSchema>;
+export type StartWorkOccurrenceInput = z.infer<typeof StartWorkOccurrenceInputSchema>;
+export type StartWorkOccurrenceResult = z.infer<typeof StartWorkOccurrenceResultSchema>;
+export type PrepareWorkChangesInput = z.infer<typeof PrepareWorkChangesInputSchema>;
+export type PrepareWorkChangesResult = z.infer<typeof PrepareWorkChangesResultSchema>;
 export type BusinessWorkResult = z.infer<typeof BusinessWorkResultSchema>;
 export type BusinessWorkDecision = z.infer<typeof BusinessWorkDecisionSchema>;
 export type DatasetQuerySpec = z.infer<typeof DatasetQuerySpecSchema>;

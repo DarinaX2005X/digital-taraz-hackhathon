@@ -5,6 +5,7 @@ import { artifactErrorResponse, assertActorHeader, idempotencyKey, queryObject, 
 import type { IdentityActor } from '../../identity/server/handlers';
 import { assertOrigin, IdentityError, json, limit, validate } from '../../identity/server/http';
 import { BindDependenciesSchema, createDependencyService } from './service';
+import { ChangeSetListInputSchema } from '../../change-review/contracts';
 
 export interface DependencyHandlerOptions { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor> }
 export function createDependencyHandlers(options: DependencyHandlerOptions) {
@@ -18,6 +19,10 @@ export function createDependencyHandlers(options: DependencyHandlerOptions) {
       await limit(options.pool, `dependency-api:${actor.user.id}:${request.method}`, request.method === 'POST' ? 120 : 600, 60);
       const principal = { kind: 'session' as const, userId: actor.user.id, sessionId: actor.session.id };
       if (request.method === 'GET') {
+        if (root === 'changesets' && !path.length) {
+          const query = queryObject(url, ['workspaceId', 'projectId', 'after', 'limit']);
+          return json(await service.listChangesets(principal, validate(ChangeSetListInputSchema, { ...query, limit: query.limit === undefined ? undefined : Number(query.limit) })));
+        }
         const input = validate(DependencyReadSchema, queryObject(url, ['workspaceId', 'projectId']));
         if (root === 'dependencies' && !path.length) return json(await service.read(principal, input));
         if (root === 'changesets' && path.length === 1) return json(await service.changeset(principal, validate(IdSchema, path[0]), input));

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { Pool } from 'pg';
 import PDFDocument from 'pdfkit';
@@ -33,14 +33,21 @@ async function account() {
   return { client, viewer, workspace, project };
 }
 async function syntheticLargePdf() {
+  const width = 1450, height = 1450, pixels = Buffer.alloc(width * height * 3);
+  let state = 0x12345678;
+  for (let index = 0; index < pixels.length; index += 1) {
+    state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
+    pixels[index] = state & 0xff;
+  }
+  const image = await sharp(pixels, { raw: { width, height, channels: 3 } }).png({ compressionLevel: 0, adaptiveFiltering: false }).toBuffer();
   return new Promise<Buffer>((resolve, reject) => {
     const document = new PDFDocument({ autoFirstPage: false, compress: false }), chunks: Buffer[] = [];
     document.on('data', (chunk: Buffer) => chunks.push(chunk)); document.on('error', reject); document.on('end', () => resolve(Buffer.concat(chunks)));
     for (let page = 1; page <= 30; page += 1) {
       document.addPage({ size: 'A4', margin: 48 });
       document.fontSize(12).text(`Synthetic recovery page ${page}. This file contains generated test data only.`);
+      if (page === 1) document.image(image, 48, 90, { fit: [499, 700] });
     }
-    document.addContent(`\n%${'x'.repeat(6_350_000)}\n`);
     document.end();
   });
 }
@@ -61,7 +68,14 @@ describe('mounted source upload and original HTTP path', () => {
     const preview = SourcePreviewSchema.parse(await (await client.request(`/api/sources/${ready.upload.sourceId}/preview?${query}&uploadId=${ready.upload.id}`)).json());
     expect(preview.chunk.fragments[0]?.text).toContain('Synthetic recovery page 1');
     const original = await client.request(`/api/sources/${ready.upload.sourceId}/original?${query}&uploadId=${ready.upload.id}`);
-    expect(original.status).toBe(200); expect(Buffer.from(await original.arrayBuffer()).equals(bytes)).toBe(true);
+    expect(original.status).toBe(200);
+    expect(original.headers.get('content-length')).toBeNull();
+    expect(original.headers.get('cache-control')).toBe('no-store');
+    expect(original.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'");
+    expect(original.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(original.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(original.headers.get('etag')).toBe(`"${createHash('sha256').update(bytes).digest('hex')}"`);
+    expect(Buffer.from(await original.arrayBuffer()).equals(bytes)).toBe(true);
   }, 120_000);
 
   it('uploads own bytes, reads the preview and original, enforces actor/origin/session gates', async () => {

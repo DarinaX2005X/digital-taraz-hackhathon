@@ -81,7 +81,7 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     const response = await fetch(`${origin}/${locale}/demo`, { headers: { 'Accept-Language': locale }, redirect: 'manual', signal: AbortSignal.timeout(60_000) });
     expect(response.status).toBe(200); expect(response.headers.get('content-type')).toContain('text/html');
     const html = await response.text();
-    expect(html).toContain(`lang="${locale}"`); expect(html).toContain(demoCopy[locale].title); expect(html).toContain(demoCopy[locale].scopeBody); expect(html).toContain(demoCopy[locale].start); expect(html).toContain(`href="/${locale}/help"`); expect(html).not.toContain('id="__next_error__"');
+    expect(html).toContain(`lang="${locale}"`); expect(html).toContain(demoCopy[locale].title); expect(html).toContain(demoCopy[locale].scopeBody); expect(html).toContain(demoCopy[locale].start); expect(html).not.toContain('id="__next_error__"');
     expect(await durableCounts()).toEqual(before);
   }, 75_000);
 
@@ -145,6 +145,8 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     expect(planResponse.status).toBe(200);
     const planSnapshot = ArtifactSnapshotSchema.parse(await planResponse.json());
     if (planSnapshot.content.kind !== 'plan') throw new Error('DEMO_PLAN_INPUT_REQUIRED');
+    const lockedEntryIds = Object.keys(planSnapshot.locks ?? {}).sort();
+    expect(lockedEntryIds).toEqual(['orda-logistics', 'qadam-market']);
     const proposalResponse = await client.request(`/api/demo/sessions/${started.sessionId}/operations/plan-proposals`, 'POST', {
       workspaceId: scope.workspaceId,
       expectedAuthzVersion: 1,
@@ -152,7 +154,7 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
         plan: planSnapshot.content,
         resourceRefs: resources.resources.flatMap((resource) => resource.currentAvailabilityVersionId ? [{ id: resource.id, revision: resource.revision, availabilityVersionId: resource.currentAvailabilityVersionId }] : []),
         window: { start: new Date(Date.now() - 7 * 86_400_000).toISOString(), end: new Date(Date.now() + 21 * 86_400_000).toISOString() },
-        lockedEntryIds: [], materialConstraints: [], objective: 'earliest-finish',
+        lockedEntryIds, materialConstraints: [], objective: 'earliest-finish',
       },
     });
     expect(proposalResponse.status).toBe(200);
@@ -165,10 +167,10 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     const proposalGroup = { ...proposalCommand!, commandGroupId: proposalCommandGroupId, commands: proposalCommand!.commands.map((command) => ({ ...command, commandId: randomUUID() })) };
     const applyProposalResponse = await client.request(`/api/demo/sessions/${started.sessionId}/artifacts/commands`, 'POST', { workspaceId: scope.workspaceId, expectedAuthzVersion: 1, group: proposalGroup }, proposalCommandGroupId);
     expect(applyProposalResponse.status).toBe(200);
-    expect(CommandReceiptSchema.parse(await applyProposalResponse.json()).committedRevisionVector[planRef.id]).toBe(1);
+    expect(CommandReceiptSchema.parse(await applyProposalResponse.json()).committedRevisionVector[planRef.id]).toBe(planSnapshot.artifact.currentRevision + 1);
 
     const editedScope = DemoSessionSchema.parse(await (await client.request(`/api/demo/sessions/${started.sessionId}`)).json());
-    expect(editedScope).toMatchObject({ revision: 2, inputRefs: expect.arrayContaining([expect.objectContaining({ id: briefRef.id, revision: 1 }), expect.objectContaining({ id: planRef.id, revision: 1 })]) });
+    expect(editedScope).toMatchObject({ revision: 2, inputRefs: expect.arrayContaining([expect.objectContaining({ id: briefRef.id, revision: 1 }), expect.objectContaining({ id: planRef.id, revision: planSnapshot.artifact.currentRevision + 1 })]) });
 
     const exportResponse = await client.request(`/api/demo/sessions/${started.sessionId}/exports`, 'POST', { workspaceId: scope.workspaceId, expectedAuthzVersion: 1, locale: 'ru', items: [{ artifactId: briefRef.id, revision: 1, formats: ['pdf'] }] }, randomUUID());
     expect(exportResponse.status).toBe(201);

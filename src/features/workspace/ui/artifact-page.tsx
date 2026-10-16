@@ -31,6 +31,7 @@ import type { ArtifactOperation } from '@/features/artifacts/client/operations';
 import type { ArtifactOperationResult } from '@/features/artifacts/client/execute-operation';
 import type { ArtifactCacheOptions } from '@/features/artifacts/client/indexed-db';
 import type { OperationsClient } from '@/features/operations/client/transport';
+import { ArtifactThread } from '@/features/collaboration/ui/artifact-thread';
 
 export type ArtifactWorkspaceCapabilities = {
   shell: boolean;
@@ -44,6 +45,7 @@ export type ArtifactWorkspaceCapabilities = {
   lifecycle: boolean;
   tour: boolean;
   sourceFreshness: boolean;
+  collaboration: boolean;
 };
 
 export type ArtifactWorkspaceTransport = {
@@ -90,6 +92,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
     lifecycle: !scoped,
     tour: !scoped,
     sourceFreshness: !scoped,
+    collaboration: !scoped,
     ...capabilityOverrides,
   };
   const { state, identity, privateVisible, session, resume, refreshAccount } = useArtifactSession(initial, { client, identity: scoped ? 'scoped' : 'account', cache: transport?.cache });
@@ -339,6 +342,15 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
               : <PlanEditor key={`${viewerUserId}:${artifactId}`} session={session} onFlushReady={registerEditorFlush} transport={transport?.operations} />}
         </EditorBoundary>
         {capabilities.sourceFreshness && snapshot.sourceFreshness.length > 0 && <SourceFreshnessPanel snapshot={snapshot} />}
+        {capabilities.collaboration && <ArtifactThread
+          key={`${viewerUserId}:${artifactId}:${snapshot.artifact.currentRevision}`}
+          userId={snapshot.viewer.userId}
+          workspaceId={snapshot.viewer.workspaceId}
+          projectId={snapshot.artifact.projectId}
+          artifactId={snapshot.artifact.id}
+          artifactRevision={snapshot.artifact.currentRevision}
+          disabled={state.loading || hasRecovery || state.autosave?.status === 'saving' || Boolean(state.operation.operation)}
+        />}
       </section>
     </div>
     {capabilities.rail && <Dialog open={railOpen} onOpenChange={setRailOpen} placement="side" title={t.results}>{resultList}</Dialog>}

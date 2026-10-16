@@ -21,7 +21,7 @@ interface JobRow { id: string; workspace_id: string; created_by: string; operati
 const hash = (value: unknown) => hashJson(JSON.parse(JSON.stringify(value)) as JsonValue);
 const fail = (key: string, code: ConstructorParameters<typeof IdentityError>[0] = 'CONFLICT') => new IdentityError(code, `exports.errors.${key}`);
 const safeName = (title: string) => title.normalize('NFC').replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, '_').replace(/[. ]+$/g, '').slice(0, 110) || 'export';
-const dto = (row: JobRow, authzVersion: number): ExportJob => ({ id: row.id, workspaceId: row.workspace_id, createdAt: row.created_at.toISOString(), historicalDraft: row.input_manifest.historicalDraft, locale: row.input_manifest.locale, privateFieldsPolicy: row.input_manifest.privateFieldsPolicy ?? 'exclude-internal', revisions: row.input_manifest.items.map((item) => ({ artifactId: item.artifactId, revision: item.revision })), status: row.status, files: row.files.map(({ storageKey, ...file }) => { void storageKey; return file; }), ...(row.final_manifest?.bundle ? { bundle: { fileName: row.final_manifest.bundle.fileName, sha256: row.final_manifest.bundle.sha256, byteSize: row.final_manifest.bundle.byteSize } } : {}), ...(row.final_hash ? { manifestHash: row.final_hash } : {}), authzVersion, ...(row.lease_expires_at ? { leaseExpiresAt: row.lease_expires_at.toISOString() } : {}) });
+const dto = (row: JobRow, authzVersion: number): ExportJob => ({ id: row.id, workspaceId: row.workspace_id, createdAt: row.created_at.toISOString(), historicalDraft: row.input_manifest.historicalDraft, locale: row.input_manifest.locale, privateFieldsPolicy: row.input_manifest.privateFieldsPolicy ?? 'exclude-internal', ...(row.input_manifest.release ? { release: row.input_manifest.release } : {}), revisions: row.input_manifest.items.map((item) => ({ artifactId: item.artifactId, revision: item.revision })), status: row.status, files: row.files.map(({ storageKey, ...file }) => { void storageKey; return file; }), ...(row.final_manifest?.bundle ? { bundle: { fileName: row.final_manifest.bundle.fileName, sha256: row.final_manifest.bundle.sha256, byteSize: row.final_manifest.bundle.byteSize } } : {}), ...(row.final_hash ? { manifestHash: row.final_hash } : {}), authzVersion, ...(row.lease_expires_at ? { leaseExpiresAt: row.lease_expires_at.toISOString() } : {}) });
 export function createExportService(options: { pool: Pool; registry: ExportRegistry; storage?: LocalExportStorage; assets: (principal: IdentityPrincipal, workspaceId: string) => ExportAssets; resolvePlanResources?: (tx: PoolClient, access: WorkspaceAccess, content: Extract<ArtifactContent, { kind: 'plan' }>) => Promise<PlanExportResources>; authorizePlanResources?: (tx: PoolClient, access: WorkspaceAccess, resources: readonly PlanResourceRef[]) => Promise<void> }) {
   const { pool, registry } = options, storage = options.storage ?? new LocalExportStorage(), artifacts = createArtifactService(pool);
   async function queueUnusedFile(workspaceId: string, jobId: string, storageKey: string) {
@@ -36,7 +36,7 @@ export function createExportService(options: { pool: Pool; registry: ExportRegis
   async function authorize(tx: PoolClient, access: WorkspaceAccess, manifest: ExportInputManifest, principal: IdentityPrincipal) {
     if (manifest.privateFieldsPolicy === 'include-authorized' && !hasScope(access.membership, 'read-confidential')) throw fail('notFound', 'NOT_FOUND');
     for (const item of [...manifest.items].sort((a, b) => a.artifactId.localeCompare(b.artifactId))) {
-      const authorized = await loadArtifact(tx, access, item.artifactId, { scope: 'export' });
+      const authorized = await loadArtifact(tx, access, item.artifactId, { scope: 'export', ...(manifest.release ? { expectedProjectId: manifest.release.projectId } : {}) });
       if (manifest.privateFieldsPolicy === 'include-authorized' && !hasScope({ ...authorized.access.membership, projectScopes: authorized.access.projectScopes }, 'read-confidential')) throw fail('notFound', 'NOT_FOUND');
     }
     for (const item of [...manifest.items].sort((a, b) => a.artifactId.localeCompare(b.artifactId))) await assertSourceReadAccess(tx, access, item.sourceRefs);
@@ -63,7 +63,7 @@ export function createExportService(options: { pool: Pool; registry: ExportRegis
       const id = randomUUID(), createdAt = new Date().toISOString(), items: FrozenItem[] = [], outputs: FrozenOutput[] = [];
       // Stable lock order prevents a multi-artifact export from racing a grouped edit.
       for (const selected of [...body.items].sort((a, b) => a.artifactId.localeCompare(b.artifactId))) {
-        const authorized = await loadArtifact(tx, access, selected.artifactId, { scope: 'export' });
+        const authorized = await loadArtifact(tx, access, selected.artifactId, { scope: 'export', ...(body.release ? { expectedProjectId: body.release.projectId } : {}) });
         if (body.privateFieldsPolicy === 'include-authorized' && !hasScope({ ...authorized.access.membership, projectScopes: authorized.access.projectScopes }, 'read-confidential')) throw fail('notFound', 'NOT_FOUND');
       }
       for (const selected of body.items) {
@@ -92,7 +92,7 @@ export function createExportService(options: { pool: Pool; registry: ExportRegis
       }
       if (outputs.length > 200) throw fail('tooManyFiles', 'VALIDATION_FAILED');
       const privateFieldsPolicyHash = hash({ version: 1, policy: body.privateFieldsPolicy });
-      const manifest: ExportInputManifest = { version: 2, exporterVersion: 'tirlik-export-2', locale: body.locale, historicalDraft: body.historicalDraft, privateFieldsPolicy: body.privateFieldsPolicy, privateFieldsPolicyHash, createdAt, items, outputs };
+      const manifest: ExportInputManifest = { version: 2, exporterVersion: 'tirlik-export-2', locale: body.locale, historicalDraft: body.historicalDraft, privateFieldsPolicy: body.privateFieldsPolicy, privateFieldsPolicyHash, ...(body.release ? { release: body.release } : {}), createdAt, items, outputs };
       const files: StoredFile[] = outputs.map((output) => ({ id: output.id, artifactId: items[output.itemIndex]!.artifactId, revision: items[output.itemIndex]!.revision, format: output.format, fileName: output.fileName, status: 'pending', warnings: [] }));
       const saved = (await tx.query<JobRow>('INSERT INTO export_jobs(id,workspace_id,created_by,operation_id,body_hash,input_manifest,input_hash,files,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *', [id, body.workspaceId, access.userId, operationId, bodyHash, JSON.stringify(manifest), hash(manifest), JSON.stringify(files), createdAt])).rows[0]!;
       for (const item of items) await tx.query("INSERT INTO artifact_version_pins(id,workspace_id,artifact_id,revision,kind,retainer_id) VALUES($1,$2,$3,$4,'export',$5)", [randomUUID(), body.workspaceId, item.artifactId, item.revision, id]);
@@ -157,7 +157,7 @@ export function createExportService(options: { pool: Pool; registry: ExportRegis
         if (finished.files.reduce((sum, file) => sum + (file.byteSize ?? 0), 0) > EXPORT_MAX_BYTES) throw fail('bundleTooLarge', 'PAYLOAD_TOO_LARGE');
         const zip = new JSZip(), date = new Date(frozen.createdAt), publicFiles = dto(finished, expectedAuthzVersion).files;
         const privateFieldsPolicy = frozen.privateFieldsPolicy ?? 'exclude-internal', privateFieldsPolicyHash = frozen.privateFieldsPolicyHash ?? hash({ version: 1, policy: privateFieldsPolicy });
-        zip.file('manifest.json', JSON.stringify({ schemaVersion: 1, kind: 'tirlik-fixed-export-bundle', createdAt: frozen.createdAt, locale: frozen.locale, historicalDraft: frozen.historicalDraft, privateFieldsPolicy, privateFieldsPolicyHash, revisions: frozen.items.map((item) => ({ artifactId: item.artifactId, versionId: item.versionId, revision: item.revision, snapshotHash: item.snapshotHash, contentHash: item.contentHash, kind: item.kind, sourceVersions: item.sourceRefs })), inputHash: finished.input_hash, files: publicFiles }, null, 2), { date });
+        zip.file('manifest.json', JSON.stringify({ schemaVersion: 1, kind: 'tirlik-fixed-export-bundle', createdAt: frozen.createdAt, locale: frozen.locale, historicalDraft: frozen.historicalDraft, privateFieldsPolicy, privateFieldsPolicyHash, ...(frozen.release ? { release: frozen.release } : {}), revisions: frozen.items.map((item) => ({ artifactId: item.artifactId, versionId: item.versionId, revision: item.revision, snapshotHash: item.snapshotHash, contentHash: item.contentHash, kind: item.kind, sourceVersions: item.sourceRefs })), inputHash: finished.input_hash, files: publicFiles }, null, 2), { date });
         for (const file of finished.files) {
           signal?.throwIfAborted();
           if (!file.storageKey || !file.sha256 || !file.byteSize) throw fail('integrity', 'UNAVAILABLE');
@@ -219,4 +219,5 @@ export function createExportService(options: { pool: Pool; registry: ExportRegis
   }
   return { create, read, list, render, cancel, download, downloadBundle, remove, cleanup };
 }
+
 export type ExportService = ReturnType<typeof createExportService>;

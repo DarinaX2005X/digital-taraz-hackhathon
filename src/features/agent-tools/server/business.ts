@@ -42,6 +42,7 @@ export interface BusinessToolDefinition {
   output: z.ZodType;
   costClass?: RunTool['costClass'];
   terminal?: boolean;
+  available?: (state: BusinessContext) => boolean;
   prepare?: (args: unknown, context: ToolContext) => Promise<unknown>;
   effect: (tx: PoolClient, args: unknown, context: ToolContext, state: BusinessContext, prepared: unknown) => Promise<ToolOutcome>;
 }
@@ -100,6 +101,50 @@ export function isBusinessToolAvailable(name: string, state: BusinessContext): b
       && (!state.workDecision?.requiresConsent || state.selectedOptionId !== null);
     default: return true;
   }
+}
+
+function availableBusinessDefinitions(definitions: readonly BusinessToolDefinition[], state: BusinessContext) {
+  return definitions.filter((definition) => isBusinessToolAvailable(definition.name, state) && (definition.available?.(state) ?? true));
+}
+
+type PreparedBusinessDecision = {
+  output: ModelOutput;
+  calls: { id: string; name: string; arguments: unknown }[];
+  terminal: boolean;
+};
+
+function validateBusinessDecision(output: ModelOutput, available: readonly BusinessToolDefinition[]): { decision?: PreparedBusinessDecision; errors: string[] } {
+  const errors: string[] = [];
+  if (!output.toolCalls.length) errors.push('At least one tool call is required.');
+  if (output.toolCalls.length > 4) errors.push('At most four tool calls are allowed.');
+  if (new Set(output.toolCalls.map((call) => call.id)).size !== output.toolCalls.length) errors.push('Tool call IDs must be unique.');
+  const calls: PreparedBusinessDecision['calls'] = [];
+  for (const [index, call] of output.toolCalls.slice(0, 4).entries()) {
+    const definition = available.find((item) => item.name === call.name);
+    if (!definition) {
+      errors.push(`Call ${index + 1} uses a tool that is not currently available: ${call.name}.`);
+      continue;
+    }
+    let raw: unknown;
+    try { raw = normalizeBusinessToolArguments(call.name, JSON.parse(call.arguments)); }
+    catch {
+      errors.push(`Call ${index + 1} has invalid JSON arguments.`);
+      continue;
+    }
+    const parsed = definition.schema.safeParse(raw);
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues.slice(0, 3)) {
+        const path = issue.path.length ? issue.path.join('.') : 'arguments';
+        errors.push(`Call ${index + 1} ${call.name}.${path}: ${issue.code}.`);
+      }
+      continue;
+    }
+    calls.push({ id: call.id, name: call.name, arguments: parsed.data });
+  }
+  const terminal = output.toolCalls.some((call) => available.find((definition) => definition.name === call.name)?.terminal);
+  if (terminal && output.toolCalls.length !== 1) errors.push('A terminal tool must be the only call.');
+  const boundedErrors = errors.slice(0, 10).map((error) => error.slice(0, 240));
+  return boundedErrors.length ? { errors: boundedErrors } : { decision: { output, calls, terminal }, errors: [] };
 }
 
 const publicOutcome = (verdict: 'can' | 'can-with-conditions' | 'cannot-confirm') => verdict === 'can' ? 'feasible' as const : verdict === 'can-with-conditions' ? 'conditional' as const : 'not_confirmed' as const;
@@ -368,6 +413,7 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
     ...(definition.prepare ? { prepare: (raw: unknown, context: ToolContext) => definition.prepare!((raw as { arguments: unknown }).arguments, context) } : {}),
     execute: async (tx, raw, prepared, context) => {
       const input = raw as { callId: string; arguments: unknown }, state = businessContext(context);
+      if (!isBusinessToolAvailable(definition.name, state) || !(definition.available?.(state) ?? true)) throw new RunError('invalid_result');
       const result = await definition.effect(tx, input.arguments, context, state, prepared);
       return { ...result, context: toolReply((result.context ?? state) as BusinessContext, input.callId, result.output) };
     },
@@ -377,24 +423,41 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
   tools.push({ name: 'business.decide', version: 1, purpose: 'Choose and validate the next business tool calls', input: z.strictObject({ round: z.number().int().min(0).max(10) }), output: z.strictObject({ tools: z.array(z.string()).min(1).max(4) }), policy, costClass: 'model', deadlineMs: 60_000, idempotency: 'receipt',
     prepare: async (_raw, context) => {
       await reauthorize(context);
-      const state = businessContext(context), available = definitions.filter((definition) => isBusinessToolAvailable(definition.name, state));
-      return gateway.complete({ fence: context.fence, operationKey: 'business_decision', messages: modelMessages(state), maxOutputTokens: 6000, tools: available.map(modelTool), toolChoice: 'required', signal: context.signal });
+      const state = businessContext(context), available = availableBusinessDefinitions(definitions, state);
+      const messages = modelMessages(state);
+      const first = await gateway.complete({ fence: context.fence, operationKey: 'business_decision', messages, maxOutputTokens: 6000, tools: available.map(modelTool), toolChoice: 'required', signal: context.signal });
+      const checked = validateBusinessDecision(first, available);
+      if (checked.decision) return checked.decision;
+      const correction = await gateway.complete({
+        fence: context.fence,
+        operationKey: 'business_decision_correction',
+        messages: [...messages, { role: 'user', content: JSON.stringify({
+          kind: 'tool_call_correction',
+          instruction: 'The previous tool calls failed local validation. Return a fresh complete set of valid tool calls using only the offered tools. Do not explain the error and do not ask the user to repair provider output.',
+          validationErrors: checked.errors,
+          offeredTools: available.map((definition) => definition.name),
+        }) }],
+        maxOutputTokens: 6000,
+        maxReservedUsd: '0.15',
+        tools: available.map(modelTool),
+        toolChoice: 'required',
+        signal: context.signal,
+      });
+      const corrected = validateBusinessDecision(correction, available);
+      if (!corrected.decision) throw new RunError('invalid_result');
+      return corrected.decision;
     },
     execute: async (_tx, _input, raw, context) => {
-      const output = raw as ModelOutput, state = businessContext(context);
-      if (!output.toolCalls.length || output.toolCalls.length > 4 || new Set(output.toolCalls.map((call) => call.id)).size !== output.toolCalls.length) throw new RunError('invalid_result');
-      const available = definitions.filter((definition) => isBusinessToolAvailable(definition.name, state));
-      const terminal = output.toolCalls.some((call) => available.find((definition) => definition.name === call.name)?.terminal);
-      if (terminal && output.toolCalls.length !== 1) throw new RunError('invalid_result');
-      const nextSteps: PlannedStep[] = output.toolCalls.map((call) => {
+      const prepared = raw as PreparedBusinessDecision, state = businessContext(context);
+      const available = availableBusinessDefinitions(definitions, state);
+      const nextSteps: PlannedStep[] = prepared.calls.map((call) => {
         const definition = available.find((item) => item.name === call.name); if (!definition) throw new RunError('invalid_result');
-        let args: unknown; try { args = normalizeBusinessToolArguments(call.name, JSON.parse(call.arguments)); } catch { throw new RunError('invalid_result'); }
-        const parsed = definition.schema.safeParse(args); if (!parsed.success) throw new RunError('invalid_result');
+        const parsed = definition.schema.safeParse(call.arguments); if (!parsed.success) throw new RunError('invalid_result');
         return { tool: `business.${call.name}`, version: 1, action: definition.action, input: { callId: call.id, arguments: parsed.data } };
       });
       const round = state.round + 1;
-      if (!terminal) { if (round >= 10) throw new RunError('request_limit'); nextSteps.push(decide(round)); }
-      return { output: { tools: output.toolCalls.map((call) => call.name) }, context: { ...state, round, messages: [...state.messages, { role: 'assistant', content: output.content, toolCalls: output.toolCalls }] }, nextSteps };
+      if (!prepared.terminal) { if (round >= 10) throw new RunError('request_limit'); nextSteps.push(decide(round)); }
+      return { output: { tools: prepared.calls.map((call) => call.name) }, context: { ...state, round, messages: [...state.messages, { role: 'assistant', content: prepared.output.content, toolCalls: prepared.output.toolCalls }] }, nextSteps };
     },
   });
   const capability: RunCapability = { id: 'business.goal', version: 1, publicStart: true, policy, projectProgress: projectBusinessProgress,
@@ -403,7 +466,13 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
       const authority = WorkExecutionAuthoritySchema.nullable().parse(privateInput.executionAuthority ?? null);
       const state = privateInput.continuation
         ? BusinessContextSchema.parse(privateInput.continuation)
-        : BusinessContextSchema.parse({ ...initialBusinessContext(input), executionAuthority: authority });
+        : BusinessContextSchema.parse({
+          ...initialBusinessContext(input),
+          executionAuthority: authority,
+          businessContextRefs: privateInput.businessContextRefs ?? [],
+          currentArtifact: privateInput.currentArtifact ?? null,
+        });
+      if (state.currentArtifact && !state.inputRefs.some((ref) => ref.kind === 'artifact' && ref.id === state.currentArtifact!.id && ref.revision === state.currentArtifact!.revision)) throw new RunError('conflict', 'VALIDATION_FAILED');
       return { context: state, steps: [{ tool: 'business.bootstrap', version: 1, action: 'read_sources', input: {} }] };
     },
     continue: (input, raw, change) => {

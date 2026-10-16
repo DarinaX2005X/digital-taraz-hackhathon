@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import type { Pool } from 'pg';
+import { z } from 'zod';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { businessRegistration, type BusinessToolExtension } from '../../src/features/agent-tools/server/business';
 import { createRunRegistry } from '../../src/features/runs/server/registry';
@@ -14,6 +15,9 @@ import { RunSchema } from '../../src/contracts/runs';
 import { createArtifactTargetResolver } from '../../src/features/artifacts/domain/targets';
 import { OperationsCheckInputSchema, OperationsDecisionSchema, type DecisionOptionDraft } from '../../src/features/commercial/domain/decision';
 import { artifactFixture, artifactTestPool } from '../artifacts/server/test-fixture';
+import { businessWorkToolExtension } from '../../src/features/agent-tools/server/business-work-adapter';
+import { materialContextBusinessToolExtension } from '../../src/features/agent-tools/server/material-context';
+import { BusinessWorkResultSchema, type BusinessWorkToolDescriptor } from '../../src/contracts/business-work';
 
 let pool: Pool;
 beforeAll(() => { pool = artifactTestPool(); });
@@ -184,6 +188,70 @@ function createDecisionGateway(): (request: ModelRequest) => Promise<ModelOutput
 }
 
 describe('J1 assistant decision procedure through durable runtime and canonical persistence', () => {
+  it('offers and executes source-bound work tools only when pinned source evidence exists', async () => {
+    const fixture = await artifactFixture(pool), artifact = await fixture.create();
+    const descriptor: BusinessWorkToolDescriptor<{ sourceRefs: string[] }> = {
+      name: 'build_source_bound_work', version: 1, purpose: 'Synthetic source-bound work producer.',
+      inputSchema: z.strictObject({ sourceRefs: z.array(z.string()).min(1) }), outputSchema: BusinessWorkResultSchema,
+      policy: 'edit', costClass: 'local', deadlineMs: 30_000, idempotency: 'operation-receipt',
+      async execute() { throw new Error('SOURCE_BOUND_TOOL_MUST_NOT_EXECUTE'); },
+    };
+    const complete = vi.fn(async (request: ModelRequest) => {
+      if (request.jsonSchema) return verified();
+      expect(request.tools?.map((tool) => tool.name)).not.toContain('build_source_bound_work');
+      expect(request.tools?.map((tool) => tool.name)).not.toContain('query_material_context');
+      const context = contextOf(request);
+      return context.savedResults.length
+        ? call('finish_work', { summary: 'The artifact-only document is ready.' })
+        : call('create_document', { title: 'Artifact-only memo', paragraphs: [{ kind: 'paragraph', text: 'Prepared without invented source references.' }] });
+    });
+    const registration = businessRegistration(pool, { gateway: { complete }, extensions: [materialContextBusinessToolExtension(pool), businessWorkToolExtension([descriptor])] });
+    const registry = createRunRegistry([registration.capability], registration.tools), service = createRunService(pool, registry);
+    const input = { workspaceId: fixture.workspaceId, projectId: fixture.projectId, capabilityId: 'business.goal', capabilityVersion: 1, goal: 'Prepare a memo from the selected artifact.', locale: 'en' as const, inputRefs: [{ kind: 'artifact' as const, id: artifact.artifact.id, revision: 0 }] };
+    const created = await service.create(fixture.owner, input, randomUUID()), claim = await service.claim();
+    expect(claim?.runId).toBe(created.id);
+    for (let index = 0; index < 10; index++) if (await service.executeStep(claim!) === 'stopped') break;
+    expect(await service.read(fixture.owner, created.id)).toMatchObject({ state: 'completed', failure: null });
+
+    const state = (await pool.query<{ state: Record<string, unknown> }>('SELECT state FROM agent_run_contexts WHERE run_id=$1', [created.id])).rows[0]!.state;
+    const sourceTool = registration.tools.find((tool) => tool.name === 'business.build_source_bound_work')!;
+    const client = await pool.connect();
+    try {
+      await expect(sourceTool.execute(client, { callId: 'forced', arguments: { sourceRefs: ['invented'] } }, undefined, {
+        fence: { runId: created.id, stepId: randomUUID(), epoch: 0, leaseOwner: randomUUID() },
+        workspaceId: fixture.workspaceId, projectId: fixture.projectId, userId: fixture.owner.userId, authzVersion: 1,
+        context: state, signal: new AbortController().signal,
+        checkpoint: async () => { throw new Error('UNEXPECTED_CHECKPOINT'); },
+      })).rejects.toMatchObject({ failure: 'invalid_result' });
+    } finally { client.release(); }
+  });
+
+  it('uses one bounded correction request for a settled invalid tool payload', async () => {
+    const normal = createDecisionGateway();
+    let first = true;
+    const f = await setup({ gateway: async (request) => {
+      if (request.jsonSchema) return verified();
+      if (request.operationKey === 'business_decision_correction') {
+        expect(request.maxReservedUsd).toBe('0.15');
+        const correction = JSON.parse(request.messages.at(-1)!.content!) as { validationErrors: string[]; offeredTools: string[] };
+        expect(correction.validationErrors.length).toBeGreaterThan(0);
+        expect(correction.validationErrors.length).toBeLessThanOrEqual(10);
+        expect(correction.offeredTools).toContain('plan_work');
+        return call('plan_work', { steps: ['Read the selected evidence', 'Prepare checked options'] });
+      }
+      if (first) { first = false; return call('plan_work', { steps: [] }); }
+      return normal(request);
+    } });
+    const run = await f.service.create(f.owner, f.input, randomUUID()), claim = await f.service.claim();
+    expect(claim?.runId).toBe(run.id);
+    expect(await f.service.executeStep(claim!)).toBe('continue');
+    expect(await f.service.executeStep(claim!)).toBe('continue');
+    const corrected = await f.service.read(f.owner, run.id);
+    expect(corrected).toMatchObject({ state: 'running', failure: null });
+    expect(f.complete.mock.calls.filter(([request]) => request.operationKey === 'business_decision_correction')).toHaveLength(1);
+    await f.service.cancel(f.owner, run.id, { expectedEpoch: corrected.epoch }, randomUUID());
+  });
+
   it('reads four source roles, compares trade-offs, waits for a human choice and atomically saves three editable artifacts', async () => {
     const f = await setup();
     const key = randomUUID(), response = await f.request('', f.input, key); expect(response.status).toBe(202);
@@ -293,6 +361,7 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     } });
     const malformedRun = await f.service.create(f.owner, f.input, randomUUID()), invalid = await f.drain(malformedRun.id);
     expect(invalid).toMatchObject({ state: 'waiting_input', failure: 'invalid_result' }); expect((await pool.query('SELECT id FROM artifacts WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(0);
+    expect(f.complete.mock.calls.filter(([request]) => request.operationKey === 'business_decision_correction')).toHaveLength(1);
     mode = 'pending';
     const run = await f.service.create(f.owner, f.input, randomUUID()), claim = await f.service.claim();
     expect(claim?.runId).toBe(run.id); expect(await f.service.executeStep(claim!)).toBe('continue');

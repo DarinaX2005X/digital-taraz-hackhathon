@@ -15,6 +15,7 @@ export function materialContextBusinessToolExtension(pool: Pool): BusinessToolEx
     output: MaterialEvidenceContextSchema,
     action: 'read_sources',
     costClass: 'local',
+    available: (state) => state.sources.length > 0 || state.datasets.length > 0,
     prepare: async (raw, context) => {
       const input = MaterialDecisionContextInputSchema.parse(raw);
       if (input.workspaceId !== context.workspaceId) throw new RunError('access_changed', 'NOT_FOUND');

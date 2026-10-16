@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Pool } from 'pg';
 import PDFDocument from 'pdfkit';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { InitSourceUploadSchema } from '../../src/contracts/sources';
 import { createSourceService } from '../../src/features/sources/server/service';
 import { LocalSourceStorage, sourceHash } from '../../src/features/sources/server/storage';
@@ -39,7 +39,42 @@ async function syntheticLargePdf() {
   });
 }
 
+function r2Storage() {
+  const objects = new Map<string, Uint8Array>();
+  const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+    const request = input instanceof Request ? input : new Request(input, init), url = new URL(request.url);
+    const key = decodeURIComponent(url.pathname.split('/').slice(2).join('/'));
+    if (request.method === 'PUT') {
+      if (objects.has(key)) return new Response(null, { status: 412 });
+      objects.set(key, new Uint8Array(await request.arrayBuffer()));
+      return new Response(null, { status: 200, headers: { ETag: '"synthetic"' } });
+    }
+    const bytes = objects.get(key);
+    if (request.method === 'HEAD') return bytes ? new Response(null, { status: 200, headers: { 'Content-Length': String(bytes.byteLength) } }) : new Response(null, { status: 404 });
+    if (request.method === 'GET') return bytes ? new Response(bytes.slice().buffer as ArrayBuffer, { status: 200 }) : new Response(null, { status: 404 });
+    if (request.method === 'DELETE') { objects.delete(key); return new Response(null, { status: 204 }); }
+    return new Response(null, { status: 405 });
+  });
+  return { storage: new LocalSourceStorage({ driver: 'r2', accountId: 'c'.repeat(32), bucketName: 'tirlik-test', accessKeyId: 'test-access', secretAccessKey: 'test-secret', fetcher }), fetcher };
+}
+
 describe('source ingestion persistence and access', () => {
+  it('commits a direct private R2 upload only after ACL, size, hash and format verification', async () => {
+    const base = await artifactFixture(pool), other = await artifactFixture(pool), r2 = r2Storage(), service = createSourceService(pool, r2.storage);
+    const bytes = Buffer.from('sku,price\n001,10'), operationId = randomUUID();
+    const input = InitSourceUploadSchema.parse({ workspaceId: base.workspaceId, projectId: base.projectId, title: 'R2 source', fileName: 'r2.csv', format: 'csv', size: bytes.length });
+    const initialized = await service.init(base.owner, operationId, input);
+    const token = initialized.token!;
+    expect(token.startsWith('r2.v1.')).toBe(true);
+    const { url } = JSON.parse(Buffer.from(token.slice('r2.v1.'.length), 'base64url').toString()) as { url: string };
+    expect((await r2.fetcher(url, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'If-None-Match': '*' }, body: bytes })).status).toBe(200);
+    await expect(service.put(other.owner, base.workspaceId, initialized.upload.id, token, null)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const committed = await service.put(base.owner, base.workspaceId, initialized.upload.id, token, null);
+    expect(committed.upload).toMatchObject({ id: initialized.upload.id, status: 'uploaded', byteHash: sourceHash(bytes), byteSize: bytes.length });
+    const replay = await service.init(base.owner, operationId, input);
+    expect(replay).toMatchObject({ upload: { id: initialized.upload.id, status: 'uploaded' }, token: null });
+    expect((await service.finalize(base.owner, base.workspaceId, initialized.upload.id)).upload.status).toBe('ready');
+  });
   it('saves immutable original, canonical manifest and every row; replays finalize without a second version', async () => {
     const f = await fixture(), bytes = Buffer.from('SKU,amount\n001,12.50\n001,\n');
     const initialized = await f.upload(bytes);

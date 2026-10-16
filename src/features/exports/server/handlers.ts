@@ -19,7 +19,15 @@ import { sheetExportAdapter } from './sheets';
 import { designExportAdapter } from './designs';
 import type { ExportAssets } from './types';
 const ActionSchema = z.strictObject({ workspaceId: IdSchema, expectedAuthzVersion: z.number().int().positive() });
-export function createExportHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor>; registry?: ExportRegistry; storage?: LocalExportStorage }) {
+function streamBytes(bytes: Uint8Array) {
+  let offset = 0;
+  return new ReadableStream<Uint8Array>({ pull(controller) {
+    if (offset >= bytes.byteLength) { controller.close(); return; }
+    const end = Math.min(bytes.byteLength, offset + 64 * 1024);
+    controller.enqueue(bytes.subarray(offset, end)); offset = end;
+  } });
+}
+export function createExportHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor>; registry?: ExportRegistry; storage?: LocalExportStorage; onService?: (service: ReturnType<typeof createExportService>) => void }) {
   const source = createSourceDocumentAdapter(options.pool);
   const visualAssets = createSourceVisualAssetService(options.pool);
   const service = createExportService({ pool: options.pool, registry: options.registry ?? new ExportRegistry([documentExportAdapter, sheetExportAdapter, designExportAdapter, operationsExportAdapter]), storage: options.storage, resolvePlanResources: (tx, access, content) => resolvePlanExportResources(tx, access, requirePlan(content)), authorizePlanResources: authorizePlanExportResources, assets: (principal, workspaceId): ExportAssets => {
@@ -37,6 +45,7 @@ export function createExportHandlers(options: { pool: Pool; origin: string; getA
       await design.font(resource.id, 'embed');
     } };
   } });
+  options.onService?.(service);
   return async function handle(request: Request): Promise<Response> {
     try {
       if (!['GET', 'POST', 'DELETE'].includes(request.method)) throw new IdentityError('NOT_FOUND', 'exports.errors.notFound');
@@ -52,7 +61,7 @@ export function createExportHandlers(options: { pool: Pool; origin: string; getA
         if (parts.length === 1) return json(await service.read(principal, workspaceId, id));
         if ((parts.length === 3 && parts[1] === 'files') || (parts.length === 2 && parts[1] === 'bundle')) {
           const result = parts[1] === 'bundle' ? await service.downloadBundle(principal, workspaceId, id) : await service.download(principal, workspaceId, id, validate(IdSchema, parts[2]));
-          return new Response(new Uint8Array(result.bytes), { headers: { 'Content-Type': result.mediaType, 'Content-Length': String(result.bytes.length), 'Content-Disposition': `attachment; filename="export"; filename*=UTF-8''${encodeURIComponent(result.fileName)}`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer', ETag: `"${result.sha256}"` } });
+          return new Response(streamBytes(result.bytes), { headers: { 'Content-Type': result.mediaType, 'Content-Disposition': `attachment; filename="export"; filename*=UTF-8''${encodeURIComponent(result.fileName)}`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer', ETag: `"${result.sha256}"` } });
         }
       } else {
         queryObject(url, []); const body = await readJson(request);

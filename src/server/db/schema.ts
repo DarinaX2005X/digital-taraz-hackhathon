@@ -16,6 +16,7 @@ export * from './dependency-schema';
 export * from './operations-schema';
 export * from './demo-execution-schema';
 export * from './library-lifecycle-schema';
+export * from './business-continuity-schema';
 
 export const demoTemplates = pgTable('demo_templates', {
   id: uuid('id').defaultRandom().primaryKey(),

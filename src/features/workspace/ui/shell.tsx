@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BriefcaseBusiness, FolderOpen, LogIn, RefreshCw } from 'lucide-react';
+import { BriefcaseBusiness, Building2, FolderOpen, LogIn, RefreshCw, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type MouseEventHandler, type ReactNode } from 'react';
 import { useLocale } from '@/i18n/provider';
 import { AccountMenu, AuthDialog, useIdentityAccount } from '@/features/identity/ui';
@@ -21,6 +21,8 @@ export function WorkspaceShell({ children, workspaceId, beforeSignOut, onSignedO
     <ProductHeader homeLabel={t.work} navigation={<nav className={styles.navigation} aria-label={t.workspace}>
       <Link href={`/app/work${workspaceId ? `?workspace=${workspaceId}` : ''}`} aria-current={pathname.startsWith('/app/work') || pathname.startsWith('/app/projects') ? 'page' : undefined}><BriefcaseBusiness size={18} />{t.work}</Link>
       <Link href={`/app/materials${workspaceId ? `?workspaceId=${workspaceId}` : ''}`} aria-current={pathname.startsWith('/app/materials') ? 'page' : undefined}><FolderOpen size={18} />{t.materials}</Link>
+      <Link href={`/app/business${workspaceId ? `?workspace=${workspaceId}` : ''}`} aria-current={pathname.startsWith('/app/business') ? 'page' : undefined}><Building2 size={18} />{t.business}</Link>
+      <Link href={`/app/team${workspaceId ? `?workspace=${workspaceId}` : ''}`} aria-current={pathname.startsWith('/app/team') ? 'page' : undefined}><Users size={18} />{t.team}</Link>
     </nav>}><LocaleSelect compact /><AccountMenu beforeSignOut={beforeSignOut} onSignedOut={onSignedOut} /></ProductHeader>
     {children}
   </div>;

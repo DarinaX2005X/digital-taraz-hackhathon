@@ -3,7 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { dependencyHash } from "../../scripts/dev/dependencies.mjs";
-import { productionInputHash, pruneProductionCompilerCache, recordProductionBuild, verifyProductionBuild } from "../../scripts/dev/production-build.mjs";
+import { projectIdentity } from "../../scripts/dev/environment.mjs";
+import { assertProductionBuildIdle, productionInputHash, pruneProductionCompilerCache, recordProductionBuild, verifyProductionBuild } from "../../scripts/dev/production-build.mjs";
+import { newRuntime, runtimePaths, writeJsonAtomic } from "../../scripts/dev/runtime.mjs";
 
 const directories = [];
 async function fixture() {
@@ -54,5 +56,20 @@ describe("verified local production builds", () => {
     expect(await pruneProductionCompilerCache(root)).toEqual({ removed: 2, bytes: 6 });
     await expect(readFile(path.join(root, ".local-data", "build", "tirlik-build.json"), "utf8")).resolves.toContain("fixture_build_1");
     await expect(verifyProductionBuild(root, { env })).resolves.toMatchObject({ buildId: "fixture_build_1" });
+  });
+
+  it("refuses to replace a build until the owned production runtime is confirmed stopped", async () => {
+    const root = await fixture();
+    const identity = await projectIdentity(root);
+    const runtime = newRuntime(identity, { app: 3100, database: 54329, smtp: 1025, mail: 8025 }, "a".repeat(64), {
+      mode: "production",
+      distDir: ".local-data/build",
+      buildId: "fixture_build_1",
+      inputHash: "b".repeat(64),
+    });
+    await writeJsonAtomic(runtimePaths(root).file, { ...runtime, status: "ready", supervisorPid: process.pid });
+    await expect(assertProductionBuildIdle(root)).rejects.toMatchObject({ code: "PRODUCTION_RUNTIME_ACTIVE" });
+    await writeJsonAtomic(runtimePaths(root).file, { ...runtime, status: "stopped", supervisorPid: null });
+    await expect(assertProductionBuildIdle(root)).resolves.toBeUndefined();
   });
 });

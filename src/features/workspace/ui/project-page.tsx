@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Archive, ArrowLeft, FileSpreadsheet, FileText, FolderOpen, Image, LayoutList, Plus, RotateCcw, Save, Upload } from 'lucide-react';
+import { Archive, ArrowLeft, FileSpreadsheet, FileText, FolderOpen, GitCompareArrows, Image, LayoutList, PackageCheck, Plus, RotateCcw, Save, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SourceListSchema, type SourceSummary } from '@/contracts/sources';
 import type { ArtifactKind } from '@/contracts/artifacts';
@@ -210,6 +210,8 @@ export function ProjectPage({ ownerId, initial, selectedSource, initialRunId, in
     {canEdit && <TourGuide ownerId={ownerId} anchors={{ task: 'project-session', materials: 'project-sources', edit: 'project-results' }} />}
     <Link className={styles.back} href={`/app/work?workspace=${workspaceId}`}><ArrowLeft size={18} />{t.back}</Link>
     <header className={styles.pageHeading}><div><h1>{project.title}</h1><p className={styles.meta}>{formatInstant(locale, project.updatedAt)}{result.canEdit === false && <span>{t.readOnly}</span>}</p></div><div className={styles.actions}>
+      <Link className="tl-button tl-button--secondary" href={`/app/projects/${projectId}/changes`}><GitCompareArrows size={18} />{t.changes}</Link>
+      <Link className="tl-button tl-button--secondary" href={`/app/projects/${projectId}/packages`}><PackageCheck size={18} />{t.packages}</Link>
       <Button id="project-sources" icon={FolderOpen} onClick={() => setSourcesOpen(true)}>{t.source}</Button>
     {canEdit && <><Link id="project-materials" className="tl-button tl-button--secondary" href={`/app/materials/add?${new URLSearchParams({ workspaceId, projectId, ...(activeRunId ? { run: activeRunId } : {}) })}`}><Upload size={18} />{t.addSource}</Link><Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{t.createMaterial}</Button><Button icon={Archive} disabled={dirty} onClick={() => setArchiveOpen(true)}>{t.archive}</Button></>}
       {project.status === 'archived' && result.canEdit && <Button variant="primary" icon={RotateCcw} pending={saving} onClick={() => { void mutate('restore'); }}>{t.restore}</Button>}

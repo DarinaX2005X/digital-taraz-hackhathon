@@ -60,6 +60,7 @@ export function businessWorkToolExtension(
     action: descriptor.policy === 'edit' ? 'save' : 'read_sources',
     output: descriptor.outputSchema,
     costClass: descriptor.costClass,
+    available: (state) => state.sources.length > 0 || state.datasets.length > 0,
     prepare: async (raw, context) => {
       if (!context.projectId) throw new RunError('invalid_result');
       const state = context.context;
@@ -75,6 +76,7 @@ export function businessWorkToolExtension(
         projectId: context.projectId,
         expectedAuthzVersion: context.authzVersion,
         allowedInputRefs: parsedState.inputRefs,
+        allowedBusinessContextRefs: state.businessContextRefs,
         inputRevisionVector,
         cancelEpoch: context.fence.epoch,
         locale: parsedState.locale,

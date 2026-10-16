@@ -12,6 +12,8 @@ import { operationsBusinessToolExtension } from '../../operations/server/ai-busi
 import { createFinanceWorkBuilder } from '../../finance/server/work-builder';
 import { createCampaignWorkToolDescriptor } from '../../campaigns/server';
 import type { WorkExecutionContext } from '../../../contracts/business-work';
+import { configureRecurringRunBridge } from '../../recurring-work/server';
+import { createRecurringRunBridge } from './recurring-bridge';
 
 function principalForBusinessWork(context: WorkExecutionContext) {
   return { kind: 'job' as const, userId: context.authority.userId, authzVersion: context.expectedAuthzVersion };
@@ -33,6 +35,8 @@ let runtime: ReturnType<typeof createRuntime> | undefined;
 function createRuntime() {
   const pool = getDatabasePool();
   const registry = createApplicationRunRegistry();
-  return { pool, registry, service: createRunService(pool, registry), ledger: createBudgetLedger(pool) };
+  const service = createRunService(pool, registry);
+  configureRecurringRunBridge(createRecurringRunBridge(pool, service));
+  return { pool, registry, service, ledger: createBudgetLedger(pool) };
 }
 export function getRunRuntime() { return runtime ??= createRuntime(); }

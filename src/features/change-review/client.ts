@@ -3,6 +3,7 @@ import { ChangeSetSchema, PrepareChangesSchema, ReviewChangesSchema } from '@/co
 import { ErrorEnvelopeSchema } from '@/contracts/errors';
 import { IdSchema } from '@/contracts/primitives';
 import { CommandReceiptSchema, type ArtifactViewer } from '@/features/artifacts/contracts';
+import { ChangeSetListResultSchema } from './contracts';
 export const ReviewReceiptSchema = z.strictObject({ changeset: ChangeSetSchema, receipt: CommandReceiptSchema.optional() });
 export const PendingReviewSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('prepare'), id: IdSchema, body: PrepareChangesSchema }),
@@ -32,6 +33,18 @@ export function createChangeReviewClient(viewer: ArtifactViewer, projectId: stri
     return result;
   }
   return {
+    list: async (after?: string, signal?: AbortSignal) => {
+      const query = new URLSearchParams({ workspaceId: viewer.workspaceId, projectId, limit: '20', ...(after ? { after } : {}) });
+      let response: Response;
+      try { response = await fetcher(`/api/changesets?${query}`, { credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal, headers: { Accept: 'application/json', 'X-Tirlik-User-Id': viewer.userId } }); }
+      catch { throw new ReviewError(0, false); }
+      let body: unknown;
+      try { body = await boundedJson(response, false); } catch { throw new ReviewError(response.status, false); }
+      if (!response.ok) throw new ReviewError(response.status, false);
+      const result = ChangeSetListResultSchema.parse(body);
+      if (result.authzVersion < viewer.authzVersion || result.changesets.some((item) => item.workspaceId !== viewer.workspaceId || item.projectId !== projectId)) throw new ReviewError(0, false);
+      return result;
+    },
     read: (id: string, signal?: AbortSignal) => request(`/api/changesets/${IdSchema.parse(id)}?${new URLSearchParams({ workspaceId: viewer.workspaceId, projectId })}`, undefined, signal),
     submit: (input: PendingReview, signal?: AbortSignal) => {
       const value = PendingReviewSchema.parse(input);

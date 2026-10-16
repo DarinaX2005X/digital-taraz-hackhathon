@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { RunError } from '../../runs/domain/errors';
+import { loadServerPdfJs } from './pdfjs-runtime';
 
 /** PDF-to-image conversion is domain OCR input processing, never application UI rendering. */
 export async function sourcePageImage(bytes: Buffer, format: string, pageNumber: number) {
@@ -9,7 +10,7 @@ export async function sourcePageImage(bytes: Buffer, format: string, pageNumber:
     if (image.length > 10 * 1024 * 1024) throw new RunError('invalid_result');
     return image;
   }
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { getDocument } = await loadServerPdfJs();
   const { createCanvas } = await import('@napi-rs/canvas');
   const loading = getDocument({ data: new Uint8Array(bytes), disableFontFace: true, useSystemFonts: false, useWasm: false, stopAtErrors: true });
   try {

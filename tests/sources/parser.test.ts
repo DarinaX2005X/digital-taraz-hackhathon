@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { extractSource, extractSourceToSink, sourceParserFailureCategory, SOURCE_CHUNK_FRAGMENT_LIMIT, validateSourceMagic } from '../../src/features/sources/server/parser';
 import { inspectRelationships, readOfficeArchive } from '../../src/features/sources/server/archive';
 import { sourcePageImage } from '../../src/features/sources/server/page-image';
+import { loadServerPdfJs } from '../../src/features/sources/server/pdfjs-runtime';
 
 const options = { encoding: 'utf-8' as const };
 async function scanPdf(image: Buffer) {
@@ -16,6 +17,11 @@ async function scanPdf(image: Buffer) {
   });
 }
 describe('bounded source extraction', () => {
+  it('initializes the explicit server worker used by bundled PDF extraction and page rendering', async () => {
+    const runtime = await loadServerPdfJs();
+    expect(runtime.getDocument).toBeTypeOf('function');
+    expect((globalThis as typeof globalThis & { pdfjsWorker?: { WorkerMessageHandler?: unknown } }).pdfjsWorker?.WorkerMessageHandler).toBeDefined();
+  });
   it('keeps lexical numbers, duplicate and empty rows, formulas as text, and source coordinates', async () => {
     const result = await extractSource(Buffer.from('sku,amount,note\n0012,"12,50",=SUM(A1:A2)\n0012,,same\n\n'), 'csv', options);
     expect(result.chunks.flatMap((chunk) => chunk.fragments).map((row) => row.values)).toEqual([['sku', 'amount', 'note'], ['0012', '12,50', '=SUM(A1:A2)'], ['0012', '', 'same'], ['']]);

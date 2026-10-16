@@ -24,6 +24,8 @@ Paths: tests/journeys/, tests/resilience/, evals/suite/, scripts/ops/, docs/oper
 Status: active
 Реальные сохранённые результаты J1–J5: create→edit→change→export→return с правильными revisions/ACL. Отсутствующий механизм остаётся блокирующим, а не снижает критерий.
 
+Приняты новые journey proofs: campaign-runtime3/3 в isolatedDB754730309ed54a35a8f5880a9252849e использует реальные upload/finalize, businessWork adapter/durable run, human editorial selection и persisted document/two designs/receipt. Mounted keyless run41f40a1d44d04144a4e91600485a017c: manual edit→AI waiting_input/configuration с requests/reserved/spent=0→PDF export→fresh cookie client reopen/download,1/1 PASS, migrate/seed/cold app/cleanup. Test environment явно local и очищает inherited R2/VERCEL flags. Это не realpaidP1; P1, fresh productionPDF/demo и C11/R110 остатки ещё открыты. До ближайшего checkpoint новых load files не создавать; после RELEASE — bounded meaningful gaps с переиспользованием годных proofs.
+
 ### 04.1.2 Устойчивость и единый проверенный snapshot
 Status: todo
 Local clean lifecycle, load bounds, budget/cancel/failure и восстановление подтверждены. Общие checks выполняются на остановленных writers/переданных путях; повторить только изменённое/сломанное. Визуальные пункты отдельно needs-user-check.
@@ -31,6 +33,8 @@ Local clean lifecycle, load bounds, budget/cancel/failure и восстанов�
 По R110 повторить измерения cold/warm HTTP, количества процессов, CPU/RAM и размера generated caches/exports после исправлений01.3. Показать конкретное изменение нагрузки; не запускать параллельные Next compilers ради проверки. Retention/cleanup не затрагивает пользовательские исходники, сохранённые результаты и активные jobs.
 
 Выявленная local build boundary: check-build.mjs пишет прямо в .local-data/build, которую использует ordinary production server. При checkpoint7f91823 MAIN остановил приложение перед завершением сборки и запустил после PASS. До safe staging/promote либо встроенного stop guard обязательно останавливать принадлежащий приложению runtime перед build; проверка04.1/04.4 должна исключить обслуживание смешанных build revisions и сохранить БД/пользовательские файлы.
+
+Ранний stability handover готов: пять exactCSSloans исправляют semantic roles/contrast и pointer-onlyhover с сохранением selected/focus/touch; это source evidence, не visualacceptance. Buildguard в трёх loans использует start-lock и fail-closed active/ambiguousownedproduction check перед изменением servedbuild. Local backup/verify/restore вscripts/ops иdocs/operations/local-backup.md: hashes/migrations, автоматическая pre-restore safety copy, transactionalpg_restore/filesystemrollback, безretentiondeletion. Focused18/18/scopedlint/syntax/diff PASS; isolatedDB c470a4a888fb48108b7d5229b8ca2904 migrate/seed+realroundtrip1/1PASS, containers/volume removed. Whole-file handover передан для следующего checkpoint. FullP1–P6/missing-key/recovery/load acceptance ещё продолжается;01–03 не объявлены завершёнными.
 
 ## 04.2 Независимо проверить исходные обещания и реализацию
 Status: todo
@@ -87,9 +91,13 @@ Paths: README.md, docs/product/, docs/assets/, scripts/verify-clean-start.mjs, t
 
 Последнее разрешение17октября заменяет deferral: повторить Vercel. Preflight existing account/project/Neon/Workflow/environment идёт отдельным owner параллельно текущим исправлениям; для hosted files пользователь выбрал private Cloudflare R2 и создаёт bucket/credentials. Deployment stable snapshot после handover, Node22, без paid purchase/других hosting исследований. Self-deploy по умолчанию хранит файлы локально и работает без cloud keys; отсутствие AI key ограничивает только AI action с понятным сообщением, не запуск/ручные файлы/редакторы/экспорт. Здесь закрепить оба воспроизводимых режима, HTTP/API/large-upload/readback/persistence/restart/resume checks и точный рабочий URL либо честный конкретный blocker. Build/health без durable app paths не закрывает deployment. Cloudflare Workers workaround не внедряется после выбора Vercel.
 
+Vercel/R2 source handover готов:15 whole files (storage/service/handlers/transport,dependency/env и tests), unit11/11, sourceDB11/11(run0760fd3891104e18b0d2aabd763b4780), scoped lint/diff PASS. Actual private R2:6,350,000bytes signed immutable PUT200, exact production CORS/Expose ETag, server bounded HEAD/GET/size/SHA256 verified, retry412, delete/missing-read cleanup PASS. Source/export streams сохраняют SHA ETag/security/no-store без Content-Length; mounted assertions требуют fresh build. Production env пока пустой, старый Ready deployment не app-ready. Существующий owned Neon Free non-sandbox ресурс пригоден: preview branch сохраняет migration ledger с13октября, без TTL/несовпадений; только0001–0002 из22 migrations, runtime/authority/cloud spend ещё отсутствуют. После checkpoint тот же ресурс подключается кProduction, выполняются20 remaining migrations/synthetic seed и env/API gates. Cloud AI key/grant только после runtime handoff local2+Neon8; новые ресурсы и перенос local user data не нужны.
+
 ### 04.4.1 Понятная документация фактического продукта
 Status: active
 README проверен против кода/реальных команд/exports/env names без значений; links/assets/privacy/credits корректны. User screenshots только предоставленные; честные diagrams допустимы, не выдаются за UI.
+
+README + docs/product/{architecture,self-hosting,clean-start}.md, scripts/verify-clean-start.mjs и tests/docs/delivery.test.ts переданы source-ready/quiescent. Focused8/8/lint/syntax/diff PASS. Clean-copy verifier исключает private env/.codex/.vibemachina/cache/dependencies, работает без skill. Actual clean E2E ждёт отдельного serial slot после общей сборки; deploy/media остаются честно pending,04.4 не завершён.
 
 R110: описать классы локального хранения, ограничение временных файлов и безопасную штатную очистку, измеренную память/время запуска и обычный режим использования. Не придумывать минимальные серверные требования и не удалять данные пользователя ради меньшего размера.
 

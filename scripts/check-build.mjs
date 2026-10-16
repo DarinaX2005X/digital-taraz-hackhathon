@@ -1,15 +1,20 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertNodeVersion, loadEnvironment } from "./dev/environment.mjs";
+import { assertNodeVersion, loadEnvironment, projectIdentity } from "./dev/environment.mjs";
 import { reportCliError } from "./dev/errors.mjs";
 import { runPackageCheck } from "./dev/process.mjs";
 import { dependencyHash } from "./dev/dependencies.mjs";
-import { invalidateProductionBuild, productionDistDir, productionInputHash, pruneProductionCompilerCache, recordProductionBuild } from "./dev/production-build.mjs";
+import { assertProductionBuildIdle, invalidateProductionBuild, productionDistDir, productionInputHash, pruneProductionCompilerCache, recordProductionBuild } from "./dev/production-build.mjs";
+import { acquireStartLock } from "./dev/runtime.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+let release;
 
 try {
   assertNodeVersion();
+  const identity = await projectIdentity(root);
+  release = await acquireStartLock(identity.root);
+  await assertProductionBuildIdle(identity.root, { identity });
   const env = await loadEnvironment(root, { mode: "production" });
   env.NEXT_DIST_DIR = productionDistDir;
   const inputHash = await productionInputHash(root, env);
@@ -27,4 +32,6 @@ try {
   if (pruned.removed) console.log(`Pruned ${pruned.removed} rebuild-only compiler cache directories (${pruned.bytes} bytes).`);
 } catch (error) {
   reportCliError(error);
+} finally {
+  if (release) await release().catch(reportCliError);
 }

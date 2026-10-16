@@ -21,8 +21,9 @@ let currentPrice: PricingSnapshot;
 beforeAll(() => { pool = isolatedRunPool(); });
 afterAll(async () => { await pool?.end(); });
 beforeEach(async () => {
+  vi.stubEnv('TIRLIK_MODEL_AUTHORIZATION_LIMIT_USD', '10');
   // The guard above admits only the disposable runner's database, never the primary app.
-  await pool.query('TRUNCATE agent_run_continuations,agent_model_endpoints,agent_model_outputs,agent_run_operations,agent_run_events,agent_tool_receipts,agent_run_usage,agent_run_contexts,agent_run_steps,agent_runs,agent_budget_days,agent_budget_authorizations,agent_queue_workspaces');
+  await pool.query('TRUNCATE agent_run_continuations,agent_model_endpoints,agent_model_outputs,agent_run_operations,agent_run_events,agent_tool_receipts,agent_run_usage,agent_run_contexts,agent_run_steps,agent_runs,agent_budget_days,agent_budget_authorizations,agent_queue_workspaces CASCADE');
   await pool.query('UPDATE agent_queue_clock SET sequence=0');
   await pool.query("INSERT INTO agent_budget_authorizations(id,provider,state,limit_usd,key_fingerprint,authority_ref,activated_at) VALUES($1,'openrouter','active','10',$2,'isolated-synthetic-test',now())", [grantId, keyFingerprint]);
   currentPrice = price();
@@ -169,6 +170,31 @@ describe('transactional runtime service', () => {
       await expect(activateProofAuthorization(pool)).rejects.toMatchObject({ failure: 'conflict' });
     } finally { vi.unstubAllEnvs(); }
   });
+  it('lowers the configured authorization ceiling only when the existing balance is fully safe', async () => {
+    vi.stubEnv('OPENROUTER_API_KEY', 'synthetic-test-key-not-provider');
+    try {
+      await pool.query("UPDATE agent_budget_authorizations SET state='closed' WHERE id=$1", [grantId]);
+      const initial = await activateProofAuthorization(pool);
+      expect(initial.limitUsd).toBe('10.000000000000');
+      const identity = (await pool.query('SELECT provider,key_fingerprint,authority_ref,activated_at FROM agent_budget_authorizations WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION])).rows[0];
+
+      vi.stubEnv('TIRLIK_MODEL_AUTHORIZATION_LIMIT_USD', '2');
+      await pool.query('UPDATE agent_budget_authorizations SET reserved_usd=0.15,spent_usd=0.02 WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION]);
+      await expect(activateProofAuthorization(pool)).rejects.toMatchObject({ failure: 'conflict' });
+      await pool.query('UPDATE agent_budget_authorizations SET reserved_usd=0,spent_usd=2.01 WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION]);
+      await expect(activateProofAuthorization(pool)).rejects.toMatchObject({ failure: 'conflict' });
+      await pool.query('UPDATE agent_budget_authorizations SET spent_usd=0.02 WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION]);
+      expect(await activateProofAuthorization(pool)).toMatchObject({ limitUsd: '2.000000000000', reservedUsd: '0.000000000000', spentUsd: '0.020000000000' });
+      expect((await pool.query('SELECT provider,key_fingerprint,authority_ref,activated_at FROM agent_budget_authorizations WHERE id=$1', [CURRENT_MODEL_AUTHORIZATION])).rows[0]).toEqual(identity);
+      expect(await modelProofReadiness(pool, price())).toMatchObject({ checks: { authorizationActive: true }, authorization: { limitUsd: '2.000000000000' } });
+
+      vi.stubEnv('TIRLIK_MODEL_AUTHORIZATION_LIMIT_USD', '3');
+      await expect(activateProofAuthorization(pool)).rejects.toMatchObject({ failure: 'conflict' });
+      vi.stubEnv('TIRLIK_MODEL_AUTHORIZATION_LIMIT_USD', '0');
+      await expect(activateProofAuthorization(pool)).rejects.toMatchObject({ failure: 'configuration' });
+      await expect(modelProofReadiness(pool, price())).rejects.toMatchObject({ failure: 'configuration' });
+    } finally { vi.unstubAllEnvs(); }
+  });
   it('does not enable a candidate without the complete two-call three-receipt proof and allows one private proof only', async () => {
     const pricing: PricingSnapshot = { ...price(), ...CURRENT_TEXT_ROUTE, proof: 'unproven', proofRef: null, maxOutputTokens: 1000, supportedParameters: ['max_tokens', 'tools', 'tool_choice', 'response_format'], vision: true, jsonMode: 'json_schema' };
     expect(await registerProofCandidate(pool, pricing)).toMatchObject({ state: 'candidate' });
@@ -218,6 +244,18 @@ describe('transactional runtime service', () => {
     const results = await Promise.all([service.create(owner.principal, input, key), service.create(owner.principal, input, key)]);
     expect(results[0]?.id).toBe(results[1]?.id);
     await expect(service.create(owner.principal, { ...input, goal: 'Changed synthetic input' }, key)).rejects.toMatchObject({ failure: 'conflict' });
+  });
+  it('accepts a trusted run budget, keeps the public default, and carries the exact ceiling into a continuation', async () => {
+    const owner = await scope(), tools = assistantRegistry(), service = createRunService(pool, tools);
+    const input = { workspaceId: owner.workspaceId, projectId: null, capabilityId: 'business.goal', capabilityVersion: 1, goal: 'Prepare bounded work', locale: 'en' as const, inputRefs: [] };
+    await expect(service.create(owner.principal, input, randomUUID(), { budgetLimitUsd: '0.25' })).rejects.toMatchObject({ failure: 'access_changed' });
+    const publicRun = await service.create(owner.principal, input, randomUUID());
+    expect((await pool.query('SELECT budget_limit_usd FROM agent_runs WHERE id=$1', [publicRun.id])).rows[0].budget_limit_usd).toBe('0.500000000000');
+    const bounded = await service.create(owner.principal, input, randomUUID(), { trusted: true, budgetLimitUsd: '0.25' });
+    expect((await pool.query('SELECT budget_limit_usd FROM agent_runs WHERE id=$1', [bounded.id])).rows[0].budget_limit_usd).toBe('0.250000000000');
+    const child = await service.resume(owner.principal, bounded.id, { expectedEpoch: bounded.epoch, goal: 'Continue the same bounded work' }, randomUUID());
+    expect((await pool.query('SELECT budget_limit_usd FROM agent_runs WHERE id=$1', [child.id])).rows[0].budget_limit_usd).toBe('0.250000000000');
+    await expect(service.create(owner.principal, input, randomUUID(), { trusted: true, budgetLimitUsd: 'not-usd' })).rejects.toBeDefined();
   });
   it('commits a typed effect and receipt together and exposes no private context in the event log', async () => {
     const { owner, service, run } = await runFixture(); const claim = await service.claim(); if (!claim) throw new Error('claim missing');

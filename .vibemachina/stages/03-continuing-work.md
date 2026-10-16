@@ -5,6 +5,8 @@ Status: active
 
 Работа остаётся пригодной после изменения входов, перехода к коллеге и возвращения через неделю. По новому прямому поручению17октября оба пакета начинают параллельно сейчас по утверждённым C6/C10/K6, не ожидая всего01–02. До done обязательны реальные producer handovers PLAN; общую интеграцию принимает04.1. Короткая текущая source freeze нужна только для передачи уже готового F018–F024 checkpoint, затем writers продолжают.
 
+Shared core handover continuity_integration принят: canonical business-work context/rule/occurrence/prepareWorkChanges schemas, Drizzle schema/migration0024 и export release metadata через существующий immutable export job. Focused7/7/scopedlint PASS; isolated DB run17cbe999428445a69549dc1087141c2a: migrate/seed и2files/3tests PASS, containers/volume removed. Оба03owners получили exact exported types. allowedBusinessContextRefs optional для обратной совместимости, recurring обязан передавать explicit authority. Это готовый schema/export core; полный runtime, consumer pages и общая type/build проверка ещё ожидаются. Nav/UI join продолжает тот же owner. Все03/04sourcewriters RELEASED после7bd3233; PDF/demo repairs не блокируют независимую работу.
+
 ## 03.1 Согласовать изменения и выпуск всего комплекта
 Status: active
 Requirements: R10, R14, R16, R25, R32, R33, R39, R40, R43, R92, R93, R94, R95, R96, R102, R103, R105
@@ -25,8 +27,10 @@ Status: active
 P5: source changed + manual phrase + geometry change + locked price; правильные reachable fields, no overwrite, concurrent commands/undo conflict и revoke проверены domain/DB. Отказ части dependency не объявляет весь проект актуальным.
 
 ### 03.1.2 Согласованный выпуск и возврат
-Status: todo
+Status: active
 Apply selected group → persisted material revisions → реальный package manifest/files → reopen. Missing asset/failed render даёт повтор нужной части; остальные ready artifacts остаются. Пользователь проверяет ясность diff/review и полноту скачанного комплекта.
+
+Whole-file handover03.1 готов: review/list/prepare/apply/reject и packages list/create/render/retry/download с frozen release metadata, canonicalExportService, routes/UI/locales. Focused changes15/15, package client3/3 и scoped lint PASS; packageDB b7125f36789845fa98329de1ed986d76 migrate/seed+1/1/cleanup PASS. Connected run eee78a11d60d4d178bef8d16c9634e3c: dependencies + project-packages connected,2files/8tests PASS, migrate/seed/cleanup. Реальные apply→persisted revisions→DOCX/XLSX→ZIP→reopen сохраняют manual phrase/formula/revision manifest; origin403/actor409/query422/ACL404 проверены. Compile-only useRef/fixture defaults исправлены, scoped checks PASS. Source/tests quiescent. Остались общие type/build/nav compilation и пользовательская визуальная проверка;03.1 пока active до интеграции.
 
 ## 03.2 Сохранить контекст бизнеса, передать работу и повторить её
 Status: active
@@ -48,5 +52,7 @@ Status: active
 Owner/editor/reviewer/foreign member через HTTP; comment/approval привязаны к версии, повторный revoke запрещает поздний доступ и write. Подтверждённое правило влияет на новую задачу, локальный override не изменяет его глобально.
 
 ### 03.2.2 Повтор по новым данным и проверяемый итог
-Status: todo
+Status: active
 P5: новая source version → один occurrence → новая ветка → review → reopen; duplicate event/cancel/restart/schema drift/limits сохраняют прежнюю работу. Actual outcome записан с периодом и источником, не объявляет причинный рост от Tirlik. Новый запуск проходит настоящие domain tools.
+
+03.2 whole-file handover готов и quiescent: versioned business context/brand/archive/restore/overrides, project member scopes, exact-version comments/resolve/approve/request-changes, recurring rules/limits/idempotency/cancel/restart и outcomes. Artifact-thread подключён к authenticated editor, учитывает exact revision/recovery/autosave/operation и не делает authenticated requests из demo. Canonical RecurringRunBridge интегрирован runtime owner: business.goal@1, pinned source revisions/branch artifact0, trusted context/authority/currentArtifact, rule budget; cancel и continuations сохраняют canonical epoch/authz/budget. Bridge unit2/2, scoped lint/diff и shared typecheck PASS. Isolated run754730309ed54a35a8f5880a9252849e: migrate/seed,6files/50tests PASS (runtime/business/context/collaboration/recurring/campaign), cleanup/pruning PASS. Общий checkpoint build ещё ожидается; UI принимает пользователь.

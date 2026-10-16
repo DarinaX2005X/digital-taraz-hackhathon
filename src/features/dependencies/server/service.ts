@@ -10,12 +10,19 @@ import { createArtifactService } from '../../artifacts/server/service';
 import { ArtifactConflict, assertMutationEpoch, loadArtifact, notFound, requireActiveProject, sourceVector } from '../../artifacts/server/service-support';
 import { identityTransaction, withWorkspaceAccessInTransaction, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { validate } from '../../identity/server/http';
+import { ChangeSetListInputSchema, ChangeSetListResultSchema } from '../../change-review/contracts';
+import { PrepareWorkChangesInputSchema, type PrepareWorkChangesInput, type PrepareWorkChangesResult, type WorkExecutionContext } from '../../../contracts/business-work';
 import { commandsForProposal, selectableGroups } from '../domain/proposal';
 import { graphSourceRefs, loadDependencyArtifacts, loadDependencySnapshot } from './snapshot';
 import { graphLock, readGraph, registerEdgesInTransaction } from './register';
 
 export const BindDependenciesSchema = RegisterDependenciesSchema.extend({ group: CommandGroupInputSchema });
 type ReadInput = z.input<typeof DependencyReadSchema>;
+const ChangeCursorSchema = z.strictObject({
+  workspaceId: IdSchema, projectId: IdSchema, authzVersion: z.number().int().positive(),
+  createdAt: z.string().datetime(), id: IdSchema,
+});
+const PrepareWorkChangesRequestSchema = PrepareWorkChangesInputSchema.extend({ workspaceId: IdSchema, expectedAuthzVersion: z.number().int().positive() });
 interface ChangeRow { id: string; workspace_id: string; project_id: string; created_by: string; created_at: Date; revision: number; state: ChangeSet['state']; proposal: ChangeSet['proposal']; accepted_group_ids: string[]; rejected_group_ids: string[]; command_group_id: string | null }
 function changeDto(row: ChangeRow): ChangeSet { return ChangeSetSchema.parse({ id: row.id, workspaceId: row.workspace_id, projectId: row.project_id, createdBy: row.created_by, createdAt: row.created_at.toISOString(), revision: row.revision, state: row.state, proposal: row.proposal, acceptedGroupIds: row.accepted_group_ids, rejectedGroupIds: row.rejected_group_ids, ...(row.command_group_id ? { commandGroupId: row.command_group_id } : {}) }); }
 async function loadChange(tx: PoolClient, body: ReadInput, id: string) {
@@ -90,6 +97,31 @@ export function createDependencyService(pool: Pool) {
       const result = changeDto(row); await save(tx, access, operationId, 'prepare', body, result); return result;
     }));
   }
+  async function prepareWorkChanges(principal: IdentityPrincipal, operationId: string, input: PrepareWorkChangesInput & { workspaceId: string; expectedAuthzVersion: number }, execution: WorkExecutionContext): Promise<PrepareWorkChangesResult> {
+    const body = validate(PrepareWorkChangesRequestSchema, input);
+    if (operationId !== execution.operationId || body.workspaceId !== execution.workspaceId || body.projectId !== execution.projectId || body.expectedAuthzVersion !== execution.expectedAuthzVersion) throw new ArtifactConflict();
+    return identityTransaction(pool, (tx) => withWorkspaceAccessInTransaction(tx, principal, { workspaceId: body.workspaceId, projectId: body.projectId, scope: 'edit' }, async (tx, access) => {
+      const request = { body, inputRevisionVector: execution.inputRevisionVector };
+      const previous = await replay<PrepareWorkChangesResult>(tx, access, operationId, 'prepare-work-changes', request);
+      await graphLock(tx, body.workspaceId, body.projectId);
+      if (previous) { await authorizeProposal(tx, access, previous.changeSet); return previous; }
+      assertMutationEpoch(access, body.expectedAuthzVersion); await requireActiveProject(tx, access, body.projectId);
+      const selected = new Set(body.artifactIds), graph = await readGraph(tx, { workspaceId: body.workspaceId, projectId: body.projectId });
+      for (const artifactId of body.artifactIds) await loadArtifact(tx, access, artifactId, { expectedProjectId: body.projectId });
+      const scoped = { ...graph, edges: graph.edges.filter((edge) => selected.has(edge.target.artifactId)) };
+      const id = randomUUID(), at = new Date().toISOString(), { proposal } = await loadDependencySnapshot(tx, access, scoped, at);
+      const actualArtifacts = Object.keys(proposal.expectedArtifactRevisions).sort(), requestedArtifacts = [...selected].sort();
+      if (actualArtifacts.length !== requestedArtifacts.length || actualArtifacts.some((id, index) => id !== requestedArtifacts[index])) throw new ArtifactConflict();
+      const actualSources = Object.entries(proposal.expectedSourceRevisions).sort(([a], [b]) => a.localeCompare(b));
+      const requestedSources = Object.entries(body.sourceRevisionVector).sort(([a], [b]) => a.localeCompare(b));
+      if (digest(actualSources) !== digest(requestedSources)) throw new ArtifactConflict();
+      const allowed = new Map(execution.allowedInputRefs.map((ref) => [`${ref.kind}:${ref.id}`, ref.revision]));
+      if (body.artifactIds.some((artifactId) => allowed.get(`artifact:${artifactId}`) !== proposal.expectedArtifactRevisions[artifactId]) || requestedSources.some(([sourceId, revision]) => allowed.get(`source:${sourceId}`) !== revision)) throw notFound();
+      const row = (await tx.query<ChangeRow>("INSERT INTO dependency_changesets(id,workspace_id,project_id,created_by,created_at,state,proposal) VALUES($1,$2,$3,$4,$5,'ready',$6) RETURNING *", [id, body.workspaceId, body.projectId, access.userId, at, JSON.stringify(proposal)])).rows[0]!;
+      const result = { changeSet: changeDto(row), inputRevisionVector: execution.inputRevisionVector };
+      await save(tx, access, operationId, 'prepare-work-changes', request, result); return result;
+    }));
+  }
   async function changeset(principal: IdentityPrincipal, id: string, input: ReadInput) {
     const body = validate(DependencyReadSchema, input); validate(IdSchema, id);
     return identityTransaction(pool, (tx) => withWorkspaceAccessInTransaction(tx, principal, { ...body, scope: 'read' }, async (tx, access) => {
@@ -98,6 +130,26 @@ export function createDependencyService(pool: Pool) {
       await authorizeGraph(tx, access, graph);
       await authorizeProposal(tx, access, result);
       return result;
+    }));
+  }
+  async function listChangesets(principal: IdentityPrincipal, input: z.input<typeof ChangeSetListInputSchema>) {
+    const body = validate(ChangeSetListInputSchema, input);
+    return identityTransaction(pool, (tx) => withWorkspaceAccessInTransaction(tx, principal, { workspaceId: body.workspaceId, projectId: body.projectId, scope: 'read' }, async (tx, access) => {
+      let after: z.infer<typeof ChangeCursorSchema> | undefined;
+      if (body.after) {
+        try { after = ChangeCursorSchema.parse(JSON.parse(Buffer.from(body.after, 'base64url').toString('utf8'))); }
+        catch { throw new ArtifactConflict(); }
+        if (after.workspaceId !== body.workspaceId || after.projectId !== body.projectId || after.authzVersion !== access.workspace.authz_version) throw new ArtifactConflict();
+      }
+      const rows = (await tx.query<ChangeRow>(`SELECT * FROM dependency_changesets
+        WHERE workspace_id=$1 AND project_id=$2
+        AND ($3::timestamptz IS NULL OR (created_at,id)<($3,$4::uuid))
+        ORDER BY created_at DESC,id DESC LIMIT $5`, [body.workspaceId, body.projectId, after?.createdAt ?? null, after?.id ?? null, body.limit + 1])).rows;
+      const page = rows.slice(0, body.limit).map(changeDto);
+      for (const value of page) await authorizeProposal(tx, access, value);
+      const last = rows.slice(0, body.limit).at(-1);
+      const nextAfter = rows.length > body.limit && last ? Buffer.from(JSON.stringify({ workspaceId: body.workspaceId, projectId: body.projectId, authzVersion: access.workspace.authz_version, createdAt: last.created_at.toISOString(), id: last.id })).toString('base64url') : null;
+      return ChangeSetListResultSchema.parse({ changesets: page, nextAfter, authzVersion: access.workspace.authz_version });
     }));
   }
   async function review(principal: IdentityPrincipal, operationId: string, id: string, action: 'accept' | 'reject', input: z.input<typeof ReviewChangesSchema>) {
@@ -129,5 +181,5 @@ export function createDependencyService(pool: Pool) {
       const result = { changeset: changeDto(row), ...(receipt ? { receipt } : {}) }; await save(tx, access, operationId, 'review', request, result); return result;
     }));
   }
-  return { read, registerInTransaction, register: (principal: IdentityPrincipal, operationId: string, input: z.input<typeof RegisterDependenciesSchema>) => identityTransaction(pool, (tx) => registerInTransaction(tx, principal, operationId, input)), bind, prepare, changeset, review };
+  return { read, registerInTransaction, register: (principal: IdentityPrincipal, operationId: string, input: z.input<typeof RegisterDependenciesSchema>) => identityTransaction(pool, (tx) => registerInTransaction(tx, principal, operationId, input)), bind, prepare, prepareWorkChanges, changeset, listChangesets, review };
 }

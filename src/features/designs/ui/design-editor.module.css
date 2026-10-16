@@ -64,8 +64,6 @@
   color: var(--color-muted);
   font-size: 0.75rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .pages,
@@ -96,7 +94,6 @@
   transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
 }
 
-.pageButton:hover { border-color: var(--color-action); transform: translateY(-1px); }
 .pageButton:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .pageButton[aria-current="true"] {
   border-color: var(--color-action);
@@ -115,7 +112,6 @@
   transition: background 140ms ease, opacity 140ms ease;
 }
 
-.layerRow:hover { background: color-mix(in srgb, var(--color-selected) 56%, transparent); }
 .layerRow[data-selected="true"] { background: var(--color-selected); }
 .layerRow[data-hidden="true"] { opacity: 0.52; }
 
@@ -259,6 +255,11 @@
 .checkbox input { inline-size: 18px; block-size: 18px; accent-color: var(--color-action); }
 .selectedCount { color: var(--color-muted); font-size: 0.75rem; font-variant-numeric: tabular-nums; }
 
+@media (hover: hover) and (pointer: fine) {
+  .pageButton:not([aria-current="true"]):hover { border-color: var(--color-action); transform: translateY(-1px); }
+  .layerRow:not([data-selected="true"]):hover { background: color-mix(in srgb, var(--color-selected) 56%, transparent); }
+}
+
 @media (max-width: 1180px) {
   .body { grid-template-columns: 176px minmax(0, 1fr); }
   .inspector {
@@ -298,7 +299,10 @@
   .field input,
   .field select,
   .field textarea { transition: none; }
-  .pageButton:hover { transform: none; }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .pageButton:not([aria-current="true"]):hover { transform: none; }
 }
 
 @media (prefers-reduced-transparency: reduce) {

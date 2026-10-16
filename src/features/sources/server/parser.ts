@@ -7,6 +7,7 @@ import { IdentityError } from '../../identity/server/http';
 import { extractOffice } from './office';
 import { sourceHash } from './storage';
 import { inspectSourceFont } from './font';
+import { loadServerPdfJs } from './pdfjs-runtime';
 import { validateSourceMagic } from './source-format';
 
 export { SOURCE_MEDIA, validateSourceMagic } from './source-format';
@@ -151,7 +152,7 @@ export async function extractSourceToSink(bytes: Buffer, format: SourceFormat, o
   } else if (format === 'xlsx' || format === 'docx') {
     ({ fragments, sheets, diagnostics } = await extractOffice(bytes, format));
   } else if (format === 'pdf') {
-    const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const { getDocument } = await loadServerPdfJs();
     const loading = getDocument({ data: new Uint8Array(bytes), disableFontFace: true, useSystemFonts: false, useWasm: false, stopAtErrors: true });
     try {
       const document = await loading.promise;

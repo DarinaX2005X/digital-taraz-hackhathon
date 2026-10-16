@@ -8,6 +8,8 @@ const databaseFiles = [
   "tests/artifacts/server/retention.integration.test.ts",
   "tests/artifacts/server/service.integration.test.ts",
   "tests/campaigns/build-work.integration.test.ts",
+  "tests/business-context/service.integration.test.ts",
+  "tests/collaboration/service.integration.test.ts",
   "tests/database/migrations.integration.test.ts",
   "tests/database/library-lifecycle-schema.integration.test.ts",
   "tests/dependencies/service.integration.test.ts",
@@ -19,10 +21,17 @@ const databaseFiles = [
   "tests/materials/imports.integration.test.ts",
   "tests/onboarding/progress.integration.test.ts",
   "tests/operations/service.integration.test.ts",
+  "tests/project-packages/service.integration.test.ts",
+  "tests/project-packages/connected.integration.test.ts",
+  "tests/recurring-work/service.integration.test.ts",
   "tests/runs/runtime.integration.test.ts",
   "tests/runs/demo-execution.integration.test.ts",
   "tests/runs/schema.integration.test.ts",
+  "tests/resilience/local-data.integration.test.mjs",
   "tests/sheets/calculation.integration.test.ts",
+  "tests/journeys/campaign-runtime.integration.test.ts",
+  "tests/shared-continuity/business-continuity-schema.integration.test.ts",
+  "tests/shared-continuity/export-release.integration.test.ts",
   "tests/sources/adapters.integration.test.ts",
   "tests/sources/recognition.integration.test.ts",
   "tests/sources/service.integration.test.ts",
@@ -42,7 +51,7 @@ const workspaceHttpFiles = [
   "tests/foundation/http.integration.test.mjs",
   "tests/ui-contracts/http.integration.test.ts",
 ];
-const demoHttpFiles = ["tests/demo/http.integration.test.ts"];
+const demoHttpFiles = ["tests/demo/http.integration.test.ts", "tests/journeys/missing-provider-manual.integration.test.ts"];
 const sourceHttpFiles = ["tests/sources/http.integration.test.ts"];
 const sheetHttpFiles = ["tests/sheets/http.integration.test.ts"];
 const materialHttpFiles = ["tests/materials/http.integration.test.ts"];

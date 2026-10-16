@@ -16,6 +16,14 @@ import { createSourceLibraryLifecycleService } from './library-lifecycle';
 
 const WorkspaceSchema = z.strictObject({ workspaceId: IdSchema });
 const integer = (value: string | undefined, fallback: number, maximum: number) => value === undefined ? fallback : validate(z.string().regex(/^(0|[1-9]\d*)$/).transform(Number).pipe(z.number().int().min(0).max(maximum)), value);
+function streamBytes(bytes: Uint8Array) {
+  let offset = 0;
+  return new ReadableStream<Uint8Array>({ pull(controller) {
+    if (offset >= bytes.byteLength) { controller.close(); return; }
+    const end = Math.min(bytes.byteLength, offset + 64 * 1024);
+    controller.enqueue(bytes.subarray(offset, end)); offset = end;
+  } });
+}
 export function createSourceHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor>; storage?: LocalSourceStorage; runtime?: SourceRecognitionRuntimeLoader }) {
   const service = createSourceService(options.pool, options.storage);
   const mutateLifecycle = createSourceLibraryLifecycleService(options.pool);
@@ -48,7 +56,7 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
           let asset;
           try { asset = await (await assets()).resolve(principal, { workspaceId, assetId: validate(IdSchema, parts[1]), purpose: 'display' }); }
           catch (error) { if (!(error instanceof IdentityError) || error.code !== 'NOT_FOUND') throw error; asset = await (await documents()).resolveImage(principal, { workspaceId, assetId: validate(IdSchema, parts[1]) }); }
-          return new Response(new Uint8Array(asset.bytes), { headers: { 'Content-Type': asset.mediaType, 'Content-Length': String(asset.bytes.length), 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer' } });
+          return new Response(streamBytes(asset.bytes), { headers: { 'Content-Type': asset.mediaType, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer' } });
         }
         if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'review') return json(await (await recognition()).review(principal, workspaceId, validate(IdSchema, parts[1])));
         if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'recognition-quote') return json(await (await recognition()).quote(principal, workspaceId, validate(IdSchema, parts[1]), integer(query.pageLimit, 3, 10)));
@@ -79,11 +87,11 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
         if (parts.length === 2 && parts[1] === 'preview') return json(await service.preview(principal, workspaceId, sourceId, validate(IdSchema, query.uploadId), integer(query.chunk, 0, 3999)));
         if (parts.length === 2 && parts[1] === 'original') {
           const original = await service.download(principal, workspaceId, sourceId, validate(IdSchema, query.uploadId));
-          return new Response(new Uint8Array(original.bytes), { headers: { 'Content-Type': original.mediaType, 'Content-Disposition': `attachment; filename="original"; filename*=UTF-8''${encodeURIComponent(original.fileName)}`, 'Content-Length': String(original.bytes.length), 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer' } });
+          return new Response(streamBytes(original.bytes), { headers: { 'Content-Type': original.mediaType, 'Content-Disposition': `attachment; filename="original"; filename*=UTF-8''${encodeURIComponent(original.fileName)}`, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Referrer-Policy': 'no-referrer', ETag: `"${original.sha256}"` } });
         }
       } else if (request.method === 'PUT') {
         const query = queryObject(url, ['workspaceId']);
-        if (parts.length === 2 && parts[0] === 'uploads' && request.body) return json(await service.put(principal, validate(IdSchema, query.workspaceId), validate(IdSchema, parts[1]), request.headers.get('x-upload-token') ?? '', request.body, request.signal));
+        if (parts.length === 2 && parts[0] === 'uploads') return json(await service.put(principal, validate(IdSchema, query.workspaceId), validate(IdSchema, parts[1]), request.headers.get('x-upload-token') ?? '', request.body, request.signal));
       } else {
         queryObject(url, []);
         const body = await readJson(request);

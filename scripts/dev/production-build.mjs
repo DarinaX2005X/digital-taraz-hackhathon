@@ -3,7 +3,8 @@ import { lstat, readFile, readdir, realpath, rm, stat, unlink } from "node:fs/pr
 import path from "node:path";
 import { CliError } from "./errors.mjs";
 import { dependencyHash } from "./dependencies.mjs";
-import { writeJsonAtomic } from "./runtime.mjs";
+import { projectIdentity } from "./environment.mjs";
+import { controlRequest, readRuntime, writeJsonAtomic } from "./runtime.mjs";
 
 export const productionDistDir = ".local-data/build";
 const manifestName = "tirlik-build.json";
@@ -12,6 +13,20 @@ const inputFiles = ["next.config.ts", "package.json", "package-lock.json", "tsco
 const generatedDirectories = new Set(["src/app/.well-known/workflow/v1"]);
 
 const normalized = (value) => process.platform === "win32" ? value.toLowerCase() : value;
+
+export async function assertProductionBuildIdle(root, options = {}) {
+  const identity = options.identity ?? await projectIdentity(root);
+  const runtime = await (options.readRuntime ?? readRuntime)(identity.root, identity.id);
+  if (!runtime || runtime.mode !== "production") return;
+  const active = await (options.controlRequest ?? controlRequest)(runtime);
+  if (active || !["stopped", "failed"].includes(runtime.status)) {
+    throw new CliError(
+      "PRODUCTION_RUNTIME_ACTIVE",
+      "The owned production application is not confirmed stopped.",
+      "Run node scripts/dev/stop.mjs, then rerun node scripts/check-build.mjs.",
+    );
+  }
+}
 
 async function filesUnder(root, relativeDirectory) {
   const relativeDirectoryPosix = relativeDirectory.replaceAll("\\", "/");

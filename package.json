@@ -53,6 +53,7 @@
     "@univerjs/ui": "1.0.4",
     "@vercel/blob": "2.8.1",
     "arima": "0.2.8",
+    "aws4fetch": "1.0.20",
     "better-auth": "1.7.7",
     "csv-parse": "7.0.3",
     "decimal.js": "10.6.0",

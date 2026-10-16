@@ -10,6 +10,20 @@ export class SourceRequestError extends Error {
 }
 export type SourceRequestContext = { userId: string; signal?: AbortSignal };
 const invalid = () => new SourceRequestError(422, 'sources.errors.validation');
+const R2_TOKEN_PREFIX = 'r2.v1.';
+function directUploadUrl(token: string) {
+  if (!token.startsWith(R2_TOKEN_PREFIX)) return null;
+  try {
+    const encoded = token.slice(R2_TOKEN_PREFIX.length);
+    if (!encoded || encoded.length > 8_192) throw invalid();
+    const decoded = atob(encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encoded.length / 4) * 4, '='));
+    const parsed = JSON.parse(new TextDecoder().decode(Uint8Array.from(decoded, (character) => character.charCodeAt(0)))) as { url?: unknown };
+    if (typeof parsed.url !== 'string') throw invalid();
+    const url = new URL(parsed.url);
+    if (url.protocol !== 'https:' || url.username || url.password || !/^[a-f0-9]{32}\.r2\.cloudflarestorage\.com$/i.test(url.hostname) || !url.pathname.includes('/') || !url.searchParams.has('X-Amz-Signature')) throw invalid();
+    return url.toString();
+  } catch (error) { if (error instanceof SourceRequestError) throw error; throw invalid(); }
+}
 export function sourceFileFormat(name: string): SourceFormat | undefined {
   const extension = name.split('.').at(-1)?.toLowerCase();
   return ({ txt: 'text', md: 'text', csv: 'csv', tsv: 'tsv', xlsx: 'xlsx', docx: 'docx', pdf: 'pdf', png: 'png', jpg: 'jpeg', jpeg: 'jpeg', webp: 'webp', ttf: 'ttf', otf: 'otf', woff: 'woff' } as Record<string, SourceFormat>)[extension ?? ''];
@@ -35,7 +49,19 @@ export function createSourceClient(fetcher: typeof fetch = fetch) {
   return {
     init: (body: InitSourceUpload, operationId: string, context: SourceRequestContext) => request('/api/sources/uploads/init', 'POST', SourceInitResultSchema, context, InitSourceUploadSchema.parse(body), IdSchema.parse(operationId)),
     async put(workspaceId: string, uploadId: string, token: string, bytes: Blob, context: SourceRequestContext) {
-      const result = await response(`/api/sources/uploads/${IdSchema.parse(uploadId)}?${query(workspaceId)}`, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'X-Upload-Token': token }, body: bytes }, context);
+      const target = directUploadUrl(token);
+      let directError: unknown;
+      if (target) {
+        try {
+          const signal = AbortSignal.any([AbortSignal.timeout(120_000), ...(context.signal ? [context.signal] : [])]);
+          const uploaded = await fetcher(target, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'If-None-Match': '*' }, body: bytes, credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', signal });
+          if (!uploaded.ok && uploaded.status !== 412) directError = new SourceRequestError(uploaded.status, 'sources.errors.network');
+        } catch (error) { directError = error; }
+      }
+      let result: Response;
+      try {
+        result = await response(`/api/sources/uploads/${IdSchema.parse(uploadId)}?${query(workspaceId)}`, { method: 'PUT', headers: { ...(target ? {} : { 'Content-Type': 'application/octet-stream' }), 'X-Upload-Token': token }, ...(target ? {} : { body: bytes }) }, context);
+      } catch (error) { throw directError ?? error; }
       return SourceUploadResultSchema.parse(await result.json());
     },
     finalize: (workspaceId: string, uploadId: string, context: SourceRequestContext) => request(`/api/sources/uploads/${IdSchema.parse(uploadId)}/finalize`, 'POST', SourceUploadResultSchema, context, { workspaceId: IdSchema.parse(workspaceId) }),

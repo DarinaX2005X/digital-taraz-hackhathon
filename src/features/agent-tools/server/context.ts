@@ -5,8 +5,7 @@ import { SourceFragmentSchema } from '../../../contracts/sources';
 import { RunCurrentArtifactSchema, RunInputRefSchema, RunQuestionSchema, RunResultRefSchema, type CreateRun } from '../../../contracts/runs';
 import { IdSchema, LocaleSchema } from '../../../contracts/primitives';
 import { MaterialDecisionContextSchema } from '../../../contracts/materials';
-import { BusinessWorkDecisionSchema } from '../../../contracts/business-work';
-import { WorkExecutionAuthoritySchema } from '../../../contracts/business-work';
+import { BusinessContextSelectionSchema, BusinessWorkDecisionSchema, WorkExecutionAuthoritySchema } from '../../../contracts/business-work';
 import { BusinessWorkPreviewSchema } from '../../../contracts/work-preview';
 import { ProposeWorkPlanResultSchema } from '../../operations/domain/propose-work-plan';
 import { withWorkspaceAccessInTransaction } from '../../identity/server/access';
@@ -63,6 +62,7 @@ export const BusinessContextSchema = z.strictObject({
   schema: z.literal(1), procedureVersion: z.literal(BUSINESS_PROCEDURE_VERSION).default(BUSINESS_PROCEDURE_VERSION), goal: z.string().max(12000), locale: LocaleSchema, inputRefs: z.array(RunInputRefSchema).max(100),
   currentArtifact: RunCurrentArtifactSchema.nullable().default(null),
   executionAuthority: WorkExecutionAuthoritySchema.nullable().default(null),
+  businessContextRefs: z.array(BusinessContextSelectionSchema).max(20).default([]),
   sources: z.array(BusinessSourceSchema).max(100),
   sourceRoles: z.array(BusinessSourceRoleAssignmentSchema).max(100).default([]),
   artifacts: z.array(ArtifactExcerptSchema).max(40),
@@ -81,7 +81,7 @@ export const BusinessContextSchema = z.strictObject({
 });
 export type BusinessContext = z.infer<typeof BusinessContextSchema>;
 export function initialBusinessContext(input: CreateRun): BusinessContext {
-  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, currentArtifact: null, executionAuthority: null, sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, workPreview: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
+  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, currentArtifact: null, executionAuthority: null, businessContextRefs: [], sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, workPreview: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
 }
 export function businessContext(context: ToolContext) { return BusinessContextSchema.parse(context.context); }
 export const principalFor = (context: ToolContext) => ({ kind: 'job' as const, userId: context.userId, authzVersion: context.authzVersion });

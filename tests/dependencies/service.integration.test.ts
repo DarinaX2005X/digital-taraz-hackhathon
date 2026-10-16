@@ -92,6 +92,21 @@ describe('authorized linked-change transactions', () => {
     expect((await f.read(f.documentId)).content).toEqual(before.content);
     expect(createArtifactTargetResolver((await f.read(f.tableId)).content)(f.total)!.value).toMatchObject({ v: 3000, f: '=A1*B1' });
   });
+  it('prepares the K7 bundle only from the authorized artifact revision vector', async () => {
+    const f = await setup(), operationId = randomUUID();
+    const execution = {
+      authority: { kind: 'user' as const, userId: f.owner.userId }, operationId,
+      workspaceId: f.workspaceId, projectId: f.projectId, expectedAuthzVersion: f.input.expectedAuthzVersion,
+      allowedInputRefs: [{ kind: 'artifact' as const, id: f.tableId, revision: 0 }, { kind: 'artifact' as const, id: f.documentId, revision: 0 }],
+      inputRevisionVector: { [f.tableId]: 0, [f.documentId]: 0 }, cancelEpoch: 0, locale: 'ru' as const,
+    };
+    const result = await f.dependencies.prepareWorkChanges({ kind: 'job', userId: f.owner.userId, authzVersion: f.input.expectedAuthzVersion }, operationId, { ...f.input, artifactIds: [f.tableId, f.documentId], sourceRevisionVector: {} }, execution);
+    expect(result.changeSet.proposal.expectedArtifactRevisions).toEqual({ [f.tableId]: 0, [f.documentId]: 0 });
+    expect(result.inputRevisionVector).toEqual(execution.inputRevisionVector);
+    expect(await f.dependencies.prepareWorkChanges({ kind: 'job', userId: f.owner.userId, authzVersion: f.input.expectedAuthzVersion }, operationId, { ...f.input, artifactIds: [f.tableId, f.documentId], sourceRevisionVector: {} }, execution)).toEqual(result);
+    const narrowOperationId = randomUUID();
+    await expect(f.dependencies.prepareWorkChanges({ kind: 'job', userId: f.owner.userId, authzVersion: f.input.expectedAuthzVersion }, narrowOperationId, { ...f.input, artifactIds: [f.documentId], sourceRevisionVector: {} }, { ...execution, operationId: narrowOperationId, allowedInputRefs: execution.allowedInputRefs.slice(1), inputRevisionVector: { [f.documentId]: 0 } })).rejects.toMatchObject({ code: 'CONFLICT' });
+  });
   it('rejects stale upstream revisions before writing any downstream field', async () => {
     const f = await setup(), proposed = await f.dependencies.prepare(f.owner, randomUUID(), f.input), table = await f.read(f.tableId);
     const target = createArtifactTargetResolver(table.content)(f.price)!;
@@ -122,6 +137,10 @@ describe('authorized linked-change transactions', () => {
     const headers = { 'x-tirlik-user-id': f.owner.userId, 'content-type': 'application/json', 'idempotency-key': randomUUID(), origin };
     const create = await handlers.handle(new Request(`${origin}/api/changesets`, { method: 'POST', headers, body: JSON.stringify(f.input) }));
     expect(create.status).toBe(201); expect(create.headers.get('cache-control')).toBe('no-store');
+    const created = await create.json() as { id: string };
+    const listed = await handlers.handle(new Request(`${origin}/api/changesets?workspaceId=${f.workspaceId}&projectId=${f.projectId}&limit=1`, { headers }));
+    expect(listed.status).toBe(200);
+    expect(await listed.json()).toMatchObject({ changesets: [{ id: created.id, workspaceId: f.workspaceId, projectId: f.projectId }], nextAfter: null, authzVersion: f.input.expectedAuthzVersion });
     const badOrigin = await handlers.handle(new Request(`${origin}/api/changesets`, { method: 'POST', headers: { ...headers, origin: 'https://other.invalid' }, body: JSON.stringify(f.input) }));
     expect(badOrigin.status).toBe(403);
     const mismatch = await handlers.handle(new Request(`${origin}/api/dependencies?workspaceId=${f.workspaceId}&projectId=${f.projectId}`, { headers: { 'x-tirlik-user-id': randomUUID() } }));

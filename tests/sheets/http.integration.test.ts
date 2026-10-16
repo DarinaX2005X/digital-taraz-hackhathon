@@ -101,6 +101,8 @@ describe('mounted source → editable sheet → file journey', () => {
     const rendered = await renderedResponse.json() as ExportJob; expect(rendered.status).toBe('ready'); expect(rendered.files).toHaveLength(2);
     const bundleUrl = `/api/exports/${job.id}/bundle?workspaceId=${workspaceId}`, bundleResponse = await client.request(bundleUrl);
     expect(bundleResponse.status).toBe(200); expect(bundleResponse.headers.get('cache-control')).toBe('no-store'); expect(bundleResponse.headers.get('content-type')).toContain('application/zip');
+    expect(bundleResponse.headers.get('content-length')).toBeNull(); expect(bundleResponse.headers.get('etag')).toBe(`"${rendered.bundle!.sha256}"`);
+    expect(bundleResponse.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'"); expect(bundleResponse.headers.get('x-content-type-options')).toBe('nosniff'); expect(bundleResponse.headers.get('referrer-policy')).toBe('no-referrer');
     const bundle = await JSZip.loadAsync(await bundleResponse.arrayBuffer()), manifest = JSON.parse(await bundle.file('manifest.json')!.async('string')) as { revisions: { artifactId: string; versionId: string; revision: number; snapshotHash: string; contentHash: string; kind: string; sourceVersions: typeof snapshot.artifact.sourceRefs }[]; files: { id: string; fileName: string; sha256: string }[] };
     expect(manifest.revisions).toHaveLength(1);
     const exportedRevision = manifest.revisions[0]!;
@@ -129,6 +131,8 @@ describe('mounted source → editable sheet → file journey', () => {
     expect((await new Client().request(bundleUrl)).status).toBe(401);
     for (const file of rendered.files) {
       const url = `/api/exports/${job.id}/files/${file.id}?workspaceId=${workspaceId}`, download = await client.request(url); expect(download.status).toBe(200); expect(download.headers.get('cache-control')).toBe('no-store');
+      expect(download.headers.get('content-length')).toBeNull(); expect(download.headers.get('etag')).toBe(`"${file.sha256}"`);
+      expect(download.headers.get('content-security-policy')).toBe("sandbox; default-src 'none'"); expect(download.headers.get('x-content-type-options')).toBe('nosniff'); expect(download.headers.get('referrer-policy')).toBe('no-referrer');
       const bytes = new Uint8Array(await download.arrayBuffer());
       if (file.format === 'xlsx') { const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(Buffer.from(bytes) as unknown as Parameters<typeof workbook.xlsx.load>[0]); expect(workbook.getWorksheet('Prices')!.getCell('A2').value).toBe('00123'); expect(workbook.getWorksheet('Prices')!.getCell('C1').formula).toBe('ROUND(A1*B1,2)'); expect(workbook.getWorksheet('Prices')!.getCell('C3').result).toBe('49.98'); }
       else expect(new TextDecoder().decode(bytes)).toContain('00123');

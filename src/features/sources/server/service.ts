@@ -73,21 +73,23 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
         await tx.query('INSERT INTO source_details(source_id,workspace_id,title) VALUES($1,$2,$3)', [sourceId, body.workspaceId, body.title]);
       }
       if (previous && (previous.original_key || previous.status === 'cancelled' || previous.lease_until && previous.lease_until > new Date())) return { upload: uploadDto(previous), token: null };
-      const token = randomBytes(32).toString('base64url'), expiry = new Date(Date.now() + 15 * 60_000);
+      const localToken = randomBytes(32).toString('base64url'), expiry = new Date(Date.now() + 15 * 60_000);
       if (previous) {
         // A process may have stopped after linking verified-size bytes but before
         // recording the key. Such bytes are not an immutable original yet and
         // must not make the same idempotent upload impossible to retry.
         await storage.remove(`${body.workspaceId}/${previous.id}/original`);
+        const token = await storage.uploadToken(body.workspaceId, previous.id, localToken, expiry);
         await tx.query("UPDATE source_uploads SET token_hash=$3,token_expires_at=$4,status='pending',lease_until=NULL,updated_at=now() WHERE workspace_id=$1 AND id=$2", [body.workspaceId, previous.id, sourceHash(token), expiry]);
         previous.status = 'pending'; return { upload: uploadDto(previous), token };
       }
-      const row = (await tx.query<UploadRow>(`INSERT INTO source_uploads(id,workspace_id,source_id,actor_id,operation_id,body_hash,expected_revision,reserved_version_id,file_name,declared_size,media_type,format,options,token_hash,token_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`, [randomUUID(), body.workspaceId, sourceId, principal.userId, key, bodyHash, body.expectedRevision, randomUUID(), body.fileName, body.size, SOURCE_MEDIA[body.format], body.format, JSON.stringify(body.options), sourceHash(token), expiry])).rows[0]!;
+      const uploadId = randomUUID(), token = await storage.uploadToken(body.workspaceId, uploadId, localToken, expiry);
+      const row = (await tx.query<UploadRow>(`INSERT INTO source_uploads(id,workspace_id,source_id,actor_id,operation_id,body_hash,expected_revision,reserved_version_id,file_name,declared_size,media_type,format,options,token_hash,token_expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`, [uploadId, body.workspaceId, sourceId, principal.userId, key, bodyHash, body.expectedRevision, randomUUID(), body.fileName, body.size, SOURCE_MEDIA[body.format], body.format, JSON.stringify(body.options), sourceHash(token), expiry])).rows[0]!;
       return { upload: uploadDto(row), token };
     });
   }
 
-  async function put(principal: SessionPrincipal, workspaceId: string, uploadId: string, token: string, stream: ReadableStream<Uint8Array>, signal?: AbortSignal) {
+  async function put(principal: SessionPrincipal, workspaceId: string, uploadId: string, token: string, stream: ReadableStream<Uint8Array> | null, signal?: AbortSignal) {
     validate(IdSchema, uploadId);
     const lease = new Date(Date.now() + 5 * 60_000);
     let writtenKey: string | undefined;
@@ -236,7 +238,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
     if (sourceHash(bytes) !== selected.byte_hash || bytes.length !== selected.byte_size) throw fail('integrity');
     // Recheck after filesystem I/O so a revoked session cannot receive buffered bytes.
     await access(principal, workspaceId, 'read', async (tx, auth) => { await authorizedUpload(tx, auth, uploadId, 'read'); });
-    return { bytes, fileName: selected.file_name, mediaType: selected.media_type };
+    return { bytes, fileName: selected.file_name, mediaType: selected.media_type, sha256: selected.byte_hash! };
   }
   const listLibrary = (principal: SessionPrincipal, input: SourceLibraryQuery) => listSourceLibrary(pool, principal, input);
   const readVersion = (principal: SessionPrincipal, workspaceId: string, sourceId: string, sourceVersionId: string) => access(principal, workspaceId, 'read', (tx, auth) => readPinnedSource(tx, auth, { sourceId, sourceVersionId }));

@@ -7,6 +7,7 @@ import { hash, hashKey } from './data';
 import { CURRENT_MODEL_AUTHORIZATION, CURRENT_TEXT_ROUTE } from './model-runtime';
 import { assertModelRoute, MODEL_POLICY_REVISION, MODEL_PROOF_CAPABILITY, type ModelEndpointRow } from './model-policy';
 import { PricingSnapshotSchema, validatePricing, type PricingSnapshot } from './pricing';
+import { UsdSchema } from '../../../contracts/runs';
 import { modelProofRegistration } from './model-proof';
 import { createRunRegistry } from './registry';
 import { createRunService } from './service';
@@ -15,6 +16,11 @@ import { exceedsUsd, usd, usdString } from '../domain/money';
 
 const authorityRef = 'user-autonomy-2026-10-14-shared-maximum-usd10';
 const amount = z.union([z.string(), z.number()]).transform(String).pipe(z.string().regex(/^\d+(?:\.\d+)?$/));
+const authorizationLimitUsd = () => {
+  const parsed = UsdSchema.safeParse(process.env.TIRLIK_MODEL_AUTHORIZATION_LIMIT_USD ?? '10');
+  if (!parsed.success || usd(parsed.data).lte(0)) throw new RunError('configuration');
+  return parsed.data;
+};
 async function metadata(route: string) {
   const response = await fetch(`https://openrouter.ai/api/v1/${route}`, { redirect: 'error', signal: AbortSignal.timeout(20_000) });
   if (!response.ok) throw new RunError('price_unknown');
@@ -78,15 +84,24 @@ export async function refreshProvenPricing(pool: Pool, fresh: PricingSnapshot) {
 export async function activateProofAuthorization(pool: Pool) {
   if (!process.env.OPENROUTER_API_KEY) throw new RunError('configuration');
   const fingerprint = hashKey(process.env.OPENROUTER_API_KEY);
+  const desiredLimitUsd = authorizationLimitUsd();
   return identityTransaction(pool, async (tx) => {
     await lockBudget(tx);
-    await tx.query("INSERT INTO agent_budget_authorizations(id,provider,state,limit_usd,key_fingerprint,authority_ref,activated_at) VALUES($1,'openrouter','active','10',$2,$3,now()) ON CONFLICT(id) DO NOTHING", [CURRENT_MODEL_AUTHORIZATION, fingerprint, authorityRef]);
+    await tx.query("INSERT INTO agent_budget_authorizations(id,provider,state,limit_usd,key_fingerprint,authority_ref,activated_at) VALUES($1,'openrouter','active',$2,$3,$4,now()) ON CONFLICT(id) DO NOTHING", [CURRENT_MODEL_AUTHORIZATION, desiredLimitUsd, fingerprint, authorityRef]);
     const row = (await tx.query<{ state: string; limit_usd: string; key_fingerprint: string; authority_ref: string; reserved_usd: string; spent_usd: string }>('SELECT * FROM agent_budget_authorizations WHERE id=$1 FOR UPDATE', [CURRENT_MODEL_AUTHORIZATION])).rows[0];
-    if (!row || row.state !== 'active' || !usd(row.limit_usd).equals(10) || row.key_fingerprint !== fingerprint || row.authority_ref !== authorityRef) throw new RunError('conflict');
+    if (!row || row.state !== 'active' || row.key_fingerprint !== fingerprint || row.authority_ref !== authorityRef) throw new RunError('conflict');
+    const currentLimit = usd(row.limit_usd), desiredLimit = usd(desiredLimitUsd);
+    if (currentLimit.lt(desiredLimit)) throw new RunError('conflict');
+    if (currentLimit.gt(desiredLimit)) {
+      if (!usd(row.reserved_usd).isZero() || usd(row.spent_usd).gt(desiredLimit)) throw new RunError('conflict');
+      const updated = (await tx.query<{ state: string; limit_usd: string; key_fingerprint: string; authority_ref: string; reserved_usd: string; spent_usd: string }>('UPDATE agent_budget_authorizations SET limit_usd=$2 WHERE id=$1 RETURNING *', [CURRENT_MODEL_AUTHORIZATION, desiredLimitUsd])).rows[0]!;
+      return { authorizationId: CURRENT_MODEL_AUTHORIZATION, limitUsd: updated.limit_usd, reservedUsd: updated.reserved_usd, spentUsd: updated.spent_usd };
+    }
     return { authorizationId: CURRENT_MODEL_AUTHORIZATION, limitUsd: row.limit_usd, reservedUsd: row.reserved_usd, spentUsd: row.spent_usd };
   });
 }
 export async function modelProofReadiness(pool: Pool, inspectedPrice?: PricingSnapshot) {
+  const desiredLimitUsd = authorizationLimitUsd();
   const price = inspectedPrice ?? await inspectProofPricing({ allowUnready: true });
   let quote: ReturnType<typeof validatePricing> | null = null;
   let currentPricingFailure: string | null = null;
@@ -125,7 +140,7 @@ export async function modelProofReadiness(pool: Pool, inspectedPrice?: PricingSn
   const endpointProven = currentPricingFailure !== 'model_expired' && endpointIdentityMatches && registered?.state === 'enabled' && registered.proof_state === 'passed' && Boolean(registered.proof_ref);
   const paidProofRequired = !endpointProven;
   const requiredReservationUsd = quote ? usdString(usd(quote.reservedUsd).times(paidProofRequired ? 2 : 1)) : null;
-  const authorizationActive = Boolean(authorization?.state === 'active' && usd(authorization.limit_usd).equals(10) && keyMatches);
+  const authorizationActive = Boolean(authorization?.state === 'active' && usd(authorization.limit_usd).equals(usd(desiredLimitUsd)) && keyMatches);
   const authorizationHeadroom = Boolean(authorizationActive && requiredReservationUsd
     && !exceedsUsd(authorization!.limit_usd, authorization!.reserved_usd, authorization!.spent_usd, requiredReservationUsd));
   const commonChecks = {

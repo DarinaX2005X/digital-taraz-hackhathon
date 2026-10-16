@@ -13,6 +13,7 @@ import {
 import { IdSchema, LocaleSchema } from '@/contracts/primitives';
 import { CreateRunSchema, ResumeRunSchema, RunEventsPageSchema, RunSchema, type Run } from '@/contracts/runs';
 import { ArtifactAccessRequestSchema, ArtifactCommandRequestSchema, ArtifactHistoryActionSchema, BranchArtifactSchema } from '@/features/artifacts/contracts';
+import { createArtifactTargetResolver } from '@/features/artifacts/domain/targets';
 import { createWorkspaceEventFeed, WorkspaceEventInputSchema } from '@/features/artifacts/server/event-feed';
 import { createArtifactService } from '@/features/artifacts/server/service';
 import type { ArtifactContent, DocumentNode } from '@/features/artifacts/domain/content-models';
@@ -186,7 +187,23 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
       const principal: IdentityPrincipal = { kind: 'job', userId: actorId, authzVersion: 1 };
       const brief = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Sary-Arqa #12 order, costs and supplier change', content: seeded.document, sourceRefs: [] });
       const plan = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Arman Print weekly workload and urgent order', content: seeded.plan, sourceRefs: [] });
-      const inputRefs = [{ kind: 'artifact' as const, id: brief.artifact.id, revision: brief.artifact.currentRevision }, { kind: 'artifact' as const, id: plan.artifact.id, revision: plan.artifact.currentRevision }];
+      const planTargets = createArtifactTargetResolver(seeded.plan);
+      const confirmedEntryIds = ['qadam-market', 'orda-logistics'] as const;
+      const lockReceipt = await artifacts.applyInTransaction(tx, principal, {
+        workspaceId,
+        expectedAuthzVersion: 1,
+        group: {
+          commandGroupId: randomUUID(),
+          expectedArtifactRevisions: { [plan.artifact.id]: plan.artifact.currentRevision },
+          expectedSourceRevisions: {},
+          commands: [{
+            commandId: randomUUID(), artifactId: plan.artifact.id, baseRevision: plan.artifact.currentRevision, kind: 'plan',
+            expectedSourceRevisions: {}, reason: 'Preserve confirmed demo work',
+            operations: confirmedEntryIds.map((targetId) => ({ targetId, op: 'lock' as const, beforeHash: planTargets(targetId)!.hash, value: { locked: true, reason: 'Confirmed work; dates are fixed.' } })),
+          }],
+        },
+      });
+      const inputRefs = [{ kind: 'artifact' as const, id: brief.artifact.id, revision: brief.artifact.currentRevision }, { kind: 'artifact' as const, id: plan.artifact.id, revision: lockReceipt.committedRevisionVector[plan.artifact.id]! }];
       const expiresAt = new Date(now().getTime() + TTL_HOURS * 3_600_000);
       await tx.query(`INSERT INTO demo_execution_scopes(id,token_hash,start_key_hash,locale,actor_id,workspace_id,project_id,input_refs,expires_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [sessionId, digest(token), startKeyHash, locale, actorId, workspaceId, projectId, JSON.stringify(inputRefs), expiresAt]);
