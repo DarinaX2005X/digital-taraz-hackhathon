@@ -9,9 +9,9 @@ import { Button, TextareaField } from '../../../ui';
 import styles from './runs.module.css';
 
 const copy = {
-  ru: { plan: 'План работы', questions: 'Нужно уточнить', send: 'Ответить и продолжить', followup: 'Что изменить или дополнить в этом материале?', followupHint: 'Например: сократи введение, добавь условия оплаты и сохрани остальную структуру.', apply: 'Отправить ассистенту', parent: 'Предыдущая часть задачи', child: 'Открыть продолжение', changed: 'Текущая версия сначала сохранится. Ответ появится как продолжение этой работы.' },
-  kk: { plan: 'Жұмыс жоспары', questions: 'Нақтылау қажет', send: 'Жауап беріп, жалғастыру', followup: 'Осы материалда нені өзгерту немесе толықтыру керек?', followupHint: 'Мысалы: кіріспені қысқартып, төлем шарттарын қосыңыз, қалған құрылымды сақтаңыз.', apply: 'Ассистентке жіберу', parent: 'Тапсырманың алдыңғы бөлігі', child: 'Жалғасын ашу', changed: 'Ағымдағы нұсқа алдымен сақталады. Жауап осы жұмыстың жалғасы ретінде ашылады.' },
-  en: { plan: 'Work plan', questions: 'A few details are needed', send: 'Answer and continue', followup: 'What should change or be added to this material?', followupHint: 'For example: shorten the introduction, add payment terms, and keep the rest of the structure.', apply: 'Send to the assistant', parent: 'Previous part of this task', child: 'Open continuation', changed: 'The current version will be saved first. The response will open as a continuation of this work.' },
+  ru: { plan: 'План работы', questions: 'Нужно уточнить', send: 'Ответить и продолжить', followup: 'Что изменить или дополнить в этом материале?', followupHint: 'Например: сократи введение, добавь условия оплаты и сохрани остальную структуру.', apply: 'Отправить ассистенту', parent: 'Предыдущая часть задачи', child: 'Открыть продолжение' },
+  kk: { plan: 'Жұмыс жоспары', questions: 'Нақтылау қажет', send: 'Жауап беріп, жалғастыру', followup: 'Осы материалда нені өзгерту немесе толықтыру керек?', followupHint: 'Мысалы: кіріспені қысқартып, төлем шарттарын қосыңыз, қалған құрылымды сақтаңыз.', apply: 'Ассистентке жіберу', parent: 'Тапсырманың алдыңғы бөлігі', child: 'Жалғасын ашу' },
+  en: { plan: 'Work plan', questions: 'A few details are needed', send: 'Answer and continue', followup: 'What should change or be added to this material?', followupHint: 'For example: shorten the introduction, add payment terms, and keep the rest of the structure.', apply: 'Send to the assistant', parent: 'Previous part of this task', child: 'Open continuation' },
 };
 
 export type RunChange = Pick<ResumeRun, 'answers' | 'goal' | 'plan' | 'selectedOptionId' | 'acceptedConditionIds'>;
@@ -82,8 +82,8 @@ export function RunFollowupComposer({ run, locale, pending, draftOwnerId, artifa
   }, [draftKey, goal]);
   const submit = (event: FormEvent) => { event.preventDefault(); const value = goal.trim(); if (value) onContinue({ goal: value }); };
   return <form className={styles.followupComposer} onSubmit={submit}>
-    <TextareaField label={text.followup} hint={text.followupHint} required maxLength={12000} rows={3} disabled={pending} value={goal} onChange={(event) => setGoal(event.target.value)} />
-    <div className={styles.followupMeta}><small>{text.changed}</small><Button type="submit" variant="primary" icon={Send} pending={pending} disabled={!goal.trim()}>{text.apply}</Button></div>
+    <TextareaField label={text.followup} placeholder={text.followupHint} required maxLength={12000} rows={3} disabled={pending} value={goal} onChange={(event) => setGoal(event.target.value)} />
+    <div className={styles.followupMeta}><Button type="submit" variant="primary" icon={Send} pending={pending} disabled={!goal.trim()}>{text.apply}</Button></div>
     {error && <p className={styles.followupError} role="alert">{error}</p>}
   </form>;
 }

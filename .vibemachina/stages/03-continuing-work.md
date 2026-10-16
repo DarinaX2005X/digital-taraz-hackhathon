@@ -1,14 +1,14 @@
 # 03 Связанные изменения, команда и следующий период
-Status: active
+Status: done
 
 Старт по contract не равен готовности: обязательные producer handovers до done находятся в PLAN, включая K7; partial/mock результат не закрывает пакет.
 
-Работа остаётся пригодной после изменения входов, перехода к коллеге и возвращения через неделю. По новому прямому поручению17октября оба пакета начинают параллельно сейчас по утверждённым C6/C10/K6, не ожидая всего01–02. До done обязательны реальные producer handovers PLAN; общую интеграцию принимает04.1. Короткая текущая source freeze нужна только для передачи уже готового F018–F024 checkpoint, затем writers продолжают.
+Работа остаётся пригодной после изменения входов, перехода к коллеге и возвращения через неделю. Оба пакета приняты в общем checkpoint9b4c339ba135d36d5b58814aeab8f58fe7217526: реальные producer handovers, DB/HTTP/file proofs, type/lint и production build прошли. Полный межэтапный проход принимает04.1; внешний вид и удобство остаются на пользовательской проверке.
 
-Shared core handover continuity_integration принят: canonical business-work context/rule/occurrence/prepareWorkChanges schemas, Drizzle schema/migration0024 и export release metadata через существующий immutable export job. Focused7/7/scopedlint PASS; isolated DB run17cbe999428445a69549dc1087141c2a: migrate/seed и2files/3tests PASS, containers/volume removed. Оба03owners получили exact exported types. allowedBusinessContextRefs optional для обратной совместимости, recurring обязан передавать explicit authority. Это готовый schema/export core; полный runtime, consumer pages и общая type/build проверка ещё ожидаются. Nav/UI join продолжает тот же owner. Все03/04sourcewriters RELEASED после7bd3233; PDF/demo repairs не блокируют независимую работу.
+Shared core continuity_integration принят: canonical business-work context/rule/occurrence/prepareWorkChanges schemas, Drizzle schema/migration0024 и export release metadata через существующий immutable export job. Focused7/7/scopedlint PASS; isolated DB run17cbe999428445a69549dc1087141c2a: migrate/seed и2files/3tests PASS, containers/volume removed. Оба consumers используют общие exports; четыре navigation routes существуют и скомпилированы. allowedBusinessContextRefs optional для обратной совместимости, recurring передаёт explicit authority. Общие проверки9b4c339:159unit files/986tests, type/lint и production build PASS. Shared owner quiescent.
 
 ## 03.1 Согласовать изменения и выпуск всего комплекта
-Status: active
+Status: done
 Requirements: R10, R14, R16, R25, R32, R33, R39, R40, R43, R92, R93, R94, R95, R96, R102, R103, R105
 Depends on: none
 Owner: SUBAGENT changes_release
@@ -23,17 +23,17 @@ Paths: src/features/dependencies/, src/features/change-review/, src/features/pro
 **Порядок.** Reconcile существующий dependency/review код, закрыть missing propagation/lock/branch cases; передать decorations/commands editors 01.6/02.2/01.4 через их owners. Затем review UI с выбором/сравнением, package collection/export/export retry. UI по DESIGN: причина и поля рядом, selected/partial/conflict/disabled выразительны, keyboard list/tree и narrow drill-down; RU/KK/EN. Рендеры файлов использует 01.6/02.2, свой второй exporter не создаёт.
 
 ### 03.1.1 Изменения сохраняют решения человека
-Status: active
+Status: done
 P5: source changed + manual phrase + geometry change + locked price; правильные reachable fields, no overwrite, concurrent commands/undo conflict и revoke проверены domain/DB. Отказ части dependency не объявляет весь проект актуальным.
 
 ### 03.1.2 Согласованный выпуск и возврат
-Status: active
+Status: done
 Apply selected group → persisted material revisions → реальный package manifest/files → reopen. Missing asset/failed render даёт повтор нужной части; остальные ready artifacts остаются. Пользователь проверяет ясность diff/review и полноту скачанного комплекта.
 
-Whole-file handover03.1 готов: review/list/prepare/apply/reject и packages list/create/render/retry/download с frozen release metadata, canonicalExportService, routes/UI/locales. Focused changes15/15, package client3/3 и scoped lint PASS; packageDB b7125f36789845fa98329de1ed986d76 migrate/seed+1/1/cleanup PASS. Connected run eee78a11d60d4d178bef8d16c9634e3c: dependencies + project-packages connected,2files/8tests PASS, migrate/seed/cleanup. Реальные apply→persisted revisions→DOCX/XLSX→ZIP→reopen сохраняют manual phrase/formula/revision manifest; origin403/actor409/query422/ACL404 проверены. Compile-only useRef/fixture defaults исправлены, scoped checks PASS. Source/tests quiescent. Остались общие type/build/nav compilation и пользовательская визуальная проверка;03.1 пока active до интеграции.
+Whole-file handover03.1 принят в9b4c339: review/list/prepare/apply/reject и packages list/create/render/retry/download с frozen release metadata, canonicalExportService, routes/UI/locales. Focused changes15/15, package client3/3 и scoped lint PASS; packageDB b7125f36789845fa98329de1ed986d76 migrate/seed+1/1/cleanup PASS. Connected run eee78a11d60d4d178bef8d16c9634e3c: dependencies + project-packages connected,2files/8tests PASS, migrate/seed/cleanup. Реальные apply→persisted revisions→DOCX/XLSX→ZIP→reopen сохраняют manual phrase/formula/revision manifest; origin403/actor409/query422/ACL404 проверены. Общие type/build/nav compilation PASS. Source/tests quiescent; пользовательская визуальная проверка не подменена этими доказательствами.
 
 ## 03.2 Сохранить контекст бизнеса, передать работу и повторить её
-Status: active
+Status: done
 Requirements: R01, R05, R10, R11, R12, R13, R16, R22, R23, R24, R25, R32, R34, R35, R36, R39, R41, R42, R43, R44, R45, R90, R91, R94, R96, R99, R103, R105, R109
 Depends on: none
 Owner: SUBAGENT business_continuity
@@ -48,11 +48,11 @@ Paths: src/features/business-context/, src/features/collaboration/, src/features
 **UI.** «Бизнес» необязателен для первого результата. «Сохранить правило», «Пригласить», «Согласовать эту версию», «Подготовить следующий период» являются контекстными действиями; их эффекты понятны до нажатия. Списки людей/ресурсов/правил, empty/paused/running/failed/needs-mapping/ready, permission denial и return context по DESIGN; RU/KK/EN и narrow.
 
 ### 03.2.1 Контекст и командная работа с правами
-Status: active
+Status: done
 Owner/editor/reviewer/foreign member через HTTP; comment/approval привязаны к версии, повторный revoke запрещает поздний доступ и write. Подтверждённое правило влияет на новую задачу, локальный override не изменяет его глобально.
 
 ### 03.2.2 Повтор по новым данным и проверяемый итог
-Status: active
+Status: done
 P5: новая source version → один occurrence → новая ветка → review → reopen; duplicate event/cancel/restart/schema drift/limits сохраняют прежнюю работу. Actual outcome записан с периодом и источником, не объявляет причинный рост от Tirlik. Новый запуск проходит настоящие domain tools.
 
-03.2 whole-file handover готов и quiescent: versioned business context/brand/archive/restore/overrides, project member scopes, exact-version comments/resolve/approve/request-changes, recurring rules/limits/idempotency/cancel/restart и outcomes. Artifact-thread подключён к authenticated editor, учитывает exact revision/recovery/autosave/operation и не делает authenticated requests из demo. Canonical RecurringRunBridge интегрирован runtime owner: business.goal@1, pinned source revisions/branch artifact0, trusted context/authority/currentArtifact, rule budget; cancel и continuations сохраняют canonical epoch/authz/budget. Bridge unit2/2, scoped lint/diff и shared typecheck PASS. Isolated run754730309ed54a35a8f5880a9252849e: migrate/seed,6files/50tests PASS (runtime/business/context/collaboration/recurring/campaign), cleanup/pruning PASS. Общий checkpoint build ещё ожидается; UI принимает пользователь.
+03.2 whole-file handover принят в9b4c339 и quiescent: versioned business context/brand/archive/restore/overrides, project member scopes, exact-version comments/resolve/approve/request-changes, recurring rules/limits/idempotency/cancel/restart и outcomes. Artifact-thread подключён к authenticated editor, учитывает exact revision/recovery/autosave/operation и не делает authenticated requests из demo. Canonical RecurringRunBridge интегрирован runtime owner: business.goal@1, pinned source revisions/branch artifact0, trusted context/authority/currentArtifact, rule budget; cancel и continuations сохраняют canonical epoch/authz/budget. Bridge unit2/2, scoped lint/diff и shared typecheck PASS. Isolated run754730309ed54a35a8f5880a9252849e: migrate/seed,6files/50tests PASS (runtime/business/context/collaboration/recurring/campaign), cleanup/pruning PASS. Общий production build PASS; UI принимает пользователь.

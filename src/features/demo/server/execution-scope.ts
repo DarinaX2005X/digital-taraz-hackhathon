@@ -28,12 +28,18 @@ import {
   WorkResourceListInputSchema,
 } from '@/features/operations/contracts';
 import { ProposeWorkPlanRequestSchema } from '@/features/operations/domain/propose-work-plan';
+import { localDateMinuteToInstant } from '@/features/operations/domain/time';
 import { createOperationsService } from '@/features/operations/server/service';
 import type { getRunRuntime } from '@/features/runs/server/runtime';
 import { hash, requestKey, type JsonObject } from '@/features/runs/server/data';
 
 const TTL_HOURS = 24;
 const fullScopes = ['read', 'edit', 'approve', 'export', 'manage-members', 'read-confidential'];
+const confirmedDemoEntryIds = ['qadam-market', 'orda-logistics'] as const;
+const canonicalDemoEntryIdSets = [
+  [...confirmedDemoEntryIds, 'sary-arqa-pharmacy'].sort(),
+  [...confirmedDemoEntryIds, 'sary-arqa-pharmacy', 'sary-arqa-pharmacy-release-finish'].sort(),
+];
 const StartRunInputSchema = z.strictObject({
   goal: z.string().trim().min(1).max(12_000),
   inputRefs: CreateRunSchema.shape.inputRefs.min(1),
@@ -79,11 +85,12 @@ function seedContent(locale: 'ru' | 'kk' | 'en', ids: { cutter: string; printer:
     en: ['Synthetic example. Urgent order for the Arman Print signage workshop: a Sary-Arqa Pharmacy #12 package with a fascia sign, 18 m² of window vinyl, 14 wayfinding panels and installation.', 'Approved quoting basis: full package KZT 1,450,000; first release KZT 980,000. Customer ceiling: KZT 1,480,000.', 'Full-package direct costs: printing KZT 510,000, materials KZT 230,000, installation KZT 180,000. First release: printing KZT 340,000, materials KZT 160,000, installation KZT 120,000.', `Installation is due by 18:00 on ${fridayDate}. Work may start ${mondayDate}. The full package needs 960 minutes; the first release needs 540 minutes.`, 'Supplier change: white vinyl will now arrive only at 14:00 on Thursday. Stock on hand is 11 m²; the full package needs 18 m² and the first release needs 9 m².', 'The confirmed Qadam Market fascia-panel job and Orda Logistics van-wrap run already occupy most of the week. Do not promise the date without checking capacity.', 'Prepare two honest options: the full package and a first release. Send nothing to the customer.'],
   }[locale];
   const document: ArtifactContent = { kind: 'document', schemaVersion: 1, document: { type: 'doc', attrs: { id: 'demo-brief' }, content: facts.map((text, index) => paragraph(`fact-${index + 1}`, text)) } };
-  const instant = (day: number, hour: number) => `${date(addDays(monday, day))}T${String(hour).padStart(2, '0')}:00:00.000Z`;
+  const instant = (day: number, hour: number) => new Date(localDateMinuteToInstant(date(addDays(monday, day)), hour * 60, 'Asia/Qyzylorda', 'start')).toISOString();
   const plan: ArtifactContent = { kind: 'plan', schemaVersion: 1, timezone: 'Asia/Qyzylorda', entries: [
     { id: 'qadam-market', title: 'Qadam Market — fascia panels', status: 'in-progress', startAt: instant(0, 9), endAt: instant(1, 17), resourceIds: [ids.cutter, ids.printer], assignments: [{ resourceId: ids.cutter, resourceRevision: 1, availabilityVersionId: ids.cutterAvailability, effort: { decimal: '720', unit: 'person-minutes' } }, { resourceId: ids.printer, resourceRevision: 1, availabilityVersionId: ids.printerAvailability, effort: { decimal: '480', unit: 'person-minutes' } }], dependencies: [], checklist: [], availabilityVersionIds: [ids.cutterAvailability, ids.printerAvailability], durationMinutes: 1_920, effort: { decimal: '1200', unit: 'person-minutes' }, notes: 'Confirmed work; dates are locked.' },
     { id: 'orda-logistics', title: 'Orda Logistics — van-wrap run', status: 'todo', startAt: instant(2, 9), endAt: instant(3, 15), resourceIds: [ids.printer], assignments: [{ resourceId: ids.printer, resourceRevision: 1, availabilityVersionId: ids.printerAvailability, effort: { decimal: '840', unit: 'person-minutes' } }], dependencies: [], checklist: [], availabilityVersionIds: [ids.printerAvailability], durationMinutes: 1_800, effort: { decimal: '840', unit: 'person-minutes' }, notes: 'Confirmed work; dates are locked.' },
-    { id: 'sary-arqa-pharmacy', title: 'Sary-Arqa Pharmacy #12 — urgent signage package', status: 'todo', resourceIds: [], assignments: [], dependencies: [], checklist: [{ id: 'proof', text: 'Approve print proof', done: false }, { id: 'vinyl', text: 'Confirm white-vinyl allocation', done: false }, { id: 'install', text: 'Install fascia and wayfinding', done: false }], availabilityVersionIds: [], durationMinutes: 960, effort: { decimal: '960', unit: 'person-minutes' }, notes: `Must finish by 18:00 on ${fridayDate}; compare the full package with a viable first release.` },
+    { id: 'sary-arqa-pharmacy', title: 'Sary-Arqa Pharmacy #12 — proposed first release: prepress', status: 'todo', resourceIds: [], assignments: [], dependencies: [], checklist: [{ id: 'proof', text: 'Approve print proof', done: false }, { id: 'vinyl', text: 'Reserve 9 m² of the 11 m² white-vinyl stock', done: false }], availabilityVersionIds: [], durationMinutes: 120, effort: { decimal: '120', unit: 'person-minutes' }, notes: `Unapproved first-release option due by 18:00 on ${fridayDate}. The full package remains a separate 960-minute, 18 m² option and cannot be promised from the 11 m² stock.` },
+    { id: 'sary-arqa-pharmacy-release-finish', title: 'Sary-Arqa Pharmacy #12 — proposed first release: production and installation', status: 'todo', resourceIds: [], assignments: [], dependencies: ['sary-arqa-pharmacy'], checklist: [{ id: 'install', text: 'Produce and install the first-release scope', done: false }], availabilityVersionIds: [], durationMinutes: 420, effort: { decimal: '420', unit: 'person-minutes' }, notes: `Completes the unapproved 540-minute first-release option by 18:00 on ${fridayDate}. The remaining full-package scope still requires review of 960 minutes, 18 m² total vinyl and the Thursday 14:00 supplier delivery.` },
   ] };
   return { document, plan, effectiveFrom: mondayDate, effectiveTo: fridayDate };
 }
@@ -152,6 +159,42 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
     return inputRefs;
   }
 
+  async function repairUntouchedLegacyPlanLocks(tx: PoolClient, scope: ScopeRow) {
+    const pinned = new Map(scope.input_refs.filter((ref) => ref.kind === 'artifact').map((ref) => [ref.id, ref.revision]));
+    const candidates = (await tx.query<{ id: string; current_revision: number }>(`SELECT id,current_revision FROM artifacts
+      WHERE workspace_id=$1 AND project_id=$2 AND kind='plan' AND id=ANY($3::uuid[]) FOR UPDATE`, [scope.workspace_id, scope.project_id, [...pinned.keys()]])).rows
+      .filter((row) => row.current_revision === 0 && pinned.get(row.id) === 0);
+    if (candidates.length !== 1) return false;
+    const artifactId = candidates[0]!.id;
+    const history = (await tx.query<{ versions: number; commands: number }>(`SELECT
+      (SELECT count(*)::int FROM artifact_versions WHERE workspace_id=$1 AND artifact_id=$2) AS versions,
+      (SELECT count(*)::int FROM artifact_commands WHERE workspace_id=$1 AND artifact_id=$2) AS commands`, [scope.workspace_id, artifactId])).rows[0];
+    if (!history || history.versions !== 1 || history.commands !== 0) return false;
+    const snapshot = await artifacts.readInTransaction(tx, demoPrincipal(scope), { workspaceId: scope.workspace_id, artifactId, expectedProjectId: scope.project_id });
+    if (snapshot.content.kind !== 'plan' || Object.keys(snapshot.locks ?? {}).length !== 0) return false;
+    const entryIds = snapshot.content.entries.map((entry) => entry.id).sort().join('\0');
+    if (!canonicalDemoEntryIdSets.some((ids) => ids.join('\0') === entryIds)) return false;
+    const targets = createArtifactTargetResolver(snapshot.content);
+    const operations = confirmedDemoEntryIds.map((targetId) => ({
+      targetId,
+      op: 'lock' as const,
+      beforeHash: targets(targetId)!.hash,
+      value: { locked: true, reason: 'Confirmed work; dates are fixed.' },
+    }));
+    await artifacts.applyInTransaction(tx, demoPrincipal(scope), {
+      workspaceId: scope.workspace_id,
+      expectedAuthzVersion: 1,
+      group: {
+        commandGroupId: randomUUID(),
+        expectedArtifactRevisions: { [artifactId]: 0 },
+        expectedSourceRevisions: {},
+        commands: [{ commandId: randomUUID(), artifactId, baseRevision: 0, kind: 'plan', expectedSourceRevisions: {}, reason: 'Preserve confirmed demo work', operations }],
+      },
+    });
+    await refreshInputRefs(tx, scope, false);
+    return true;
+  }
+
   async function scopeSnapshot(scope: ScopeRow, tx: Pick<PoolClient, 'query'> = dependencies.pool): Promise<DemoExecutionScope> {
     const inputRefs = await currentInputRefs(tx, scope);
     const rows = (await dependencies.pool.query<{ id: string }>('SELECT id FROM agent_runs WHERE workspace_id=$1 AND project_id=$2 AND created_by=$3 ORDER BY created_at,id LIMIT 21', [scope.workspace_id, scope.project_id, scope.actor_id])).rows;
@@ -188,7 +231,6 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
       const brief = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Sary-Arqa #12 order, costs and supplier change', content: seeded.document, sourceRefs: [] });
       const plan = await artifacts.createInTransaction(tx, principal, randomUUID(), { workspaceId, projectId, expectedAuthzVersion: 1, title: 'Arman Print weekly workload and urgent order', content: seeded.plan, sourceRefs: [] });
       const planTargets = createArtifactTargetResolver(seeded.plan);
-      const confirmedEntryIds = ['qadam-market', 'orda-logistics'] as const;
       const lockReceipt = await artifacts.applyInTransaction(tx, principal, {
         workspaceId,
         expectedAuthzVersion: 1,
@@ -199,7 +241,7 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
           commands: [{
             commandId: randomUUID(), artifactId: plan.artifact.id, baseRevision: plan.artifact.currentRevision, kind: 'plan',
             expectedSourceRevisions: {}, reason: 'Preserve confirmed demo work',
-            operations: confirmedEntryIds.map((targetId) => ({ targetId, op: 'lock' as const, beforeHash: planTargets(targetId)!.hash, value: { locked: true, reason: 'Confirmed work; dates are fixed.' } })),
+            operations: confirmedDemoEntryIds.map((targetId) => ({ targetId, op: 'lock' as const, beforeHash: planTargets(targetId)!.hash, value: { locked: true, reason: 'Confirmed work; dates are fixed.' } })),
           }],
         },
       });
@@ -213,8 +255,11 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
   }
 
   async function read(sessionId: string, token: string) {
-    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
-    return scopeSnapshot(scope);
+    return identityTransaction(dependencies.pool, async (tx) => {
+      const scope = await lockScope(tx, sessionId, token, true);
+      await repairUntouchedLegacyPlanLocks(tx, scope);
+      return scopeSnapshot(scope, tx);
+    });
   }
 
   async function artifactSnapshot(sessionId: string, token: string, artifactId: string) {

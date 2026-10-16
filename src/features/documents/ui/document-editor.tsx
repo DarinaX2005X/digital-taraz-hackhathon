@@ -160,7 +160,8 @@ export function DocumentEditor({ session, onFlushReady, resources = true }: Docu
     } catch (failure) { setError(failure); } finally { setFieldBusy(false); }
   }
   return <div className={styles.editor}>
-    <div className={styles.toolbar} role="group" aria-label={t.tools}>
+    <div className={`${styles.toolbar} ${styles.primaryToolbar}`} role="group" aria-label={t.tools}>
+      <div className={styles.toolbarTools}>
       <div className={styles.toolGroup}>
         <IconButton icon={Undo2} label={t.undo} disabled={!canEdit || !(snapshot.history.some((item) => item.canUndo) || state.phase === 'dirty' || state.phase === 'saving')} onClick={() => { void history('undo'); }} />
         <IconButton icon={Redo2} label={t.redo} disabled={!canEdit || !snapshot.history.some((item) => item.canRedo)} onClick={() => { void history('redo'); }} />
@@ -198,7 +199,8 @@ export function DocumentEditor({ session, onFlushReady, resources = true }: Docu
       </div></details>
       <IconButton icon={Search} label={t.find} aria-pressed={findOpen} onClick={() => setFindOpen(!findOpen)} />
       <IconButton icon={Settings2} label={t.inspect} aria-pressed={inspector} onClick={() => setInspector(!inspector)} />
-      <Button icon={Save} disabled={!canEdit} onClick={() => { void controller.flush().catch(setError); }}>{t.save}</Button>
+      </div>
+      <div className={styles.toolbarActions}><Button icon={Save} disabled={!canEdit} onClick={() => { void controller.flush().catch(setError); }}>{t.save}</Button></div>
     </div>
     {selection?.table && <details className={`${styles.toolbar} ${styles.tableMenu}`}><summary>{t.table}</summary><div className={styles.menuContent} role="group" aria-label={t.table}>
       {([{ label: t.addRow, run: () => editor.chain().focus().addRowAfter().run() }, { label: t.addColumn, run: () => editor.chain().focus().addColumnAfter().run() }, { label: t.removeRow, run: () => editor.chain().focus().deleteRow().run() }, { label: t.removeColumn, run: () => editor.chain().focus().deleteColumn().run() }, { label: t.mergeCells, run: () => editor.chain().focus().mergeCells().run() }, { label: t.splitCell, run: () => editor.chain().focus().splitCell().run() }, { label: t.removeTable, run: () => editor.chain().focus().deleteTable().run() }]).map((action) => <Button key={action.label} variant="quiet" disabled={!canEdit} onClick={() => format(action.run)}>{action.label}</Button>)}

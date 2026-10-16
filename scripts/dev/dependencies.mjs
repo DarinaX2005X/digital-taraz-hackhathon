@@ -20,16 +20,24 @@ export async function ensureDependencies(root, options = {}) {
   let installed = false;
   try {
     const marker = JSON.parse(await readFile(markerPath, "utf8"));
-    await Promise.all(["next/dist/bin/next", "tsx/dist/cli.mjs", "vitest/vitest.mjs", "typescript/bin/tsc"].map((file) => access(path.join(root, "node_modules", file))));
+    await requiredDependencies(root);
     installed = Object.entries(expected).every(([key, value]) => marker[key] === value);
   } catch { /* A missing or outdated stamp requires a reproducible install. */ }
   if (!installed) {
     console.log("Installing the locked dependencies with npm ci...");
-    await runNpm(["ci", "--no-audit", "--no-fund"], { ...options, cwd: root, label: "Locked dependency install", timeoutMs: 600_000 });
+    // Production startup still needs the repository's pinned migration and
+    // verification CLIs. NODE_ENV=production must not make npm omit them.
+    await runNpm(["ci", "--include=dev", "--no-audit", "--no-fund"], { ...options, cwd: root, label: "Locked dependency install", timeoutMs: 600_000 });
     if (await dependencyHash(root) !== lockHash) {
       throw new CliError("LOCKFILE_CHANGED", "The dependency lockfile changed during installation.", "Let the dependency update finish, then rerun node scripts/dev/start.mjs.");
     }
+    try { await requiredDependencies(root); }
+    catch { throw new CliError("DEPENDENCIES_INCOMPLETE", "The locked dependency installation did not provide the required local tools.", "Inspect the install log, then rerun node scripts/dev/start.mjs."); }
     await writeJsonAtomic(markerPath, expected);
   }
   return { lockHash, installed: !installed };
+}
+
+function requiredDependencies(root) {
+  return Promise.all(["next/dist/bin/next", "tsx/dist/cli.mjs", "vitest/vitest.mjs", "typescript/bin/tsc"].map((file) => access(path.join(root, "node_modules", file))));
 }

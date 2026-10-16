@@ -1,4 +1,5 @@
 .editor {
+  container: document-editor / inline-size;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -25,6 +26,21 @@
   background: var(--color-paper);
   border-bottom: 1px solid var(--color-divider);
 }
+
+.primaryToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.toolbarTools,
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.toolbarTools { flex-wrap: wrap; gap: var(--space-1); }
+.toolbarActions { justify-content: flex-end; }
 
 .toolGroup {
   display: flex;
@@ -278,6 +294,15 @@
   .toolbar select { flex: 1 1 140px; max-width: none; }
   .sheet :global(.tiptap) { padding-inline: var(--space-3); }
   .sheet :global(.document-page-break) { margin-inline: calc(-1 * var(--space-3)); }
+}
+
+@container document-editor (max-width: 720px) {
+  .primaryToolbar { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .toolbarActions { justify-content: flex-start; }
+}
+
+@container document-editor (max-width: 480px) {
+  .toolbarActions :global(.tl-button) { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

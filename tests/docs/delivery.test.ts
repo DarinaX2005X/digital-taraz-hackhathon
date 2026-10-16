@@ -19,6 +19,8 @@ describe('public delivery documentation', () => {
     expect(markdown).toContain('node scripts/dev/start.mjs');
     expect(markdown).toContain('node scripts/dev/stop.mjs');
     expect(markdown).toContain('node scripts/verify-clean-start.mjs');
+    expect(markdown).toContain('NODE_ENV=production');
+    expect(markdown).toContain('docs/product/deployment-verification.md');
     expect(markdown).toContain('node scripts/ops/local-data.mjs backup');
     expect(markdown).toContain('node scripts/ops/local-data.mjs verify --from');
     expect(markdown).toContain('node scripts/ops/local-data.mjs restore --from');
@@ -53,6 +55,16 @@ describe('public delivery documentation', () => {
     expect(backup).toContain('pg_restore --clean --if-exists --single-transaction');
     expect(backup).toContain('.local-data/backups/pre-restore-*');
     expect(backup).toContain('RESTORE_ROLLBACK_FAILED');
+  });
+
+  it('documents a two-phase API-only deployment persistence check', async () => {
+    const guide = await read('docs/product/deployment-verification.md');
+    expect(guide).toContain('verify-deployment.mjs prepare --origin');
+    expect(guide).toContain('verify-deployment.mjs verify');
+    expect(guide).toContain('verify-deployment.mjs cleanup');
+    expect(guide).toContain('--expect-missing-model');
+    expect(guide).toContain('6 350 000');
+    expect(guide).toContain('.local-data/release/deployment-smoke.json');
   });
 
   it('keeps every relative Markdown link resolvable from the repository root', async () => {

@@ -69,8 +69,10 @@ describe('source ingestion persistence and access', () => {
     const { url } = JSON.parse(Buffer.from(token.slice('r2.v1.'.length), 'base64url').toString()) as { url: string };
     expect((await r2.fetcher(url, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream', 'If-None-Match': '*' }, body: bytes })).status).toBe(200);
     await expect(service.put(other.owner, base.workspaceId, initialized.upload.id, token, null)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    const committed = await service.put(base.owner, base.workspaceId, initialized.upload.id, token, null);
+    const vercelBodylessStream = new ReadableStream<Uint8Array>({ start(controller) { controller.close(); } });
+    const committed = await service.put(base.owner, base.workspaceId, initialized.upload.id, token, vercelBodylessStream);
     expect(committed.upload).toMatchObject({ id: initialized.upload.id, status: 'uploaded', byteHash: sourceHash(bytes), byteSize: bytes.length });
+    expect(r2.fetcher.mock.calls.filter(([input, init]) => new Request(input, init).method === 'PUT')).toHaveLength(1);
     const replay = await service.init(base.owner, operationId, input);
     expect(replay).toMatchObject({ upload: { id: initialized.upload.id, status: 'uploaded' }, token: null });
     expect((await service.finalize(base.owner, base.workspaceId, initialized.upload.id)).upload.status).toBe('ready');

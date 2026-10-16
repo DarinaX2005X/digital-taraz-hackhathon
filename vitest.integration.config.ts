@@ -28,6 +28,7 @@ const databaseFiles = [
   "tests/runs/demo-execution.integration.test.ts",
   "tests/runs/schema.integration.test.ts",
   "tests/resilience/local-data.integration.test.mjs",
+  "tests/resilience/load-bounds.integration.test.ts",
   "tests/sheets/calculation.integration.test.ts",
   "tests/journeys/campaign-runtime.integration.test.ts",
   "tests/shared-continuity/business-continuity-schema.integration.test.ts",
@@ -56,7 +57,7 @@ const sourceHttpFiles = ["tests/sources/http.integration.test.ts"];
 const sheetHttpFiles = ["tests/sheets/http.integration.test.ts"];
 const materialHttpFiles = ["tests/materials/http.integration.test.ts"];
 const productHttpFiles = [...artifactHttpFiles, ...workspaceHttpFiles, ...demoHttpFiles, ...sourceHttpFiles, ...sheetHttpFiles, ...materialHttpFiles];
-const runtimeHttpFiles = ["tests/runs/http.integration.test.ts"];
+const runtimeHttpFiles = ["tests/runs/http.integration.test.ts", "tests/resilience/load-network.integration.test.ts"];
 const httpFiles = [...identityHttpFiles, ...productHttpFiles, ...runtimeHttpFiles];
 const partition = [...databaseFiles, ...httpFiles];
 const discovered = readdirSync(new URL("./tests/", import.meta.url), { recursive: true })

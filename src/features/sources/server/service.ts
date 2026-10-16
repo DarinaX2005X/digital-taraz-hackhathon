@@ -100,7 +100,11 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
       return upload;
     });
     try {
-      const original = await storage.write(workspaceId, uploadId, stream, claimed.declared_size, signal);
+      // Vercel can expose a zero-byte ReadableStream for a bodyless request. A
+      // signed R2 token means the bytes were uploaded directly, so reconciliation
+      // must read that immutable object instead of attempting a second PUT.
+      const uploadStream = token.startsWith('r2.v1.') ? null : stream;
+      const original = await storage.write(workspaceId, uploadId, uploadStream, claimed.declared_size, signal);
       writtenKey = original.key;
       const bytes = await storage.read(original.key); validateSourceMagic(bytes, claimed.format);
       return await access(principal, workspaceId, 'edit', async (tx, auth) => {

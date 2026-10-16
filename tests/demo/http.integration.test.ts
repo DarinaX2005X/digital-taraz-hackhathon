@@ -11,6 +11,7 @@ import { demoCopy } from '../../src/features/demo/locales';
 import { AvailabilityHistorySchema, WorkResourceListSchema, WorkResourceResultSchema } from '../../src/features/operations/contracts';
 import { planCommand } from '../../src/features/operations/domain/commands';
 import { ProposeWorkPlanResultSchema } from '../../src/features/operations/domain/propose-work-plan';
+import { zonedParts } from '../../src/features/operations/domain/time';
 import { ProjectResultSchema } from '../../src/features/workspace/contracts';
 
 let pool: Pool, origin: string;
@@ -145,6 +146,12 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     expect(planResponse.status).toBe(200);
     const planSnapshot = ArtifactSnapshotSchema.parse(await planResponse.json());
     if (planSnapshot.content.kind !== 'plan') throw new Error('DEMO_PLAN_INPUT_REQUIRED');
+    const qadam = planSnapshot.content.entries.find((entry) => entry.id === 'qadam-market')!;
+    expect(zonedParts(qadam.startAt!, planSnapshot.content.timezone).hour).toBe(9);
+    expect(zonedParts(qadam.endAt!, planSnapshot.content.timezone).hour).toBe(17);
+    const firstRelease = planSnapshot.content.entries.filter((entry) => entry.id === 'sary-arqa-pharmacy' || entry.id === 'sary-arqa-pharmacy-release-finish');
+    expect(firstRelease.map((entry) => entry.durationMinutes).reduce<number>((sum, minutes) => sum + (minutes ?? 0), 0)).toBe(540);
+    expect(firstRelease.map((entry) => entry.notes).join(' ')).toMatch(/960-minute.*18 m².*11 m²|960 minutes.*18 m².*11 m²/);
     const lockedEntryIds = Object.keys(planSnapshot.locks ?? {}).sort();
     expect(lockedEntryIds).toEqual(['orda-logistics', 'qadam-market']);
     const proposalResponse = await client.request(`/api/demo/sessions/${started.sessionId}/operations/plan-proposals`, 'POST', {
@@ -161,6 +168,10 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     const proposal = ProposeWorkPlanResultSchema.parse(await proposalResponse.json());
     expect(['feasible', 'partial']).toContain(proposal.status);
     expect(proposal.changedEntryIds).toContain('sary-arqa-pharmacy');
+    expect(proposal.changedEntryIds).toContain('sary-arqa-pharmacy-release-finish');
+    const proposedFirst = proposal.candidate.entries.find((entry) => entry.id === 'sary-arqa-pharmacy')!;
+    const proposedFinish = proposal.candidate.entries.find((entry) => entry.id === 'sary-arqa-pharmacy-release-finish')!;
+    expect(Date.parse(proposedFirst.endAt!)).toBeLessThanOrEqual(Date.parse(proposedFinish.startAt!));
     const proposalCommand = await planCommand(planSnapshot, proposal.candidate, 'Apply scoped demo plan proposal');
     expect(proposalCommand).not.toBeNull();
     const proposalCommandGroupId = randomUUID();
@@ -208,7 +219,8 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     expect((await pool.query('SELECT reason FROM agent_run_continuations WHERE parent_run_id=$1 AND child_run_id=$2', [createdRun.runId, changedRun.id])).rows[0]).toEqual({ reason: 'goal-change' });
 
     await pool.query(`UPDATE agent_runs SET state='failed',failure_code='PROVIDER_FAILED',execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=now(),updated_at=now() WHERE id=$1`, [changedRun.id]);
-    const restartResponse = await client.request(`/api/demo/sessions/${started.sessionId}/runs`, 'POST', { goal: changedGoal, inputRefs: editedScope.inputRefs, expectedRevision: editedScope.revision }, randomUUID());
+    const restartScope = DemoSessionSchema.parse(await (await client.request(`/api/demo/sessions/${started.sessionId}`)).json());
+    const restartResponse = await client.request(`/api/demo/sessions/${started.sessionId}/runs`, 'POST', { goal: changedGoal, inputRefs: restartScope.inputRefs, expectedRevision: restartScope.revision }, randomUUID());
     expect(restartResponse.status).toBe(202);
     const restarted = DemoRunStartedSchema.parse(await restartResponse.json());
     expect(restarted.runId).not.toBe(changedRun.id);

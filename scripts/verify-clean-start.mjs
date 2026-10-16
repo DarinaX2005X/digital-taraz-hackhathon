@@ -295,6 +295,17 @@ async function cleanupOwnedDocker(copyRoot, project, env, logFile) {
   await run("docker", ["compose", "--project-name", project, "--project-directory", copyRoot, "--file", path.join(copyRoot, "compose.yaml"), "down", "--volumes", "--remove-orphans", "--timeout", "10"], { cwd: copyRoot, env, logFile, timeoutMs: 90_000 });
 }
 
+async function installDependenciesWithProductionEnvironment(copyRoot, env, logFile) {
+  const dependencyModule = pathToFileURL(path.join(copyRoot, "scripts", "dev", "dependencies.mjs")).href;
+  const { ensureDependencies } = await import(dependencyModule);
+  const result = await ensureDependencies(copyRoot, { cwd: copyRoot, env: { ...env, NODE_ENV: "production" }, logFile });
+  if (!result?.installed) throw new Error("CLEAN_DEPENDENCY_INSTALL_NOT_PERFORMED");
+  for (const relative of ["next/dist/bin/next", "tsx/dist/cli.mjs", "vitest/vitest.mjs", "typescript/bin/tsc"]) {
+    const info = await stat(path.join(copyRoot, "node_modules", relative));
+    if (!info.isFile()) throw new Error(`CLEAN_REQUIRED_TOOL_MISSING:${relative}`);
+  }
+}
+
 function parseArgs(args) {
   if (args.length === 1 && args[0] === "--help") return { help: true, keep: false };
   if (args.length > 1 || (args.length === 1 && args[0] !== "--keep")) throw new Error("Usage: node scripts/verify-clean-start.mjs [--keep]");
@@ -325,6 +336,8 @@ export async function main(args = process.argv.slice(2)) {
     env = cleanVerificationEnvironment(process.env, { copyRoot, ports });
     await reserved.release();
     project = await composeProjectFor(copyRoot);
+    console.log("Installing the lockfile through the production-environment launcher guard and verifying required local tools...");
+    await installDependenciesWithProductionEnvironment(copyRoot, env, logFile);
     console.log("Starting from a copy without node_modules, generated caches, private environment files or VibeMachina memory...");
     stopNeeded = true;
     await run(process.execPath, ["scripts/dev/start.mjs", "--port", String(ports.app)], { cwd: copyRoot, env, logFile, timeoutMs: 900_000 });
