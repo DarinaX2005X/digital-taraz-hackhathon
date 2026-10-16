@@ -1,69 +1,54 @@
 # Состояние проекта
 Phase: build
 Approval: approved
-Active stage: 04
-Active task: 04.1
+Active stage: 01
+Active task: 01.3
 
 ## Сейчас
 
-Полный Tirlik v4 утверждён пользователем 2026-10-13 ответом «подтверждаю!», утверждённая содержательная версия `f5f1da6230454c3d04aef02f6142bf40e37e3d8f`. Сохраняются C1-C14, J1-J5, 15 этапов, 43 задачи, 86 checkpoints и теперь 108 требований. Существенного сокращения объёма или новой концепции нет.
+Пользователь явно разрешил: «такс продолжай, сделай этапы 1-2 и остановись до утверждения также пусть все агенты по дизайны смотрят рефы читают все файлы скилла по дизайну и не боятся нафиг сносить шаблонные скучные статичные блоки». Исполняются только этапы01–02 (8 пакетов), после их проверки/содержательных checkpoints обязательная остановка до нового approval. Полный дальнейший объём03–05 сохранён. Основание approval — конкретный новый пакет fingerprint20edbab42c21cd1d556baa112099ad60c3c21c7e5d2be23fc67c4b658c62f2cb; текущие уточнения границы не меняют его смысл.
 
-Первый приоритет изменён прямыми F008/F009/F011. Пользователь не принимает обычное редактирование и связанную правку цены как убедительную причину перейти из Word/Excel. AI должен быть видимой основой рабочей сессии и ассистентом по финансовым и операционным задачам; внутри этой сессии открываются полноценные предметные компоненты и редакторы. Первый proof начинается со свободной цели, потоково показывает изменяемый план AI, реальные инструменты и только обоснованные параллельные ветви, существенный вопрос, финансовое или операционное решение человека и применимые результаты. Hidden chain-of-thought не показывается; generic chat, театральные сабагенты, редактор сам по себе и одна автоматическая правка proof не закрывают. Весь public/workspace UI получает interaction-pass по R108.
-
-Новый VibeMachina plan contract применён: PLAN содержит обещание, общие контракты и граф; stage files содержат task/checkpoint status и evidence; PLAN-HUMAN объясняет те же ID без статусов; этот STATE является коротким recovery cursor. `check-plan.mjs` после R107-R108 проходит:15 stages,43 tasks,86 checkpoints,108 requirements, без ошибок/предупреждений.
-
-Checkpoint `d6ac5ff938e15d2f08a4d582387ede1306037007` сохранил и отправил в `origin/main` весь проверенный handoff WIP: sources/materials, workspace, documents, sheets, designs, exports, runtime/tools, demo/onboarding, миграции 0011-0016 и обновлённую каноническую память. Это WIP boundary, не принятие всех активных задач. Приватные BRIEF/TESTING/runtime/env, `.local-data`, obsolete NEXT-CHAT-PROMPT и `.codex/config.toml` не включены.
-
-Fresh read-only review завершён. Он подтвердил пять конкретных разрывов A15-13..A15-17: demo hardcoded/no AI; server не авторитетен для formula recalculation; source fact не связан с price/quantity/formula chain; AI UI является отдельным техническим журналом; commercial procedure пока не проверяет margin/capacity/deadline. Работающие основания сохраняются: atomic editable artifacts, numeric provenance, отделённые data fields, changeset/apply/undo и fixed-revision export.
+HEAD44b6dd2 при входе, прежний незакоммиченный WIP сохраняется. MAIN не пишет feature code. Всем UI/design owners обязательны весь BRIEF/TESTING, все десять design reference files и локальные изображения; могут сносить скучную шаблонную композицию целиком. Сейчас все writers QUIESCENT под первый общий checkpoint: UI foundation, K7/J1/K2 и готовый editor/lifecycle подшаг. Только MAIN запускает check helper; после результата явно RELEASE владельцев.
 
 ## Следующие шаги
 
-1. Зафиксировать quiescent integration snapshot через штатный checkpoint с explicit paths и push. В память внести только evidence/границы, не объявлять весь продукт завершённым.
-2. После checkpoint назначить strong demo owner на10.2: isolated replay той же реальной assistant procedure, no personal writes/fake streaming/local-only business logic. Это главный оставшийся product-value gap против Word/Excel.
-3. Выполнить bounded live J1 только после demo/assistant HTTP readiness, runtime ledger и отдельного paid release. Предварительная readiness PASS, provider calls не выполнялись.
-4. Затем 11.1/12.1 full independent review, 13.1 README/clean launch и дальнейшие presentation/video tasks. Hosting/cloud остаются отложены пользователем.
+1. Продолжить назначенные01–02: runtime/K2/J1/demo на критическом пути; независимый library schema subloan снимает блокировку01.2. Этапы03–05 не назначать.
+2. На содержательных handovers сверить producers/consumers, принять focused proof, сделать штатные scoped checkpoints с --push. Shared source build требует краткую общую остановку writers; не делать plan-only commit.
+3. После всех01–02: связанные domain/DB/HTTP/live checks, локальный адрес для пользователя, честное состояние UI, остановка до нового approval. Это проверка текущей поставки, не самовольный старт полного этапа04/media.
 
 ## Проверено
 
-- Свежий плановый контракт PASS после R107-R108 и исправления write-path graph; source-preservation/plan consistency также PASS на108 requirements.
-- Checkpoint `d6ac5ff`: все 6 configured checks PASS и push PASS. Включены `check-plan`, source-preservation/plan consistency, `git diff --check`, privacy/Git hygiene, `scripts/check.mjs` и свежий `scripts/check-build.mjs` на выбранном snapshot.
-- Fresh review: 33/33 focused unit/domain, 17/17 canonical isolated PostgreSQL integration и `npm run typecheck` PASS. Это доказывает существующие части и воспроизводит разрывы, но не full HTTP/live J1.
-- Детальные focused/DB/HTTP evidence по materials, sources, editors, exports, runtime и demo остаются в соответствующих stage tasks. Quiescent HTTP matrix на fresh production builds: `http-identity`, `http-artifacts`, `http-workspace`, `http-demo`, `http-sources`, `http-runtime`, `http-sheets` (4/4), `http-materials` и combined `http-product` PASS. Root unknown paths теперь semantic404 без redirect/error shell; `/ru/missing` и `/kk` recovery локализованы. `scripts/check.mjs` после последнего repair PASS. Live J1/provider calls ещё не выполнялись.
-- Критические известные границы до live/financial acceptance: не доверять client cached formula value; не использовать универсальное minor/100; geometry/style-only change не создаёт value override; text/fill bindings независимы.
-- Внешний вид, ясность AI-first композиции, 3–5 секунд понимания и 2–3 минуты знакомства не проверены агентами и остаются пользовательской проверкой.
+check-plan.mjs: PASS после содержательных исправлений, 5 stages / 17 tasks / 34 checkpoints / 109 requirements, errors0/warnings0. Единственный independent plan review завершён; новый source review уточнил canonical plan types и project-bound upload. Dispatch разрешён только для01–02. Прежние J1 scripted tests не являются live proof, UI/source review не является визуальной приёмкой.
+
+01.1.1 принят: visual_system handover,73 focused UI contract tests и scoped ESLint/TypeScript/diff PASS; запись его путей остановлена до checkpoint. Финальный общий build ещё не принят. Working_session сообщил16 focused workspace tests PASS для composer attachments; editable_materials —84 document/sheet/export tests и153 artifact/sheet tests PASS, теперь full typecheck PASS. Это focused proof незавершённых пакетов, не закрытие целых01.2/01.6. Первый продуктовый checkpoint ещё не выполнен; старый WIP сохраняется.
 
 ## Сервисы
 
 Dashboard: http://127.0.0.1:4177/
-
+Local: http://127.0.0.1:59850/
 Mailpit: http://127.0.0.1:8029/
 
-Windows сейчас держит exclusion range `59631-59830`, поэтому прежний порт59676 недоступен без владельца-процесса. Штатный launcher поднял текущий product на `http://127.0.0.1:59850/`: `/` и `/api/health` возвращают200, Mailpit `8029` возвращает200. Runtime instance `7162e25c-4d27-49dd-8447-6fd5222ed497`, supervisor179152, app198112, PostgreSQL54329. Логи текущего запуска лежат в `.local-data/dev/`; остановка только `node scripts/dev/stop.mjs`. Вкладки агентами не открывались.
+Dashboard подтверждён HTTP GET200 в этом turn. Product59850 GET отказ подключения; harness_integration получил восстановление штатного dev launcher. Mailpit исторический адрес, здесь не проверен. node scripts/dev/start.mjs / node scripts/dev/stop.mjs, логи .local-data/dev/. Вкладки не открывать, старые PID не использовать для kill. PostgreSQL54329 — из прежней передачи, не новая проверка.
 
 ## Работники
 
-- `/root/core_authority` (GPT-5.6 Sol xhigh):05.1+08.1; `src/features/sheets/`, `src/features/dependencies/`, их tests/APIs/contracts/schema; exclusive artifact loans: server command-history/service/service-support/lifecycle + integration test, contracts artifacts/commands, domain content-models/operations/semantic-validation/targets/content-state + focused tests and necessary client snapshot consumers for property-scoped bindings; exact compatibility loans designs/domain/actions, designs/ui/design-editor + focused tests and demo/domain/store + focused test. Bounded loan `vitest.integration.config.ts` only for exact database classification of new sheet/operations/business tests. Shared root/migrations Git handover только MAIN.
-- `/root/business_assistant` (GPT-5.6 Sol xhigh):04.1+07.1; `src/features/agent-tools/`, `src/features/commercial/`, их tests/evals. Runtime/workspace/operations consume-only.
-- `/root/assistant_session` (GPT-5.6 Sol xhigh):03.2 AI-first work session; `src/features/workspace/`, runs UI/locales, workspace tests, exact work/project/artifact/runs page loans. Bounded F010/privacy loans: identity UI settings/account-menu/entry/private-tab-drafts, identity domain return-to and focused tests only for Work-vs-Settings navigation, validated assistant `run` context, preserved returnTo and owner-scoped session draft cleanup. Runtime server read-only.
-- `/root/operations_delivery` (GPT-5.6 Sol high):07.4; operations feature/tests/evals/API, operations schema и0017 draft loan. Shared PlanEntry change requests to core owner.
-- `/root/runtime_completion` (GPT-5.6 Sol high):02.2; runs client/domain/server, tests, API, runs contract/schema, immutable0016, forward-only exact loan `migrations/0020_run_event_kinds.sql` for F011 branch/projection events, and eval script. Runs UI/locales belong assistant_session;0017/0018/0019 reservations untouched.
-- `/root/source_completion` (GPT-5.6 Sol high):02.3 source paths/routes/tests/contracts/schema; paid OCR only through accepted runtime ledger.
-- `/root/materials_completion` (GPT-5.6 Sol high):02.4 materials paths/routes/tests/contracts/schema; canonical sources consume-only.
-- `/root/export_completion` (GPT-5.6 Sol high):03.4 exports paths/tests; selectively review ignored CP2, fixed-revision DOCX+XLSX/package boundary. Exact compatibility loan `src/features/demo/server/export.ts` only to pass stable synthetic artifactId and `exclude-internal` into the new RenderInput; no demo behavior/copy redesign.
-- `/root/public_ai_story` (GPT-5.6 Sol high):10.1 public-site feature/assets/tests and exact locale/public page loans; после первого handover возобновлён только для F011 interaction/craft pass, no workspace/runtime writes.
-- `/root/not_found_repair_v2` (GPT-5.6 Sol high): bounded R41 Next16 repair; exact loans `next.config.ts` only for `experimental.globalNotFound`, `src/app/global-not-found.tsx`, `src/proxy.ts` only for direct semantic 404 of unknown first-segment public paths, focused identity route tests. Proxy excludes assets/API/app/auth/settings/supported locales; no redirects/auth bypass. No other config/app changes; no Git.
-- `/root/runtime_integration_review` (GPT-5.6 Sol high): read-only review of `/root/runtime_completion` handover and scoped runtime checks; Paths:none, no source/Git/memory changes.
-- `/root/operations_integration` (GPT-5.6 Sol high): review stable07.4 handover; exclusive shared loans only `migrations/0017_operations.sql.draft` -> reviewed final `0017_operations.sql` and `src/server/db/schema.ts` export. Runtime/export/workspace integrations read-only until their owners hand over.
-- `/root/value_evidence_review`: done read-only, no paths retained.
+Новые GPT-5.6 Sol high, без своих агентов/Git/памяти. Все exclusive Paths буквально из соответствующей stage task. Восемь assignments успешно созданы; активные handles /root/<name>. Exact Paths в stages, фокус cursor01.3, все01–02 выполняются параллельно:
+- visual_system:01.1 — handover принят, запись прекращена; checkpoint paths src/ui/,public/brand/,tests/ui-contracts/.01.1.1 done,01.1.2 ждёт общего checkpoint.
+- working_session:01.2 — workspace/materials/sources, runs client/ui/locales, их routes/tests.
+- harness_integration:01.3 — agent-tools/commercial, runs server/domain, shared contracts/DB/packages/root layouts и tests/evals, кроме четырёх library subloan files ниже. Дополнительный exact loan scripts/dev/, scripts/check*.mjs (check,check-build,check-integration), scripts/eval-live.mjs, tests/foundation/,vitest.integration.config.ts для запуска/проверок и классификации новых DB suites. Единственный paid executor; сначала readiness/reservation, общий ceilingUSD10, initial live allocation≤USD2.
+- library_lifecycle: независимый subloan01.3 для consumer01.2; только src/contracts/library-lifecycle.ts,src/contracts/sources.ts,src/contracts/materials.ts,src/server/db/library-lifecycle-schema.ts,migrations/0021_library_lifecycle.sql,tests/database/library-lifecycle-schema.integration.test.ts. DB schema export и test classification остаются harness_integration. Runtime не затрагивает; до RELEASE чтение без записи.
+- work_planner:01.4 — operations/API/tests/evals, solver и полный plan UI; после K2 handover единственное исключение ai-business-tool.ts эксклюзивно loan harness_integration для J1 wiring до handback.
+- first_use:01.5 — public-site/demo/onboarding/identity, их public/auth/demo/profile routes/tests/assets.
+- editable_materials:01.6 — artifacts/documents/sheets/exports, их API/tests.
+- money_procurement:02.1 — finance/forecast/procurement, их API/tests/evals.
+- campaign_studio:02.2 — designs/design-export/creative-ai/campaigns, их API/tests/evals.
 
-Все новые workers читают полный BRIEF, TESTING и требуемые VibeMachina references; UI workers дополнительно читают DESIGN, foundation, anti-slop, UX, copy/system/art и полный F009. Имена старых работников в stage evidence и ignored scratch обозначают только историческое авторство.
+Read-only source_plan_check/five_stage_plan_review завершены. capability_audit/experience_plan получили отмену до старта, не имеют write scope. Старые v3 agents не восстанавливать. Нужные shared loans выдаёт MAIN явно одному writer. Нет подтверждённых параллельных writers в этих путях текущей команды, исходный WIP сохраняется.
 
 ## Передача
 
-Только VibeMachina; другие skills/plugins не используются. MAIN владеет памятью, Git и координацией; substantial source review, implementation и integration делегируются. Визуальная/browser проверка полностью принадлежит пользователю: никаких CUA, Playwright, Selenium, Puppeteer, headless, screenshots или обходов через worker/renderer.
+Только VibeMachina, без других skills/plugins. Локальная работа без hosting/deploy/probes. UI/browser/visual проверка только пользовательская: никаких CUA/Playwright/Selenium/Puppeteer/headless/screenshots/renderer обходов. Полные BRIEF/remarks/original TESTING передаются каждому worker, краткое поручение их не заменяет.
 
-Работа только локальная. Hosting search, cloud deploy и probes отложены пользователем до выбора сервера. Git только через `C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs` с реальными checks, explicit paths и `--push` в проверенный upstream. Private `.vibemachina/BRIEF.md`, `.vibemachina/TESTING.md`, `.vibemachina/runtime/`, `.local-data/` и env не публикуются.
+Git только штатный C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs с реальными checks, scoped --paths и --push в проверенный origin/main. BRIEF/TESTING/runtime/env/.local-data не публиковать. Ранее изменённый код не включать без handover/проверок. Новые stage IDs заменяют прежние; private runtime/plan-before-five-stages.zip сохраняет обратимую копию старых stage notes, это не второй действующий план.
 
-Общий новый OpenRouter ceiling: USD 10. Последний подтверждённый новый расход `$0.00008652`, новый reserve `0`; старый отдельный ledger confirmed `$0.0400707`, unresolved `$0.480832`, attempted ceilings `$0.81472` сохраняется. Не освобождать uncertain reserve и не делать blind retry. Платные обращения выполняет один назначенный executor после quote/reservation/readiness; secrets остаются server-only.
-
-Ignored `.local-data/agent-scratch/` содержит частичные пакеты старых авторов. Продвигать только review mapped paths после сравнения с active source; полный каталог поверх проекта не копировать. Подробный фактический progress остаётся в stage tasks, а не дублируется здесь или в новых handoff/queue/report файлах.
+OpenRouter новый общий ceiling USD10; confirmed0.00008652, reserve0. Старый ledger confirmed0.0400707, unresolved0.480832, attempted ceilings0.81472 сохраняется отдельно. Один paid executor после endpoint quote/reservation/readiness, без blind retry uncertain charges. Новых платных вызовов в этом turn нет.

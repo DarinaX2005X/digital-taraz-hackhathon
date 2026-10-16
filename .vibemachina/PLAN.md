@@ -1,121 +1,176 @@
-# Tirlik: полный технический план v4
+# Tirlik: полная поставка в пяти крупных этапах
 
-2026-10-13. Полный пакет утверждён пользователем: «подтверждаю!». Базовая содержательная версия f5f1da6230454c3d04aef02f6142bf40e37e3d8f; курсор d5c5b9b5ecdce08ef64d066244b5afe2305ebd5e. Реализация разрешена в полном описанном объёме с сохранением ограничений стоимости/приватности/пользовательской визуальной проверки. Прежний v3 не исполняется.
+Пакет 2026-10-16. Пользователь явно разрешил выполнить этапы01–02 и остановиться до следующего утверждения; этапы03–05 сейчас не назначать. Tirlik и «Всё для вашего бизнеса» неизменны. По последнему прямому запросу прежние 15 этапов заменены пятью с 17 крупными заданиями внутри. Это единственный действующий план; прежние номера больше не используются для назначения.
 
-Название: **Tirlik**. Слоган: **«Всё для вашего бизнеса»**.
+## Результат продукта
 
-Уточнение исполнения2026-10-14: пользователь поручил автономно продолжать весь продукт, отменив прежний STOP после02. MAIN ведёт память/Git/координацию, source review и code integration поручает отдельному агенту. Feature owner получает крупный законченный сценарий вместе с явно назначенными pages/routes, состояниями, локалями и проверками; новые самостоятельные области получают свежих агентов. Эта запись имеет приоритет над прежними фразами «MAIN монтирует страницы». Общий новый потолок OpenRouter $10, экономичные non-top модели разрешены при проверенной цене и reservations. Только локальная работа: не искать хостинг и не выполнять cloud deploy/probes, будущий сервер выбирает пользователь. Cloud acceptance и live URL честно отложены, остальные локальные зависимости и полный продукт сохраняются.
+Tirlik помогает бизнесу разбирать заказы, считать деньги, планировать работу и готовить материалы в одной AI-сессии. Ценность — в рабочей среде вокруг модели: свести неоднородные входы, выполнить предметные операции, проверить ограничения, создать **новые полезные редактируемые материалы**, сохранить решения человека и продолжить после изменения данных. Наличие AI, чата, калькулятора, просмотра PDF/Excel или отдельного редактора этого не доказывает.
 
-## Обещание продукта
+Первый короткий путь: срочный заказ на занятую неделю. Из запроса, прайса/норм, уже принятых работ, доступности и поставок Tirlik строит вариант выполнения, показывает конкретный конфликт/неизвестное и создаёт выбранные план, предложение и смету. Изменение срока пересматривает затронутое и сохраняет закреплённое. Кампании, финансовая работа, закупки, команда и повторные задачи доступны независимо; этот пример не становится обязательным мастером для всех.
 
-Внутренняя работа малого и среднего бизнеса: собственные материалы и свободная цель -> проверенные факты и предметные инструменты -> связанные таблицы, документы, креативы и планы -> прямая ручная правка -> обозримые изменения и версии -> пригодные файлы в существующие каналы -> повтор с новыми данными. Покупателей не ведём через Tirlik, не строим storefront/checkout и не заменяем существующую CRM.
+Полный продукт: [PROJECT](PROJECT.md). Новая визуальная система: [DESIGN](DESIGN.md). Исходные обязательства: [REQUIREMENTS](REQUIREMENTS.md). Объяснение каждого задания: [PLAN-HUMAN](PLAN-HUMAN.md).
 
-AI является видимой основой рабочей сессии: свободная цель запускает короткий изменяемый план, ассистент выбирает и выполняет типизированные операции, задаёт только существенный вопрос и открывает результаты как встроенные редактируемые компоненты. Редакторы сохраняют контроль человека, но не заменяют AI-механизм. Обычный чат, скрытая генерация текста, отдельный набор редакторов или одна связанная правка не выполняют обещание R106.
+## Пять этапов
 
-Потоковая сессия показывает domain-safe ответ, plan/tool/result/branch progress и готовые части через durable events/cursor, но не скрытую chain-of-thought. Условные исполнители появляются только для реально независимых ветвей с проверяемыми result refs; prompts/procedures каждой capability подробно задают источники, операции, инварианты, неизвестное, качество и recovery. Public/workspace interaction quality выполняет R108 с hover+focus/touch/reduced-motion, а не декоративным glow.
-
-Пять законченных работ J1-J5 и их реальные границы описаны в [PROJECT](PROJECT.md): предложение по запросу, кампания, деньги/закупка, работа команды и повторная подготовка. Каждая полезна отдельно; пользователь не обязан пройти все модули. Агентный механизм выбирает инструменты под свободную задачу, а не фиксированную отрасль или набор ответов. Счётчики агентов и готовый текст сами по себе не подтверждают пользу.
-
-Сильная связь: меняется подтверждённая исходная цена -> сервер заново рассчитывает зависимые суммы -> Tirlik показывает адресные изменения условий, текста и слоёв -> сохраняются ручная формулировка и композиция -> человек принимает согласованный набор -> получает конкретную версию файлов и может открыть её позже. Простая загрузка, редактирование и выгрузка Word/Excel этот критерий не выполняют. Доказательство обязано пройти через реальные обработчики, авторитетные данные, БД, review изменений и экспорт, а не отдельную демонстрационную функцию.
-
-## Канонические договорённости
-
-- [PROJECT](PROJECT.md) содержит поведение, сущности и контракты C1-C14. [DESIGN](DESIGN.md) задаёт редакторы, навигацию, токены и состояния. [REQUIREMENTS](REQUIREMENTS.md) сохраняет все108 принятых требований с двусторонними task IDs.
-- [PLAN-HUMAN](PLAN-HUMAN.md) объясняет каждый тот же ID: что станет возможно, зачем, как попробовать и какие ограничения важны. Статусы существуют только в stage-файлах и STATE, не дублируются в человеческом плане.
-- Полные оригинальные слова пользователя и разбор видеореференсов остаются в приватном BRIEF. TESTING приватный, исходные замечания не переписываются. Сами planning docs доступны в Git, runtime/BRIEF/TESTING/env исключены.
-
-| Контракт | Где реализуется и доказывается |
-| --- | --- |
-| C1 самостоятельные деловые работы | 01.3, 04.2, 07.1-07.4, 09.3, 11.1 |
-| C2 stack, запуск и адаптеры | 01.1, 01.4, 13.1-13.2 |
-| C3 сущности, единицы, права | 01.1, 02.1-02.4, 03.1, 09.2, 11.2 |
-| C4 API, события и расширение | 01.1, 02.2, 03.2, 04.1, 11.2 |
-| C5 свои источники, mapping, объёмы | 02.3-02.4, 05.1, 11.2 |
-| C6 команды, undo/redo, история и связи | 03.1, 03.3, 05.1, 06.1, 07.4, 08.1-08.2 |
-| C7 редакторы и пригодный экспорт | 03.3-03.4, 05.1, 06.1-06.3, 07.4, 08.3 |
-| C8 предметные агенты, цена, сбои | 01.4, 02.2, 04.1-04.2, 06.2, 07.1-07.4, 09.3 |
-| C9 анализ, сценарии, прогноз и закупка | 05.1-05.3, 07.3-07.4 |
-| C10 возврат, коллеги и эффект | 09.1-09.3 |
-| C11 рост нагрузки и восстановление | 01.1, 02.2, 08.1, 11.2, 13.2 |
-| C12 региональные данные и защита | 01.4, 02.1-02.3, 11.2, 13.2 |
-| C13 полнота, независимое review и сдача | 04.2, 11.1-15.1 |
-| C14 проверенные первичные источники | 01.4 и соответствующие domain workers |
-
-## Граф исполнения
-
-15 этапов, 43 содержательные задачи, 86 промежуточных checkpoints. Это описывает зависимости и проверяемые результаты, не обещает календарную оценку по количеству пунктов. Срок со слов пользователя около недели, точной даты нет. Полный согласованный объём не переименовывается в MVP.
-
-| Этап | Доставляемый результат | Подробные задачи |
+| Этап | Завершённый результат | Крупные пакеты |
 | --- | --- | --- |
-| 01 | Проверяемая основа и ранние ограничения | [01.1, 01.2, 01.3, 01.4](stages/01-foundation.md) |
-| 02 | Свои материалы и защищённое рабочее пространство | [02.1, 02.2, 02.3, 02.4](stages/02-sources.md) |
-| 03 | Сохранённая работа и настоящий редактор | [03.1, 03.2, 03.3, 03.4](stages/03-editable-work.md) |
-| 04 | Настоящая агентная работа с управляемым результатом | [04.1, 04.2](stages/04-real-ai.md) |
-| 05 | Таблицы, сценарии и проверяемые прогнозы | [05.1, 05.2, 05.3](stages/05-tables-finance.md) |
-| 06 | Креативы, которые можно менять по слоям | [06.1, 06.2, 06.3](stages/06-creative-editor.md) |
-| 07 | Законченные деловые задачи вместо набора AI-кнопок | [07.1, 07.2, 07.3, 07.4](stages/07-business-jobs.md) |
-| 08 | Изменения без потери ручной работы | [08.1, 08.2, 08.3](stages/08-connected-changes.md) |
-| 09 | Возврат к работе, коллеги и повторение рутины | [09.1, 09.2, 09.3](stages/09-return-team.md) |
-| 10 | Публичный сайт, пример и понятное первое использование | [10.1, 10.2, 10.3](stages/10-first-use.md) |
-| 11 | Полная связность, безопасность и рост нагрузки | [11.1, 11.2](stages/11-system-proof.md) |
-| 12 | Независимая проверка запроса и исправление дефектов | [12.1, 12.2](stages/12-independent-review.md) |
-| 13 | Проверенный запуск, README и публичный проект | [13.1, 13.2](stages/13-release-docs.md) |
-| 14 | Презентация и предметное продуктовое видео | [14.1, 14.2, 14.3](stages/14-presentation-video.md) |
-| 15 | Сверенная полная сдача | [15.1](stages/15-handoff.md) |
+| [01. Новая рабочая среда и первый полезный результат](stages/01-working-environment.md) | Новый вид, понятный сайт/вход, свободная сессия со своими исходниками, новые editable результаты, выполнимый план и живой пример | 01.1 общая система; 01.2 сессия/материалы; 01.3 харнесс/J1/интеграция; 01.4 планировщик; 01.5 сайт/вход/пример; 01.6 документы/таблицы/экспорт |
+| [02. Полный набор полезных бизнес-работ](stages/02-business-results.md) | Финансовые модели/прогнозы/закупки и кампании с редактируемыми макетами | 02.1 деньги/прогноз/закупка; 02.2 креативы/кампания |
+| [03. Связанные изменения, команда и следующий период](stages/03-continuing-work.md) | Адресное обновление, согласованный комплект, контекст бизнеса, коллеги и повтор по новым данным | 03.1 изменения/выпуск; 03.2 контекст/команда/повтор |
+| [04. Проверка, исправления и готовое локальное приложение](stages/04-stable-product.md) | Полный продукт соединён, проверен и исправлен; README и воспроизводимый запуск | 04.1 интеграция/устойчивость; 04.2 independent review; 04.3 исправления; 04.4 README/чистый запуск |
+| [05. Демо-видео, презентация и финальный комплект](stages/05-demo-and-delivery.md) | Ролик/исходники/player, editable презентация/PDF и передача приложения | 05.1 презентация; 05.2 видео; 05.3 сдача |
 
-## Очерёдность и параллельная работа
+Этапы 01–03 идут с перекрытием, не последовательно тремя очередями. Сначала независимые владельцы UI, сессии, харнесса, планирования, первого входа, редакторов, денег и креативов; изменения/повтор начинают по утверждённым contracts и доступной полезной вместимости команды. Десять пакетов имеют непересекающиеся Paths. Задание не дробится на агента для каждой страницы/локали/теста.
 
-Первый связанный доказательный пакет J1 соединяет02.3/02.4 (свой прайс и проверенные факты),03.2/03.3/05.1 (реальная работа, документ и расчёт),02.2/04.1/07.1 (свободная задача и предметная процедура),08.1/08.2 (последствия и review) и03.4 (зафиксированные файлы). Он должен показать не редактор как таковой, а согласованное обновление нескольких результатов с сохранением ручной работы. Изолированный пример10.2 использует тот же механизм, а10.3 обучает только уже существующим действиям. Этот пакет является ранним доказательством центральной ценности, но не сокращает J2-J5 и полный объём.
+Самый рискованный путь: существующий K1/K3 → новый K2 и J1 параллельно → настоящая работа → тот же механизм в изолированном примере. Остальные пакеты не ждут лендинга. Обязательный join 04.1 ждёт 01–03, затем review/repair/README. Презентация и видео идут параллельно после 04.4; видео не ждёт deck. Checkpoints — содержательные handovers внутри задания, не новые этапы и не обязательные остановки.
 
-Первый connected checkpoint обязан давать реальное действие пользователю: создание/импорт -> правка -> server save -> reopen. Следующий добавляет выполнение задачи и экспорт, затем изменение входа с сохранением ручного. Одновременно самостоятельные модули продолжаются по своим принятым контрактам; нельзя назвать этот первый путь полным Tirlik. MAIN не читает/не пишет feature code, интеграция исходников и проверки у отдельного owner. Небольшие проверенные dependency closures передаются для штатного checkpoint без включения чужого незавершённого кода.
+Срок менее суток — жёсткое ограничение пользователя, не доказательство достижимости. Основное время — параллельной реализации, последние часы нужно сохранить для стабильности/media. Не обещаем точные часы без работающего proof. При разрыве MAIN называет конкретную недостающую часть и продолжает полный объём, не превращает его молча в MVP. Память обновляется при решении, передаче или принятом результате; без журнала мелких действий.
 
-1. MAIN фиксирует явное approval и исходную версию, создаёт минимальный общий контракт и назначает01.1. После интеграции01.1 независимы01.2/01.3/01.4. Здесь выявляются недоступные модели, платные editor-функции и инфраструктурные ограничения.
-2. После account/shared UI строятся версионное ядро03.1 и runtime02.2. Источники02.3 используют runtime для платного vision/OCR с тем же учётом расходов, не обходят бюджет отдельным parser. Shell03.2 может идти параллельно ingestion02.3. Документ/экспорт03.3-03.4 и tools04.1 сходятся в04.2: настоящий provider -> результат -> прямая правка -> сохранение -> скачивание. Первый доступный пользователю путь не ждёт всех43 задач.
-3. Таблицы05 и макеты06 разрешены параллельно после собственных зависимостей. Коммерческие задачи07.1, закупка07.3 и план07.4 стартуют по конкретным Depends on, не ждут весь соседний этап. Campaign07.2 требует готовые дизайн, финансы и календарный план. Публичная часть10.1 начинается при готовности её реальных примеров, не ждёт конца09.
-4. Связанные изменения08 интегрируются после adapters всех типов. После них командная работа, контекст и повтор09. Задачи09.1/09.2 независимы по путям;09.3 использует обе.
-5. Полные11.1 и локальная11.2.1 идут после интеграции пользовательских путей. Отдельное12 review и исправления, затем README/чистый локальный запуск13.1. Презентация14.1 и исследование/сценарий видео14.2 параллельны после13.1; монтаж14.3 после обоих, затем15 сдача с явным deferred hosting. Cloud11.2.2/13.2 остаются отложенными до выбранного пользователем сервера и не блокируют локальный комплект.
 
-Порядок номеров не заставляет простаивать готовую независимую задачу. `Depends on` означает интегрированную и проверенную входную поставку, а не начатую реализацию или сообщение исполнителя. Если длинная задача даёт ранний переиспользуемый контракт, этот контракт фиксируется отдельным содержательным checkpoint и прямо называется во входных условиях потребителя; незавершённая задача не помечается завершённой ради запуска следующей. Перед dispatch MAIN проверяет фактические зависимости, исключительные пути и точные loans для dynamic routes. Общие schema/routes/registry/package имеют одного временного владельца.
+### Передачи, обязательные для закрытия пакетов
 
-Локальные продуктовые задачи используют принятые локальные capability/format contracts. Cloud hosting, region и production recovery остаются отдельными зависимостями11.2/13.2 и возобновляются только после выбора сервера пользователем; локальный результат не выдаётся за deployment acceptance.
+Depends on задаёт блокировку **начала** задания. У пакетов01–03 старт возможен по уже существующим/утверждённым wire contracts, поэтому завершение производителя не задерживает всю независимую UI/domain работу. Это не независимая приёмка: до статуса done обязательны следующие реальные handovers. Они уже входят в checkpoints, не создают дополнительных этапов/задач. Достаточен принятый указанный checkpoint, не весь task; fixtures не считаются handover.
 
-## Общий договор исполнителей
+| Потребитель | Обязательные реальные producer handovers до done |
+| --- | --- |
+| 01.1 | Собственные примитивы + совместимость существующих imports; страницы проверяют их владельцы |
+| 01.2 | 01.1.1 общие controls; 01.3.1 runs/projections; 01.6.1 commands/editors; 01.5.1 auth return; plan/design mounts по01.4.2/02.2.1 |
+| 01.3 | 01.4.1 solver, 01.6.1 persisted artifact boundary для живого J1; domain descriptors02.1.1/02.2.1 для этапов01–02; context/recurring descriptors03.2 добавляются после отдельного approval этапа03 |
+| 01.4 | 01.1.1 controls; existing artifact command service, обновление при01.6.1 до финального P1/P4 |
+| 01.5 | 01.2.1 composer/materials, 01.3.1 demo authority/runtime и01.3.2 live proof, 01.4.1 solver, 01.6.2 реальный export |
+| 01.6 | 01.2.1 materials/mapping/query, 01.1.1 controls; migration/export registration01.3.1 |
+| 02.1 | 01.2.1 authoritative material query, 01.6.1 workbook/calculations, 01.3.1 execution registration |
+| 02.2 | 01.4.1 planning, 02.1.1 budget, brand из выбранных source/asset inputs; versioned context reader03.2 подключается в этапе03, 01.3.1 execution registration |
+| 03.1 | 01.2.1 mapping/lineage, 01.6.1 commands +01.6.2 files, 02.2.1 stable design property binding, 01.4.2 plan edits/export |
+| 03.2 | 01.5.1 auth, 01.2.1 source selectors, 01.3.1 run bridge, 03.1.1 change review; actual financial/campaign descriptors02.1.1/02.2.1 для повторов |
 
-Каждому SUBAGENT обязательны: весь BRIEF без усечения, все дословные поздние продуктовые замечания, исходные relevant TESTING; PROJECT, соответствующие C-контракты, весь task с checkpoints и входные готовые модули. Краткое сообщение назначения не заменяет эти источники. UI дополнительно читает DESIGN и skill references/design/INDEX.md, foundation.md, anti-slop.md, ux.md и относящиеся direction/system/copy. Server/domain читает references/engineering/INDEX.md, core.md и conditional integrations/ai/chat; media получает original video observations и media references на своём этапе. Эти ссылки относительно C:/Users/user/.codex/skills/vibemachina/. Новые содержательные замечания MAIN передаёт полностью, особенно продукт/UI/UX/видео. Служебные «продолжай», восстановление лимита и сообщения координации не раздувают BRIEF.
+01.3.1 отдаёт стабильный runtime/schema integration boundary рано и остаётся единственным writer общих registries; feature owners передают маленькие конкретные schema/descriptors changes этому владельцу. Он подключает их по готовности, не читает заново всё приложение. Последний полный join04.1 всё равно ждёт завершённые задачи01–03 и не заменяется этими handovers.
 
-MAIN единолично владеет .vibemachina/, Git, package/lock/tsconfig, root layout/routes/registry, DB schema/migrations и shared contract declarations. Worker пишет только Paths задачи, включая feature-local locale files и tests. Нужную shared правку worker возвращает точным контрактом/patch proposal; MAIN интегрирует или выдаёт временный исключительный loan до dispatch. Loan записывается в STATE и не пересекается с другим writer. Routes вызывают feature services; не создавать фиктивные endpoints только ради HTTP200.
+## Проверенная основа и реальные пробелы
 
-Каждый task завершает поведение в своём ownership: domain/service/UI adapters/locales/tests там, где это применимо. Нет отдельной поздней задачи «добавить все отсутствующие функции». Foundation и read-only review не притворяются пользовательским сценарием. Paths:none означает отсутствие записи; свидетельства MAIN записывает в существующую память.
+Source review 2026-10-16 подтвердил auth/workspaces, загрузку/сопоставление, durable runtime/SSE событий, версии/commands, настоящие document/table/design/plan editors, экспорты и dependency review. J1 создаёт смету/предложение/план одной транзакцией; live acceptance ещё нет. Operations проверяет готовые assignments, но не строит выполнимое расписание. Campaign/creative orchestration, finance/forecast/procurement и context/collaboration/recurring packages отсутствуют. Пример всё ещё про цену/сохранение слов, public CTA не ведёт к полезному demo, composer требует проект до вложений. Видео/deck не готовы.
 
-У каждого checkpoint конкретные поставка и доказательство. Worker передаёт завершённые пути, команды/результаты, ограничения, нужные shared changes и право MAIN фиксировать набор. MAIN читает весь TESTING, интегрирует, повторяет нужную проверку и вызывает штатный C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs с явными --paths и --push в проверенный upstream. Не ждёт конца большого этапа и не коммитит незавершённое другого writer. Приватный checkpoint config не попадает в Git.
+Основа переиспользуется. HEAD44b6dd2 и незакоммиченный UI/onboarding WIP сохранены; новый owner сверяет свои paths. Старые test counts не объявляются свежей приёмкой. Новые todo обозначают оставшуюся полную поставку, не удаление рабочего кода. Внешний вид исходниками не подтверждён.
 
-Проверки продукта: независимые node scripts/check.mjs; node scripts/check-integration.mjs для touched persistence/API; node scripts/check-build.mjs для связанного приложения. До реализации обязательны check-plan.mjs, source-preservation и privacy checks, не выдуманная успешная app build. Число checkpoints не требует пустых коммитов для read-only действий.
+## Общие технические контракты
 
-## Сквозные условия каждой UI-задачи
+C1–C14 PROJECT содержат предметные модели/форматы/версии. K уточняют существующий wire и новые изменения. «Существующий» подтверждён source review; «новый» — целевая реализация. Один canonical schema на понятие, без параллельного runtime/хранилища.
 
-Все локали ru/kk/en включают ошибки, пустые/частичные/ожидающие состояния, export labels, даты/числа, emails и tour. Исходный текст бизнеса не переводится автоматически при смене языка. C4 ошибки превращаются в понятное сообщение рядом с действием; pending не уничтожает предыдущий результат; retry сохраняет ввод и idempotency;409 сохраняет обе версии;401 возвращает после входа в исходную работу без неявного submit;403 не показывает секретные сведения. Дубликаты действий не создают второй объект.
+### K0. Авторитетные данные, ошибки и эффекты
 
-Проверяются keyboard names, focus semantics, narrow constraints и отсутствие обязательного hover в коде. Общие primitives/editor toolbar не заменяются произвольным набором controls. На телефоне не исчезают edit/save/undo/export, вторичные панели идут последовательно. UI workers возвращают доступные адреса/состояния для пользовательского осмотра, без автоматического открытия.
+Actor получается из серверной сессии, запрошенный workspace/project проверяется ACL. Модель не назначает владельца. SourceVersion/ArtifactVersion immutable, любой результат хранит выбранные revisions. Money = ISO currency + decimal-string minorUnits; Quantity = decimal string + unit; unknown не ноль, валюту нельзя универсально делить на100. UTC instant и local date различаются, timezone Asia/Qyzylorda.
 
-## Проверка и границы доказательства
+Error envelope C4 и canonical schemas. Create/apply: idempotency, baseRevision, transaction receipt; 409 сохраняет обе версии, 401 — намерение без автоматического side effect после входа, 403/404 не раскрывают чужое. Cancel/revoke блокирует late commit через epoch/authzVersion. Provider I/O вне DB transaction. Сначала commit пригодной части, затем событие ready.
 
-- Domain/unit/DB/storage/server/HTTP/API tests проходят настоящую цепочку. Live AI при заданном budget проверяет provider/tools/артефакт. Mock не доказывает подключение. Время человека и качество композиции API-тестом не измеряются.
-- Ни MAIN, ни workers не используют CUA, browser-control, Playwright, Selenium, Puppeteer, headless browser или эквивалент для навигации/скриншотов/проверок. Ни через shell/renderer, ни под видом video/canvas checks. Пользовательская инструкция действует на всех стадиях.
-- Серверная генерация продуктового файла через docx/PDFKit/resvg/sharp и data-only вычисления таблиц допустимы; они не снимают UI и не выдаются за визуальную проверку. Видео производится nonbrowser средствами из разрешённых материалов; screenshot только пользовательский.
-- После полного пакета одно независимое чтение плана. Позднее12.1 проверяет уже работающий код: сначала слепая сверка с оригинальным BRIEF, затем согласованные контракты. Findings сохраняются в существующей памяти, не отдельной системе отчётности.
+### K1. Существующая свободная задача и состояние исполнения
 
-## Существенные допущения и ограничения
+Производитель01.3, потребители01.2/01.5/02/03.2. Canonical src/contracts/runs.ts, runs/server/{handlers,service,runtime}.ts, /api/runs/[[...path]]. POST /api/runs, Idempotency-Key = operationId. Строгое тело: {workspaceId, projectId: string|null, capabilityId:'business.goal', capabilityVersion:1, goal, locale:'ru'|'kk'|'en', inputRefs:[{kind:'source'|'artifact',id,revision}]}. ID/revision types из фактического schema, не копии из документа.
 
-Данных/интервью местного бизнеса нет и не будет;01.3 создаёт явно synthetic материалы, а продукт принимает собственный ввод теми же путями. Проверенный пример не доказывает рыночный спрос или рост выручки. Проверяемые механизмы: меньше повторной подготовки и ручного переноса, найденные расхождения, качество исторического прогноза, воспроизводимость расчёта. Реальный коммерческий эффект требует отдельного свидетельства применения.
+Пример goal: «Подготовь план этих заказов до пятницы. Согласованные работы не двигай, недостающие материалы включи в закупку»; inputRefs выбирают версии запроса/прайса/принятого плана. Сервер cross-check identity header с session и ACL-check workspace. Ответ202 — полный RunSchema; cursor называется cursor. Constraints/initial selection/input parentRunId/eventCursor в существующем DTO отсутствуют. Условия находятся в goal и подтверждённых source/artifact inputs, structured tool constraints возникают при нормализации. Выбор — ResumeRunSchema.selectedOptionId. Изменённые цель/ревизии создают server-linked child, parentRunId/continuationRunId — response projections.
 
-Primary xiaomi/mimo-v2.5 через сервер OpenRouter; text output не равен генерации изображений. Экономичная отдельная модальность/цена проверяются01.4; запрещён дорогой/GPT/Claude fallback. C8 бюджеты защищают расходы, не являются тарифами Tirlik.
+Public projection: plan/questions/summary/results, optional decision/branches. Events отражают committed run/step/usage/result/branch/projection changes; reconnect snapshot+after cursor не создаёт run заново. Provider сейчас stream:false: SSE означает реальную работу, не token stream. Полезные части публикуются через durable results, без искусственной печати.
 
-Vercel подключение заявлено пользователем, тариф/права/PG/Blob/Workflow/SMTP ещё не доказаны.01.4 проверяет их рано без покупки. C12 фиксирует региональный gate персональных данных, включая аккаунты: Vercel+Neon/Blob по умолчанию не доказывают допустимость хранения рабочих данных Казахстана. Synthetic файлы не решают вопрос настоящих email. Проверяются primary/backup/processor regions и подходящие managed варианты. Если нужен другой провайдер/режим/расход, MAIN возвращает конкретное существенное решение пользователю, не снимает регистрацию/публичную поставку молча.
+Каждая domain procedure задаёт evidence/context/unknowns/tools/checks/repair/completion. Registry owner01.3 принимает ToolDescriptor от доменов; business.goal не превращается в пять обязательных мастеров. Live calls только назначенный executor с reservation.
 
-Импорт Word/XLSX не обещает идеального roundtrip всего Office: поддержанные структуры/формулы проверяются, потери показываются. Прогноз требует достаточной истории; иначе полноценный сценарий. Своё фото является полноценным входом для креатива. Совместная работа не обещает CRDT-мультикаретку, но обязана сохранять обе конфликтующие правки. История не раздувает большие документы полной копией на каждую команду.
+### K2. Новый построитель выполнимого плана
 
-## Утверждение и окончательная сдача
+Производитель01.4, consumers01.3/02.2. PlanModel в PROJECT — предметное название, не существующий TS symbol. Canonical plan branch src/features/artifacts/domain/content-models.ts: {kind:'plan',schemaVersion:1,timezone,entries}. src/features/operations/domain/model.ts экспортирует OperationalPlanContent с OperationalPlanEntry; использовать их, а не новую независимую модель. WorkResource/AvailabilityVersion из operations/contracts.ts; immutable availability содержит weekday intervals/date exceptions/effective range/sourceRefs.
 
-Approval пользователя от2026-10-13 относится совместно к PROJECT C1-C14, DESIGN, данному PLAN, всем stage tasks и PLAN-HUMAN. Технические уточнения внутри этого объёма обновляют только затронутые контракты и зависимости; существенная смена концепции или масштаба снова выносится пользователю с последствиями.
+Новый публичный export operations/domain/propose-work-plan.ts: proposeWorkPlan(input, context). Domain input = {plan:OperationalPlanContent, resourceRefs:[{id,revision,availabilityVersionId}], window:{start:UTCInstant,end:UTCInstant}, lockedEntryIds:string[], materialConstraints:[{entryId,sourceRef,availableAt:UTCInstant|null}], objective:'earliest-finish'|'least-change'|'lowest-known-cost'}. Existing entries несут duration/effort/quantity/dependencies/sourceRefs, исходные assignments и known deadline/ranges; нормализация единиц использует existing types. Missing deadline/duration/capability/cost остаётся unknown. Context содержит server authorization, authoritative resource reader и bounded search limit; модель не поставляет авторитетную доступность.
 
-Полная сдача: реальный продукт/публичная ссылка, название/русское описание, GitHub repo, проверенный README/чистый запуск, презентация и видео с исходниками/встраиванием. Неподтверждённое UI поведение остаётся ожидающим пользовательской проверки. Нельзя объявить продукт готовым на04.2.
+Output = {status:'feasible'|'partial'|'unknown'|'infeasible',candidate:OperationalPlanContent,changedEntryIds:string[],unresolved:[{entryId,code,sourceRefs}],conflicts:[{entryIds,resourceId?,code,sourceRefs}],checkReceipt:{algorithmVersion,visitedNodes,searchLimit,capacityAssessments,inputRevisionVector}}. SourceRef/revision-vector types canonical; constraint codes finite declared in this export, consumers не парсят explanation text. Candidate никогда сам не меняет принятый план, apply K3/C6.
+
+Сначала bounded interval/dependency search находит placements, затем validateOperationalPlan(candidate) и existing assessPlanCapacity({plan:candidate,resources,availabilityVersions}) проверяют их. CapacityAssessment[] имеет resourceId, optional availability ID, status conflict/within-known-capacity/availability-unknown, scope/window/timezone, demanded/available minutes, affected entry IDs и reasons. **Текущий validator пропускает entry без assignments: каждая неназначенная active job обязана быть unresolved, пустое расписание не feasible.** Проверяются также dependencies/material constraints/locks, не только capacity. Infeasible только при доказанном противоречии; exhaustion даёт unknown. Minimum cost objective требует известных сопоставимых ставок, иначе честная partial/unknown оценка.
+
+Пример: две работы конкурируют за сотрудника, одна закреплена, вторая имеет допустимое окно. Найти свободное окно для второй и сохранить первую. Неизвестная поставка не становится выдуманной датой; пригодная независимая часть остаётся. Новая недоступность даёт адресный пересмотр. Для самостоятельного ручного планирования никаких AI calls не требуется.
+
+### K3. Существующий материал, редактор и новый комплект
+
+Artifact engine01.6, mounts01.2, creators01.3/01.4/02/03. Canonical src/features/artifacts/contracts.ts и src/contracts/commands.ts. CreateArtifactSchema: workspace/project/authz/title, typed content, access class, source refs/bindings. Mutation response ArtifactMutationResult={viewer,artifact,version,cursor} не содержит content. Editor read ArtifactSnapshot={viewer,artifact,content,version,permissions,sourceFreshness,history,cursor,locks?,missingTargets?}.
+
+/app/projects/:projectId/artifacts/:artifactId монтирует editor по snapshot.content.kind: document/table/design/plan. Ручное «Создать материал» использует тот же engine без AI; source preview не является editor. Commands содержат artifact/base revisions, stable targetId, operations, source revision vector; ответ CommandReceipt с committed vector/history. Save/undo/reopen/export используют эту ревизию, не второй client JSON.
+
+J1 три creates+dependency links уже выполняются в одной tool transaction. Это существующий transactional pattern, не generic public bundle endpoint. Остальные домены применяют тот же принцип атомарного комплекта. Schema validity недостаточно: содержание должно решить задачу и пройти domain checker.
+
+
+
+Project-create boundary существует: POST /api/projects, session + совпадающий X-Tirlik-User-Id + same-origin + UUID Idempotency-Key. Strict CreateProjectSchema в src/features/workspace/contracts.ts: {workspaceId:UUID,title:string(1..240),goal:string|null(max12000,default null),expectedAuthzVersion:positive integer}. name/locale отсутствуют. Response201 ProjectResultSchema = {project:{id,workspaceId,title,goal,status,revision,createdBy,createdAt,updatedAt},authzVersion,cursor,canEdit?}. One identityTransaction: workspace writer lock/authz, insert/grant, authz increment, event. projects.creation_key/body_hash повторно возвращает тот же project для actor+workspace+key+body, другой body с тем же key даёт409. Это atomic создание project; загрузки затем отдельные recoverable операции, не одна выдуманная транзакция с bytes. Composer хранит creation key/result до завершения/retry и не создаёт второй project при ошибке файла.
+
+Вложения на старте01.2: существующий InitSourceUploadSchema требует workspaceId/projectId. Поэтому composer выбирает файлы локально, явное «Начать» создаёт project без отдельного экрана, затем POST /api/sources/uploads/init + Idempotency-Key →201 {upload,token}; PUT /api/sources/uploads/:uploadId?workspaceId=… + X-Upload-Token + bytes; POST /api/sources/uploads/:uploadId/finalize body {workspaceId} →{upload}. После ready source/version формирует inputRefs для run. Никаких фиктивно существующих temporary-upload API. Ошибка файла сохраняет project/другие ready files и позволяет повторить затронутую загрузку без второго проекта.
+
+### K4. Независимые предметные работы
+
+| Работа | Производитель/действие | Полезный результат |
+| --- | --- | --- |
+| J1 коммерческая | 01.3 commercial/agent-tools + K2/exact calculations | Выполнимые условия и связанные смета/предложение/план; изменение ограничения меняет решение |
+| J2 кампания | 02.2 campaigns/creative-ai/designs, источники/бренд/условия | Новые послойные макеты, тексты, календарь/budget; прямые правки, разные размеры и языки |
+| J3 деньги/закупка | 02.1 finance/forecast/procurement, нормализация/условия/история | Editable модель, закупка, прогноз/report; полная известная стоимость, cash timing, unknowns/backtest |
+| J4 работа | 01.4 operations, задачи/ресурсы/зависимости | Найденные assignments, reusable plan, locks, ручное управление и пересмотр |
+| J5 возвращение | 03.2 context/collaboration/recurring, rule/selectors/occurrence | Новый draft/review, правильная версия у коллеги, сохранённый предыдущий период/override |
+
+Feature schemas/descriptors принадлежат domain owner, registration01.3. APIs используют C4/C9/C10; существующие service exports предпочтительнее добавочных endpoint. Любая область запускается самостоятельно или комбинируется по свободной цели.
+
+### K5. Новый живой пример, вход и обучение
+
+Производитель01.5, runtime scope01.3, consumer01.2. Существующий /api/demo/export не является session API. Новые exact routes:
+
+- GET /demo: read synthetic example, без персональной записи.
+- POST /api/demo/sessions: explicit start, body {locale}; response201 {sessionId,expiresAt,revision,inputRefs}, signed httpOnly capability; изолированное временное состояние TTL24h.
+- POST /api/demo/sessions/:id/runs: body {goal,inputRefs,expectedRevision}, Idempotency-Key; response202 {runId,cursor}. Facts меняются typed temporary artifact commands K3, не произвольным constraints blob.
+- GET /api/demo/sessions/:id: {sessionId,expiresAt,revision,inputs,results,runIds}. GET /api/demo/sessions/:id/runs/:runId: public RunSchema/projection; /events?after=<cursor>: canonical events. Чужой/expired scope не читается.
+- POST /api/demo/sessions/:id/copy: auth+capability, body {expectedRevision,artifactIds,destinationWorkspaceId}, Idempotency-Key; response201 {projectId,artifacts:[{id,revision}]}. Destination ACL, remap IDs/refs/assets, одна копия. Signin сам copy не вызывает.
+
+Server-authorized DemoExecutionScope разрешает только synthetic snapshot/temporary results. Domain engines/validators/typed editors те же; private retrieval/invitations/external effects запрещены. Не подделывает персональную сессию: runtime принимает explicit demo authority. Origin/rate/actual cost bounds, paid execution только после явного запуска. Export использует typed revision. TTL expiry даёт reset без ложного сохранения; auth cancel оставляет работу.
+
+Onboarding: anchors текущего экрана, skip/resume/replay, никакого неожиданного перехода в материалы/нового тура при refresh. Auth отменяем, draft intent сохраняется; профиль/выход/возврат полноценны. Понятность и время проверяет человек, server latency отдельно.
+
+### K6. Продолжение, права и согласованный выпуск
+
+03.1 dependency graph: stable fact/record/element property IDs и causal groups C6. После принятого mapping source обновляет reachable fields; geometry-only edit не value override. Manual/locked поля сохраняются, conflicts привязаны к объекту. Apply/undo group атомарны, stale revision требует review.
+
+Export C7 фиксирует revision vector/policy: DOCX/PDF, XLSX/CSV, PNG/JPEG/PDF, переносимый editable проект, ICS по календарному смыслу. Retry сохраняет выбранную версию и пригодную часть. 03.2 comments/approval относятся к версии, revoke действует на source/results/files/run. Повтор сохраняет versioned rule/selectors/occurrence, готовит новый draft без публикации/перезаписи утверждённого. C10 содержит единые authoritative entities/permissions для контекста, команды и повторов.
+
+### K7. Новые общие операции между предметными пакетами
+
+Canonical новый модуль src/contracts/business-work.ts принадлежит01.3; domain implementations — владельцам02.1/02.2/03.2, signatures ниже заморожены до dispatch. Money/Quantity/LocalDate/SourceRef/ArtifactSnapshotRef/DatasetQuerySpec/CalculationSpec/ChangeSet берутся из соответствующих существующих canonical schemas, не объявляются повторно. Type aliases разрешают эти названия в конкретные текущие symbols. Все exports server-only; дополнительных публичных API для связи доменов не требуется.
+
+Общий context WorkExecutionContext = server execution authority (user или K5 demo), operationId, workspaceId/projectId, expectedAuthzVersion, allowedInputRefs, inputRevisionVector, cancelEpoch, locale. Модель не создаёт этот context. Общий BusinessWorkResult = {artifacts:ArtifactMutationResult[],inputRevisionVector,checks:[{code,status:'passed'|'failed'|'unknown',targetIds,sourceRefs}],unresolved:[{code,targetIds,sourceRefs}],decision?:{id,options:[{id,label,artifactIds}],requiresConsent:boolean},summary}. ToolDescriptor возвращает этот result в runtime canonical tool envelope. Editor content читается отдельно K3. Returns partial если пригодные artifacts уже есть; статус ready только для прошедших relevant checks. Применение выбранного варианта требует decision/consent из K1, без автоматической отправки заказов/публикации.
+
+- Finance producer02.1 export buildFinanceWork({sourceRefs,query:DatasetQuerySpec,currency,accounting:'cash'|'accrual',openingBalance:Money|null,period:{start:LocalDate,end:LocalDate},assumptionSets:[{id,title,variables:[{id,value:Money|Quantity|LocalDate|null,sourceRef?,confirmed:boolean}],calculation:CalculationSpec}]},ctx): Promise<BusinessWorkResult>. C9 задаёт formulas/units, cash timing и forecast eligibility. Строит новые сценарные workbooks/report; unknown amount не ноль. Campaign передаёт budget как ArtifactSnapshotRef выбранного finance result, не свою несовместимую формулу.
+- Forecast producer02.1 export buildForecastWork(input:ForecastInput из C9,ctx): Promise<BusinessWorkResult & {forecast:ForecastRun}>. Возвращает сохранённые series refs/train/backtest/point/range/baseline/source revisions и editable таблицу/отчёт; insufficient eligibility возвращает unresolved с причиной и пригодный сценарный путь, не fake forecast.
+- Procurement producer02.1 export buildProcurementWork({needLines:[{id,itemKey,quantity:Quantity,requiredBy:LocalDate|null,sourceRefs}],offerSourceRefs,stockSourceRefs,currency,deliveryDestination:string|null},ctx): Promise<BusinessWorkResult>. Из mapped records читает pack/MOQ/delivery/payment/FX по C9, создаёт comparison workbook и черновик заказа после выбора, никаких внешних writes. Неполные offer facts отражаются в unresolved и не выигрывают по отсутствующей стоимости.
+- Context producer03.2 export readBusinessContext({workspaceId,contextId,revision,itemIds:string[]},ctx): Promise<{ref:{kind:'business-context',id,revision},items:[{id,value,sourceRefs,confirmed:boolean}],brandKit:{assetRefs,colors,fontFamilies,voiceRules},permissions}>. Values валидируются discriminated context schema (text/Money/Quantity/date/assetRef), не arbitrary executable JSON. Выбранные itemIds и права ограничивают retrieval, business.goal inputRefs не расширяются тайком новым kind: explicit context ref передаёт tool с authority пользователя/правила. Bindings используют context reader и version, не fake upload SourceRef.
+- Campaign producer02.2 export buildCampaignWork({brief:string,sourceRefs,assetRefs,brandRef:{contextId,revision,itemIds}|null,conditions:[{id,kind:'price'|'date'|'quantity'|'text',value:Money|Quantity|LocalDate|string,sourceRef}],formats:[{id,width:number,height:number,unit:'px'|'mm',locale}],budgetRef:ArtifactSnapshotRef|null,planInput:K2Input|null},ctx): Promise<BusinessWorkResult>. Читает brand через reader, budget snapshot через artifact ACL, календарь через K2; создаёт DesignContent/DocumentContent/plan с semantic bindings на conditions. Unknown cost/date не выдумывается; частичный kit имеет явные unresolved. Начинается без обязательного brand kit.
+- Change review producer03.1 export prepareWorkChanges({projectId,artifactIds,sourceRevisionVector},ctx): Promise<{changeSet:ChangeSet,inputRevisionVector}>. Использует existing dependency/review engine, не применяет изменения; apply/undo остаётся C6/K3. Recurring и context используют этот же export.
+- Recurring producer03.2 export startWorkOccurrence({ruleId,ruleVersion,occurrenceId,trigger:{kind:'manual'|'schedule'|'source-update',at:UTCInstant,sourceRefs}},ctx): Promise<{occurrenceId,runId:string|null,branchId:string|null,state:'queued'|'waiting_input'|'paused',reused:boolean,reasonCode?:string}>. Сервер читает immutable enabled WorkRule и актуальные права owner, замороженные selectors/context/procedure/budget; unique ruleVersion+occurrenceId запрещает дубликат. Run создаётся через canonical service K1 с server child/branch links, source schema drift даёт waiting_input, disabled/отозванное право — paused. Новые результаты идут в новую ветку + prepareWorkChanges, старое не перезаписывается.
+
+Финансовый/закупочный/campaign bundle commit создаёт artifact versions+dependency links+operation receipt атомарно по существующему pattern J1; bytes/provider I/O до транзакции и с ограниченным staging lease. Сверка ACL/cancel/revisions непосредственно перед commit; тот же operationId+body возвращает receipt, другой body409. Stale inputs409, invalid units/shape422, quota429, недоступная обязательная внешняя операция503 с retryable/operationId по C4. Повтор unknown charge запрещён. Missing business facts дают typed unresolved/decision, а не transport failure. Новые schemas integration owner отдаёт domain owners как importable contracts в01.3.1; реализация helpers остаётся их решением.
+
+## Проверяемые общие случаи
+
+| ID | Старт и действие | Пригодный результат и отрицательная ветка |
+| --- | --- | --- |
+| P1 | Срочный запрос + текущие работы + доступность/прайс, затем изменить deadline | Новый выполнимый план и согласованное предложение/смета; закреплённая работа не сдвинута, неизвестный срок поставки не выдуман |
+| P2 | Собственные фото/бренд/условия, подготовить кампанию RU/KK и два размера | Новые послойные макеты, тексты, календарь; новая дата сохраняет ручной язык/композицию, нет выдуманного рекламного эффекта |
+| P3 | Грязные продажи/возвраты и прайсы поставщиков с разной упаковкой | Рабочая финансовая модель и закупка по полной известной стоимости; incomplete offer не объявлен лучшим, прогноз проверен на истории |
+| P4 | Свободная задача с зависимостями, сотрудником без аккаунта и исключением доступности | Система строит план, пользователь правит/экспортирует; unknown capacity и чужой private resource не принимаются как доступные |
+| P5 | Принятый проект, ручная правка, новый источник/период, повтор и конкурирующее изменение | Адресный новый черновик, версии/reopen/export совпадают; duplicate/cancel/409/revoke не портят работу |
+| P6 | Новый посетитель, пример и своя задача, вход/отмена/переключение языка/возврат | Полезная часть примерно за 2 минуты как цель, явное сохранение, нет unwanted records; missing provider/обрыв сохраняют введённое |
+
+Три бизнес-контекста из fixtures остаются в проверках, не все обязаны повторять P1. Нужен хотя бы один новый ввод/изменённое существенное ограничение, которое заранее не зашито в пример. Схема JSON, 200/health, mocked provider и факт рендера editor не являются полным доказательством.
+
+## Владение, проверки и поставка
+
+MAIN ведёт память, общие решения, Git и координацию. Source review, feature implementation и существенная интеграция делегируются свежим GPT-5.6 Sol medium/high/xhigh; связанное продолжение остаётся владельцу. Только VibeMachina. Каждый читает полный BRIEF/дословные remarks/relevant original TESTING и нужные refs; UI owner — foundation/direction/anti-slop/ux/system/motion/copy. Media owner читает полные video remarks. Никаких вторых лидеров, отдельных отчётов или копирования scratch поверх checkout.
+
+Shared src/ui —01.1; contracts/DB/migration registry/runtime/tools/root integration —01.3. Feature owners отвечают за свои routes/pages/locales/states. Exact loans записываются до записи; старый handle не считается действующим владельцем. Approved wire contract разрешает consumer development до готового producer; закрытие пользовательского пути требует реальную интеграцию. 04.1 соединяет все результаты.
+
+Продуктовые команды без зависимости от skill: node scripts/check.mjs, node scripts/check-integration.mjs, node scripts/check-build.mjs, scoped live eval. Общие checks на стабильном snapshot; повтор по изменению/дефекту. Skill check-plan.mjs проверяет граф/покрытие, не качество продукта. MAIN commits/push только C:/Users/user/.codex/skills/vibemachina/scripts/checkpoint.mjs, real checks, scoped --paths и --push в проверенный origin/main после handovers. Нет tiny plan-only commit; private BRIEF/TESTING/runtime/env не staged.
+
+OpenRouter общий новый ceiling USD10, точные totals в STATE/private ledger, прежние unresolved reservations сохраняются. Один paid executor, актуальный exact endpoint quote, atomic reservation, server secrets; без GPT/Claude/дорогого fallback и blind retry uncertain charge. Новые подписки не разрешены.
+
+Визуальная/browser проверка только пользовательская. Запрещены CUA/Playwright/Selenium/Puppeteer/headless/screenshots/navigation/renderer bypass; вкладки не открывать. Агент проверяет source/domain/DB/server/HTTP/API/экспортные файлы. Разрешены предоставленные reference media и media production без UI automation. RU/KK/EN, partial/loading/error/cancel/stale/conflict/reopen и качество взаимодействия входят в каждую UI-функцию, не в необязательную полировку.
+
+Размещение отложено пользователем: локальный продукт без hosting search/cloud deploy/probes. Приложение, README, editable deck/PDF, MP4/source/player входят в полный текущий комплект. Сервер выбирается позже; localhost не называется опубликованным сайтом. Независимое чтение и check-plan завершены. Пользователь разрешил реализацию только этапов01–02, затем обязательная остановка до следующего утверждения.
+
+Текущее разрешение01–02 не включает реализацию03.2 ради чужой зависимости: кампании получают brand/conditions из выбранных существующих sources/assets либо brandRef:null. Не создавать фиктивный BusinessContext reader; он подключается позднее в этапе03. Registry01.3 принимает только реализованные tools. Все design/UI workers по прямому требованию читают **все десять файлов references/design/** VibeMachina и изучают указанные локальные visual references; могут полностью заменять шаблонные статичные блоки в своих путях.

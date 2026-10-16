@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240" role="img" aria-labelledby="title">
   <title id="title">Tirlik</title>
-  <rect x="2" y="2" width="236" height="236" rx="28" fill="#ffffff" stroke="#202624" stroke-width="2"/>
-  <path d="M56 55H179C186 55 191 60 191 67V89C191 96 186 101 179 101H138V181C138 188 133 193 126 193H104C97 193 92 188 92 181V101H56C49 101 44 96 44 89V67C44 60 49 55 56 55Z" fill="#202624"/>
-  <rect x="156" y="119" width="35" height="35" rx="7" fill="#202624"/>
+  <rect x="2" y="2" width="236" height="236" rx="28" fill="#ffffff" stroke="#17332e" stroke-width="2"/>
+  <path d="M56 55H179C186 55 191 60 191 67V89C191 96 186 101 179 101H138V181C138 188 133 193 126 193H104C97 193 92 188 92 181V101H56C49 101 44 96 44 89V67C44 60 49 55 56 55Z" fill="#17332e"/>
+  <rect x="156" y="119" width="35" height="35" rx="7" fill="#17332e"/>
   <path d="M114 55V101" fill="none" stroke="#ffffff" stroke-width="8"/>
 </svg>

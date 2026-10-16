@@ -1,9 +1,8 @@
 "use client";
 
-import * as Ariakit from "@ariakit/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArrowLeft, ArrowRight, Copy, FileClock, GitBranch, History, LogIn, MoreHorizontal, MoveRight, PencilLine, RefreshCw, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileClock, GitBranch, History, LogIn, RefreshCw, RotateCcw, RotateCw, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccountMenu, AuthDialog } from "@/features/identity/ui";
 import { Button, EmptyState, IconButton, LoadingState, LocaleSelect, ProductHeader, SaveStatus, Tabs, type OptionLoader, type SelectOption, type SaveState } from "@/ui";
@@ -18,6 +17,7 @@ import { ArtifactActionDialog, createActionDraft, type ArtifactAction, type Arti
 import { ArtifactError, useArtifactTranslations } from "./common";
 import { ArtifactContentPreview } from "./content-preview";
 import { ArtifactHistoryList, ArtifactVersionList } from "./history-list";
+import { ArtifactLifecycleMenu } from "./lifecycle-menu";
 import { ArtifactRecoveryPanel, ArtifactSignOutGuard } from "./recovery-panel";
 import { SourceFreshnessPanel } from "./source-freshness";
 import { useArtifactSession } from "./use-artifact-session";
@@ -70,7 +70,6 @@ export function ArtifactHistoryPage({ initial, projectTitle }: { initial: Artifa
     <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={location.href} onAuthenticated={() => { void continueSession(); }} />
   </div>;
 }
-
 function saveState(state: ArtifactSessionState): SaveState {
   if (state.operation.phase === "pending" || state.autosave?.status === "saving") return "saving";
   if (state.autosave?.status === "conflict" || state.operation.phase === "rejected") return "conflict";
@@ -178,7 +177,7 @@ function HistoryWorkspace({ state, session, projectTitle, form, setForm, followM
     <ProductHeader homeLabel={t("artifacts.navigation.home")}><LocaleSelect compact /><AccountMenu beforeSignOut={beforeSignOut} onSignedOut={() => { void signedOut(); }} /></ProductHeader>
     <main className={styles.workspace}>
       <nav className={styles.breadcrumb} aria-label={t("artifacts.navigation.history")}><Link href={`/app/projects/${snapshot.artifact.projectId}/artifacts/${snapshot.artifact.id}`}><ArrowLeft size={17} aria-hidden="true" />{t("artifacts.navigation.material")}</Link><Link href={`/app/projects/${snapshot.artifact.projectId}`}>{projectTitle}</Link><span>{t("artifacts.navigation.history")}</span></nav>
-      <header className={styles.heading}><div><h1>{snapshot.artifact.title}</h1><p className={styles.meta}>{t(`artifacts.kinds.${snapshot.artifact.kind}`)}<span className={styles.tag}>{t(`artifacts.statuses.${snapshot.artifact.status}`)}</span></p></div><div className={styles.actions}><SaveStatus state={saveState(state)} /><IconButton icon={RefreshCw} label={t("artifacts.actions.refresh")} disabled={busy} onClick={() => handle(async () => { await session.refresh(); await session.loadVersions(); })} /><ArtifactMenu snapshot={snapshot} disabled={!canAct} onAction={openAction} /></div></header>
+      <header className={styles.heading}><div><h1>{snapshot.artifact.title}</h1><p className={styles.meta}>{t(`artifacts.kinds.${snapshot.artifact.kind}`)}<span className={styles.tag}>{t(`artifacts.statuses.${snapshot.artifact.status}`)}</span></p></div><div className={styles.actions}><SaveStatus state={saveState(state)} /><IconButton icon={RefreshCw} label={t("artifacts.actions.refresh")} disabled={busy} onClick={() => handle(async () => { await session.refresh(); await session.loadVersions(); })} /><ArtifactLifecycleMenu snapshot={snapshot} disabled={!canAct} onAction={openAction} /></div></header>
       <ArtifactError error={error ?? state.error ?? state.storageError} />
       {state.createdArtifact && <p role="status" className={styles.success}><span>{t("artifacts.page.createdVariant")}</span><Link href={artifactHistoryHref(state.createdArtifact.projectId, state.createdArtifact.id)}>{state.createdArtifact.title}<ArrowRight size={17} aria-hidden="true" /></Link></p>}
       {state.operation.operation && !action && <div className={styles.recoveryBar}><div><strong>{t(state.operation.phase === "rejected" ? "artifacts.errors.conflict" : "artifacts.recovery.uncertain")}</strong><ArtifactError error={state.operation.error} /></div>{state.operation.phase === "rejected" ? <Button icon={RefreshCw} disabled={busy} onClick={() => handle(async () => { await session.dismissRejected(); })}>{t("artifacts.actions.refresh")}</Button> : <Button icon={RotateCw} pending={state.operation.phase === "pending"} onClick={() => handle(retryOperation)}>{t("artifacts.actions.retry")}</Button>}</div>}
@@ -196,10 +195,4 @@ function HistoryWorkspace({ state, session, projectTitle, form, setForm, followM
     {action && actionDraft && <ArtifactActionDialog key={`${action.kind}:${action.snapshot.artifact.currentRevision}`} action={action} draft={actionDraft} onDraftChange={setActionDraft} onClose={() => { setAction(undefined); setActionDraft(undefined); }} onRun={(operation) => handle(() => run(operation))} onRetry={() => handle(retryOperation)} onRefresh={() => handle(async () => { await session.dismissRejected(); setAction(undefined); setActionDraft(undefined); })} operation={state.operation} project={project} onProjectChange={setProject} loadProjects={loadProjects} />}
     {exitDecision && <ArtifactSignOutGuard state={state} session={session} onDecision={finishExit} />}
   </div>;
-}
-
-function ArtifactMenu({ snapshot, disabled, onAction }: { snapshot: ArtifactSnapshot; disabled: boolean; onAction: (kind: Exclude<ArtifactOperation["kind"], "undo" | "redo" | "branch" | "restore-version">) => void }) {
-  const t = useArtifactTranslations();
-  const items = [{ kind: "rename", icon: PencilLine }, { kind: "duplicate", icon: Copy }, { kind: "move", icon: MoveRight }, { kind: "archive", icon: Archive }, { kind: "restore", icon: Undo2 }, { kind: "trash", icon: Trash2 }, { kind: "purge", icon: Trash2 }] as const;
-  return <Ariakit.MenuProvider><Ariakit.MenuButton render={<IconButton icon={MoreHorizontal} label={t("artifacts.actions.more")} />} /><Ariakit.Menu gutter={8} portal className={styles.menu}>{items.filter((item) => snapshot.permissions[item.kind]).map(({ kind, icon: Icon }) => <Ariakit.MenuItem key={kind} className={styles.menuItem} disabled={disabled} onClick={() => onAction(kind)}><Icon size={18} aria-hidden="true" />{t(`artifacts.actions.${kind}`)}</Ariakit.MenuItem>)}</Ariakit.Menu></Ariakit.MenuProvider>;
 }

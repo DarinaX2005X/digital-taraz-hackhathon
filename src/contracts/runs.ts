@@ -95,6 +95,21 @@ export const RunDecisionSchema = z.strictObject({
   if (value.selectedOptionId !== null && !ids.has(value.selectedOptionId)) context.addIssue({ code: 'custom', message: 'The selected decision option must exist.' });
   for (const difference of value.differences) if (!ids.has(difference.leftOptionId) || !ids.has(difference.rightOptionId) || difference.leftOptionId === difference.rightOptionId) context.addIssue({ code: 'custom', message: 'Decision differences must reference distinct options.' });
 });
+export const RunWorkDecisionSchema = z.strictObject({
+  id: DecisionIdSchema,
+  requiresConsent: z.boolean(),
+  selectedOptionId: DecisionIdSchema.nullable(),
+  options: z.array(z.strictObject({
+    id: DecisionIdSchema,
+    label: z.string().trim().min(1).max(240),
+    artifactIds: z.array(IdSchema).max(40),
+  })).min(1).max(20),
+}).superRefine((value, context) => {
+  const ids = new Set(value.options.map((option) => option.id));
+  if (ids.size !== value.options.length) context.addIssue({ code: 'custom', message: 'Work decision option IDs must be unique.' });
+  if (value.selectedOptionId !== null && !ids.has(value.selectedOptionId)) context.addIssue({ code: 'custom', message: 'The selected work option must exist.' });
+  if (value.options.some((option) => new Set(option.artifactIds).size !== option.artifactIds.length)) context.addIssue({ code: 'custom', message: 'Work decision option artifact IDs must be unique.' });
+});
 export const RunBranchStateSchema = z.enum(['planned', 'running', 'waiting_input', 'review_ready', 'completed', 'failed', 'cancelled']);
 export const RunBranchProjectionSchema = z.strictObject({
   id: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/),
@@ -108,6 +123,7 @@ export const RunProgressProjectionSchema = z.strictObject({
   plan: z.array(z.string().min(1).max(500)).max(10), questions: z.array(RunQuestionSchema).max(10), summary: z.string().max(3000),
   results: z.array(RunResultRefSchema.extend({ title: z.string().max(240) })).max(40),
   decision: RunDecisionSchema.nullable().optional(),
+  workDecision: RunWorkDecisionSchema.nullable().optional(),
   branches: z.array(RunBranchProjectionSchema).max(8).optional(),
 });
 export const RunProgressSchema = RunProgressProjectionSchema.extend({
@@ -184,6 +200,7 @@ export type RunEventsPage = z.infer<typeof RunEventsPageSchema>;
 export type RunResultRef = z.infer<typeof RunResultRefSchema>;
 export type RunInputRef = z.infer<typeof RunInputRefSchema>;
 export type RunDecision = z.infer<typeof RunDecisionSchema>;
+export type RunWorkDecision = z.infer<typeof RunWorkDecisionSchema>;
 export type RunBranchProjection = z.infer<typeof RunBranchProjectionSchema>;
 export type RunProgressProjection = z.infer<typeof RunProgressProjectionSchema>;
 export type ToolReceipt = z.infer<typeof ToolReceiptSchema>;

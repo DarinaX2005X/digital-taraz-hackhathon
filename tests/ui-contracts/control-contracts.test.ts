@@ -203,8 +203,16 @@ describe("CSS source constraints", () => {
     expect(block(".tl-table-frame")).toContain("overflow: auto");
     expect(block(".tl-tabs__list")).toContain("overflow-x: auto");
     expect(css).toMatch(/\.tl-dialog\[hidden\],[\s\S]+?\.tl-tabs__panel\[hidden\],[\s\S]+?display: none/);
-    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.tl-spin \{ animation: none;/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]+?\.tl-spin,[\s\S]+?\.tl-skeleton \{ animation: none;/);
     expect(css).not.toMatch(/font-size:\s*[^;]*v(?:w|h)|letter-spacing:\s*-/);
-    for (const match of css.matchAll(/border-radius:\s*([^;]+);/g)) expect(match[1]).toMatch(/^(?:0|inherit|var\(--radius-(?:control|counter|item|overlay)\))$/);
+    for (const match of css.matchAll(/border-radius:\s*([^;]+);/g)) expect(match[1]).toMatch(/^(?:0|inherit|var\(--radius-(?:tool|control|counter|inset|item|overlay)\))$/);
+  });
+
+  it("uses stable press feedback and keeps opaque reading surfaces", () => {
+    expect(block('.tl-button:not(:disabled, [aria-disabled="true"]):active')).toContain("transform: scale(0.985)");
+    expect(block(".tl-toast")).not.toContain("border-inline-start-width");
+    const foundation = read("foundation.css");
+    expect(block(".tl-button")).toContain("var(--motion-press)");
+    expect(foundation).not.toMatch(/backdrop-filter|color-mix\([^)]*transparent/);
   });
 });

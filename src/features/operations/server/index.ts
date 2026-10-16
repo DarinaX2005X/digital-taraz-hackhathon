@@ -14,7 +14,7 @@ export function getOperationsHandler() {
   return handler;
 }
 
-export { authorizeExportResourcesInTransaction, authorizePlanExportResources, createOperationsService, loadPlanCapacityContextInTransaction, resolveExportResourcesInTransaction, resolvePlanExportResources } from './service';
+export { authorizeExportResourcesInTransaction, authorizePlanExportResources, createOperationsService, loadPlanCapacityContextInTransaction, readPlanResourceSnapshotsInTransaction, resolveExportResourcesInTransaction, resolvePlanExportResources } from './service';
 export { createOperationsExportAdapter, operationsExportAdapter } from './exports';
 export { operationsBusinessToolExtension, operationsBusinessTools } from './ai-business-tool';
 

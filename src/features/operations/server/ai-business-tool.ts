@@ -10,18 +10,75 @@ import {
 } from '@/features/commercial/domain/decision';
 import { withWorkspaceAccessInTransaction } from '@/features/identity/server/access';
 import { RunError } from '@/features/runs/domain/errors';
+import { readPinnedSource } from '@/features/sources/server/pinned-source';
 import { CreateAiPlanSchema, buildAiPlan } from '../ai-plan';
 import { assessDeliveryDate, latestActiveCompletionDate } from '../domain/decision';
 import { validateOperationalPlan, type OperationalPlanContent, type OperationalPlanEntry } from '../domain/model';
-import { loadPlanCapacityContextInTransaction } from './service';
+import {
+  ProposeWorkPlanInputSchema,
+  ProposeWorkPlanResultSchema,
+  proposeWorkPlan,
+  type ProposeWorkPlanResult,
+} from '../domain/propose-work-plan';
+import { loadPlanCapacityContextInTransaction, readPlanResourceSnapshotsInTransaction } from './service';
 
 const ResultSchema = z.strictObject({ results: z.array(RunResultRefSchema).length(1) });
+const ProposeBusinessPlanSchema = z.strictObject({
+  proposalId: z.string().min(1).max(50).regex(/^[a-z][a-z0-9_-]*$/),
+  title: z.string().trim().min(1).max(240),
+  input: ProposeWorkPlanInputSchema,
+});
+const PlanProposalReceiptSchema = ProposeWorkPlanResultSchema.omit({ candidate: true }).extend({
+  proposalId: ProposeBusinessPlanSchema.shape.proposalId,
+  title: ProposeBusinessPlanSchema.shape.title,
+});
 
 export const operationsBusinessToolExtension: BusinessToolExtension = (services) => operationsBusinessTools(services);
 
 /** Typed local tools used by the visible J1 assistant procedure. */
 export function operationsBusinessTools(services: BusinessToolServices): readonly BusinessToolDefinition[] {
   return [
+    {
+      name: 'propose_work_plan',
+      description: 'Construct a checked candidate schedule from a typed plan, immutable resource and availability revisions, locks, dependencies, material-ready facts, and one explicit objective. This deterministic tool may reassign unlocked work when constraints change, preserves locked work, and reports unknown supply dates without inventing them. The candidate is stored under proposalId for assessment; it does not book resources or mutate an artifact.',
+      schema: ProposeBusinessPlanSchema,
+      action: 'calculate',
+      output: PlanProposalReceiptSchema,
+      costClass: 'local',
+      effect: async (tx, raw, context, state) => {
+        const request = ProposeBusinessPlanSchema.parse(raw);
+        if (request.input.plan.entries.length > 200) throw new RunError('invalid_result');
+        const result = await withWorkspaceAccessInTransaction(tx, principalFor(context), { workspaceId: context.workspaceId, projectId: context.projectId ?? undefined, scope: 'read' }, async (transaction, access) => {
+          if (access.workspace.authz_version !== context.authzVersion) throw new RunError('access_changed', 'FORBIDDEN');
+          const refs = new Map<string, (typeof request.input.materialConstraints)[number]['sourceRef']>();
+          for (const item of request.input.materialConstraints) refs.set(JSON.stringify(item.sourceRef), item.sourceRef);
+          for (const entry of request.input.plan.entries) for (const ref of entry.sourceRefs ?? []) refs.set(JSON.stringify(ref), ref);
+          for (const ref of refs.values()) {
+            const pinned = await readPinnedSource(transaction, access, { sourceId: ref.sourceId, sourceVersionId: ref.sourceVersionId });
+            if (pinned.sourceRef.revision !== ref.revision || pinned.projectId !== context.projectId) throw new RunError('access_changed', 'NOT_FOUND');
+          }
+          return proposeWorkPlan(request.input, {
+            authorization: { workspaceId: access.workspace.id, actorId: access.userId, authzVersion: access.workspace.authz_version },
+            searchLimit: 50_000,
+            readResources: async (resourceRefs, authorization) => {
+              if (authorization.workspaceId !== access.workspace.id || authorization.actorId !== access.userId || authorization.authzVersion !== access.workspace.authz_version) throw new RunError('access_changed', 'FORBIDDEN');
+              return readPlanResourceSnapshotsInTransaction(transaction, access, resourceRefs);
+            },
+          });
+        });
+        const proposals = [...state.planProposals.filter((item) => item.id !== request.proposalId), { id: request.proposalId, title: request.title, result }].slice(-5);
+        const next = { ...state, planProposals: proposals, operations: state.operations.filter((item) => item.request.planProposalId !== request.proposalId), decision: null, workDecision: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null };
+        if (Buffer.byteLength(JSON.stringify(next)) > 180_000) throw new RunError('invalid_result');
+        const receipt = {
+          status: result.status,
+          changedEntryIds: result.changedEntryIds,
+          unresolved: result.unresolved,
+          conflicts: result.conflicts,
+          checkReceipt: result.checkReceipt,
+        };
+        return { output: { proposalId: request.proposalId, title: request.title, ...receipt }, context: next };
+      },
+    },
     {
       name: 'assess_delivery_date',
       description: 'Check whether a selected or drafted work plan can meet the requested date using only exact dependencies, saved assignments, and immutable availability versions. Expose blocking reasons and explicit alternatives. Never assume a 40-hour week, optimize missing schedules, reserve an external calendar, or invent availability. Use a saved plan when the decision depends on existing assignments.',
@@ -32,11 +89,15 @@ export function operationsBusinessTools(services: BusinessToolServices): readonl
       effect: async (tx, raw, context, state) => {
         const request = OperationsCheckInputSchema.parse(raw);
         assertDecisionEvidence(request, state);
-        let title: string, plan: OperationalPlanContent;
+        let title: string, plan: OperationalPlanContent, proposal: ProposeWorkPlanResult | null = null;
         if (request.planArtifact) {
           const loaded = await services.readArtifact(tx, context, { artifactId: request.planArtifact.artifactId, revision: request.planArtifact.revision });
           if (loaded.content.kind !== 'plan') throw new RunError('invalid_result');
           title = loaded.artifact.title; plan = validateOperationalPlan(loaded.content);
+        } else if (request.planProposalId) {
+          const stored = state.planProposals.find((item) => item.id === request.planProposalId);
+          if (!stored) throw new RunError('invalid_result');
+          title = stored.title; proposal = stored.result; plan = validateOperationalPlan(stored.result.candidate);
         } else {
           title = state.locale === 'ru' ? 'План выполнения' : state.locale === 'kk' ? 'Орындау жоспары' : 'Delivery plan';
           plan = decisionDraftPlan(request);
@@ -48,19 +109,22 @@ export function operationsBusinessTools(services: BusinessToolServices): readonl
             capacity = await loadPlanCapacityContextInTransaction(transaction, access, plan);
           }
           const core = assessDeliveryDate({ title, plan, requestedDate: request.requestedDate, openingDate: request.openingDate, locale: state.locale, ...capacity });
+          const proposalReasons = proposal ? proposalIssues(proposal, state.locale) : [];
+          const proposalUnknown = proposal !== null && proposal.status !== 'feasible';
+          const verdict = proposalUnknown ? (proposal!.status === 'infeasible' && proposal!.unresolved.length === 0 ? 'cannot-meet' as const : 'cannot-confirm' as const) : core.verdict;
           return OperationsDecisionSchema.parse({
             assessmentId: request.assessmentId,
             optionId: request.optionId,
             request,
-            verdict: core.verdict,
+            verdict,
             requestedDate: core.requestedDate,
             openingDate: core.openingDate,
             earliestCompletionDate: latestActiveCompletionDate(plan),
-            reasons: core.reasons.map((reason) => ({ ...reason, sourceRefs: reason.sourceRefs.slice(0, 100), question: reason.code === 'availability-unknown' ? questionFor(state.locale) : null })),
-            conditions: core.conditions.map((condition) => ({ ...condition, sourceRefs: condition.sourceRefs.slice(0, 100), question: null })),
+            reasons: [...proposalReasons, ...core.reasons.map((reason) => ({ ...reason, sourceRefs: reason.sourceRefs.slice(0, 100), question: reason.code === 'availability-unknown' ? questionFor(state.locale) : null }))].slice(0, 40),
+            conditions: proposalUnknown ? [] : core.conditions.map((condition) => ({ ...condition, sourceRefs: condition.sourceRefs.slice(0, 100), question: null })),
             capacity: core.capacity.map((item) => ({ ...item, requiredMinutes: item.requiredMinutes === null ? null : Math.ceil(item.requiredMinutes), availableMinutes: item.availableMinutes === null ? null : Math.floor(item.availableMinutes) })),
             alternatives: core.alternatives.map((alternative) => ({ ...alternative, sourceRefs: alternative.sourceRefs.slice(0, 100), suggestedDate: alternative.suggestedDate ?? null })),
-            planDraft: core.planDraft,
+            planDraft: proposalUnknown ? null : core.planDraft,
           });
         });
         return { output, context: { ...state, operations: [...state.operations.filter((item) => item.assessmentId !== output.assessmentId), output] } };
@@ -120,6 +184,19 @@ function pinCurrentAvailability(plan: OperationalPlanContent, resources: Awaited
 
 function questionFor(locale: 'ru' | 'kk' | 'en') {
   return locale === 'ru' ? 'Кого назначить и какую подтверждённую доступность использовать?' : locale === 'kk' ? 'Кімді тағайындап, қандай расталған қолжетімділікті пайдалану керек?' : 'Who should be assigned, and which confirmed availability should be used?';
+}
+
+function proposalIssues(result: ProposeWorkPlanResult, locale: 'ru' | 'kk' | 'en') {
+  const text = (code: string) => locale === 'ru' ? `План не подтверждён: ${code}.` : locale === 'kk' ? `Жоспар расталмады: ${code}.` : `The plan is not confirmed: ${code}.`;
+  const question = (code: string) => {
+    if (code === 'material-date-unknown') return locale === 'ru' ? 'Когда материал будет доступен?' : locale === 'kk' ? 'Материал қашан қолжетімді болады?' : 'When will the material be available?';
+    if (['assignment-missing', 'availability-missing', 'resource-missing', 'resource-revision-changed', 'resource-capability-missing', 'locked-assignment-invalid'].includes(code)) return questionFor(locale);
+    return null;
+  };
+  return [
+    ...result.unresolved.map((item) => ({ code: item.code, message: text(item.code), sourceRefs: item.sourceRefs.slice(0, 100), question: question(item.code) })),
+    ...result.conflicts.map((item) => ({ code: item.code, message: text(item.code), sourceRefs: item.sourceRefs.slice(0, 100), question: null })),
+  ];
 }
 
 function assertDecisionEvidence(request: OperationsCheckInput, state: Parameters<BusinessToolDefinition['effect']>[3]) {

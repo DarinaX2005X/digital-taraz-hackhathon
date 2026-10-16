@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BusinessContext } from '../../src/features/agent-tools/server/context';
-import { resolveDecisionControls } from '../../src/features/agent-tools/server/business';
+import { resolveDecisionControls, resolveWorkDecisionControl } from '../../src/features/agent-tools/server/business';
 
 const decision = {
   options: [
@@ -24,5 +24,18 @@ describe('canonical decision controls', () => {
   it('rejects unknown option IDs and condition consent for another option', () => {
     expect(() => resolveDecisionControls({ decision, currentSelectedOptionId: null, currentAcceptedConditionIds: [], selectedOptionId: 'missing' })).toThrow();
     expect(() => resolveDecisionControls({ decision, currentSelectedOptionId: 'standard', currentAcceptedConditionIds: [], acceptedConditionIds: ['accept_conditions_accelerated'] })).toThrow();
+  });
+});
+
+describe('generic work decision controls', () => {
+  const workDecision = {
+    id: 'creative_direction', requiresConsent: true,
+    options: [{ id: 'precise', label: 'Precise', artifactIds: [] }, { id: 'bold', label: 'Bold', artifactIds: [] }],
+  } satisfies NonNullable<BusinessContext['workDecision']>;
+
+  it('requires an explicit known option when the producer requires consent', () => {
+    expect(() => resolveWorkDecisionControl({ decision: workDecision, currentSelectedOptionId: null })).toThrow();
+    expect(() => resolveWorkDecisionControl({ decision: workDecision, currentSelectedOptionId: null, selectedOptionId: 'missing' })).toThrow();
+    expect(resolveWorkDecisionControl({ decision: workDecision, currentSelectedOptionId: null, selectedOptionId: 'bold' })).toBe('bold');
   });
 });

@@ -17,13 +17,18 @@ import { ArtifactError } from '@/features/artifacts/ui/common';
 import { ArtifactSignOutGuard } from '@/features/artifacts/ui/recovery-panel';
 import { SourceFreshnessPanel } from '@/features/artifacts/ui/source-freshness';
 import { artifactClient } from '@/features/artifacts/client/transport';
-import { Button, Dialog, EmptyState, LoadingState, SaveStatus } from '@/ui';
+import { Button, Dialog, EmptyState, LoadingState, SaveStatus, type OptionLoader, type SelectOption } from '@/ui';
 import { WorkspaceShell, useWorkspaceCopy } from './shell';
 import styles from './workspace.module.css';
 import { workspaceClient } from '../client/transport';
 import { TourGuide } from '@/features/onboarding/tour';
 import { AssistantSession } from '@/features/runs/ui/assistant-session';
 import { sessionResults } from '@/features/runs/ui/session-state';
+import { ArtifactLifecycleMenu, type ArtifactLifecycleKind } from '@/features/artifacts/ui/lifecycle-menu';
+import { ArtifactActionDialog, createActionDraft, type ArtifactAction, type ArtifactActionDraft } from '@/features/artifacts/ui/action-dialog';
+import { useArtifactTranslations } from '@/features/artifacts/ui/common';
+import type { ArtifactOperation } from '@/features/artifacts/client/operations';
+import type { ArtifactOperationResult } from '@/features/artifacts/client/execute-operation';
 
 function EditorLoading() { const t = useWorkspaceCopy(); return <LoadingState label={t.loadingEditor} />; }
 const DocumentEditor = dynamic(() => import('@/features/documents/ui/document-editor').then((module) => module.DocumentEditor), { ssr: false, loading: EditorLoading });
@@ -38,7 +43,7 @@ class EditorBoundary extends Component<{ children: ReactNode; fallback: ReactNod
 }
 
 export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: { initial: ArtifactSnapshot; projectTitle: string; initialRunId?: string }) {
-  const t = useWorkspaceCopy(), router = useRouter(), { locale } = useLocale();
+  const t = useWorkspaceCopy(), artifactText = useArtifactTranslations(), router = useRouter(), { locale } = useLocale();
   const { state, identity, privateVisible, session, resume, refreshAccount } = useArtifactSession(initial);
   const [authOpen, setAuthOpen] = useState(false), [resuming, setResuming] = useState(false), [error, setError] = useState<unknown>();
   const [rail, setRail] = useState<ArtifactListResult>();
@@ -49,6 +54,10 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
   const [assistantRun, setAssistantRun] = useState<Run>();
   const [mobileView, setMobileView] = useState<'assistant' | 'result'>('result');
   const [wasPrivate, setWasPrivate] = useState(privateVisible);
+  const [lifecycleAction, setLifecycleAction] = useState<ArtifactAction>();
+  const [lifecycleDraft, setLifecycleDraft] = useState<ArtifactActionDraft>();
+  const [lifecycleProject, setLifecycleProject] = useState<SelectOption | null>(null);
+  const [lifecyclePreparing, setLifecyclePreparing] = useState(false);
   const exitResolver = useRef<((proceed: boolean) => void) | undefined>(undefined);
   const editorFlush = useRef<(() => Promise<boolean>) | null>(null);
   const registerEditorFlush = useCallback((flush: (() => Promise<boolean>) | null) => { editorFlush.current = flush; }, []);
@@ -167,6 +176,62 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
     return session.flush();
   }
   async function afterLinkedChange() { await session.refresh(); setRailAfter(undefined); setRailReload((value) => value + 1); }
+  const loadLifecycleProjects = useCallback<OptionLoader>(async (query, signal) => {
+    const current = session.getSnapshot();
+    if (current.phase !== 'ready' || !current.snapshot) return [];
+    try {
+      const page = await artifactClient.projects({ viewer: current.snapshot.viewer, signal }, { query });
+      const latest = session.getSnapshot();
+      if (latest.phase !== 'ready' || latest.snapshot?.viewer.authzVersion !== current.snapshot.viewer.authzVersion) return [];
+      return page.projects.map((entry) => ({ id: entry.id, label: entry.title }));
+    } catch (failure) {
+      if (!signal.aborted) await session.refresh();
+      throw failure;
+    }
+  }, [session]);
+  async function prepareLifecycle(kind: ArtifactLifecycleKind) {
+    if (lifecyclePreparing || state.operation.operation) return;
+    setLifecyclePreparing(true); setError(undefined);
+    try {
+      if (editorFlush.current && !await editorFlush.current()) return;
+      if (!await session.flush()) return;
+      await session.refresh();
+      const fresh = session.getSnapshot();
+      if (fresh.phase !== 'ready' || !fresh.snapshot || !fresh.snapshot.permissions[kind]) return;
+      const action: ArtifactAction = { kind, snapshot: fresh.snapshot };
+      setLifecycleAction(action);
+      setLifecycleProject({ id: fresh.snapshot.artifact.projectId, label: fresh.snapshot.artifact.projectId === initial.artifact.projectId ? projectTitle : t.activeProject });
+      setLifecycleDraft(createActionDraft(action, kind === 'duplicate' ? artifactText('artifacts.versions.copyDefault', { title: fresh.snapshot.artifact.title }) : undefined));
+    } catch (failure) { setError(failure); }
+    finally { setLifecyclePreparing(false); }
+  }
+  function closeLifecycle() { setLifecycleAction(undefined); setLifecycleDraft(undefined); setLifecycleProject(null); }
+  function followLifecycle(operation: ArtifactOperation | undefined, result: ArtifactOperationResult | undefined) {
+    if (!operation || !result) return false;
+    if (operation.kind === 'purge') { router.replace('/app/work'); return true; }
+    if (!('artifact' in result)) return false;
+    const href = `/app/projects/${result.artifact.projectId}/artifacts/${result.artifact.id}${activeRunId && operation.kind !== 'duplicate' ? `?run=${activeRunId}` : ''}`;
+    if (operation.kind === 'move' || operation.kind === 'duplicate') { router.replace(href); return true; }
+    if (operation.kind === 'archive' || operation.kind === 'trash') { router.replace(`/app/projects/${result.artifact.projectId}${activeRunId ? `?run=${activeRunId}` : ''}`); return true; }
+    return false;
+  }
+  async function runLifecycle(operation: ArtifactOperation) {
+    const result = await session.run(operation);
+    const followed = followLifecycle(operation, result);
+    if (result) {
+      closeLifecycle();
+      if (!followed) { setRailAfter(undefined); setRailReload((value) => value + 1); }
+    }
+  }
+  async function retryLifecycle() {
+    const operation = session.getSnapshot().operation.operation;
+    const result = await session.retryOperation();
+    const followed = followLifecycle(operation, result);
+    if (result) {
+      closeLifecycle();
+      if (!followed) { setRailAfter(undefined); setRailReload((value) => value + 1); }
+    }
+  }
   async function signedOut() { if (await session.confirmedSignedOut()) { router.replace('/sign-in'); router.refresh(); } }
   if (!privateVisible || !snapshot) return <WorkspaceShell><main className={styles.main}>
     {identity.phase === 'checking' ? <LoadingState /> : <EmptyState icon={LogIn} title={t[identity.phase === 'account-changed' || state.phase === 'access-changed' ? 'forbidden' : 'auth']} description={t.authDescription} action={<><Button icon={RefreshCw} pending={resuming} onClick={() => { void continueSession(); }}>{t.resume}</Button><Button icon={LogIn} variant="primary" onClick={() => setAuthOpen(true)}>{t.signIn}</Button><Link className="tl-button tl-button--secondary" href="/app/work">{t.back}</Link></>} />}
@@ -193,6 +258,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
       <Link id="artifact-history" className="tl-button tl-button--secondary" href={historyHref}><FileClock size={18} />{t.history}</Link>
       <ChangeReviewPanel key={`${viewerUserId}:${viewerWorkspaceId}:${projectId}:${viewerAuthzVersion}`} viewer={snapshot.viewer} projectId={snapshot.artifact.projectId} locale={locale} disabled={state.loading || Boolean(state.operation.operation)} beforeReview={beforeReview} onCommitted={afterLinkedChange} onUndo={async (groupId) => { const prepared = await session.prepareHistory('undo', groupId); if (prepared.operation) { await session.run(prepared.operation); await afterLinkedChange(); } }} />
       <div id="artifact-export" tabIndex={-1}><ExportPanel workspaceId={snapshot.viewer.workspaceId} artifactId={snapshot.artifact.id} userId={snapshot.viewer.userId} expectedAuthzVersion={snapshot.viewer.authzVersion} kind={snapshot.content.kind} revision={snapshot.artifact.currentRevision} locale={locale} sheets={exportSheets} pages={exportPages} bundleItems={fixedExportBundle} disabled={state.loading || Boolean(state.operation.operation)} beforeExport={beforeExport} /></div>
+      <ArtifactLifecycleMenu snapshot={snapshot} disabled={state.loading || lifecyclePreparing || hasRecovery || state.autosave?.status === 'saving' || Boolean(state.operation.operation)} onAction={(kind) => { void prepareLifecycle(kind); }} />
     </div></header>
     <ArtifactError error={error ?? state.error ?? state.storageError} />
     {hasRecovery && <div className={styles.error}><p>{t.recover}</p><Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link></div>}
@@ -210,6 +276,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId }: {
       </section>
     </div>
     <Dialog open={railOpen} onOpenChange={setRailOpen} placement="side" title={t.results}>{resultList}</Dialog>
+    {lifecycleAction && lifecycleDraft && <ArtifactActionDialog key={`${lifecycleAction.kind}:${lifecycleAction.snapshot.artifact.currentRevision}`} action={lifecycleAction} draft={lifecycleDraft} onDraftChange={setLifecycleDraft} onClose={closeLifecycle} onRun={(operation) => { void runLifecycle(operation).catch(setError); }} onRetry={() => { void retryLifecycle().catch(setError); }} onRefresh={() => { void (async () => { await session.dismissRejected(); await session.refresh(); closeLifecycle(); })().catch(setError); }} operation={state.operation} project={lifecycleProject} onProjectChange={setLifecycleProject} loadProjects={loadLifecycleProjects} />}
     {exitPending && <ArtifactSignOutGuard state={state} session={session} onDecision={(proceed) => { exitResolver.current?.(proceed); exitResolver.current = undefined; setExitPending(false); }} />}
   </main></WorkspaceShell>;
 }

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { IdSchema } from '@/contracts/primitives';
+import { RevisionVectorSchema } from '@/contracts/commands';
 import { hashJson } from '@/features/artifacts/domain/canonical';
 import type { JsonValue } from '@/features/artifacts/domain/content-models';
 import { hasScope } from '@/features/identity/domain/policy';
@@ -27,6 +28,13 @@ import {
   type WorkResource,
 } from '../contracts';
 import { canonicalAssignments, type OperationalPlanContent } from '../domain/model';
+import {
+  PlanResourceRefSchema,
+  ProposeWorkPlanRequestSchema,
+  proposeWorkPlan,
+  type PlanResourceReadResult,
+  type PlanResourceSnapshot,
+} from '../domain/propose-work-plan';
 
 interface ResourceRow {
   id: string; workspace_id: string; display_name: string; kind: WorkResource['kind']; status: WorkResource['status']; membership_id: string | null;
@@ -119,6 +127,63 @@ async function availabilityDto(tx: PoolClient, row: AvailabilityRow): Promise<Av
   });
 }
 
+/**
+ * Loads the immutable facts used by K2 inside an already-authorized
+ * transaction. Missing, stale, or unreadable references are omitted so the
+ * planner reports them as unresolved without disclosing protected resources.
+ */
+export async function readPlanResourceSnapshotsInTransaction(
+  tx: PoolClient,
+  access: WorkspaceAccess,
+  rawRefs: readonly z.infer<typeof PlanResourceRefSchema>[],
+): Promise<PlanResourceReadResult> {
+  const refs = z.array(PlanResourceRefSchema).max(2_000).parse(rawRefs);
+  if (new Set(refs.map((ref) => ref.id)).size !== refs.length) throw fail('duplicateResource', 'VALIDATION_FAILED');
+  const resources: PlanResourceSnapshot[] = [];
+  const inputRevisionVector: Record<string, number> = {};
+  for (const ref of refs) {
+    const resource = (await tx.query<ResourceVersionRow>(
+      'SELECT *,resource_id FROM work_resource_versions WHERE workspace_id=$1 AND resource_id=$2 AND revision=$3',
+      [access.workspace.id, ref.id, ref.revision],
+    )).rows[0];
+    if (!resource || !canRead(access, resource.access_class)) continue;
+    const availability = (await tx.query<AvailabilityRow>(
+      'SELECT * FROM availability_versions WHERE workspace_id=$1 AND resource_id=$2 AND id=$3',
+      [access.workspace.id, ref.id, ref.availabilityVersionId],
+    )).rows[0];
+    if (!availability) continue;
+    const version = await availabilityDto(tx, availability);
+    let sourceCurrent = true;
+    for (const sourceRef of version.sourceRefs) {
+      const pinned = await readPinnedSource(tx, access, { sourceId: sourceRef.sourceId, sourceVersionId: sourceRef.sourceVersionId });
+      if (pinned.sourceRef.revision !== sourceRef.revision) { sourceCurrent = false; break; }
+      inputRevisionVector[sourceRef.sourceId] = sourceRef.revision;
+    }
+    if (!sourceCurrent) continue;
+    resources.push({
+      resource: WorkResourceSchema.parse({
+        id: resource.resource_id,
+        workspaceId: resource.workspace_id,
+        displayName: resource.display_name,
+        kind: resource.kind,
+        status: resource.status,
+        membershipId: resource.membership_id,
+        timezone: resource.timezone,
+        accessClass: resource.access_class,
+        ...(resource.notes === null ? {} : { notes: resource.notes }),
+        revision: resource.revision,
+        currentAvailabilityVersionId: resource.current_availability_version_id,
+        createdAt: resource.created_at.toISOString(),
+        updatedAt: resource.created_at.toISOString(),
+      }),
+      availabilityVersion: version,
+    });
+    inputRevisionVector[ref.id] = ref.revision;
+    inputRevisionVector[version.id] = version.revision;
+  }
+  return { resources, inputRevisionVector: RevisionVectorSchema.parse(inputRevisionVector) };
+}
+
 export function createOperationsService(pool: Pool) {
   async function list(principal: IdentityPrincipal, raw: unknown) {
     const input = WorkResourceListInputSchema.parse(raw), cursor = decodeCursor(input.after);
@@ -208,7 +273,28 @@ export function createOperationsService(pool: Pool) {
       return AvailabilityHistorySchema.parse({ viewer: viewer(access), resource: resourceDto(resource), versions, nextBeforeRevision: rows.length > 100 ? page.at(-1)!.revision : null });
     });
   }
-  return { list, read, create, update, createAvailability, availabilityHistory };
+  async function propose(principal: IdentityPrincipal, raw: unknown) {
+    const request = ProposeWorkPlanRequestSchema.parse(raw);
+    return withWorkspaceAccess(pool, principal, { workspaceId: request.workspaceId, scope: 'read' }, async (tx, access) => {
+      assertAuthzVersion(access, request.expectedAuthzVersion);
+      const sourceRefs = new Map<string, (typeof request.input.materialConstraints)[number]['sourceRef']>();
+      for (const item of request.input.materialConstraints) sourceRefs.set(`${item.sourceRef.sourceId}:${item.sourceRef.sourceVersionId}:${item.sourceRef.revision}`, item.sourceRef);
+      for (const entry of request.input.plan.entries) for (const sourceRef of entry.sourceRefs ?? []) sourceRefs.set(`${sourceRef.sourceId}:${sourceRef.sourceVersionId}:${sourceRef.revision}`, sourceRef);
+      for (const sourceRef of sourceRefs.values()) {
+        const pinned = await readPinnedSource(tx, access, { sourceId: sourceRef.sourceId, sourceVersionId: sourceRef.sourceVersionId });
+        if (pinned.sourceRef.revision !== sourceRef.revision) throw fail('sourceChanged');
+      }
+      return proposeWorkPlan(request.input, {
+        authorization: { workspaceId: access.workspace.id, actorId: access.userId, authzVersion: access.workspace.authz_version },
+        searchLimit: 50_000,
+        readResources: async (refs, authorization) => {
+          if (authorization.workspaceId !== access.workspace.id || authorization.actorId !== access.userId || authorization.authzVersion !== access.workspace.authz_version) throw fail('authorizationChanged', 'FORBIDDEN');
+          return readPlanResourceSnapshotsInTransaction(tx, access, refs);
+        },
+      });
+    });
+  }
+  return { list, read, create, update, createAvailability, availabilityHistory, propose };
 }
 
 export type OperationsService = ReturnType<typeof createOperationsService>;

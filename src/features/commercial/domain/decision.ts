@@ -69,7 +69,8 @@ export const OperationsCheckInputSchema = z.strictObject({
   availabilitySourceIds: z.array(IdSchema).max(100),
   planArtifact: z.strictObject({ artifactId: IdSchema, revision: z.number().int().nonnegative() }).nullable(),
   planDraft: z.strictObject({ timezone: z.string().min(1).max(80), tasks: z.array(OperationsTaskSchema).min(1).max(2000) }).nullable(),
-}).refine((value) => (value.planArtifact === null) !== (value.planDraft === null), { message: 'Use exactly one saved plan or typed plan draft.' });
+  planProposalId: DecisionKeySchema.nullable().optional(),
+}).refine((value) => [value.planArtifact, value.planDraft, value.planProposalId].filter((item) => item != null).length === 1, { message: 'Use exactly one saved plan, typed plan draft, or checked plan proposal.' });
 
 export const OperationsDecisionReasonSchema = z.strictObject({
   code: DecisionKeySchema,

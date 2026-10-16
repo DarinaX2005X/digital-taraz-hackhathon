@@ -22,7 +22,7 @@ are tested for text and control contrast; coral is an art accent, not body text
 or an error state. Divider color is not sufficient for a required control boundary.
 
 Base CSS provides type roles, input inheritance, 44px control minimums, visible
-focus, reduced-motion tokens, forced-color focus and tabular numeric text. A plain
+focus, 90ms press feedback, reduced-motion tokens, forced-color focus and tabular numeric text. A plain
 text link still needs a sufficient target in its component context. Required
 labels and actions must wrap; tables and canvases own their overflow. Components
 must use the motion tokens so reduced-motion preferences take effect.
@@ -43,10 +43,27 @@ This is a foundation for real product routes, not a separate component gallery.
 | `TableFrame` | Named, keyboard-focusable scrolling region. Supply a native table with its own caption and headers; default minimum table width is 640px. Does not add grid editing, sorting or virtualization. |
 | `Toolbar`, `ToolbarItem` | Named toolbar and composite items for keyboard navigation. Icon targets keep 44x44 geometry and the toolbar owns narrow-width overflow. |
 | `SaveStatus` | `saving`, `saved`, `unsaved`, `local`, `offline` or `conflict`, optional detail and retry. This presents an actual persistence state; it does not save data or infer success. |
-| `EmptyState`, `ErrorState`, `LoadingState`, `Skeleton` | Object-specific copy/actions and retained children, polite loading, assertive error. Skeleton dimensions are explicit and static; do not replace existing work with a blank loading surface. |
+| `EmptyState`, `ErrorState`, `LoadingState`, `Skeleton` | Object-specific copy/actions and retained children, polite loading, assertive error. Skeleton dimensions are explicit and its shimmer stops with reduced motion; do not replace existing work with a blank loading surface. |
 | `ToastProvider`, `useToast` | Deduplicated notification IDs, update/dismiss/clear, persistent errors/actions, timed information with hover/focus pause. |
+| `Menu`, `MenuItem`, `MenuSeparator`, `MenuGroup` | Ariakit action menu with managed focus, arrow-key navigation, portal positioning and 44px items. The supplied trigger owns its localized accessible name. |
+| `Progress`, `ProgressSteps` | Native determinate/indeterminate progress for measurable work, or stable named steps for workflows. Do not invent percentages. |
+| `Surface`, `DataSurface` | Opaque object/inset/deep surfaces and a flat boundary for dense tables, grids and documents. `DataSurface` deliberately has no elevation. |
+| `InlineNotice` | Persistent info/success/warning/error feedback beside its cause, with an optional recovery action. Danger is an alert; secondary confirmations remain toasts. |
 | `LocaleSelect` | All three language names, existing cookie/account preference states, no editor navigation or remount. Optional `compact` hides the associated label visually for headers and adds a language icon; errors and retry remain available. |
 | `ProductHeader` | Shared branded full-width header, named home link and trailing action slot. Required localized `homeLabel`; optional `homeHref` defaults to `/`. No account state or feature navigation is created here. |
+
+Use object surfaces for created work, flat data surfaces around dense editors, and
+inline notices for an error the user must resolve in place. Progress receives a
+number only when the operation reports a real amount:
+
+```tsx
+<Surface aria-labelledby="result-title">
+  <h2 id="result-title">{t("result.title")}</h2>
+  <DataSurface aria-label={t("result.tableLabel")}>{table}</DataSurface>
+  {saveError && <InlineNotice tone="danger" title={t("errors.saveTitle")} action={<Button onClick={retry}>{t("common.actions.retry")}</Button>}>{t("errors.saveBody")}</InlineNotice>}
+  {exporting && <Progress label={t("export.progress")} value={writtenRows} max={totalRows} detail={`${writtenRows} / ${totalRows}`} />}
+</Surface>
+```
 
 ### Search
 

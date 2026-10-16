@@ -5,6 +5,8 @@ import { SourceFragmentSchema } from '../../../contracts/sources';
 import { RunInputRefSchema, RunQuestionSchema, RunResultRefSchema, type CreateRun } from '../../../contracts/runs';
 import { IdSchema, LocaleSchema } from '../../../contracts/primitives';
 import { MaterialDecisionContextSchema } from '../../../contracts/materials';
+import { BusinessWorkDecisionSchema } from '../../../contracts/business-work';
+import { ProposeWorkPlanResultSchema } from '../../operations/domain/propose-work-plan';
 import { withWorkspaceAccessInTransaction } from '../../identity/server/access';
 import { ArtifactExcerptSchema } from './artifact-context';
 import { readPinnedSource, readPinnedSourceChunk } from '../../sources/server/pinned-source';
@@ -27,6 +29,11 @@ export const DecisionBundleSchema = z.strictObject({
   plan: RunResultRefSchema.extend({ title: z.string().max(240) }),
 });
 export const MaterialEvidenceContextSchema = MaterialDecisionContextSchema.omit({ viewer: true, sample: true });
+export const BusinessPlanProposalSchema = z.strictObject({
+  id: z.string().min(1).max(50).regex(/^[a-z][a-z0-9_-]*$/),
+  title: z.string().trim().min(1).max(240),
+  result: ProposeWorkPlanResultSchema,
+});
 const CurrentBusinessSourceSchema = z.strictObject({
   sourceRef: SourceRefSchema,
   title: z.string(),
@@ -58,8 +65,10 @@ export const BusinessContextSchema = z.strictObject({
   messages: z.array(MessageSchema).max(60), plan: z.array(z.string().min(1).max(500)).max(10),
   questions: z.array(QuestionSchema).max(10), answers: z.array(z.strictObject({ questionId: z.string().max(50), answer: z.string().min(1).max(4000) })).max(40),
   operations: z.array(OperationsDecisionSchema).max(20).default([]),
+  planProposals: z.array(BusinessPlanProposalSchema).max(5).default([]),
   datasets: z.array(MaterialEvidenceContextSchema).max(3).default([]),
   decision: DecisionPortfolioSchema.nullable().default(null),
+  workDecision: BusinessWorkDecisionSchema.nullable().default(null),
   selectedOptionId: z.string().min(1).max(50).nullable().default(null),
   acceptedConditionIds: z.array(z.string().min(1).max(50)).max(5).default([]),
   bundle: DecisionBundleSchema.nullable().default(null),
@@ -67,7 +76,7 @@ export const BusinessContextSchema = z.strictObject({
 });
 export type BusinessContext = z.infer<typeof BusinessContextSchema>;
 export function initialBusinessContext(input: CreateRun): BusinessContext {
-  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], datasets: [], decision: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
+  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
 }
 export function businessContext(context: ToolContext) { return BusinessContextSchema.parse(context.context); }
 export const principalFor = (context: ToolContext) => ({ kind: 'job' as const, userId: context.userId, authzVersion: context.authzVersion });
@@ -118,7 +127,7 @@ export function modelMessages(state: BusinessContext): ModelMessage[] {
   const evidence = state.sources.map((source) => ({ ...source, roles: state.sourceRoles.find((assignment) => assignment.sourceId === source.sourceRef.sourceId)?.roles ?? [], fragments: source.fragments }));
   return [
     { role: 'system', content: businessProcedurePrompt(state) },
-    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, operations: state.operations, decision: state.decision, bundle: state.bundle, savedResults: state.results }) },
+    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, bundle: state.bundle, savedResults: state.results }) },
     ...state.messages,
   ];
 }
