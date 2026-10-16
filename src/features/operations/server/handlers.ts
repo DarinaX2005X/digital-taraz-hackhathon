@@ -47,7 +47,9 @@ export function createOperationsHandlers(options: { pool: Pool; origin: string; 
           return json(await service.availabilityHistory(principal, validate(IdSchema, query.workspaceId), validate(IdSchema, parts[1]), integer(query.beforeRevision)));
         }
       } else {
-        queryObject(url, []); const body = await readOperationsJson(request), operationId = idempotencyKey(request);
+        queryObject(url, []); const body = await readOperationsJson(request);
+        if (parts.length === 1 && parts[0] === 'plan-proposals') return json(await service.propose(principal, body));
+        const operationId = idempotencyKey(request);
         if (parts.length === 1 && parts[0] === 'resources') return json(await service.create(principal, operationId, body as never), 201);
         if (parts.length === 3 && parts[0] === 'resources' && parts[2] === 'update') return json(await service.update(principal, operationId, validate(IdSchema, parts[1]), body as never));
         if (parts.length === 3 && parts[0] === 'resources' && parts[2] === 'availability') return json(await service.createAvailability(principal, operationId, validate(IdSchema, parts[1]), body as never), 201);

@@ -9,10 +9,12 @@ import { getDatabasePool } from '@/server/db/pool';
 
 export const dynamic = 'force-dynamic';
 export default async function Page({ params, searchParams }: { params: Promise<{ sourceId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { sourceId } = await params, { workspaceId, uploadId, sourceVersionId } = await searchParams;
+  const { sourceId } = await params, { workspaceId, uploadId, sourceVersionId, from, run } = await searchParams;
   if (!IdSchema.safeParse(sourceId).success || !IdSchema.safeParse(workspaceId).success) notFound();
   if ((uploadId !== undefined && !IdSchema.safeParse(uploadId).success) || (sourceVersionId !== undefined && !IdSchema.safeParse(sourceVersionId).success)) notFound();
-  const returnTo = `/app/materials/sources/${sourceId}?${new URLSearchParams({ workspaceId: workspaceId as string, ...(uploadId ? { uploadId: uploadId as string } : {}), ...(sourceVersionId ? { sourceVersionId: sourceVersionId as string } : {}) })}`;
+  if (from !== undefined && from !== 'library' && from !== 'project') notFound();
+  if (run !== undefined && !IdSchema.safeParse(run).success) notFound();
+  const returnTo = `/app/materials/sources/${sourceId}?${new URLSearchParams({ workspaceId: workspaceId as string, ...(from ? { from: from as string } : {}), ...(run ? { run: run as string } : {}), ...(uploadId ? { uploadId: uploadId as string } : {}), ...(sourceVersionId ? { sourceVersionId: sourceVersionId as string } : {}) })}`;
   const load = async () => { try {
     const actor = await getIdentityHandlers().getActor(await headers());
     const principal = { kind: 'session' as const, userId: actor.user.id, sessionId: actor.session.id }, sources = createSourceService(getDatabasePool());
@@ -30,5 +32,5 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     throw error;
   } };
   const data = await load();
-  return <SourceDetailPage ownerId={data.ownerId} initial={data.initial} initialUploadId={data.selectedUploadId} />;
+  return <SourceDetailPage ownerId={data.ownerId} initial={data.initial} initialUploadId={data.selectedUploadId} returnContext={from === 'library' ? 'library' : 'project'} initialRunId={typeof run === 'string' ? run : undefined} />;
 }

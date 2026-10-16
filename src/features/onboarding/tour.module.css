@@ -1,9 +1,37 @@
-.guide { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; margin-bottom: 24px; border: 1px solid #c9ded4; border-radius: 14px; background: #f5fbf7; }
-.guide > div:first-child { max-width: 72ch; }
-.guide h2, .settings h2 { font-size: 18px; margin: 0 0 8px; line-height: 1.4; }
-.guide p, .settings p { margin: 0; line-height: 1.6; color: #475d53; }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.guide .actions { flex: 0 1 420px; }
-.settings { display: grid; gap: 20px; }
-.highlight { outline: 3px solid #287f6a; outline-offset: 5px; }
-@media (max-width: 900px) { .guide { flex-direction: column; align-items: flex-start; padding: 18px; } .guide .actions { flex-basis: auto; } }
+.guide {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, auto);
+  align-items: center;
+  gap: var(--space-6);
+  margin-block-end: var(--space-6);
+  padding: var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--color-action) 26%, var(--color-divider));
+  border-radius: var(--radius-panel);
+  background: color-mix(in srgb, var(--color-selected) 34%, var(--color-surface));
+  box-shadow: var(--shadow-rest);
+}
+
+.content { max-inline-size: 68ch; }
+.guide h2, .settings h2 { margin: 0 0 var(--space-2); font-size: 1.125rem; line-height: 1.4; }
+.guide p, .settings p { margin: 0; color: var(--color-muted); line-height: 1.6; }
+.progress { margin-block-end: var(--space-1) !important; color: var(--color-action) !important; font-size: .875rem; font-weight: 700; }
+.error { margin-block-start: var(--space-3) !important; color: var(--color-danger) !important; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.guide .actions { justify-content: flex-end; }
+.settings { display: grid; gap: var(--space-4); }
+
+.highlight {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 5px;
+  border-radius: var(--radius-control);
+  scroll-margin-block: 8rem;
+}
+
+@media (max-width: 900px) {
+  .guide { grid-template-columns: 1fr; padding: var(--space-4); }
+  .guide .actions { justify-content: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .highlight { scroll-behavior: auto; }
+}

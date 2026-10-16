@@ -25,15 +25,19 @@ Forecast C9: regularity/coverage/zero/outliers, train/holdout без leakage, ec
 **Состояния и приёмка.** P3: разные упаковки, срок поставки, частичная цена, возвраты и currency case; конкретный usable order + денежные последствия и связанные материалы. Stale source/ref, inconsistent unit, missing opening balance, model failure/cancel сохраняют пригодную часть. Пересчёт после правки оставляет manual overrides и старые версии. Narrow charts имеют tabular equivalent. Scoped domain/DB/HTTP и реальные файлы; paid invocation только executor 01.3, итог живого пути проверяет 04.1.
 
 ### 02.1.1 Предметная модель и пригодные варианты
-Status: active
+Status: done
 Независимые golden расчёты закупки/денег и прогнозные backtests, mismatched units/FX/unknown/negative cash cases. Tool descriptors и canonical mutation/read-back дают новые редактируемые материалы, не JSON-only proof.
 
+Принят engines/builders substep: finance cash/accrual и bigint money, нормализация checked facts/FX; forecast bounded ARIMA/SARIMA против baseline с rolling-origin, WAPE/MAE и residual ranges; procurement stock allocation/pack/MOQ/delivery/tax/FX/expiry и исключение неполных предложений.15 focused domain tests PASS. Isolated PostgreSQL3journeys PASS: reviewed CSV mapping/query, atomic artifact pairs/replay, manual edit/reopen, normal fresh XLSX/DOCX bytes и stale-fact rejection после коррекции. Canonical descriptors подключены runtime. UI/actions полного02.1 остаются ниже.
+
 ### 02.1.2 Полная работа с собственными данными
-Status: todo
+Status: active
 Import/mapping → сравнение → ручная правка → сохранение → фактический экспорт → reopen → новые факты. P3, lineage и failure recovery подтверждены сервером; читабельность/взаимодействие принимает пользователь.
 
+Consumer audit выявил незавершённость: FinanceWorkspace/ForecastWorkspace/ProcurementWorkspace были только declarations; generic decision/artifact links не заменяют panels допущений/compare/chart/calendar. Bounded authoritative workPreview producer/schema/context готов, mount выполняет01.2. Дополнительно требуется настоящий typed action изменения допущения/имени сценария и явный canonical пересчёт в сохраняемую ветку с точной revision, сохранением прежнего результата/manual edits и meaningful DB proof. Правка числа в workbook без пересчёта analysis не считается выполнением этого acceptance.02.1 целиком остаётся active.
+
 ## 02.2 Создать кампанию и полноценные редактируемые макеты
-Status: active
+Status: done
 Requirements: R01, R07, R14, R15, R16, R17, R25, R30, R37, R40, R42, R43, R44, R45, R46, R48, R49, R82, R86, R90, R91, R92, R93, R94, R95, R96, R99, R102, R109
 Depends on: none
 Owner: SUBAGENT campaign_studio
@@ -48,9 +52,11 @@ Paths: src/features/designs/, src/features/design-export/, src/features/creative
 **Вход и состояния.** Сессия либо «Создать макет»: большой canvas, contextual toolbar, layers/variant selector по запросу, свойства выделенного объекта, явные «Сравнить варианты»/«Применить»/«Скачать». Empty/partial/loading/error/noasset/permission/stale version не закрывают canvas. Selection/focus и keyboard shortcuts не крадут текстовый ввод; narrow даёт тот же базовый editing через properties sheet. Все states и тексты входят в пакет.
 
 ### 02.2.1 Новый материал и непосредственная правка
-Status: active
+Status: done
 P2: собственные фото/двуязычный текст/два размера → раздельные реальные слои → ручная правка → undo/redo/reopen. Schema overflow/font/asset missing и модельный сбой не выдают невалидную композицию за готовую; content/bounds checks не называют visual acceptance.
 
 ### 02.2.2 Связанный комплект кампании и реальный выпуск
-Status: todo
+Status: done
 Обновить условие/дату → адресные предложения → сохранить ручные поля → PNG/JPEG/PDF/editable проект. Файлы содержат выбранную ревизию/размеры/Unicode; alpha/quality/progress/retry проверены по данным и файлам без браузера. Календарь и бюджет ссылаются на те же условия; пользователь проверяет композицию и экспорт.
+
+Принят цельный handover campaign_studio, запись прекращена. Два разных послойных варианта RU/KK/EN, semantic condition bindings, preservation manual/locked layers, image-rights fallback, exact budget snapshot и реальный K2 plan сохраняются атомарным bundle с idempotent replay. WorkDecisionPanel подключён владельцем01.2, descriptors/schema conversion подтверждены01.3. Focused tests9files/50 PASS; isolated DB tests/campaigns/build-work.integration.test.ts1file/3 PASS — загрузка источника, права на изображения, budget, resource/availability, atomic artifacts, reopen/PNG и trusted demo injection. Проверены реальные PNG/JPEG/PDF/editable bytes, Unicode/provenance; scoped ESLint/diff/CSS-token audit PASS. Новая workbench composition и interaction states реализованы, внешний вид принимает пользователь. Готовые файлы войдут в следующий содержательный Git checkpoint.

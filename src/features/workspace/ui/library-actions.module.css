@@ -1,0 +1,3 @@
+.fields { display: grid; gap: 1rem; min-width: min(28rem, 80vw); }
+.item { margin: 0; padding: 1rem; border: 1px solid var(--tl-border); border-radius: var(--tl-radius-control); background: var(--tl-surface-soft); font-weight: 650; }
+.error { margin: 0; color: var(--tl-danger); }

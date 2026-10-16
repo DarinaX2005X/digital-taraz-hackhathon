@@ -113,7 +113,7 @@ describe("identity source contracts, without browser or rendering", () => {
     const menu = parse("account-menu.tsx");
     const items = menu.named("Ariakit.MenuItem");
     const work = items.find((item) => attribute(item, "render")?.includes('/app/work'))!;
-    const profile = items.find((item) => attribute(item, "render")?.includes('/settings#profile'))!;
+    const profile = items.find((item) => attribute(item, "render")?.includes('/app/profile#profile'))!;
     expect(work).toBeDefined();
     expect(attribute(profile, "onClick")).toBeUndefined();
     expect(items.some((item) => attribute(item, "render")?.includes('/app/runs'))).toBe(false);
@@ -242,7 +242,7 @@ describe("identity source contracts, without browser or rendering", () => {
   it("makes Work the authenticated entry and keeps task activity out of Settings", () => {
     const entry = parse("entry.tsx");
     const links = entry.named("Link").map((node) => attribute(node, "href"));
-    expect(links).toEqual(["/app/work", "/settings", "/sign-in", "/sign-up"]);
+    expect(links).toEqual(["/app/work", "/app/profile", "/sign-in", "/sign-up"]);
     expect(read("settings.tsx")).not.toContain('href="/app/runs"');
     expect(read("entry.tsx")).not.toMatch(/canvas|iframe|dashboard|coming.soon/i);
   });
@@ -252,7 +252,7 @@ describe("identity source contracts, without browser or rendering", () => {
     const tokens = readFileSync(resolve(root, "src/ui/tokens.css"), "utf8");
     const declared = new Set([...tokens.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1]));
     for (const match of css.matchAll(/var\((--[\w-]+)/g)) expect(declared.has(match[1]), match[1]).toBe(true);
-    expect(css).toContain("width: min(100%, 440px)");
+    expect(css).toContain("width: min(100%, 460px)");
     expect(css).toContain("grid-template-columns: minmax(0, 1fr)");
     expect(css).toContain("env(safe-area-inset-bottom)");
     expect(css).toContain("overflow-wrap: anywhere");

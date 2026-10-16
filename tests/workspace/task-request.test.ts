@@ -10,7 +10,7 @@ const projectId = '00000000-0000-4000-8000-000000000002';
 const sourceId = '00000000-0000-4000-8000-000000000003';
 const versionId = '00000000-0000-4000-8000-000000000004';
 const key = '00000000-0000-4000-8000-000000000005';
-const source: SourceSummary = { id: sourceId, workspaceId, projectId, title: 'Own price list', accessClass: 'internal', revision: 7, currentVersionId: versionId, status: 'ready', format: 'csv', fileName: 'prices.csv', byteSize: 100, createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' };
+const source: SourceSummary = { id: sourceId, workspaceId, projectId, title: 'Own price list', accessClass: 'internal', revision: 7, currentVersionId: versionId, metadataRevision: 1, lifecycleState: 'active', trashedAt: null, status: 'ready', format: 'csv', fileName: 'prices.csv', byteSize: 100, createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z' };
 
 describe('own-task request continuity', () => {
   it('pins the selected source revision and retains the exact request through a lost response and reload', () => {

@@ -20,6 +20,21 @@ describe('operations locale and interaction contract', () => {
     expect(editor).toContain("role=\"tablist\"");
     expect(css).toContain('@media (max-width: 680px)');
     expect(css).toContain('.listHeader { display: none; }');
+    expect(editor).toContain('t.buildCandidate');
+  });
+
+  it('keeps a checked scheduling candidate separate from apply and persists task locks', async () => {
+    const editor = await readFile(new URL('../../src/features/operations/ui/plan-editor.tsx', import.meta.url), 'utf8');
+    const commands = await readFile(new URL('../../src/features/operations/domain/commands.ts', import.meta.url), 'utf8');
+    expect(editor).toContain('operationsClient.propose');
+    expect(editor).toContain('setProposal({ result, baseHash: currentHash })');
+    expect(editor).toContain('async function applyProposal()');
+    expect(editor).toContain('selectedProposal.baseHash !== hashJson(state.content');
+    expect(editor).toContain('controller.command(async (base)');
+    expect(editor).toContain('selectedProposal.baseHash !== hashJson(base.content');
+    expect(editor).toContain('entryLockCommand(base, entry.id');
+    expect(commands).toContain("op: 'lock'");
+    expect(commands).toContain('locked ? { locked: true');
   });
 
   it('does not silently repin availability when resource metadata changes', async () => {

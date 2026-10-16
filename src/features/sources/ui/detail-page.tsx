@@ -2,13 +2,15 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Download, FileText, ListFilter, RefreshCw, Table2, Upload, X } from 'lucide-react';
 import { type SourceDetail, type SourcePreview, type SourceUpload } from '@/contracts/sources';
 import { useLocale } from '@/i18n/provider';
 import { formatInstant, formatNumber } from '@/i18n';
 import { Button, EmptyState, IconButton, LoadingState } from '@/ui';
 import { WorkspaceAccessState, WorkspaceShell, useWorkspaceAccess } from '@/features/workspace/ui/shell';
+import { workspaceClient } from '@/features/workspace/client/transport';
+import { LibraryActions, type LibraryActionLabels } from '@/features/workspace/ui/library-actions';
 import { createDocumentImportMemory, DocumentImportPanel } from '@/features/documents/ui/document-import-panel';
 import { SheetImportPanel } from '@/features/sheets/ui/sheet-import-panel';
 import { sourceClient } from '../client/transport';
@@ -17,7 +19,7 @@ import { PrivateSourceImage } from './private-image';
 import { SourceRecognitionPanel, type SourceRecognitionMemory } from './recognition-panel';
 import styles from './sources.module.css';
 
-export function SourceDetailPage({ ownerId, initial, initialUploadId }: { ownerId: string; initial: SourceDetail; initialUploadId?: string }) {
+export function SourceDetailPage({ ownerId, initial, initialUploadId, returnContext = 'project', initialRunId }: { ownerId: string; initial: SourceDetail; initialUploadId?: string; returnContext?: 'library' | 'project'; initialRunId?: string }) {
   const t = useSourceCopy(), { locale } = useLocale(), access = useWorkspaceAccess(ownerId), { run } = access, router = useRouter();
   const { id: sourceId, workspaceId, projectId } = initial.source;
   const [detail, setDetail] = useState(initial), [selectedId, setSelectedId] = useState(initialUploadId ?? initial.uploads[0]?.id ?? '');
@@ -72,10 +74,19 @@ export function SourceDetailPage({ ownerId, initial, initialUploadId }: { ownerI
     } catch (failure) { setError(failure); }
     finally { setBusy(false); }
   }
-  const returnTo = `/app/materials/sources/${sourceId}?${new URLSearchParams({ workspaceId, ...(selected ? { uploadId: selected.id, ...(selected.versionId ? { sourceVersionId: selected.versionId } : {}) } : {}) })}`;
+  const membership = access.account.viewer?.user.id === ownerId ? access.account.viewer.workspaces.find((item) => item.workspaceId === workspaceId) : undefined;
+  const loadProjects = useCallback(async (query: string, signal: AbortSignal) => (await run((nextSignal) => workspaceClient.list({ workspaceId, query, limit: 30 }, { userId: ownerId, signal: nextSignal }), signal)).projects.map((item) => ({ id: item.id, label: item.title })), [workspaceId, ownerId, run]);
+  const actionLabels: LibraryActionLabels = { more: t.moreActions, rename: t.rename, move: t.move, duplicate: t.duplicate, trash: t.trash, restore: t.restore, title: t.actionTitle, project: t.actionProject, cancel: t.actionCancel, apply: t.actionApply, pending: t.actionPending, invalid: t.actionInvalid };
+  async function mutateLifecycle(request: Parameters<typeof sourceClient.lifecycle>[0]) {
+    const result = await run((signal) => sourceClient.lifecycle(request, { userId: ownerId, signal }), undefined, false);
+    if (result.item.lifecycleState === 'trashed') router.push(`/app/materials?${new URLSearchParams({ workspaceId, projectId:result.item.projectId, lifecycleState:'trashed' })}`);
+    else if (result.item.id !== sourceId) router.push(`/app/materials/sources/${result.item.id}?${new URLSearchParams({ workspaceId, from:returnContext, ...(initialRunId ? { run:initialRunId } : {}) })}`);
+    else setDetail((current) => ({ ...current, source: { ...current.source, title:result.item.title, projectId:result.item.projectId, metadataRevision:result.item.metadataRevision, lifecycleState:result.item.lifecycleState, trashedAt:result.item.trashedAt } }));
+    return result;
+  }
+  const returnTo = `/app/materials/sources/${sourceId}?${new URLSearchParams({ workspaceId, from: returnContext, ...(initialRunId ? { run: initialRunId } : {}), ...(selected ? { uploadId: selected.id, ...(selected.versionId ? { sourceVersionId: selected.versionId } : {}) } : {}) })}`;
   if (!active) return <WorkspaceShell workspaceId={workspaceId}><WorkspaceAccessState access={access} returnTo={returnTo} /></WorkspaceShell>;
   const manifest = selected?.manifest;
-  const membership = access.account.viewer?.user.id === ownerId ? access.account.viewer.workspaces.find((item) => item.workspaceId === workspaceId) : undefined;
   const canImport = detail.canEdit && selected?.status === 'ready' && selected.format === 'docx' && membership;
   const notices: Record<string, string> = { 'uneven-rows': t.uneven, 'formulas-not-evaluated': t.formulas, 'spreadsheet-raw-values': t.rawValues, 'document-text-only': t.documentText, 'empty-content': t.emptyContent, 'vision-required': t.vision, 'recognition-review': t.review };
   const fragments = preview?.upload.id === selectedId && preview.ordinal === chunk ? preview.chunk.fragments : [];
@@ -85,10 +96,11 @@ export function SourceDetailPage({ ownerId, initial, initialUploadId }: { ownerI
   const canImportTable = detail.canEdit && selected?.status === 'ready' && selected.versionId && tableFile && membership;
   const columns = Math.max(0, ...fragments.map((fragment) => fragment.values?.length ?? 0));
   return <WorkspaceShell workspaceId={workspaceId}><main className={styles.main}>
-    <Link className={styles.back} href={`/app/projects/${projectId}`}><ArrowLeft size={18} aria-hidden="true" />{t.back}</Link>
+    <Link className={styles.back} href={returnContext === 'library' ? `/app/materials?${new URLSearchParams({ workspaceId, projectId })}` : `/app/projects/${projectId}${initialRunId ? `?run=${initialRunId}` : ''}`}><ArrowLeft size={18} aria-hidden="true" />{returnContext === 'library' ? t.backToLibrary : t.back}</Link>
     <div className={styles.heading}><div><h1>{detail.source.title}</h1>{selected && <SourceStatus status={selected.status} />}</div><div className={styles.actions}>
       {selected?.byteHash && <Button icon={Download} pending={busy} onClick={() => { void download(); }}>{t.original}</Button>}
       {canImport && <Button icon={FileText} variant="primary" onClick={() => setImportingId(importingId === selected.id ? undefined : selected.id)}>{t.createDocument}</Button>}
+      {detail.canEdit && membership && <LibraryActions item={{ kind:'source', id:detail.source.id, workspaceId, projectId:detail.source.projectId, title:detail.source.title, metadataRevision:detail.source.metadataRevision, lifecycleState:detail.source.lifecycleState }} authzVersion={membership.authzVersion} labels={actionLabels} loadProjects={loadProjects} onMutate={mutateLifecycle} />}
       {selected?.status === 'ready' && selected.versionId && <Link className="tl-button tl-button--primary" href={`/app/projects/${projectId}?${new URLSearchParams({ sourceId, sourceVersionId: selected.versionId })}`}><ArrowRight size={20} aria-hidden="true" />{t.useInTask}</Link>}
       {canImportTable && <Button icon={Table2} onClick={() => setImportingId(importingId === selected.id ? undefined : selected.id)}>{t.createTable}</Button>}
       {detail.canEdit && selected?.status === 'ready' && selected.versionId && selected.manifest?.complete && (tableFile || selected.manifest.rowCount > 0) && <Link className="tl-button tl-button--secondary" href={`/app/materials?${new URLSearchParams({ workspaceId, projectId, sourceId, sourceVersionId: selected.versionId })}`}><ListFilter size={20} aria-hidden="true" />{t.map}</Link>}

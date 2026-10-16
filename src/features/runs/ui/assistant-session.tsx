@@ -11,8 +11,9 @@ import { runClient, RunClientError } from '../client/transport';
 import { openRunEvents } from '../client/events';
 import { runCatalog, assistantSessionCatalog } from '../locales';
 import { RunContinuation, type RunChange } from './run-continuation';
-import { assistantSessionState, sessionResultHref, sessionResults } from './session-state';
+import { assistantSessionState, sessionArtifactResultHrefs, sessionResultHref, sessionResults } from './session-state';
 import { DecisionPanel } from './decision-panel';
+import { WorkDecisionPanel } from '@/features/campaigns/ui/work-decision-panel';
 import styles from './runs.module.css';
 
 const actionIcons = { planned: Circle, claimed: LoaderCircle, succeeded: Check, failed: XCircle, skipped: Square } as const;
@@ -110,6 +111,7 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
 
   const state = assistantSessionState(data);
   const results = data ? sessionResults(data) : [];
+  const workDecisionResultHrefs = data?.progress.workDecision ? sessionArtifactResultHrefs(data, data.progress.workDecision.options.flatMap((option) => option.artifactIds)) : {};
   const receipts = data?.steps.filter((step) => step.state !== 'planned') ?? [];
   const decisionConditions = data?.progress.questions.filter((question) => question.id.startsWith('accept_conditions_')) ?? [];
   const resultlessCompletion = Boolean(data && ['completed', 'review_ready'].includes(data.state) && results.length === 0);
@@ -124,7 +126,8 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
       {error !== undefined && <div className={styles.sessionError} role="alert"><p>{runText.errors.unavailable}</p><Button icon={RefreshCw} onClick={() => setReload((value) => value + 1)}>{text.checkAgain}</Button></div>}
       {data.failure && <p className={styles.sessionNotice}>{runText.failures[data.failure]}</p>}
       {resultlessCompletion && <div className={styles.resultRequired} role="status"><strong>{text.resultRequired}</strong><p>{text.resultRequiredText}</p></div>}
-      {data.progress.decision && <DecisionPanel decision={data.progress.decision} locale={locale} workspaceId={workspaceId} copy={text} canChoose={data.actions.resume && data.progress.decision.selectedOptionId === null} pending={pending} pendingConditions={decisionConditions} onChoose={(selectedOptionId) => { void mutate('resume', { selectedOptionId }); }} onAcceptConditions={(acceptedConditionIds) => { void mutate('resume', { acceptedConditionIds }); }} />}
+      {data.progress.decision && <DecisionPanel decision={data.progress.decision} locale={locale} workspaceId={workspaceId} copy={text} context={{ projectId, runId: data.id }} canChoose={data.actions.resume && data.progress.decision.selectedOptionId === null} pending={pending} pendingConditions={decisionConditions} onChoose={(selectedOptionId) => { void mutate('resume', { selectedOptionId }); }} onAcceptConditions={(acceptedConditionIds) => { void mutate('resume', { acceptedConditionIds }); }} />}
+      {data.progress.workDecision && <WorkDecisionPanel decision={data.progress.workDecision} locale={locale} resultHrefs={workDecisionResultHrefs} canChoose={data.actions.resume && data.progress.workDecision.selectedOptionId === null} pending={pending} onChoose={(selectedOptionId) => { void mutate('resume', { selectedOptionId }); }} />}
       <RunContinuation key={`${data.id}:${data.epoch}`} run={data} locale={locale} pending={pending} draftOwnerId={userId} structuredDecision runHref={(targetRunId) => `${sessionPath ?? `/app/projects/${projectId}`}?run=${targetRunId}`} onContinue={(change) => { void mutate('resume', change); }} />
       {data.actions.resume && !data.progress.questions.length && !(data.progress.decision && data.progress.decision.selectedOptionId === null) && <div className={styles.sessionActions}><Button variant="primary" icon={Play} pending={pending} onClick={() => { void mutate('resume'); }}>{runText.resume}</Button></div>}
       {!!data.progress.branches?.length && <section className={styles.assistantBranches}><h3>{text.branches}</h3><ul>{data.progress.branches.map((branch) => <li key={branch.id}><div><strong>{branch.title}</strong><span data-state={branch.state}>{text.branchStates[branch.state]}</span></div>{branch.resultRefs.length > 0 && <div className={styles.branchResults}>{branch.resultRefs.map((result) => { const href = sessionResultHref(data, result); const title = data.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? runText[result.kind]; return href ? <Link key={`${result.kind}:${result.id}:${result.revision ?? ''}`} href={href}>{title}<ArrowUpRight size={14} aria-hidden="true" /></Link> : <span key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{title}</span>; })}</div>}</li>)}</ul></section>}

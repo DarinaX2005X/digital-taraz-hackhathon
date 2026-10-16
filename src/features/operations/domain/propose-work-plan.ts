@@ -9,6 +9,7 @@ import type { JsonValue } from '@/features/artifacts/domain/content-models';
 import {
   AvailabilityVersionSchema,
   CapacityAssessmentSchema,
+  OperationalPlanEntrySchema,
   WorkResourceSchema,
   type AvailabilityVersion,
   type WorkResource,
@@ -47,14 +48,18 @@ export const PlanConstraintCodeSchema = z.enum([
 export type PlanConstraintCode = z.infer<typeof PlanConstraintCodeSchema>;
 export type PlanObjective = z.infer<typeof PlanObjectiveSchema>;
 
-const OperationalPlanContentSchema = z.custom<OperationalPlanContent>((value) => {
+const OperationalPlanContentSchema = z.strictObject({
+  kind: z.literal('plan'),
+  schemaVersion: z.literal(1),
+  timezone: z.string().min(1).max(80),
+  entries: z.array(OperationalPlanEntrySchema).max(20_000),
+}).superRefine((value, context) => {
   try {
-    validateOperationalPlan(value as OperationalPlanContent);
-    return true;
-  } catch {
-    return false;
+    validateOperationalPlan(value);
+  } catch (error) {
+    context.addIssue({ code: 'custom', message: error instanceof Error ? error.message : 'A canonical operational plan is required.' });
   }
-}, 'A canonical operational plan is required.');
+});
 
 export const PlanResourceRefSchema = z.strictObject({
   id: IdSchema,

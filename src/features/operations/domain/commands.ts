@@ -9,7 +9,11 @@ import { ArtifactDraft, type ArtifactOperation } from '@/features/artifacts/doma
 import type { DependencyEdge } from '@/contracts/dependency-edges';
 import { requirePlan, validateOperationalPlan, type OperationalPlanContent } from './model';
 
-const json = (value: unknown) => value as JsonValue;
+function json(value: unknown): JsonValue {
+  const encoded = JSON.stringify(value);
+  if (encoded === undefined) throw new ContentValidationError('non-json-value');
+  return JSON.parse(encoded) as JsonValue;
+}
 const same = (a: unknown, b: unknown) => hashJson(json(a ?? null)) === hashJson(json(b ?? null));
 
 export function planDraft(snapshot: ArtifactSnapshot) {
@@ -100,5 +104,21 @@ export async function singleEntryCommand(
   if (operation === 'insert' && target) throw new ContentValidationError('duplicate-element-id');
   const command: ArtifactOperation = { targetId, op: operation, beforeHash: target?.hash ?? null, ...(value === undefined ? {} : { value }) };
   return planOperationsCommand(snapshot, [command], reason, { dependencyEdges });
+}
+
+/** Persists a human planning lock in artifact metadata without changing task content. */
+export async function entryLockCommand(
+  snapshot: ArtifactSnapshot,
+  targetId: string,
+  locked: boolean,
+  reason: string,
+): Promise<CommandGroupDraft> {
+  const draft = planDraft(snapshot);
+  const target = await draft.target(targetId);
+  if (!target) throw new ContentValidationError('missing-target');
+  const trimmedReason = reason.trim();
+  if (locked && !trimmedReason) throw new ContentValidationError('operations.errors.lockReasonRequired');
+  const value: JsonValue = locked ? { locked: true, reason: trimmedReason } : { locked: false };
+  return planOperationsCommand(snapshot, [{ targetId, op: 'lock', beforeHash: target.hash, value }], reason);
 }
 

@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { Pool } from 'pg';
 import JSZip from 'jszip';
 import ExcelJS from 'exceljs';
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { artifactFixture, artifactTestPool, testDocument } from '../artifacts/server/test-fixture';
 import { withWorkspaceAccess } from '../../src/features/identity/server/access';
@@ -113,7 +114,7 @@ describe('immutable private export lifecycle in PostgreSQL', () => {
     const job = await exports.create(f.owner, randomUUID(), CreateExportSchema.parse({ workspaceId: f.workspaceId, expectedAuthzVersion: 1, locale: 'en', items: [{ artifactId: artifact.artifact.id, revision: 0, formats: ['pdf'] }] })), ready = await exports.render(f.owner, f.workspaceId, job.id, 1);
     allowed = false; await expect(exports.download(f.owner, f.workspaceId, job.id, ready.files[0]!.id)).rejects.toMatchObject({ code: 'NOT_FOUND' }); await expect(exports.downloadBundle(f.owner, f.workspaceId, job.id)).rejects.toMatchObject({ code: 'NOT_FOUND' }); expect((await exports.list(f.owner, f.workspaceId, artifact.artifact.id)).jobs).toEqual([]);
   });
-  it('keeps the manual offer phrase and exact recalculated total in one DOCX plus XLSX revision vector', async () => {
+  it('keeps the manual offer phrase and exact recalculated total in one DOCX/PDF/XLSX/CSV revision vector', async () => {
     const f = await artifactFixture(pool);
     const document = await f.create(testDocument('Предложение по монтажу', 'Доставим после вашего подтверждения, без изменения авторской фразы.'), 'Предложение');
     const table = await f.create({
@@ -124,12 +125,19 @@ describe('immutable private export lifecycle in PostgreSQL', () => {
     const directory = await mkdtemp(path.join(os.tmpdir(), 'tirlik-exports-test-'));
     directories.push(directory);
     const service = createExportService({ pool, storage: new LocalExportStorage(directory), registry: new ExportRegistry([documentExportAdapter, sheetExportAdapter]), assets: () => ({ async image() { throw new Error('UNEXPECTED_IMAGE'); } }) });
-    const job = await service.create(f.owner, randomUUID(), CreateExportSchema.parse({ workspaceId: f.workspaceId, expectedAuthzVersion: 1, locale: 'ru', items: [{ artifactId: document.artifact.id, revision: 0, formats: ['docx'] }, { artifactId: table.artifact.id, revision: 0, formats: ['xlsx'] }] })), ready = await service.render(f.owner, f.workspaceId, job.id, 1);
+    const job = await service.create(f.owner, randomUUID(), CreateExportSchema.parse({ workspaceId: f.workspaceId, expectedAuthzVersion: 1, locale: 'ru', items: [{ artifactId: document.artifact.id, revision: 0, formats: ['docx', 'pdf'] }, { artifactId: table.artifact.id, revision: 0, formats: ['xlsx', 'csv'], options: { sheetId: 'estimate-sheet' } }] })), ready = await service.render(f.owner, f.workspaceId, job.id, 1);
     expect(ready.status).toBe('ready'); expect(ready.revisions).toEqual([{ artifactId: document.artifact.id, revision: 0 }, { artifactId: table.artifact.id, revision: 0 }]);
-    const docxFile = ready.files.find((file) => file.format === 'docx')!, xlsxFile = ready.files.find((file) => file.format === 'xlsx')!, docx = await JSZip.loadAsync((await service.download(f.owner, f.workspaceId, job.id, docxFile.id)).bytes);
+    expect(ready.files.map((file) => file.format)).toEqual(['docx', 'pdf', 'xlsx', 'csv']);
+    expect(ready.files.every((file) => file.revision === 0)).toBe(true);
+    const docxFile = ready.files.find((file) => file.format === 'docx')!, pdfFile = ready.files.find((file) => file.format === 'pdf')!, xlsxFile = ready.files.find((file) => file.format === 'xlsx')!, csvFile = ready.files.find((file) => file.format === 'csv')!, docx = await JSZip.loadAsync((await service.download(f.owner, f.workspaceId, job.id, docxFile.id)).bytes);
     expect(await docx.file('word/document.xml')!.async('string')).toContain('Доставим после вашего подтверждения, без изменения авторской фразы.');
+    const loading = getDocument({ data: new Uint8Array((await service.download(f.owner, f.workspaceId, job.id, pdfFile.id)).bytes), useSystemFonts: false, disableFontFace: true });
+    try { const pdf = await loading.promise, text = await (await pdf.getPage(1)).getTextContent(); expect(text.items.map((item) => 'str' in item ? item.str : '').join(' ')).toContain('Доставим после вашего подтверждения, без изменения авторской фразы.'); }
+    finally { await loading.destroy(); }
     const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(Buffer.from((await service.download(f.owner, f.workspaceId, job.id, xlsxFile.id)).bytes) as unknown as Parameters<typeof workbook.xlsx.load>[0]); const value = workbook.worksheets[0]!.getCell('C2').value;
     expect(value).toEqual(expect.objectContaining({ formula: 'A2+B2', result: 143600 }));
+    const csv = new TextDecoder().decode((await service.download(f.owner, f.workspaceId, job.id, csvFile.id)).bytes);
+    expect(csv).toContain('База,Изменение,Итог'); expect(csv).toContain('131900,11700,143600');
     const bundle = await JSZip.loadAsync((await service.downloadBundle(f.owner, f.workspaceId, job.id)).bytes), manifest = JSON.parse(await bundle.file('manifest.json')!.async('string')) as { revisions: { artifactId: string; revision: number }[] };
     expect(manifest.revisions).toEqual(ready.revisions.map((item) => expect.objectContaining(item)));
   });

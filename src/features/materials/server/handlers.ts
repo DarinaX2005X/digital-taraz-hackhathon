@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { IdSchema } from '@/contracts/primitives';
 import { MaterialSourcePreviewSchema } from '@/contracts/materials';
+import { LibraryLifecycleMutationRequestSchema } from '@/contracts/library-lifecycle';
 import type { IdentityActor } from '@/features/identity/server/handlers';
 import { withWorkspaceAccess, type SessionPrincipal } from '@/features/identity/server/access';
 import { assertOrigin, errorResponse, IdentityError, json, limit, readJson, validate } from '@/features/identity/server/http';
@@ -13,11 +14,13 @@ import { createDatasetService } from './datasets';
 import { createMaterialFactReader } from './facts';
 import { createCorrectionService } from './corrections';
 import { materialError, viewer } from './support';
+import { createCollectionLibraryLifecycleService } from './library-lifecycle';
 
 const integer = (raw: string | undefined) => raw === undefined ? undefined : validate(z.string().regex(/^(0|[1-9]\d*)$/).transform(Number).pipe(z.number().int().nonnegative()), raw);
 export function createMaterialHandlers(options: { pool: Pool; origin: string; getActor: (headers: Headers) => Promise<IdentityActor> }) {
   const collections = createCollectionService(options.pool), imports = createImportService(options.pool), datasets = createDatasetService(options.pool), facts = createMaterialFactReader(options.pool);
   const corrections = createCorrectionService(options.pool);
+  const mutateLifecycle = createCollectionLibraryLifecycleService(options.pool);
   return async function handle(request: Request): Promise<Response> {
     try {
       if (!['GET', 'POST'].includes(request.method)) throw materialError('notFound', 'NOT_FOUND');
@@ -44,7 +47,7 @@ export function createMaterialHandlers(options: { pool: Pool; origin: string; ge
           }));
         }
         if (parts[0] === 'collections' && parts.length === 1) {
-          const query = queryObject(url, ['workspaceId', 'projectId', 'query', 'kind', 'from', 'to', 'after', 'limit']);
+          const query = queryObject(url, ['workspaceId', 'projectId', 'query', 'kind', 'lifecycleState', 'from', 'to', 'after', 'limit']);
           return json(await collections.list(principal, { ...query, ...(query.limit !== undefined ? { limit: integer(query.limit) } : {}) }));
         }
         if (parts[0] === 'collections' && parts.length === 2) {
@@ -63,6 +66,11 @@ export function createMaterialHandlers(options: { pool: Pool; origin: string; ge
         queryObject(url, []);
         const body = await readJson(request);
         if (parts.join('/') === 'collections') return json(await collections.create(principal, idempotencyKey(request), body), 201);
+        if (parts[0] === 'collections' && parts.length === 3 && parts[2] === 'lifecycle') {
+          const input = validate(LibraryLifecycleMutationRequestSchema, body);
+          if (input.operationId !== idempotencyKey(request) || input.command.objectId !== validate(IdSchema, parts[1])) throw materialError('validation', 'VALIDATION_FAILED');
+          return json(await mutateLifecycle(principal, input));
+        }
         if (parts.join('/') === 'imports') return json(await imports.begin(principal, idempotencyKey(request), body), 201);
         if (parts.join('/') === 'datasets/query') return json(await datasets.query(principal, body));
         if (parts.join('/') === 'datasets/aggregate') return json(await datasets.aggregate(principal, body));

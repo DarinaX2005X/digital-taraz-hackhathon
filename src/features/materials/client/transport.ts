@@ -4,6 +4,7 @@ import { IdSchema } from '@/contracts/primitives';
 import { SourceListSchema, type SourceLibraryQuery } from '@/contracts/sources';
 import { ArtifactMutationResultSchema, SourceFreshnessSchema } from '@/features/artifacts/contracts';
 import { BoundFactsSchema, CollectionListSchema, CollectionResultSchema, CorrectionResultSchema, DatasetFacetSchema, DatasetGroupPageSchema, DatasetPageSchema, ImportPreviewSchema, ImportResultSchema, MaterialDecisionContextSchema, MaterialHistorySchema, MaterialSourcePreviewSchema, ResolutionResultSchema, type CollectionListInput, type DatasetBrowseQuery } from '@/contracts/materials';
+import { LibraryLifecycleMutationRequestSchema, LibraryLifecycleResultSchema, type LibraryLifecycleMutationRequest } from '@/contracts/library-lifecycle';
 
 export class MaterialRequestError extends Error {
   constructor(readonly status: number, readonly messageKey: string) { super(messageKey); }
@@ -23,6 +24,7 @@ export function createMaterialClient(fetcher: typeof fetch = fetch) {
   return {
     list: (input: Partial<CollectionListInput> & { workspaceId: string }, context: MaterialContext) => request(`${root}/collections?${queryString(input)}`, 'GET', CollectionListSchema, context),
     read: (workspaceId: string, id: string, context: MaterialContext) => request(`${root}/collections/${IdSchema.parse(id)}?${queryString({ workspaceId })}`, 'GET', CollectionResultSchema, context),
+    lifecycle: (input: LibraryLifecycleMutationRequest, context: MaterialContext) => { const body = LibraryLifecycleMutationRequestSchema.parse(input); return request(`${root}/collections/${body.command.objectId}/lifecycle`, 'POST', LibraryLifecycleResultSchema, context, body, body.operationId); },
     sources: (input: SourceLibraryQuery, context: MaterialContext) => request(`/api/sources/library?${queryString(input)}`, 'GET', SourceListSchema, context),
     source: (input: { workspaceId: string; sourceId: string; sourceVersionId: string; chunk?: number; sheet?: string; row?: number }, context: MaterialContext) => request(`${root}/source-preview?${queryString(input)}`, 'GET', MaterialSourcePreviewSchema, context),
     create: (input: unknown, key: string, context: MaterialContext) => request(`${root}/collections`, 'POST', CollectionResultSchema, context, input, key),

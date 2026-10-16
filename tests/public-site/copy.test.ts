@@ -43,17 +43,29 @@ describe("public-site contracts without browser rendering", () => {
     expect(existsSync(fileURLToPath(new URL("src/app/app/work/page.tsx", root)))).toBe(true);
   });
 
-  it("uses separate account artwork and preserves reduced-motion handling", () => {
+  it("uses a dedicated account illustration and a code-native workflow scene", () => {
     expect(source("src/features/identity/ui/common.tsx")).toContain("/site/account-invitation.png");
     expect(source("src/features/identity/ui/common.tsx")).not.toContain("/site/business-materials.png");
-    expect(source("src/features/public-site/public-site.tsx")).toContain("/site/business-materials.png");
+    expect(source("src/features/public-site/public-site.tsx")).toContain("<HeroWorkflowScene copy={copy} />");
+    expect(source("src/features/public-site/public-site.tsx")).not.toContain("/site/business-materials.png");
     expect(source("src/features/public-site/public-site.module.css")).toContain("prefers-reduced-motion: reduce");
+  });
+
+  it("renders one direct hero heading without an eyebrow or duplicate slogan", () => {
+    const page = source("src/features/public-site/public-site.tsx");
+    expect(page.match(/<h1\b/g)).toHaveLength(2); // one home heading and one mutually-exclusive information-page heading
+    expect(page.match(/<h1 id="tirlik-title"/g)).toHaveLength(1);
+    expect(page).not.toContain("copy.tagline");
+    expect(page).not.toMatch(/eyebrow|kicker/i);
+    expect(publicCopy.ru.heroTitle).toBe('Всё для вашего бизнеса');
+    expect(publicCopy.en.heroTitle).toBe('Everything for your business');
+    expect(publicCopy.kk.heroTitle).toBe('Бизнесіңізге қажеттінің бәрі');
   });
 
   it("makes the assistant-led business decision the first public argument", () => {
     for (const copy of Object.values(publicCopy)) {
-      expect(copy.heroTitle.length).toBeGreaterThan(24);
-      expect(copy.description.toLowerCase()).toContain('ai');
+      expect(copy.heroTitle.length).toBeGreaterThan(18);
+      expect(copy.description.length).toBeGreaterThan(80);
       expect(copy.proof.goal.length).toBeGreaterThan(30);
       expect(copy.proof.plan).toHaveLength(3);
       expect(copy.proof.findings).toHaveLength(3);
@@ -70,7 +82,8 @@ describe("public-site contracts without browser rendering", () => {
     const proof = source("src/features/public-site/decision-proof.tsx");
     expect(page).toContain('<DecisionProof copy={copy} />');
     expect(page).toContain('href="/app/work"');
-    expect(page).not.toContain('/demo');
+    expect(page).toContain('/demo');
+    expect(page).toContain('copy.tryDemo');
     expect(proof).not.toMatch(/<input|<form/);
     expect(proof).toContain('aria-pressed={index === activeStep}');
     expect(proof).toContain('aria-controls="assistant-plan-detail"');
@@ -83,7 +96,6 @@ describe("public-site contracts without browser rendering", () => {
     expect(css).toContain('@media (hover: hover) and (pointer: fine)');
     expect(css).toContain('.proofPlan button:hover');
     expect(css).toContain('.proofPlan button:focus-visible');
-    expect(css).toContain('rotate(-8deg) scale(1.08)');
     expect(css).toContain('.informationCard:focus-visible');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('@media (prefers-reduced-transparency: reduce)');

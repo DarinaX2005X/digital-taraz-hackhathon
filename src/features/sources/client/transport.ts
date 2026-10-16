@@ -3,6 +3,7 @@ import { ErrorEnvelopeSchema } from '@/contracts/errors';
 import { IdSchema } from '@/contracts/primitives';
 import { InitSourceUploadSchema, SourceDetailSchema, SourceInitResultSchema, SourcePreviewSchema, SourceUploadResultSchema, SourceVersionSchema, SourceVisualAssetListSchema, SourceVisualAssetQuerySchema, SourceReviewSchema, SourceOcrQuoteSchema, type InitSourceUpload, type SourceFormat, type SourceVisualAssetQuery, type SourcePageContent } from '@/contracts/sources';
 import { RunSchema } from '@/contracts/runs';
+import { LibraryLifecycleMutationRequestSchema, LibraryLifecycleResultSchema, type LibraryLifecycleMutationRequest } from '@/contracts/library-lifecycle';
 
 export class SourceRequestError extends Error {
   constructor(readonly status: number, readonly messageKey: string) { super(messageKey); }
@@ -40,6 +41,7 @@ export function createSourceClient(fetcher: typeof fetch = fetch) {
     finalize: (workspaceId: string, uploadId: string, context: SourceRequestContext) => request(`/api/sources/uploads/${IdSchema.parse(uploadId)}/finalize`, 'POST', SourceUploadResultSchema, context, { workspaceId: IdSchema.parse(workspaceId) }),
     cancel: (workspaceId: string, uploadId: string, context: SourceRequestContext) => request(`/api/sources/uploads/${IdSchema.parse(uploadId)}/cancel`, 'POST', SourceUploadResultSchema, context, { workspaceId: IdSchema.parse(workspaceId) }),
     read: (workspaceId: string, sourceId: string, context: SourceRequestContext, selectedUploadId?: string) => request(`/api/sources/${IdSchema.parse(sourceId)}?${query(workspaceId)}${selectedUploadId ? `&uploadId=${IdSchema.parse(selectedUploadId)}` : ''}`, 'GET', SourceDetailSchema, context),
+    lifecycle: (input: LibraryLifecycleMutationRequest, context: SourceRequestContext) => { const body = LibraryLifecycleMutationRequestSchema.parse(input); return request(`/api/sources/${body.command.objectId}/lifecycle`, 'POST', LibraryLifecycleResultSchema, context, body, body.operationId); },
     readVersion: (workspaceId: string, sourceId: string, sourceVersionId: string, context: SourceRequestContext) => request(`/api/sources/${IdSchema.parse(sourceId)}/versions/${IdSchema.parse(sourceVersionId)}?${query(workspaceId)}`, 'GET', SourceVersionSchema, context),
     listAssets: (input: SourceVisualAssetQuery, context: SourceRequestContext) => { const parsed = SourceVisualAssetQuerySchema.parse(input); return request(`/api/sources/assets?${new URLSearchParams(Object.entries(parsed).map(([key, value]) => [key, String(value)]))}`, 'GET', SourceVisualAssetListSchema, context); },
     review: (workspaceId: string, uploadId: string, context: SourceRequestContext) => request(`/api/sources/uploads/${IdSchema.parse(uploadId)}/review?${query(workspaceId)}`, 'GET', SourceReviewSchema, context),

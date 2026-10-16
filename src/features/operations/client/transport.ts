@@ -9,6 +9,7 @@ import {
   WorkResourceResultSchema,
   type WorkResource,
 } from '../contracts';
+import { ProposeWorkPlanResultSchema, type ProposeWorkPlanRequest } from '../domain/propose-work-plan';
 
 export class OperationsRequestError extends Error {
   constructor(readonly status: number, readonly messageKey: string) { super(messageKey); }
@@ -36,6 +37,7 @@ export function createOperationsClient(fetcher: typeof fetch = fetch) {
     update: (id: string, input: unknown, operationId: string, context: OperationsContext) => request(`${root}/resources/${IdSchema.parse(id)}/update`, 'POST', WorkResourceResultSchema, context, input, operationId),
     createAvailability: (id: string, input: unknown, operationId: string, context: OperationsContext) => request(`${root}/resources/${IdSchema.parse(id)}/availability`, 'POST', AvailabilityVersionResultSchema, context, input, operationId),
     availabilityHistory: (workspaceId: string, id: string, beforeRevision: number | undefined, context: OperationsContext) => request(`${root}/resources/${IdSchema.parse(id)}/availability?${queryString({ workspaceId, beforeRevision })}`, 'GET', AvailabilityHistorySchema, context),
+    propose: (input: ProposeWorkPlanRequest, context: OperationsContext) => request(`${root}/plan-proposals`, 'POST', ProposeWorkPlanResultSchema, context, input),
   };
 }
 

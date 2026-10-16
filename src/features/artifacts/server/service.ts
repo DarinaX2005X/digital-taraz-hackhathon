@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { IdSchema, RevisionSchema } from '../../../contracts/primitives';
 import { identityTransaction, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal } from '../../identity/server/access';
 import { IdentityError, validate } from '../../identity/server/http';
-import { readSourceFreshness } from '../../sources/server/source-heads';
+import { readMaterialSourceFreshness } from '../../materials/server/freshness';
 import { ArtifactAccessRequestSchema, ArtifactAccessResultSchema, ArtifactHistorySchema, ArtifactMutationResultSchema, ArtifactSnapshotSchema, ArtifactVersionDetailSchema, ArtifactVersionPageSchema, CreateArtifactSchema, type ArtifactMutationResult, type ArtifactSnapshot, type CreateArtifact } from '../contracts';
 import { assertBoundedJson } from '../domain/canonical';
 import { collectSourceRefs, createArtifactState } from '../domain/content-state';
@@ -52,7 +52,7 @@ export function createArtifactService(pool: Pool) {
       const authorized = await loadArtifact(tx, access, body.artifactId, { expectedProjectId: body.expectedProjectId });
       const { row } = authorized, { state } = await loadState(tx, row), version = await loadVersion(tx, row);
       const project = (await tx.query<{ status: string }>('SELECT status FROM projects WHERE workspace_id=$1 AND id=$2', [body.workspaceId, row.project_id])).rows[0];
-      return ArtifactSnapshotSchema.parse({ viewer: viewer(access), artifact: envelope(row, state), content: state.content, version: { ...versionDto(version), ...await branchParent(tx, access, row.id) }, permissions: permissions(row, authorized.access, project?.status === 'active'), sourceFreshness: await readSourceFreshness(tx, access, collectSourceRefs(state)), history: await readHistoryGroups(tx, access, row.id), cursor, locks: state.locks, missingTargets: missingTargets(state) });
+      return ArtifactSnapshotSchema.parse({ viewer: viewer(access), artifact: envelope(row, state), content: state.content, version: { ...versionDto(version), ...await branchParent(tx, access, row.id) }, permissions: permissions(row, authorized.access, project?.status === 'active'), sourceFreshness: await readMaterialSourceFreshness(tx, access, collectSourceRefs(state)), history: await readHistoryGroups(tx, access, row.id), cursor, locks: state.locks, missingTargets: missingTargets(state) });
     });
   }
   async function readRoute(principal: IdentityPrincipal, input: { projectId: string; artifactId: string }): Promise<ArtifactSnapshot> {
@@ -115,7 +115,7 @@ export function createArtifactService(pool: Pool) {
       const historical = { ...row, project_id: selected.project_id, current_revision: selected.revision, content_id: selected.content_id, content_hash: selected.content_hash, schema_version: selected.schema_version, title: selected.title, status: selected.status, updated_at: selected.created_at };
       // The artifact's current project is the access authority, including its retained versions.
       const { state } = await loadState(tx, historical);
-      return ArtifactVersionDetailSchema.parse({ viewer: viewer(access), artifact: envelope(historical, state), version: { ...versionDto(selected), ...await branchParent(tx, access, row.id) }, content: state.content, sourceFreshness: await readSourceFreshness(tx, access, collectSourceRefs(state)), locks: state.locks, missingTargets: missingTargets(state), headRevision: row.current_revision });
+      return ArtifactVersionDetailSchema.parse({ viewer: viewer(access), artifact: envelope(historical, state), version: { ...versionDto(selected), ...await branchParent(tx, access, row.id) }, content: state.content, sourceFreshness: await readMaterialSourceFreshness(tx, access, collectSourceRefs(state)), locks: state.locks, missingTargets: missingTargets(state), headRevision: row.current_revision });
     });
   }
   return { create, createInTransaction, read, readInTransaction, readRoute, access, history, versions, version, versionInTransaction, list: createArtifactCatalog(pool), ...createCommandHistory(pool), ...createArtifactLifecycle(pool) };

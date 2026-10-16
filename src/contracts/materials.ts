@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { SourceRefSchema } from './artifacts';
 import { SourceChunkSchema, SourceManifestSchema } from './sources';
 import { CalendarDateSchema, CurrencySchema, ElementIdSchema, IdSchema, InstantSchema, RevisionSchema } from './primitives';
+import { LibraryLifecycleStateSchema, LibraryMetadataRevisionSchema } from './library-lifecycle';
 
 const ExactDecimalSchema = z.string().max(80).regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/);
 const AdjustmentSchema = z.enum(['return', 'correction']);
@@ -53,10 +54,12 @@ export const MaterialViewerSchema = z.strictObject({ userId: IdSchema, workspace
 export const CollectionSchema = z.strictObject({
   id: IdSchema, workspaceId: IdSchema, projectId: IdSchema, title: z.string(), kind: MaterialKindSchema,
   accessClass: z.enum(['internal', 'confidential']), revision: RevisionSchema, mapping: ImportMappingSchema.nullable(),
+  metadataRevision: LibraryMetadataRevisionSchema, lifecycleState: LibraryLifecycleStateSchema, trashedAt: InstantSchema.nullable(),
   recordCount: z.number().int().nonnegative(), updatedAt: InstantSchema, createdAt: InstantSchema,
 });
 export const CollectionListInputSchema = z.strictObject({
   workspaceId: IdSchema, projectId: IdSchema.optional(), query: z.string().trim().max(120).default(''), kind: MaterialKindSchema.optional(),
+  lifecycleState: LibraryLifecycleStateSchema.default('active'),
   from: CalendarDateSchema.optional(), to: CalendarDateSchema.optional(), after: z.string().max(2048).optional(), limit: z.number().int().min(1).max(50).default(30),
 });
 export const CollectionListSchema = z.strictObject({ viewer: MaterialViewerSchema, collections: z.array(CollectionSchema).max(50), nextCursor: z.string().nullable() });

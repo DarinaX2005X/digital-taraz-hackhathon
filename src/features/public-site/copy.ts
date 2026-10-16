@@ -5,7 +5,8 @@ type InformationSection = { title: string; text: string; link?: "signup" | "veri
 export type PublicCopy = {
   mechanismIllustration: string; mechanismSource: string; mechanismResult: string;
   ownTaskTitle: string; ownTaskDescription: string; ownTaskLabel: string; ownTaskPlaceholder: string; ownTaskAction: string; ownTaskError: string; ownTaskAccount: string; ownTaskSignedIn: string; useScenario: string;
-  tagline: string; heroTitle: string; description: string; heroPath: string; processAction: string; resumeWork: string; home: string; scenarios: string; process: string;
+  tryDemo: string; demoHint: string;
+  heroTitle: string; description: string; heroPath: string; processAction: string; resumeWork: string; home: string; scenarios: string; process: string;
   start: string; signIn: string; account: string; work: string; explore: string; language: string;
   illustration: string; introTitle: string; intro: string;
   proof: {
@@ -25,13 +26,13 @@ export type PublicCopy = {
 };
 
 const ru: PublicCopy = {
+  tryDemo: 'Попробовать на срочном заказе', demoHint: 'Две минуты: заказ, занятая неделя, проверка срока и полезный комплект материалов.',
   mechanismIllustration: 'После решения смета, предложение и план остаются связанными живыми материалами.', mechanismSource: 'Новая цена или условие', mechanismResult: 'Показаны только затронутые изменения',
   ownTaskTitle: 'Поставьте реальную задачу', ownTaskDescription: 'Опишите цель своими словами. В рабочей сессии можно добавить запрос, прайс, правила расчёта и данные о загрузке.',
   ownTaskLabel: 'Что нужно решить?', ownTaskPlaceholder: 'Проверь, сможем ли мы выполнить этот заказ к открытию без убыточных условий, и подготовь ответ.', ownTaskAction: 'Начать задачу', ownTaskError: 'Не удалось продолжить. Ваш текст остался здесь. Попробуйте ещё раз.', ownTaskAccount: 'После входа эта цель откроется в рабочей сессии и не потеряется.', ownTaskSignedIn: 'Выберите рабочее пространство и добавьте материалы.', useScenario: 'Начать такую задачу',
-  tagline: "Всё для вашего бизнеса",
-  heroTitle: "Понять, брать ли заказ, до того как обещать цену и срок",
+  heroTitle: "Всё для вашего бизнеса",
   work: "Перейти к работе",
-  description: "Tirlik работает как AI-ассистент малого и среднего бизнеса по финансовым и операционным задачам. Он превращает цель в изменяемый план, проверяет его по вашим материалам и показывает последствия до вашего решения.",
+  description: "Предложения клиентам, планы работы, закупки и рекламные материалы. Tirlik готовит их по вашим данным, а вы выбираете решение и управляете результатом.",
   heroPath: "Цель → план и инструменты AI → ваше решение → смета, предложение и план работ",
   processAction: "Как принимается решение", resumeWork: "Продолжить работу",
   home: "На главную", scenarios: "Для каких задач", process: "Как это работает", start: "Начать работу", signIn: "Войти", account: "Мой аккаунт", explore: "Посмотреть сценарии", language: "Язык",
@@ -98,13 +99,13 @@ const ru: PublicCopy = {
 };
 
 const en: PublicCopy = {
+  tryDemo: 'Try the urgent-order example', demoHint: 'Two minutes: an order, a busy week, a deadline check and useful work materials.',
   mechanismIllustration: 'After the decision, the estimate, proposal and work plan remain connected live materials.', mechanismSource: 'A new price or condition', mechanismResult: 'Only affected changes are proposed',
   ownTaskTitle: 'Bring a real business decision', ownTaskDescription: 'Describe the goal in your own words. In the work session, add the request, price list, calculation rules and current capacity.',
   ownTaskLabel: 'What do you need to decide?', ownTaskPlaceholder: 'Check whether we can complete this order by opening day without unprofitable terms, and prepare a response.', ownTaskAction: 'Start a task', ownTaskError: 'Could not continue. Your text is still here. Please try again.', ownTaskAccount: 'After sign-in, this goal opens in your work session and is not lost.', ownTaskSignedIn: 'Choose a workspace and add your materials.', useScenario: 'Start this kind of task',
-  tagline: "Everything for your business",
-  heroTitle: "Know whether to take the order before promising a price and date",
+  heroTitle: "Everything for your business",
   work: "Open workspace",
-  description: "Tirlik is an AI assistant for the financial and operational work of small and medium businesses. It turns a free-form goal into an editable plan, checks it against your materials and shows the consequences before you decide.",
+  description: "Customer proposals, work plans, purchasing and campaign materials. Tirlik prepares them from your data; you choose the decision and control the result.",
   heroPath: "Goal → AI plan and grounded tools → your decision → estimate, proposal and work plan",
   processAction: "See how the decision is made", resumeWork: "Continue working",
   home: "Home", scenarios: "Business tasks", process: "How it works", start: "Get started", signIn: "Sign in", account: "My account", explore: "Explore the scenarios", language: "Language",
@@ -169,13 +170,13 @@ const en: PublicCopy = {
 };
 
 const kk: PublicCopy = {
+  tryDemo: 'Шұғыл тапсырыс мысалын көру', demoHint: 'Екі минут: тапсырыс, жүктемесі көп апта, мерзімді тексеру және пайдалы жұмыс материалдары.',
   mechanismIllustration: 'Шешімнен кейін смета, ұсыныс және жұмыс жоспары өзара байланысқан жанды материалдар болып қалады.', mechanismSource: 'Жаңа баға немесе шарт', mechanismResult: 'Тек өзгерген бөліктер ұсынылады',
   ownTaskTitle: 'Нақты бизнес шешімін қойыңыз', ownTaskDescription: 'Мақсатты өз сөзіңізбен жазыңыз. Жұмыс сеансында сұрауды, бағаларды, есептеу ережелерін және ағымдағы жүктемені қосуға болады.',
   ownTaskLabel: 'Қандай шешім қабылдау керек?', ownTaskPlaceholder: 'Бұл тапсырысты ашылу күніне дейін тиімсіз шарттарсыз орындай аламыз ба, тексеріп, жауап дайында.', ownTaskAction: 'Тапсырманы бастау', ownTaskError: 'Жалғастыру мүмкін болмады. Мәтініңіз осында қалды. Қайталап көріңіз.', ownTaskAccount: 'Кіргеннен кейін бұл мақсат жұмыс сеансында ашылып, жоғалмайды.', ownTaskSignedIn: 'Жұмыс кеңістігін таңдап, материалдарыңызды қосыңыз.', useScenario: 'Осындай тапсырманы бастау',
-  tagline: "Бизнесіңізге қажеттінің бәрі",
-  heroTitle: "Баға мен мерзімді уәде етпей тұрып, тапсырысты қабылдау керек пе екенін біліңіз",
+  heroTitle: "Бизнесіңізге қажеттінің бәрі",
   work: "Жұмысқа өту",
-  description: "Tirlik шағын және орта бизнестің қаржылық және операциялық міндеттеріне арналған AI ассистенті ретінде жұмыс істейді. Ол еркін мақсатты өзгертуге болатын жоспарға айналдырып, оны сіздің материалдарыңызбен тексереді және шешімге дейін салдарын көрсетеді.",
+  description: "Клиенттерге ұсыныстар, жұмыс жоспарлары, сатып алу және жарнама материалдары. Tirlik оларды сіздің деректеріңіз бойынша дайындайды, ал шешімді сіз таңдап, нәтижені өзіңіз басқарасыз.",
   heroPath: "Мақсат → AI жоспары мен нақты құралдар → сіздің шешіміңіз → смета, ұсыныс және жұмыс жоспары",
   processAction: "Шешім қалай қабылданады", resumeWork: "Жұмысты жалғастыру",
   home: "Басты бет", scenarios: "Қандай міндеттерге", process: "Қалай жұмыс істейді", start: "Жұмысты бастау", signIn: "Кіру", account: "Менің аккаунтым", explore: "Сценарийлерді қарау", language: "Тіл",

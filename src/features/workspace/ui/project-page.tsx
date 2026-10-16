@@ -192,10 +192,10 @@ export function ProjectPage({ ownerId, initial, selectedSource, initialRunId, in
   const sourceList = <>
     <WorkspaceError error={sourceError} retry={() => { void loadSources(); }} />
     {!sources && !sourceError && <LoadingState />}{sources?.length === 0 && <p className={styles.muted}>{t.sourceEmpty}</p>}
-    {sources && <ul className={styles.resultList}>{sources.map((source) => <li key={source.id}><Link href={`/app/materials/sources/${source.id}?workspaceId=${workspaceId}`}><FolderOpen size={20} /><span><strong>{source.title}</strong><time dateTime={source.updatedAt}>{formatInstant(locale, source.updatedAt, { dateStyle: 'medium' })}</time></span></Link></li>)}</ul>}
+    {sources && <ul className={styles.resultList}>{sources.map((source) => <li key={source.id}><Link href={`/app/materials/sources/${source.id}?${new URLSearchParams({ workspaceId, from: 'project', ...(activeRunId ? { run: activeRunId } : {}) })}`}><FolderOpen size={20} /><span><strong>{source.title}</strong><time dateTime={source.updatedAt}>{formatInstant(locale, source.updatedAt, { dateStyle: 'medium' })}</time></span></Link></li>)}</ul>}
     {sourcesAfter && <Button pending={sourcesLoading} onClick={() => { void loadSources(sourcesAfter); }}>{t.more}</Button>}
     <Link className={styles.back} href={`/app/materials?workspaceId=${workspaceId}&projectId=${projectId}`}><FolderOpen size={18} />{t.openSources}</Link>
-    {canEdit && <Link className="tl-button tl-button--secondary" href={`/app/materials/add?workspaceId=${workspaceId}&projectId=${projectId}`}><Upload size={18} />{t.addSource}</Link>}
+    {canEdit && <Link className="tl-button tl-button--secondary" href={`/app/materials/add?${new URLSearchParams({ workspaceId, projectId, ...(activeRunId ? { run: activeRunId } : {}) })}`}><Upload size={18} />{t.addSource}</Link>}
   </>;
   const assistantEntry = <form className={`${styles.assistantEntry} ${styles.form}`} onSubmit={(event) => { event.preventDefault(); void mutate('update'); }}>
     <details className={styles.projectDetails}><summary>{t.renameProject}</summary><InputField label={t.title} required maxLength={240} value={title} disabled={!canEdit || saving || taskBusy} onChange={(event) => setTitle(event.target.value)} /></details>
@@ -207,18 +207,18 @@ export function ProjectPage({ ownerId, initial, selectedSource, initialRunId, in
   </form>;
   return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onClickCapture={leave.onClickCapture}><main className={styles.main}>
     {leave.confirmation}
-    {canEdit && <TourGuide ownerId={ownerId} anchors={{ task: 'project-task-goal', materials: 'project-materials' }} />}
+    {canEdit && <TourGuide ownerId={ownerId} anchors={{ task: 'project-session', materials: 'project-sources', edit: 'project-results' }} />}
     <Link className={styles.back} href={`/app/work?workspace=${workspaceId}`}><ArrowLeft size={18} />{t.back}</Link>
     <header className={styles.pageHeading}><div><h1>{project.title}</h1><p className={styles.meta}>{formatInstant(locale, project.updatedAt)}{result.canEdit === false && <span>{t.readOnly}</span>}</p></div><div className={styles.actions}>
-      <Button icon={FolderOpen} onClick={() => setSourcesOpen(true)}>{t.source}</Button>
-      {canEdit && <><Link id="project-materials" className="tl-button tl-button--secondary" href={`/app/materials/add?workspaceId=${workspaceId}&projectId=${projectId}`}><Upload size={18} />{t.addSource}</Link><Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{t.createMaterial}</Button><Button icon={Archive} disabled={dirty} onClick={() => setArchiveOpen(true)}>{t.archive}</Button></>}
+      <Button id="project-sources" icon={FolderOpen} onClick={() => setSourcesOpen(true)}>{t.source}</Button>
+    {canEdit && <><Link id="project-materials" className="tl-button tl-button--secondary" href={`/app/materials/add?${new URLSearchParams({ workspaceId, projectId, ...(activeRunId ? { run: activeRunId } : {}) })}`}><Upload size={18} />{t.addSource}</Link><Button variant="primary" icon={Plus} onClick={() => setCreateOpen(true)}>{t.createMaterial}</Button><Button icon={Archive} disabled={dirty} onClick={() => setArchiveOpen(true)}>{t.archive}</Button></>}
       {project.status === 'archived' && result.canEdit && <Button variant="primary" icon={RotateCcw} pending={saving} onClick={() => { void mutate('restore'); }}>{t.restore}</Button>}
     </div></header>
     {project.status === 'archived' && <div className={styles.archiveNotice}>{t.archivedProject}</div>}
     <div className={styles.sessionSwitch} role="group" aria-label={t.sessionView}><Button variant={mobileView === 'assistant' ? 'primary' : 'quiet'} onClick={() => setMobileView('assistant')}>{t.assistant}</Button><Button variant={mobileView === 'result' ? 'primary' : 'quiet'} onClick={() => setMobileView('result')}>{t.results}</Button></div>
-    <div className={`${styles.sessionLayout} ${assistantCollapsed ? styles.sessionLayoutCollapsed : ''}`} data-mobile-view={mobileView}>
+    <div id="project-session" className={`${styles.sessionLayout} ${assistantCollapsed ? styles.sessionLayoutCollapsed : ''}`} data-mobile-view={mobileView}>
       <div className={styles.sessionAssistant}><AssistantSession userId={ownerId} workspaceId={workspaceId} projectId={projectId} initialRunId={activeRunId} collapsed={assistantCollapsed} onCollapsedChange={setAssistantCollapsed} onRunChange={selectRun} empty={assistantEntry} /></div>
-      <section className={styles.sessionResult} aria-labelledby="project-results-title"><div className={styles.sectionHeading}><div><span className={styles.resultLabel}>{t.currentResult}</span><h2 id="project-results-title">{t.results}</h2></div>{canEdit && <Button icon={Plus} onClick={() => setCreateOpen(true)}>{t.createMaterial}</Button>}</div><WorkspaceError error={artifactError} retry={() => { void loadArtifacts(result.authzVersion); }} />
+      <section id="project-results" className={styles.sessionResult} aria-labelledby="project-results-title"><div className={styles.sectionHeading}><div><span className={styles.resultLabel}>{t.currentResult}</span><h2 id="project-results-title">{t.results}</h2></div>{canEdit && <Button icon={Plus} onClick={() => setCreateOpen(true)}>{t.createMaterial}</Button>}</div><WorkspaceError error={artifactError} retry={() => { void loadArtifacts(result.authzVersion); }} />
       {!artifacts && !artifactError && <LoadingState />}
       {artifacts && !artifacts.artifacts.length && <EmptyState icon={FileText} title={t.resultEmpty} description={t.resultEmptyDescription} action={canEdit ? <Button icon={Plus} onClick={() => setCreateOpen(true)}>{t.createMaterial}</Button> : undefined} />}
       {artifacts && <ul className={`${styles.resultList} ${styles.resultCards}`}>{artifacts.artifacts.map((artifact) => { const Icon = kindIcons[artifact.kind as CreatableKind] ?? LayoutList; return <li key={artifact.id}><Link href={`/app/projects/${projectId}/artifacts/${artifact.id}${activeRunId ? `?run=${activeRunId}` : ''}`} prefetch={false}><Icon size={22} /><span><strong>{artifact.title}</strong><span className={styles.meta}>{t[artifact.kind]}</span><time dateTime={artifact.updatedAt}>{formatInstant(locale, artifact.updatedAt)}</time></span></Link></li>; })}</ul>}

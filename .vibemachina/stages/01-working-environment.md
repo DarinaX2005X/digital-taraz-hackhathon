@@ -6,7 +6,7 @@ Status: active
 Общие требования, контракты K0–K6, проверки P1–P6 и правила передачи: [PLAN](../PLAN.md). Все интерфейсы следуют [DESIGN](../DESIGN.md), включая RU/KK/EN, keyboard/touch, narrow, hover/pressed/focus/selected и сохранение контекста при ошибке. Paths эксклюзивны; root wiring и общие schemas принадлежат 01.3. Параллельный старт разрешён по утверждённым contracts; обязательные producer handovers до done перечислены в PLAN и не заменяются fixtures; интегрированный результат всех пакетов принимает 04.1.
 
 ## 01.1 Переписать общую визуальную систему
-Status: active
+Status: done
 Requirements: R09, R31, R32, R33, R34, R38, R39, R40, R44, R45, R46, R47, R48, R49, R60, R101, R108
 Depends on: none
 Owner: SUBAGENT visual_system
@@ -25,10 +25,10 @@ Status: done
 Принято: visual_system передал src/ui/, public/brand/, tests/ui-contracts/ и прекратил запись. Новые токены, surfaces, menu/progress, feedback и brand palette сохраняют существующие exports/signatures; legacy aliases совместимы. Focused Vitest: 8 files / 73 tests PASS, включая фактические WCAG-пары и semantic contracts; scoped ESLint/TypeScript/diff PASS. Свежие src/i18n/public/fonts изменения не заявлены. Это не пользовательская визуальная приёмка.
 
 ### 01.1.2 Совместимость всей системы
-Status: active
+Status: done
 Все общие элементы используют новую систему, readable contrast и disabled/loading не уничтожают подписи. Regression checks по реальным рискам; user-owned visual findings остаются needs-user-check до ответа.
 
-Focused compatibility принята вместе с01.1.1; финальное закрытие после общего стабильного type/lint/build checkpoint с подключёнными consumers. Внешний вид остаётся пользовательской проверкой.
+Focused compatibility принята вместе с01.1.1. Общий стабильный checkpoint6a2f6c7 прошёл check-plan, diff check, typecheck/lint/unit/domain/locale/contracts и production build; отправлен в origin/main. Подключённые consumers компилируются, существующие API сохранены. Внешний вид остаётся пользовательской проверкой.
 
 ## 01.2 Объединить свободную сессию, материалы и рабочий контекст
 Status: active
@@ -50,15 +50,17 @@ Status: active
 HTTP/DB: создать работу с двумя неоднородными источниками → mapping/correction → start run → reconnect; ACL и revision vectors реальны. 100k dataset читает страницы/агрегаты, не весь набор в браузер/LLM. P6 поддержан сервером; время и ясность оценивает пользователь.
 
 ### 01.2.2 Сохранённая работа и управляемые материалы
-Status: todo
+Status: active
 Реальные редакторы mounted, reopen/history/move/trash/reuse и context return проверены через server/domain contracts. Список работ, результаты сессии и фактический artifact GET показывают одну ревизию; новые UI состояния включены в этот пакет.
+
+Промежуточный whole-file handover включает собственные файлы в composer, idempotent project/upload/run recovery, source/session return context, lifecycle services и mounts. Current shared typecheck PASS; это не полный01.2 proof. Ещё требуются реальные lifecycle command cases, mapping/correction в общем own-work path и100k bounded dataset case. Money preview/action consumer также остаётся отдельным незавершённым соединением в01.2/02.1.
 
 ## 01.3 Научить харнесс доводить задачу до новых рабочих материалов
 Status: active
 Requirements: R01, R02, R03, R04, R05, R07, R08, R10, R12, R14, R15, R16, R17, R42, R43, R56, R75, R76, R79, R82, R83, R84, R85, R86, R90, R91, R96, R99, R100, R105, R106, R107, R109
 Depends on: none
 Owner: SUBAGENT harness_integration
-Paths: src/features/agent-tools/, src/features/commercial/, src/features/runs/server/, src/features/runs/domain/, src/contracts/, src/server/db/, src/app/api/runs/, src/app/layout.tsx, src/app/app/layout.tsx, tests/agent-tools/, tests/commercial/, tests/runs/, evals/agent-tools/, evals/commercial/, package.json, package-lock.json, scripts/dev/, scripts/check.mjs, scripts/check-build.mjs, scripts/check-integration.mjs, scripts/eval-live.mjs, tests/foundation/, vitest.integration.config.ts, migrations/0021_library_lifecycle.sql, tests/database/library-lifecycle-schema.integration.test.ts
+Paths: src/features/agent-tools/, src/features/commercial/, src/features/runs/server/, src/features/runs/domain/, src/contracts/, src/server/db/, src/app/api/runs/, src/app/layout.tsx, src/app/app/layout.tsx, tests/agent-tools/, tests/commercial/, tests/runs/, evals/agent-tools/, evals/commercial/, package.json, package-lock.json, scripts/dev/, scripts/check.mjs, scripts/check-build.mjs, scripts/check-integration.mjs, scripts/eval-live.mjs, tests/foundation/, vitest.integration.config.ts, migrations/0021_library_lifecycle.sql, migrations/0022_demo_execution_scopes.sql, tests/database/library-lifecycle-schema.integration.test.ts
 
 **Результат.** Свободная цель приводит к работе предметных инструментов и пригодному комплекту, а не к обещаниям в чате. Для J1: запрос клиента, нормы/прайс, текущие заказы, сроки и ресурсы → варианты выполнения с основаниями → выбор → связанные редактируемые смета, предложение и план. Цена сама по себе не является ценностью; убирается ручное согласование исходников, ограничений и выходных материалов. K1 сохраняет существующий strict DTO; K2 даёт новый планировщик, K3 — canonical commands и transactional bundle.
 
@@ -74,12 +76,14 @@ Paths: src/features/agent-tools/, src/features/commercial/, src/features/runs/se
 Status: active
 Typed handlers, authoritative facts/calculations, projections и transaction receipts работают на domain/DB cases; malformed output, repeat invocation и late result имеют проверяемое поведение. Общие exports переданы потребителям без второго runtime.
 
+Принят K5 producer substep: capability-hash-only scope на24часа, изолированные identity/workspace/project и synthetic resources/availability, real run authority/replay, token denial, revision conflict и explicit signed-in copy/replay. Isolated DB1/1 PASS; adapter authority/expiry2/2 и contracts+adapter6/6 PASS. Новый bounded workPreview≤18KB связан с exact artifactId/revision той же операции, сохраняется в context и SSE/reload; adapter+run contracts7/7 PASS. Producer независимо компилируется без новых demo consumer files, подтверждено узким dependency audit. Live J1 и consumer HTTP ещё не закрыты.
+
 ### 01.3.2 Живой полезный результат и интеграция инструментов
-Status: todo
+Status: active
 P1 от настоящего входа до новых сохранённых материалов с проверкой выполнимости и выбором человека; paid receipt и budget записаны приватно. Domain descriptors подключены по готовности без параллельного registry ownership. Ограниченный live proof не объявляет все J2–J5 завершёнными.
 
 ## 01.4 Строить выполнимую работу с ресурсами и ограничениями
-Status: active
+Status: done
 Requirements: R01, R11, R14, R16, R34, R35, R40, R91, R92, R93, R94, R95, R109
 Depends on: none
 Owner: SUBAGENT work_planner
@@ -97,11 +101,13 @@ Paths: src/features/operations/, tests/operations/, evals/operations/, src/app/a
 Status: done
 Две конкурирующие работы/один ресурс/одна закреплена: найти свободный интервал другой; два ресурса/зависимость/выходной/нехватка материала покрыты domain cases. Изменённое ограничение меняет конкретное назначение; no-solution/unknown различимы.
 
-Принят scoped handover work_planner: bounded proposeWorkPlan и authoritative resource snapshot reader; operations unit10files/42tests PASS, direct K2 7/7, scoped ESLint PASS. Проверены locks/dependencies/weekend, unknown materials, reassignment, infeasible vs exhausted, неназначенная active работа и invalid lock. Checkpoint включает полные готовые domain/reader/eval files; API/editor/apply остаются01.4.2 до своего proof.
+Принят scoped handover work_planner: bounded proposeWorkPlan и authoritative resource snapshot reader; operations unit10files/42tests PASS, direct K2 7/7, scoped ESLint PASS. Проверены locks/dependencies/weekend, unknown materials, reassignment, infeasible vs exhausted, неназначенная active работа и invalid lock. Checkpoint6a2f6c7 включает готовые domain/reader/eval files и trusted J1 integration; все общие checks/build PASS, push origin/main. API/editor/apply остаются01.4.2 до своего proof.
 
 ### 01.4.2 План пригоден для работы и пересмотра
-Status: active
+Status: done
 Tool → candidate → human edit/lock → apply → reopen/export: revisions совпадают. Удалённый ресурс, concurrent apply и отозванное право не портят принятый план. Capacity conflict виден у задачи; пользователь проверяет удобство calendar/list и навигации.
+
+Принят whole-file handover01.4.2: proposal HTTP/transport, plan input JSON Schema, persistent locks, candidate compare/apply с повторной проверкой content hash, pinned resource/availability revisions, локали и editor states.44 focused tests и5 isolated PostgreSQL/handler cases PASS, scoped ESLint/strict TypeScript/diff PASS. Actual-file bridge в tests/operations/service.integration.test.ts применяет candidate, заново читает сохранённый plan, архивирует ресурс и проверяет ICS через parsePlanCalendar и PDF через pdfjs: принятая revision, расписание и историческое имя ресурса совпадают. Bounded rerun5/5 PASS, миграция/seed/cleanup выполнены. Пакет передан без дальнейшей записи, ожидает следующего Git checkpoint; UI не проверялся браузером.
 
 ## 01.5 Сделать ясный вход, содержательный лендинг и живой пример
 Status: active
@@ -116,6 +122,8 @@ Paths: src/features/public-site/, src/features/demo/, src/features/onboarding/, 
 
 **Границы.** 01.3 предоставляет canonical demo execution scope/runtime extension; 01.2 предоставляет source-add semantic anchors и workspace resume, этот пакет не пишет их страницы. `/demo` и API имеют явные routes K5; demo export использует canonical 01.6. Можно начать сайт/auth/контроллеры параллельно по контрактам; закрыть K5 только реальным producer, не scripted gateway. Видео slot предусмотрен, сам ролик приходит из 05.2.
 
+Exact producer subloan01.3: новый src/features/demo/server/execution-scope.ts пишет исключительно harness_integration; first_use потребляет его exports и сохраняет остальные demo routes/client/UI/tests. Canonical migration migrations/0022_demo_execution_scopes.sql принадлежит harness_integration;0021 зарезервирована library_lifecycle. Wire/schema contracts согласуются напрямую между этими двумя владельцами, без дублирующего demo runtime.
+
 **Состояния.** Auth failed/cancel/signed-out/stale cookies, session expired, provider unavailable, rate cap, partial result и retry сохраняют контекст. Onboarding skip/resume/replay не делает неожиданный переход в «Материалы» и не запускается вновь после refresh. RU/KK/EN и mobile сохраняют CTA/пример/профиль, все public/private границы server-checked.
 
 ### 01.5.1 Новый сайт и сохранённое намерение
@@ -123,7 +131,7 @@ Status: active
 Content/route/HTTP/auth checks подтверждают правильные действия, profile/menu/logout и return. F001–F012 читаются полностью; проверка кода не закрывает пользовательскую оценку визуала и понятности.
 
 ### 01.5.2 Полезный пример на настоящем механизме
-Status: todo
+Status: active
 P6 и K5: start → real plan/materials → change one constraint → explicit copy → reopen. No unwanted records, isolation/TTL/rate/cancel/duplicate-copy проверены через HTTP/DB. Первые две минуты и UX принимает пользователь.
 
 ## 01.6 Довести документы, таблицы и файлы до полноценной работы
@@ -146,5 +154,9 @@ Golden formulas/rounding/structural edits, manual override/undo, stale command40
 Принят готовый UI/editor подшаг: shared lifecycle menu и его01.2 mount, поиск previous/next matches, unknown-cell count, unregister flush callbacks, source freshness/manual-override presentation и переработанные document/sheet/export surfaces. Whole-file handover eight owned files+artifact-page,251 owned tests/scoped ESLint/typecheck PASS; user visual acceptance отсутствует. Полный stage proof требует server/DB/reopen/export integration после общего checkpoint; эта запись не закрывает01.6 целиком.
 
 ### 01.6.2 Пригодные согласованные файлы
-Status: todo
+Status: active
 Actual OOXML/PDF/CSV структуры/Unicode/formula caches проверены без браузера, export revision совпадает с GET. Redaction/private citations, unsupported styles, formula injection и повтор скачивания имеют устойчивое поведение; оформление открытого файла смотрит пользователь.
+
+Свежий isolated DB proof:5files/39tests PASS по artifacts/project-sources/retention/exports/calculation. Strengthened frozen DOCX/PDF/XLSX/CSV job:1file/11tests PASS; парсинг PDF/OOXML/XLSX/CSV подтверждает ручную русскую фразу, формулуA2+B2=143600 и тот же revision vector. Дополнительно4files/17tests по форматам/glyph errors/formula injection PASS. Mounted HTTP proof повторяется после исправления shared startup schema; полный01.6 пока не закрыт.
+
+Разрыв mapped fact freshness закрыт: canonical readMaterialSourceFreshness используется artifact snapshot/retained reads. Reviewed current fact разрешает normal export; correction делает старую fact revision stale; unreviewed/unknown/missing и отозванный project grant не раскрывают закрытые факты и не получают false current. Actual material import/correction/export regression7/7 и повтор только затронутых5DB files40/40 PASS с migrate/seed/cleanup.02.1 подтвердил normal XLSX/DOCX без historicalDraft. Три новых whole files готовы к checkpoint. Остался mounted HTTP proof, который выполняется последовательно после demo runner; bounded cold-health allowance240s не меняет application assertions.

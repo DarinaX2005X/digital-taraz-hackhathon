@@ -1,12 +1,29 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { InitSourceUploadSchema } from '../../../src/contracts/sources';
+import { ImportMappingSchema } from '../../../src/contracts/materials';
 import { scopesForRole } from '../../../src/features/identity/domain/policy';
 import { identityTransaction, withWorkspaceAccess, type SessionPrincipal } from '../../../src/features/identity/server/access';
 import { createProjectCore } from '../../../src/features/workspace/server/project-core';
 import { createPendingSource, markSourceUnavailable, publishSourceVersion, readSourceFreshness } from '../../../src/features/sources/server/source-heads';
+import { createSourceService } from '../../../src/features/sources/server/service';
+import { LocalSourceStorage } from '../../../src/features/sources/server/storage';
+import { createCollectionService } from '../../../src/features/materials/server/collections';
+import { createDatasetService } from '../../../src/features/materials/server/datasets';
+import { createImportService } from '../../../src/features/materials/server/imports';
+import { createCorrectionService } from '../../../src/features/materials/server/corrections';
+import { createMaterialFactReader } from '../../../src/features/materials/server/facts';
+import { readMaterialSourceFreshness } from '../../../src/features/materials/server/freshness';
+import { createArtifactService } from '../../../src/features/artifacts/server/service';
+import { createExportService } from '../../../src/features/exports/server/service';
+import { ExportRegistry } from '../../../src/features/exports/server/registry';
+import { LocalExportStorage } from '../../../src/features/exports/server/storage';
+import { CreateExportSchema } from '../../../src/features/exports/contracts';
 import { appendWorkspaceEvents, decodeWorkspaceCursor } from '../../../src/features/artifacts/server/workspace-events';
+import { testDocument } from './test-fixture';
 
 let pool: Pool;
 const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
@@ -72,7 +89,7 @@ describe('canonical projects and source heads in real PostgreSQL', () => {
     expect((await context.projects.read(context.member, context.workspaceId, own.project.id)).project.id).toBe(own.project.id);
   });
 
-  it('compares actual old/new price hashes, never promotes pending input, and keeps unresolved fact identity unknown', async () => {
+  it('compares actual old/new price hashes and never promotes pending input', async () => {
     const context = await fixture(); const sourceId = randomUUID(); const version1 = randomUUID(); const version2 = randomUUID();
     const beforeHash = hash(await readFile(new URL('../../../fixtures/business/homegoods/catalog.csv', import.meta.url)));
     const afterHash = hash(await readFile(new URL('../../../fixtures/business/changes/homegoods/catalog-new-price.csv', import.meta.url)));
@@ -89,12 +106,73 @@ describe('canonical projects and source heads in real PostgreSQL', () => {
     await write((transaction, access) => publishSourceVersion(transaction, access, { sourceId, versionId: version1, expectedRevision: 0, snapshotHash: beforeHash }));
     expect((await pool.query('SELECT current_version_id FROM sources WHERE id=$1', [sourceId])).rows[0].current_version_id).toBe(version2);
     await expect(write((transaction, access) => publishSourceVersion(transaction, access, { sourceId, versionId: version1, expectedRevision: 0, snapshotHash: afterHash }))).rejects.toMatchObject({ code: 'CONFLICT' });
-    const factRef = { sourceId, sourceVersionId: version2, revision: 2, collectionId: randomUUID(), recordId: randomUUID(), fieldId: 'priceKzt', factRevision: 2 };
-    expect((await write((transaction, access) => readSourceFreshness(transaction, access, [factRef])))[0]).toMatchObject({ status: 'unknown', sourceStatus: 'current', factStatus: 'unknown' });
     await write((transaction, access) => markSourceUnavailable(transaction, access, sourceId));
     expect((await write((transaction, access) => readSourceFreshness(transaction, access, [ref])))[0]).toEqual({ sourceRef: ref, status: 'unknown', sourceStatus: 'unknown' });
     await expect(pool.query('UPDATE source_versions SET snapshot_hash=$2 WHERE id=$1', [version1, afterHash])).rejects.toMatchObject({ code: '23514', constraint: 'artifact_content_immutable' });
   });
+
+  it('combines reviewed material facts with source heads and gates a normal export on the exact fact revision', async () => {
+    const context = await fixture();
+    const dataRoot = path.join(process.env.TIRLIK_DATA_DIR!, 'artifact-fact-freshness', randomUUID());
+    const sources = createSourceService(pool, new LocalSourceStorage(path.join(dataRoot, 'sources')));
+    const collections = createCollectionService(pool), imports = createImportService(pool), datasets = createDatasetService(pool), corrections = createCorrectionService(pool), facts = createMaterialFactReader(pool);
+    const artifacts = createArtifactService(pool);
+    const exports = createExportService({
+      pool,
+      storage: new LocalExportStorage(path.join(dataRoot, 'exports')),
+      registry: new ExportRegistry([{ kind: 'document', formats: ['pdf'], async render() { return { bytes: new Uint8Array([1, 2, 3]), mediaType: 'application/pdf', warnings: [] }; } }]),
+      assets: () => ({ async image() { throw new Error('UNEXPECTED_IMAGE'); } }),
+    });
+    const mapping = ImportMappingSchema.parse({
+      fields: [{ id: 'sku', label: 'Артикул', column: 0, header: 'SKU', kind: 'text' }, { id: 'price', label: 'Цена', column: 1, header: 'price', kind: 'money', currency: 'KZT' }],
+      headerRow: 1, headers: ['SKU', 'price'], importMode: 'upsert', recordKeySpec: { kind: 'fields', fieldIds: ['sku'], trim: true, caseSensitive: true, confirmed: true },
+    });
+    async function importPrice(title: string, sku: string, price: string, allowPartial = false) {
+      const collection = (await collections.create(context.owner, randomUUID(), { workspaceId: context.workspaceId, projectId: context.projectId, title, kind: 'prices', expectedAuthzVersion: 1 })).collection;
+      const bytes = new TextEncoder().encode(`SKU,price\n${sku},${price}\n`);
+      const initialized = await sources.init(context.owner, randomUUID(), InitSourceUploadSchema.parse({ workspaceId: context.workspaceId, projectId: context.projectId, title, fileName: `${sku}.csv`, format: 'csv', size: bytes.length }));
+      await sources.put(context.owner, context.workspaceId, initialized.upload.id, initialized.token!, new Blob([bytes]).stream());
+      const ready = await sources.finalize(context.owner, context.workspaceId, initialized.upload.id);
+      let item = (await imports.begin(context.owner, randomUUID(), { workspaceId: context.workspaceId, expectedAuthzVersion: 1, expectedRevision: 0, collectionId: collection.id, sourceId: initialized.upload.sourceId, sourceVersionId: ready.upload.versionId, mapping })).import;
+      while (item.status === 'preparing') item = (await imports.advance(context.owner, item.id, { workspaceId: context.workspaceId, expectedAuthzVersion: 1, expectedRevision: 0 })).import;
+      expect(item.status).toBe('preview');
+      await imports.apply(context.owner, randomUUID(), item.id, { workspaceId: context.workspaceId, expectedAuthzVersion: 1, expectedRevision: 0, expectedReviewRevision: item.reviewRevision, allowPartial });
+      const record = (await datasets.query(context.owner, { workspaceId: context.workspaceId, collectionId: collection.id, includeMissing: true })).records[0]!;
+      return { collection, record, ref: record.cells.price!.sourceRef };
+    }
+    const freshness = (principal: SessionPrincipal, refs: Parameters<typeof readMaterialSourceFreshness>[2]) => withWorkspaceAccess(pool, principal, { workspaceId: context.workspaceId, scope: 'read' }, (tx, access) => readMaterialSourceFreshness(tx, access, refs));
+
+    const reviewed = await importPrice('Проверенный прайс', '001', '100');
+    expect((await freshness(context.owner, [reviewed.ref]))[0]).toMatchObject({ status: 'current', sourceStatus: 'current', factStatus: 'current' });
+    const artifact = await artifacts.create(context.owner, randomUUID(), { workspaceId: context.workspaceId, projectId: context.projectId, expectedAuthzVersion: 1, title: 'Предложение по проверенному прайсу', content: testDocument(), sourceRefs: [reviewed.ref] });
+    const exportInput = { workspaceId: context.workspaceId, expectedAuthzVersion: 1, locale: 'ru' as const, items: [{ artifactId: artifact.artifact.id, revision: 0, formats: ['pdf' as const] }] };
+    await expect(exports.create(context.owner, randomUUID(), CreateExportSchema.parse(exportInput))).resolves.toMatchObject({ status: 'queued', historicalDraft: false });
+
+    const change = { workspaceId: context.workspaceId, expectedAuthzVersion: 1, expectedRevision: 1, changes: [{ recordId: reviewed.record.recordId, fieldId: 'price', rawValue: '125.25', reason: 'Проверенная новая цена' }] };
+    const preview = await corrections.preview(context.owner, reviewed.collection.id, change);
+    await corrections.apply(context.owner, randomUUID(), reviewed.collection.id, { ...change, previewHash: preview.previewHash });
+    const staleFact = (await facts.read(context.owner, { workspaceId: context.workspaceId, refs: [reviewed.ref] })).facts[0]!;
+    expect(staleFact).toMatchObject({ state: 'stale', canBind: false, currentSourceRef: { factRevision: 2 } });
+    expect((await freshness(context.owner, [reviewed.ref]))[0]).toMatchObject({ status: 'stale', sourceStatus: 'current', factStatus: 'stale' });
+    await expect(exports.create(context.owner, randomUUID(), CreateExportSchema.parse(exportInput))).rejects.toMatchObject({ messageKey: 'exports.errors.historicalConsent' });
+    await expect(exports.create(context.owner, randomUUID(), CreateExportSchema.parse({ ...exportInput, historicalDraft: true }))).resolves.toMatchObject({ historicalDraft: true });
+
+    const unreviewed = await importPrice('Непроверенная цена', '002', 'неизвестно', true);
+    expect((await facts.read(context.owner, { workspaceId: context.workspaceId, refs: [unreviewed.ref] })).facts[0]).toMatchObject({ state: 'current', canBind: false });
+    expect((await freshness(context.owner, [unreviewed.ref]))[0]).toMatchObject({ status: 'unknown', sourceStatus: 'current', factStatus: 'unknown' });
+
+    const missing = await importPrice('Удалённая строка', '003', '50');
+    const history = await collections.history(context.owner, context.workspaceId, missing.collection.id);
+    await corrections.undo(context.owner, randomUUID(), missing.collection.id, { workspaceId: context.workspaceId, expectedAuthzVersion: 1, expectedRevision: 1, resolutionId: history.resolutions[0]!.id, reason: 'Строка больше не действует' });
+    expect((await facts.read(context.owner, { workspaceId: context.workspaceId, refs: [missing.ref] })).facts[0]).toMatchObject({ state: 'missing', canBind: false });
+    expect((await freshness(context.owner, [missing.ref]))[0]).toMatchObject({ status: 'stale', sourceStatus: 'current', factStatus: 'stale' });
+
+    const currentRef = staleFact.currentSourceRef!;
+    const granted = await context.projects.setGrant(context.owner, randomUUID(), { workspaceId: context.workspaceId, projectId: context.projectId, userId: context.member.userId, scopes: ['read'], expectedAuthzVersion: 1 });
+    expect((await freshness(context.member, [currentRef]))[0]).toMatchObject({ status: 'current', factStatus: 'current' });
+    await context.projects.setGrant(context.owner, randomUUID(), { workspaceId: context.workspaceId, projectId: context.projectId, userId: context.member.userId, scopes: null, expectedAuthzVersion: granted.authzVersion });
+    expect((await freshness(context.member, [currentRef]))[0]).toMatchObject({ status: 'unknown', factStatus: 'unknown' });
+  }, 90000);
 
   it('hides closed sources and fences a previously authorized job after project-grant revocation', async () => {
     const context = await fixture(); const sourceId = randomUUID(); const versionId = randomUUID();

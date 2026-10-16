@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Run } from '@/contracts/runs';
-import { assistantSessionState, sessionResultHref, sessionResults } from '@/features/runs/ui/session-state';
+import { assistantSessionState, sessionArtifactResultHrefs, sessionResultHref, sessionResults } from '@/features/runs/ui/session-state';
 
 const id = (tail: string) => `00000000-0000-4000-8000-${tail.padStart(12, '0')}`;
 function run(state: Run['state'], refs: Run['progress']['results'] = []): Run {
@@ -32,5 +32,12 @@ describe('assistant-first session state', () => {
     value.steps = [{ id: id('6'), runId: value.id, ordinal: 1, action: 'save', state: 'succeeded', toolName: 'artifact.save', toolVersion: 1, attempt: 1, failure: null, retryable: false, resultRefs: value.progress.results, startedAt: null, finishedAt: null }];
     expect(sessionResults(value)).toHaveLength(1);
     expect(sessionResultHref(value, value.progress.results[0]!)).toBe(`/app/projects/${value.projectId}/artifacts/${id('5')}?run=${value.id}`);
+  });
+
+  it('links a work decision only to artifacts actually committed by this project run', () => {
+    const value = run('review_ready', [{ kind: 'artifact', id: id('5'), revision: 2, title: 'Campaign direction' }]);
+    expect(sessionArtifactResultHrefs(value, [id('5'), id('7'), id('5')])).toEqual({
+      [id('5')]: { href: `/app/projects/${value.projectId}/artifacts/${id('5')}?run=${value.id}`, title: 'Campaign direction' },
+    });
   });
 });

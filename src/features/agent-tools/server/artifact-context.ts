@@ -30,7 +30,7 @@ export function excerptArtifact(input: { artifactId: string; revision: number; t
         if (rowId && columnId) add(tableCellTargetId(sheetId, rowId, columnId), String(cell.v ?? ''), cell.f ?? null);
       }
     }
-  } else if (content.kind === 'plan') for (const entry of content.entries) add(entry.id, `${entry.title}\n${entry.notes ?? ''}`, null, 'text');
+  } else if (content.kind === 'plan') for (const entry of content.entries) add(entry.id, JSON.stringify(entry), null, 'text');
   else for (const page of content.pages) for (const layer of page.layers) add(layer.id, layer.text ?? layer.type, null, layer.text === undefined ? 'value' : 'text');
   const selected = targets.slice(input.offset ?? 0, (input.offset ?? 0) + 80);
   return { artifactId: input.artifactId, revision: input.revision, title: input.title, kind: content.kind, sourceRefs: input.sourceRefs, targets: selected, included: selected.length, total: targets.length };

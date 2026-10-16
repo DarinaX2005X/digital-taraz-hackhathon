@@ -8,13 +8,19 @@ import { useLocale } from '@/i18n/provider';
 import { formatNumber } from '@/i18n';
 import { Button, CheckboxField, Combobox, InputField, SelectField, Tabs, TextareaField, type OptionLoader, type SelectOption } from '@/ui';
 import { useIdentityNavigationGuard } from '@/features/identity/ui/navigation-guard';
+import { TourGuide } from '@/features/onboarding/tour';
 import { WorkspaceAccessState, WorkspaceShell, useWorkspaceAccess } from '@/features/workspace/ui/shell';
 import { workspaceClient } from '@/features/workspace/client/transport';
 import { sourceClient, sourceFileFormat } from '../client/transport';
 import { SourceError, SourceStatus, useSourceCopy } from './common';
 import styles from './sources.module.css';
 
-export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, previous }: { ownerId: string; initialWorkspaceId?: string; initialProject?: SelectOption; previous?: SourceSummary }) {
+// This route is the explicit destination of the materials tour step.  It has
+// no stable edit anchor of its own, so TourGuide renders the saved return
+// action here instead of guessing which upload control the user intended.
+const ADD_PAGE_TOUR_ANCHORS = {};
+
+export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, previous, initialRunId }: { ownerId: string; initialWorkspaceId?: string; initialProject?: SelectOption; previous?: SourceSummary; initialRunId?: string }) {
   const t = useSourceCopy(), { locale } = useLocale();
   const access = useWorkspaceAccess(ownerId), { run } = access;
   const memberships = access.account.viewer?.user.id === ownerId ? access.account.viewer.workspaces : [];
@@ -100,15 +106,16 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
     } catch (failure) { setError(failure); }
     finally { setCancelling(false); setStage(undefined); }
   }
-  const returnTo = `/app/materials/add?${new URLSearchParams({ ...(workspaceId ? { workspaceId } : {}), ...(project ? { projectId: project.id } : {}), ...(previous ? { sourceId: previous.id } : {}) })}`;
+  const returnTo = `/app/materials/add?${new URLSearchParams({ ...(workspaceId ? { workspaceId } : {}), ...(project ? { projectId: project.id } : {}), ...(previous ? { sourceId: previous.id } : {}), ...(initialRunId ? { run: initialRunId } : {}) })}`;
   if (access.phase !== 'active') return <WorkspaceShell workspaceId={workspaceId}><WorkspaceAccessState access={access} returnTo={returnTo} /></WorkspaceShell>;
   return <WorkspaceShell workspaceId={workspaceId}><main className={styles.main} onClickCapture={navigation.onClickCapture}>
-    <Link className={styles.back} href={project ? `/app/projects/${project.id}` : '/app/work'}><ArrowLeft size={18} aria-hidden="true" />{project ? t.back : t.work}</Link>
+    <TourGuide ownerId={ownerId} anchors={ADD_PAGE_TOUR_ANCHORS} />
+    <Link className={styles.back} href={project ? `/app/projects/${project.id}${initialRunId ? `?run=${initialRunId}` : ''}` : '/app/work'}><ArrowLeft size={18} aria-hidden="true" />{project ? t.back : t.work}</Link>
     <div className={styles.heading}><h1>{previous ? t.newVersion : t.add}</h1></div>
     {completed ? <div className={styles.stack}>
       <div className={styles.notice} role="status"><CheckCircle2 size={24} aria-hidden="true" /><div><strong>{t.saved}</strong><p>{title}</p><SourceStatus status={upload.status} /></div></div>
       {upload.status === 'partial' && <p>{t.vision}</p>}
-      <div className={styles.actions}>{upload.versionId && project && <Link className="tl-button tl-button--primary" href={`/app/projects/${project.id}?${new URLSearchParams({ sourceId: upload.sourceId, sourceVersionId: upload.versionId })}`}><ArrowRight size={20} aria-hidden="true" />{t.useInTask}</Link>}<Link className={`tl-button ${upload.versionId ? 'tl-button--secondary' : 'tl-button--primary'}`} href={`/app/materials/sources/${upload.sourceId}?${new URLSearchParams({ workspaceId, uploadId: upload.id, ...(upload.versionId ? { sourceVersionId: upload.versionId } : {}) })}`}>{t.open}</Link><Link className="tl-button tl-button--quiet" href={`/app/projects/${project?.id}`}>{t.back}</Link></div>
+      <div className={styles.actions}>{upload.versionId && project && <Link className="tl-button tl-button--primary" href={`/app/projects/${project.id}?${new URLSearchParams({ sourceId: upload.sourceId, sourceVersionId: upload.versionId })}`}><ArrowRight size={20} aria-hidden="true" />{t.useInTask}</Link>}<Link className={`tl-button ${upload.versionId ? 'tl-button--secondary' : 'tl-button--primary'}`} href={`/app/materials/sources/${upload.sourceId}?${new URLSearchParams({ workspaceId, from: 'project', ...(initialRunId ? { run: initialRunId } : {}), uploadId: upload.id, ...(upload.versionId ? { sourceVersionId: upload.versionId } : {}) })}`}>{t.open}</Link><Link className="tl-button tl-button--quiet" href={`/app/projects/${project?.id}${initialRunId ? `?run=${initialRunId}` : ''}`}>{t.back}</Link></div>
     </div> : <form onSubmit={submit} className={styles.form}>
       <div className={styles.inputArea}>
         <Tabs label={t.add} value={mode} onChange={(next) => { if (!stage) { setMode(next); setError(undefined); } }} appearance="segmented" items={[
@@ -122,7 +129,7 @@ export function SourceAddPage({ ownerId, initialWorkspaceId, initialProject, pre
         ]} />
         <SourceError error={error} />
         {upload && <div role="status"><SourceStatus status={upload.status} /></div>}
-        <div className={styles.actions}><Button type="submit" icon={Upload} variant="primary" pending={Boolean(stage)} pendingLabel={stage ? t[stage] : undefined} disabled={cancelling}>{t.addAction}</Button>{stage && <Button icon={X} pending={cancelling} onClick={() => { void cancel(); }}>{t.cancel}</Button>}{upload && <Link href={`/app/materials/sources/${upload.sourceId}?workspaceId=${workspaceId}`} className="tl-button tl-button--quiet">{t.open}</Link>}</div>
+        <div className={styles.actions}><Button type="submit" icon={Upload} variant="primary" pending={Boolean(stage)} pendingLabel={stage ? t[stage] : undefined} disabled={cancelling}>{t.addAction}</Button>{stage && <Button icon={X} pending={cancelling} onClick={() => { void cancel(); }}>{t.cancel}</Button>}{upload && <Link href={`/app/materials/sources/${upload.sourceId}?${new URLSearchParams({ workspaceId, from: 'project', ...(initialRunId ? { run: initialRunId } : {}) })}`} className="tl-button tl-button--quiet">{t.open}</Link>}</div>
       </div>
       <div className={styles.settings}>
         {memberships.length > 1 && !previous && <SelectField label={t.work} value={workspaceId} disabled={Boolean(stage)} onChange={(event) => { setSelectedWorkspace(event.target.value); setProject(null); }} >{memberships.map((item) => <option key={item.workspaceId} value={item.workspaceId}>{item.name}</option>)}</SelectField>}

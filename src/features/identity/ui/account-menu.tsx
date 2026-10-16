@@ -57,7 +57,7 @@ function AuthenticatedAccountMenu({ viewer, beforeSignOut, onSignedOut }: Accoun
         <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/app/work" />}><BriefcaseBusiness aria-hidden="true" size={18} />{t("identity.navigation.home")}</Ariakit.MenuItem>
         <Ariakit.MenuSeparator className={styles.menuSeparator} />
         <Ariakit.MenuGroup aria-label={t("identity.navigation.settings")}>
-          <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#profile" />}><UserRound aria-hidden="true" size={18} />{t("identity.navigation.profile")}</Ariakit.MenuItem>
+          <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/app/profile#profile" />}><UserRound aria-hidden="true" size={18} />{t("identity.navigation.profile")}</Ariakit.MenuItem>
           <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#security" />}><KeyRound aria-hidden="true" size={18} />{t("identity.navigation.security")}</Ariakit.MenuItem>
           <Ariakit.MenuItem className={styles.menuItem} render={<Link href="/settings#language" />}><Languages aria-hidden="true" size={18} />{t("identity.navigation.language")}</Ariakit.MenuItem>
         </Ariakit.MenuGroup>

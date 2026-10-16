@@ -14,6 +14,7 @@ import { publicCopy, type PublicCopy } from "./copy";
 import { StartWork } from './start-work';
 import { ConnectedMaterialsScene } from './connected-materials-scene';
 import { DecisionProof } from './decision-proof';
+import { HeroWorkflowScene } from './hero-workflow-scene';
 import { identityClient } from '@/features/identity/ui';
 import { authHref } from '@/features/identity/ui/navigation';
 import styles from "./public-site.module.css";
@@ -61,24 +62,24 @@ function Scenarios({ copy, onStart }: { copy: PublicCopy; onStart: (goal: string
   </section>;
 }
 
-function HomeContent({ copy, signedIn, onDraftChange }: { copy: PublicCopy; signedIn: boolean; onDraftChange: (value: string) => void }) {
+function HomeContent({ copy, locale, signedIn, onDraftChange }: { copy: PublicCopy; locale: Locale; signedIn: boolean; onDraftChange: (value: string) => void }) {
   const [scenarioGoal, setScenarioGoal] = useState<string>();
   const controlIcons = [PencilLine, ShieldCheck, History];
   return <main id="public-main">
     <section className={styles.hero} aria-labelledby="tirlik-title">
-      <Image className={styles.heroImage} src="/site/business-materials.png" alt={copy.illustration} fill sizes="100vw" preload />
       <div className={styles.heroContent}>
         <h1 id="tirlik-title">{copy.heroTitle}</h1>
-        <p className={styles.tagline}>{copy.tagline}</p>
         <p className={styles.heroDescription}>{copy.description}</p>
-        <p className={styles.heroPath}>{copy.heroPath}</p>
         <div className={styles.heroActions}>
           <a href="#start" className="tl-button tl-button--primary">{copy.ownTaskAction}<ArrowRight size={19} aria-hidden="true" /></a>
+          <Link href={`/${locale}/demo`} className="tl-button tl-button--secondary">{copy.tryDemo}<ArrowRight size={18} aria-hidden="true" /></Link>
           {signedIn
             ? <Link href="/app/work" className={styles.explore}>{copy.resumeWork}<ArrowRight size={18} aria-hidden="true" /></Link>
             : <a href="#process" className={styles.explore}>{copy.processAction}<ArrowRight size={18} aria-hidden="true" /></a>}
         </div>
+        <p className={styles.demoHint}>{copy.demoHint}</p>
       </div>
+      <HeroWorkflowScene copy={copy} />
     </section>
     <DecisionProof copy={copy} />
     <StartWork copy={copy} signedIn={signedIn} scenarioGoal={scenarioGoal} onDraftChange={onDraftChange} />
@@ -148,7 +149,7 @@ export function PublicSite({ routeLocale, view = "home" }: { routeLocale?: Local
       {account.viewer ? <AccountMenu /> : <Link className="tl-button tl-button--secondary" href="/sign-in">{copy.signIn}</Link>}
     </ProductHeader>
     {authFailure && <p role="alert" className={styles.startError}>{copy.ownTaskError}</p>}
-    {view === "home" ? <HomeContent copy={copy} signedIn={Boolean(account.viewer)} onDraftChange={rememberGoal} /> : <InformationContent copy={copy} locale={locale} view={view} />}
+    {view === "home" ? <HomeContent copy={copy} locale={locale} signedIn={Boolean(account.viewer)} onDraftChange={rememberGoal} /> : <InformationContent copy={copy} locale={locale} view={view} />}
     <PublicFooter copy={copy} locale={locale} signedIn={Boolean(account.viewer)} />
   </div>;
 }

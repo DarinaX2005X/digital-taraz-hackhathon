@@ -15,10 +15,11 @@ function amount(locale: Locale, value: string | null, currency: string, unknown:
   return value === null ? unknown : `${formatDecimal(locale, value)} ${currency}`;
 }
 
-function EvidenceLinks({ refs, workspaceId, copy }: { refs: RunDecision['options'][number]['sourceRefs']; workspaceId: string; copy: AssistantSessionCopy }) {
+type EvidenceContext = { projectId?: string; runId?: string };
+function EvidenceLinks({ refs, workspaceId, copy, context }: { refs: RunDecision['options'][number]['sourceRefs']; workspaceId: string; copy: AssistantSessionCopy; context?: EvidenceContext }) {
   const unique = [...new Map(refs.map((ref) => [ref.sourceId, ref])).values()];
   if (!unique.length) return null;
-  return <small className={styles.evidenceLinks}>{copy.evidence}: {unique.map((ref, index) => <Link key={ref.sourceId} aria-label={`${copy.evidence} ${index + 1}`} href={`/app/materials/sources/${ref.sourceId}?workspaceId=${workspaceId}`}>{index + 1}<ExternalLink size={12} aria-hidden="true" /></Link>)}</small>;
+  return <small className={styles.evidenceLinks}>{copy.evidence}: {unique.map((ref, index) => <Link key={ref.sourceId} aria-label={`${copy.evidence} ${index + 1}`} href={`/app/materials/sources/${ref.sourceId}?${new URLSearchParams({ workspaceId, sourceVersionId: ref.sourceVersionId, from: context?.projectId ? 'project' : 'library', ...(context?.runId ? { run: context.runId } : {}) })}`}>{index + 1}<ExternalLink size={12} aria-hidden="true" /></Link>)}</small>;
 }
 
 function factorText(locale: Locale, factor: RunDecision['options'][number]['factors'][number]) {
@@ -26,13 +27,13 @@ function factorText(locale: Locale, factor: RunDecision['options'][number]['fact
   return businessDecisionCopy[locale][key];
 }
 
-function CapacityEvidence({ evidence, locale, workspaceId, copy }: { evidence: RunDecision['options'][number]['capacity'][number]['evidence']; locale: Locale; workspaceId: string; copy: AssistantSessionCopy }) {
-  if (evidence.origin === 'source') return <small className={styles.capacityEvidence}><span>{copy.sourceAvailability}</span><span>{copy.verifiedAvailability}: {formatInstant(locale, evidence.verifiedAt, { dateStyle: 'medium' })}</span><EvidenceLinks refs={evidence.sourceRefs} workspaceId={workspaceId} copy={copy} /></small>;
+function CapacityEvidence({ evidence, locale, workspaceId, copy, context }: { evidence: RunDecision['options'][number]['capacity'][number]['evidence']; locale: Locale; workspaceId: string; copy: AssistantSessionCopy; context?: EvidenceContext }) {
+  if (evidence.origin === 'source') return <small className={styles.capacityEvidence}><span>{copy.sourceAvailability}</span><span>{copy.verifiedAvailability}: {formatInstant(locale, evidence.verifiedAt, { dateStyle: 'medium' })}</span><EvidenceLinks refs={evidence.sourceRefs} workspaceId={workspaceId} copy={copy} context={context} /></small>;
   if (evidence.origin === 'manual') return <small className={styles.capacityEvidence}><span>{copy.manualAvailability}</span>{evidence.verifiedAt ? <span>{copy.verifiedAvailability}: {formatInstant(locale, evidence.verifiedAt, { dateStyle: 'medium' })}</span> : <span>{copy.unknown}</span>}</small>;
   return <small className={styles.capacityEvidence}>{copy.missingAvailability}</small>;
 }
 
-export function DecisionPanel({ decision, locale, workspaceId, copy, canChoose, pending, pendingConditions = [], onChoose, onAcceptConditions }: {
+export function DecisionPanel({ decision, locale, workspaceId, copy, canChoose, pending, pendingConditions = [], onChoose, onAcceptConditions, context }: {
   decision: RunDecision;
   locale: Locale;
   workspaceId: string;
@@ -40,6 +41,7 @@ export function DecisionPanel({ decision, locale, workspaceId, copy, canChoose, 
   canChoose: boolean;
   pending: boolean;
   pendingConditions?: { id: string; text: string }[];
+  context?: EvidenceContext;
   onChoose: (optionId: string) => void;
   onAcceptConditions?: (conditionIds: string[]) => void;
 }) {
@@ -48,7 +50,7 @@ export function DecisionPanel({ decision, locale, workspaceId, copy, canChoose, 
     <div className={styles.decisionHeading}><div><h3 id="assistant-decision-title">{copy.decisionTitle}</h3><p>{copy.decisionHint}</p></div>{dimensions.length > 0 && <span>{formatList(locale, dimensions.map((dimension) => copy.dimensions[dimension]))}</span>}</div>
     <div className={styles.decisionTableWrap} tabIndex={0}>
       <table className={styles.decisionTable}>
-        <thead><tr><th scope="col">{copy.outcome}</th>{decision.options.map((option) => <th scope="col" key={option.id}><strong>{option.title}</strong><span data-outcome={option.outcome}>{copy.outcomes[option.outcome]}</span>{decision.selectedOptionId === option.id ? <em><Check size={16} aria-hidden="true" />{copy.selectedOption}</em> : canChoose && option.outcome !== 'not_confirmed' ? <Button variant="primary" pending={pending} disabled={pending} onClick={() => onChoose(option.id)}>{copy.chooseOption}</Button> : null}<EvidenceLinks refs={option.sourceRefs} workspaceId={workspaceId} copy={copy} /></th>)}</tr></thead>
+        <thead><tr><th scope="col">{copy.outcome}</th>{decision.options.map((option) => <th scope="col" key={option.id}><strong>{option.title}</strong><span data-outcome={option.outcome}>{copy.outcomes[option.outcome]}</span>{decision.selectedOptionId === option.id ? <em><Check size={16} aria-hidden="true" />{copy.selectedOption}</em> : canChoose && option.outcome !== 'not_confirmed' ? <Button variant="primary" pending={pending} disabled={pending} onClick={() => onChoose(option.id)}>{copy.chooseOption}</Button> : null}<EvidenceLinks refs={option.sourceRefs} workspaceId={workspaceId} copy={copy} context={context} /></th>)}</tr></thead>
         <tbody>
           <tr><th scope="row">{copy.quotedTotal}</th>{decision.options.map((option) => <td key={option.id}>{amount(locale, option.commercial.quotedTotal, option.commercial.currency, copy.unknown)}</td>)}</tr>
           <tr><th scope="row">{copy.directCost}</th>{decision.options.map((option) => <td key={option.id}>{amount(locale, option.commercial.directCost, option.commercial.currency, copy.unknown)}</td>)}</tr>
@@ -57,8 +59,8 @@ export function DecisionPanel({ decision, locale, workspaceId, copy, canChoose, 
           <tr><th scope="row">{copy.requestedDate}</th>{decision.options.map((option) => <td key={option.id}>{formatCalendarDate(locale, option.deadline.requestedDate)}</td>)}</tr>
           <tr><th scope="row">{copy.openingDate}</th>{decision.options.map((option) => <td key={option.id}>{option.deadline.openingDate ? formatCalendarDate(locale, option.deadline.openingDate) : copy.unknown}</td>)}</tr>
           <tr><th scope="row">{copy.earliestDate}</th>{decision.options.map((option) => <td key={option.id}>{option.deadline.earliestCompletionDate ? formatCalendarDate(locale, option.deadline.earliestCompletionDate) : copy.unknown}</td>)}</tr>
-          <tr><th scope="row">{copy.capacity}</th>{decision.options.map((option) => <td key={option.id}>{option.capacity.length ? <ul className={styles.capacityList}>{option.capacity.map((item, index) => <li key={`${index}:${item.scope}`}><span>{item.scope}</span><strong>{item.requiredMinutes === null ? copy.unknown : formatNumber(locale, item.requiredMinutes)} / {item.availableMinutes === null ? copy.unknown : formatNumber(locale, item.availableMinutes)} {copy.minutes}</strong><CapacityEvidence evidence={item.evidence} locale={locale} workspaceId={workspaceId} copy={copy} /></li>)}</ul> : copy.unknown}</td>)}</tr>
-          <tr><th scope="row">{copy.conditions}</th>{decision.options.map((option) => <td key={option.id}>{option.factors.length ? <ul className={styles.factorList}>{option.factors.map((factor, index) => <li key={`${factor.code}:${index}`}><CircleHelp size={16} aria-hidden="true" /><span>{factorText(locale, factor)}<EvidenceLinks refs={factor.sourceRefs} workspaceId={workspaceId} copy={copy} /></span></li>)}</ul> : <span>{copy.outcomes[option.outcome]}</span>}</td>)}</tr>
+          <tr><th scope="row">{copy.capacity}</th>{decision.options.map((option) => <td key={option.id}>{option.capacity.length ? <ul className={styles.capacityList}>{option.capacity.map((item, index) => <li key={`${index}:${item.scope}`}><span>{item.scope}</span><strong>{item.requiredMinutes === null ? copy.unknown : formatNumber(locale, item.requiredMinutes)} / {item.availableMinutes === null ? copy.unknown : formatNumber(locale, item.availableMinutes)} {copy.minutes}</strong><CapacityEvidence evidence={item.evidence} locale={locale} workspaceId={workspaceId} copy={copy} context={context} /></li>)}</ul> : copy.unknown}</td>)}</tr>
+          <tr><th scope="row">{copy.conditions}</th>{decision.options.map((option) => <td key={option.id}>{option.factors.length ? <ul className={styles.factorList}>{option.factors.map((factor, index) => <li key={`${factor.code}:${index}`}><CircleHelp size={16} aria-hidden="true" /><span>{factorText(locale, factor)}<EvidenceLinks refs={factor.sourceRefs} workspaceId={workspaceId} copy={copy} context={context} /></span></li>)}</ul> : <span>{copy.outcomes[option.outcome]}</span>}</td>)}</tr>
         </tbody>
       </table>
     </div>

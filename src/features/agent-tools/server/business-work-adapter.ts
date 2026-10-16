@@ -32,6 +32,7 @@ function appendResults(state: Parameters<BusinessToolDefinition['effect']>[3], r
       summary: result.summary,
       decision: null,
       workDecision: result.decision ?? null,
+      workPreview: result.workPreview ?? null,
       selectedOptionId: result.decision ? null : state.selectedOptionId,
       acceptedConditionIds: result.decision ? [] : state.acceptedConditionIds,
       bundle: result.decision ? null : state.bundle,
@@ -68,7 +69,7 @@ export function businessWorkToolExtension(
       }).passthrough().parse(state);
       const inputRevisionVector = Object.fromEntries(parsedState.inputRefs.map((ref) => [ref.id, ref.revision]));
       const execution = WorkExecutionContextSchema.parse({
-        authority: { kind: 'user', userId: context.userId },
+        authority: state.executionAuthority ?? { kind: 'user', userId: context.userId },
         operationId: context.fence.stepId,
         workspaceId: context.workspaceId,
         projectId: context.projectId,
@@ -78,6 +79,7 @@ export function businessWorkToolExtension(
         cancelEpoch: context.fence.epoch,
         locale: parsedState.locale,
       });
+      if (execution.authority.kind === 'demo' && Date.parse(execution.authority.expiresAt) <= Date.now()) throw new RunError('access_changed');
       return descriptor.outputSchema.parse(await descriptor.execute(descriptor.inputSchema.parse(raw), execution));
     },
     effect: async (_tx, _raw, _context, state, prepared) => {

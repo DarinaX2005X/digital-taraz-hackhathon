@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 let pool: Pool;
 let origin: string;
 const invitePath = `/settings/invitations/${'a'.repeat(64)}`;
-const publicPaths = ['/', '/sign-in', '/sign-up', '/auth/verify', '/auth/reset', '/settings', '/settings/team', invitePath];
+const publicPaths = ['/', '/sign-in', '/sign-up', '/auth', '/auth/verify', '/auth/reset', '/app/profile', '/settings', '/settings/team', invitePath];
 
 function request(path: string, language?: string) {
   return fetch(`${origin}${path}`, {
@@ -32,7 +32,7 @@ describe('mounted identity routes over HTTP', () => {
     expect(response.headers.get('content-type')).toContain('text/html');
     const html = await response.text();
     expect(html, path).toContain('lang="kk"');
-    if (path.startsWith('/auth/') || path === invitePath) expect(html).toContain('name="referrer" content="no-referrer"');
+    if (path.startsWith('/auth/') || path === '/auth' || path === invitePath) expect(html).toContain('name="referrer" content="no-referrer"');
     expect((await pool.query('SELECT count(*)::int AS count FROM identity_users')).rows[0].count).toBe(before);
   });
 

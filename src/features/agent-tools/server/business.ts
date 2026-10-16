@@ -8,6 +8,7 @@ import { withWorkspaceAccess } from '../../identity/server/access';
 import { readPinnedSource } from '../../sources/server/pinned-source';
 import { IdSchema, RevisionSchema } from '../../../contracts/primitives';
 import { currencyMinorUnitScale } from '../../../contracts/calculations';
+import { WorkExecutionAuthoritySchema } from '../../../contracts/business-work';
 import { excerptArtifact } from './artifact-context';
 import { createDependencyService } from '../../dependencies/server/service';
 import {
@@ -135,7 +136,7 @@ export function projectBusinessProgress(raw: unknown): RunProgressProjection {
       return { kind: 'artifact' as const, id, ...(result?.revision === undefined ? {} : { revision: result.revision }) };
     }),
   })) ?? [];
-  return RunProgressProjectionSchema.parse({ plan: state.plan, questions: state.questions, summary: state.summary, results: state.results, decision: projectedDecision, workDecision, branches: [...commercialBranches, ...workBranches].slice(0, 8) });
+  return RunProgressProjectionSchema.parse({ plan: state.plan, questions: state.questions, summary: state.summary, results: state.results, decision: projectedDecision, workDecision, workPreview: state.workPreview, branches: [...commercialBranches, ...workBranches].slice(0, 8) });
 }
 
 export function resolveDecisionControls(input: {
@@ -339,7 +340,10 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
   const capability: RunCapability = { id: 'business.goal', version: 1, publicStart: true, policy, projectProgress: projectBusinessProgress,
     initialize: (input, privateInput) => {
       if (!input.projectId) throw new RunError('conflict', 'VALIDATION_FAILED');
-      const state = privateInput.continuation ? BusinessContextSchema.parse(privateInput.continuation) : initialBusinessContext(input);
+      const authority = WorkExecutionAuthoritySchema.nullable().parse(privateInput.executionAuthority ?? null);
+      const state = privateInput.continuation
+        ? BusinessContextSchema.parse(privateInput.continuation)
+        : BusinessContextSchema.parse({ ...initialBusinessContext(input), executionAuthority: authority });
       return { context: state, steps: [{ tool: 'business.bootstrap', version: 1, action: 'read_sources', input: {} }] };
     },
     continue: (input, raw, change) => {
@@ -363,7 +367,7 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
       })) throw new RunError('conflict', 'VALIDATION_FAILED');
       const answers = changedObjective ? incoming : [...state.answers, ...incoming].slice(-40);
       return {
-        context: { ...state, goal: input.goal, plan: change.plan ?? (change.goal ? [] : state.plan), questions: [], answers, messages: [], summary: '', round: 0, selectedOptionId: changedObjective ? null : controls.canonicalSelectedOptionId, acceptedConditionIds: changedObjective ? [] : controls.acceptedConditionIds, ...(changedObjective ? { operations: [], planProposals: [], decision: null, workDecision: null, bundle: null } : {}) },
+        context: { ...state, goal: input.goal, plan: change.plan ?? (change.goal ? [] : state.plan), questions: [], answers, messages: [], summary: '', round: 0, selectedOptionId: changedObjective ? null : controls.canonicalSelectedOptionId, acceptedConditionIds: changedObjective ? [] : controls.acceptedConditionIds, ...(changedObjective ? { operations: [], planProposals: [], decision: null, workDecision: null, workPreview: null, bundle: null } : {}) },
         steps: !changedObjective && controls.pendingConsent ? [{ tool: 'business.ask_user', version: 1, action: 'continue', input: { callId: 'condition_consent', arguments: { blockerId: controls.pendingConsent } } }] : [decide(0)],
       };
     },

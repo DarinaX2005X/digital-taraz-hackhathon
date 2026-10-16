@@ -23,20 +23,20 @@ export interface UploadRow {
   byte_hash: string | null; byte_size: number | null; manifest: SourceManifest | null; error_code: string | null;
   created_at: Date; updated_at: Date;
 }
-interface SourceRow { id: string; workspace_id: string; project_id: string; title: string; state: string; current_revision: number; current_version_id: string | null; access_class: 'internal' | 'confidential'; created_at: Date; updated_at: Date }
+interface SourceRow { id: string; workspace_id: string; project_id: string; title: string; state: string; current_revision: number; current_version_id: string | null; access_class: 'internal' | 'confidential'; metadata_revision: number; lifecycle_state: 'active' | 'archived' | 'trashed'; trashed_at: Date | null; created_at: Date; updated_at: Date }
 const fail = (key: string, code: 'CONFLICT' | 'NOT_FOUND' | 'VALIDATION_FAILED' = 'CONFLICT') => new IdentityError(code, `sources.errors.${key}`);
 const uploadDto = (row: UploadRow) => ({ id: row.id, sourceId: row.source_id, versionId: row.published_version_id, status: row.status, format: row.format, fileName: row.file_name, byteSize: row.byte_size ?? row.declared_size, byteHash: row.byte_hash, manifest: row.manifest, errorCode: row.error_code, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() });
-const summaryDto = (source: SourceRow, upload: UploadRow) => ({ id: source.id, workspaceId: source.workspace_id, projectId: source.project_id, title: source.title, accessClass: source.access_class, revision: source.current_revision, currentVersionId: source.current_version_id, status: upload.status, format: upload.format, fileName: upload.file_name, byteSize: upload.byte_size ?? upload.declared_size, createdAt: source.created_at.toISOString(), updatedAt: source.updated_at.toISOString() });
-const sourceColumns = 's.id,s.workspace_id,s.project_id,d.title,s.state,s.current_revision,s.current_version_id,s.access_class,s.created_at,s.updated_at';
+const summaryDto = (source: SourceRow, upload: UploadRow) => ({ id: source.id, workspaceId: source.workspace_id, projectId: source.project_id, title: source.title, accessClass: source.access_class, revision: source.current_revision, currentVersionId: source.current_version_id, metadataRevision: source.metadata_revision, lifecycleState: source.lifecycle_state, trashedAt: source.trashed_at?.toISOString() ?? null, status: upload.status, format: upload.format, fileName: upload.file_name, byteSize: upload.byte_size ?? upload.declared_size, createdAt: source.created_at.toISOString(), updatedAt: source.updated_at.toISOString() });
+const sourceColumns = 's.id,s.workspace_id,s.project_id,d.title,s.state,s.current_revision,s.current_version_id,s.access_class,l.metadata_revision,l.lifecycle_state,l.trashed_at,s.created_at,s.updated_at';
 export const SOURCE_CHUNK_WRITE_BATCH = 4;
 
 export async function authorizedSource(tx: PoolClient, access: WorkspaceAccess, sourceId: string, scope: 'read' | 'edit') {
-  const source = (await tx.query<SourceRow>(`SELECT ${sourceColumns} FROM sources s JOIN source_details d ON d.source_id=s.id AND d.workspace_id=s.workspace_id WHERE s.workspace_id=$1 AND s.id=$2`, [access.workspace.id, sourceId])).rows[0];
-  if (!source || source.state === 'trashed') throw fail('notFound', 'NOT_FOUND');
+  const source = (await tx.query<SourceRow>(`SELECT ${sourceColumns} FROM sources s JOIN source_details d ON d.source_id=s.id AND d.workspace_id=s.workspace_id JOIN library_source_lifecycle l ON l.workspace_id=s.workspace_id AND l.source_id=s.id WHERE s.workspace_id=$1 AND s.id=$2`, [access.workspace.id, sourceId])).rows[0];
+  if (!source || source.lifecycle_state === 'trashed') throw fail('notFound', 'NOT_FOUND');
   await lockProjectAccess(tx, access, { projectId: source.project_id, scope, confidential: source.access_class === 'confidential' });
   if (scope === 'edit') {
     const project = (await tx.query<{ status: string }>('SELECT status FROM projects WHERE workspace_id=$1 AND id=$2', [access.workspace.id, source.project_id])).rows[0];
-    if (project?.status !== 'active') throw fail('conflict');
+    if (project?.status !== 'active' || source.lifecycle_state !== 'active') throw fail('conflict');
   }
   return source;
 }
@@ -191,7 +191,7 @@ export function createSourceService(pool: Pool, storage = new LocalSourceStorage
     return access(principal, workspaceId, 'read', async (tx, auth) => {
       const project = await lockProjectAccess(tx, auth, { projectId, scope: 'read' });
       const confidential = hasScope({ ...project.membership, projectScopes: project.projectScopes }, 'read-confidential');
-      const rows = (await tx.query<SourceRow & { upload: UploadRow }>(`SELECT ${sourceColumns},row_to_json(u) AS upload FROM sources s JOIN source_details d ON d.workspace_id=s.workspace_id AND d.source_id=s.id JOIN LATERAL (SELECT * FROM source_uploads WHERE workspace_id=s.workspace_id AND source_id=s.id ORDER BY created_at DESC,id DESC LIMIT 1) u ON true WHERE s.workspace_id=$1 AND s.project_id=$2 AND s.state<>'trashed' AND ($3::boolean OR s.access_class<>'confidential') AND ($4::uuid IS NULL OR s.id>$4) ORDER BY s.id LIMIT $5`, [workspaceId, projectId, confidential, after ?? null, limit + 1])).rows;
+      const rows = (await tx.query<SourceRow & { upload: UploadRow }>(`SELECT ${sourceColumns},row_to_json(u) AS upload FROM sources s JOIN source_details d ON d.workspace_id=s.workspace_id AND d.source_id=s.id JOIN library_source_lifecycle l ON l.workspace_id=s.workspace_id AND l.source_id=s.id JOIN LATERAL (SELECT * FROM source_uploads WHERE workspace_id=s.workspace_id AND source_id=s.id ORDER BY created_at DESC,id DESC LIMIT 1) u ON true WHERE s.workspace_id=$1 AND s.project_id=$2 AND l.lifecycle_state='active' AND ($3::boolean OR s.access_class<>'confidential') AND ($4::uuid IS NULL OR s.id>$4) ORDER BY s.id LIMIT $5`, [workspaceId, projectId, confidential, after ?? null, limit + 1])).rows;
       const page = rows.slice(0, limit);
       return SourceListSchema.parse({ sources: page.map((row) => summaryDto(row, { ...row.upload, created_at: new Date(row.upload.created_at), updated_at: new Date(row.upload.updated_at) })), nextCursor: rows.length > limit ? page.at(-1)!.id : null });
     });

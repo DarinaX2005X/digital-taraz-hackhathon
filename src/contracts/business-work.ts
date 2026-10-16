@@ -17,6 +17,10 @@ import {
 } from './primitives';
 import { RunInputRefSchema } from './runs';
 import { ProposeWorkPlanInputSchema } from '../features/operations/domain/propose-work-plan';
+import { BusinessWorkPreviewSchema } from './work-preview';
+
+export { BusinessWorkPreviewSchema, WorkPreviewArtifactRefSchema } from './work-preview';
+export type { BusinessWorkPreview, WorkPreviewArtifactRef } from './work-preview';
 
 /** A selected immutable artifact version. Content is read through the artifact ACL. */
 export const ArtifactSnapshotRefSchema = z.strictObject({
@@ -26,7 +30,7 @@ export const ArtifactSnapshotRefSchema = z.strictObject({
 
 export const WorkExecutionAuthoritySchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('user'), userId: IdSchema }),
-  z.strictObject({ kind: z.literal('demo'), sessionId: IdSchema, expiresAt: InstantSchema }),
+  z.strictObject({ kind: z.literal('demo'), sessionId: IdSchema, userId: IdSchema, expiresAt: InstantSchema }),
 ]);
 
 /**
@@ -65,11 +69,13 @@ export const BusinessWorkResultSchema = z.strictObject({
   checks: z.array(WorkFindingSchema.extend({ status: z.enum(['passed', 'failed', 'unknown']) })).max(200),
   unresolved: z.array(WorkFindingSchema).max(200),
   decision: BusinessWorkDecisionSchema.optional(),
+  workPreview: BusinessWorkPreviewSchema.optional(),
   summary: z.string().max(3000),
 }).superRefine((result, context) => {
   const artifactIds = new Set(result.artifacts.map((item) => item.artifact.id));
   if (artifactIds.size !== result.artifacts.length) context.addIssue({ code: 'custom', message: 'Business work artifacts must be unique.' });
   if (result.decision?.options.some((option) => option.artifactIds.some((id) => !artifactIds.has(id)))) context.addIssue({ code: 'custom', message: 'Decision options may reference only returned artifacts.' });
+  if (result.workPreview && !artifactIds.has(result.workPreview.editable.artifactId)) context.addIssue({ code: 'custom', message: 'A work preview must reference an artifact returned by the same operation.' });
 });
 
 /** Existing canonical material query, named as the cross-domain K7 contract. */

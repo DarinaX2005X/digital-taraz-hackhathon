@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createQueueDispatcher } from '../../src/features/runs/server/dispatcher';
 vi.mock('workflow/api', () => ({ start: vi.fn() }));
 vi.mock('../../src/features/runs/server/workflow', () => ({ executeRunWorkflow: vi.fn() }));
+vi.mock('../../src/features/runs/server/runtime', () => ({ getRunRuntime: vi.fn() }));
 const claim = { runId: randomUUID(), epoch: 2, leaseOwner: randomUUID() };
 describe('runtime queue dispatch', () => {
   it('coalesces simultaneous wakeups and records the workflow identifier', async () => {

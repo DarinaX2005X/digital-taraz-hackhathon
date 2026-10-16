@@ -13,8 +13,11 @@ describe('public-site route and semantic inventory', () => {
       'src/app/[locale]/page.tsx',
       'src/app/[locale]/help/page.tsx',
       'src/app/[locale]/privacy/page.tsx',
+      'src/app/demo/page.tsx',
+      'src/app/[locale]/demo/page.tsx',
       'src/app/[locale]/not-found.tsx',
       'src/app/app/work/page.tsx',
+      'src/app/app/profile/page.tsx',
       'src/app/sign-in/page.tsx',
       'src/app/sign-up/page.tsx',
       'src/app/settings/page.tsx',
@@ -51,7 +54,7 @@ describe('public-site route and semantic inventory', () => {
     expect(generateStaticParams()).toEqual([{ locale: 'ru' }, { locale: 'kk' }, { locale: 'en' }]);
     const metadata = await generateMetadata({ params: Promise.resolve({ locale: 'ru' }) });
     expect(String(metadata.title)).toContain('Tirlik');
-    expect(metadata.description).toContain('AI-ассистент');
+    expect(metadata.description).toContain('Предложения клиентам');
   });
 
   it('contains explicit narrow-layout and reduced-motion fallbacks', () => {
@@ -59,6 +62,6 @@ describe('public-site route and semantic inventory', () => {
     expect(css).toContain('@media (max-width: 760px)');
     expect(css).toContain('@media (max-width: 390px)');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
-    expect(css).toContain('grid-template-columns: minmax(0, 1fr)');
+    expect(css).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\)/);
   });
 });

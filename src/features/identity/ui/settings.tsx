@@ -160,7 +160,7 @@ function SessionsSection({ version, guard, onSignOut, onSignIn, userId }: { vers
   </section>;
 }
 
-function SettingsContent({ viewer, onDeleted, onDirtyChange }: { viewer: IdentityViewer; onDeleted: (result: AccountDeletionResult) => void; onDirtyChange: (dirty: boolean) => void }) {
+function SettingsContent({ viewer, returnTo, onDeleted, onDirtyChange }: { viewer: IdentityViewer; returnTo: '/settings' | '/app/profile'; onDeleted: (result: AccountDeletionResult) => void; onDirtyChange: (dirty: boolean) => void }) {
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
   const [authOpen, setAuthOpen] = useState(false);
@@ -192,12 +192,12 @@ function SettingsContent({ viewer, onDeleted, onDirtyChange }: { viewer: Identit
         {view === "delete-account" && <AccountDeletionSection userId={viewer.user.id} guard={guard} authVersion={sessionsVersion} uncertain={deletionUncertain} onUncertainChange={setDeletionUncertain} onDeleted={onDeleted} />}
       </div>
     </div> : <div className={styles.stack}><PrivateSessionState phase={access.phase} onSignIn={() => setAuthOpen(true)} onResume={access.resume} />{deletionUncertain && <p role="alert">{t("identity.deletion.sessionUnavailable")}</p>}</div>}
-    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo="/settings" onAuthenticated={() => { setAuthOpen(false); setSessionsVersion((value) => value + 1); }} />
+    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={returnTo} onAuthenticated={() => { setAuthOpen(false); setSessionsVersion((value) => value + 1); }} />
     {access.phase === "active" && <SignOutDialog open={signOutOpen} onOpenChange={setSignOutOpen} />}
   </>;
 }
 
-export function SettingsPage({ initialViewer }: { initialViewer?: IdentityViewer }) {
+export function SettingsPage({ initialViewer, returnTo = '/settings' }: { initialViewer?: IdentityViewer; returnTo?: '/settings' | '/app/profile' }) {
   const t = useIdentityTranslations();
   const account = useIdentityAccount();
   const [viewer, setViewer] = useState(initialViewer);
@@ -210,10 +210,10 @@ export function SettingsPage({ initialViewer }: { initialViewer?: IdentityViewer
   return <div className={styles.page} onClickCapture={navigation.onClickCapture}>
     <ProductHeader wide homeLabel={t("identity.navigation.home")}><LocaleSelect compact /><AccountMenu /></ProductHeader>
     <main className={styles.settings}><div className={styles.heading}><h1>{t("identity.profile.title")}</h1><p>{t("identity.profile.description")}</p></div>
-      {viewer ? <SettingsContent key={viewer.user.id} viewer={viewer} onDirtyChange={setDirty} onDeleted={(result) => { setDirty(false); setDeleted(result); setViewer(undefined); account.clear(); }} /> : !account.ready || operation.pending ? <LoadingState label={t("identity.profile.loading")} /> : <div className={styles.stack}>
+      {viewer ? <SettingsContent key={viewer.user.id} viewer={viewer} returnTo={returnTo} onDirtyChange={setDirty} onDeleted={(result) => { setDirty(false); setDeleted(result); setViewer(undefined); account.clear(); }} /> : !account.ready || operation.pending ? <LoadingState label={t("identity.profile.loading")} /> : <div className={styles.stack}>
         <p className={styles.muted}>{t("identity.settings.signInDescription")}</p>
         <OperationError failure={operation.failure} />
-        <div className={styles.actions}><Link href={authHref("/sign-in", { returnTo: "/settings" })} className="tl-button tl-button--primary"><LogIn size={20} aria-hidden="true" />{t("identity.navigation.signIn")}</Link><Button icon={RefreshCw} onClick={() => { void operation.run(() => account.refresh()); }}>{t("identity.profile.reload")}</Button></div>
+        <div className={styles.actions}><Link href={authHref("/sign-in", { returnTo })} className="tl-button tl-button--primary"><LogIn size={20} aria-hidden="true" />{t("identity.navigation.signIn")}</Link><Button icon={RefreshCw} onClick={() => { void operation.run(() => account.refresh()); }}>{t("identity.profile.reload")}</Button></div>
       </div>}
     </main>
     {navigation.confirmation}

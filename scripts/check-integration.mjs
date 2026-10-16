@@ -58,7 +58,11 @@ async function runPhase(phase) {
     if (phase !== "database") {
       console.log("Starting the isolated application for HTTP integration checks...");
       app = await startAppProcess(root, { port: context.ports.app, env: options.env, logFile: path.join(context.directory, "app.log"), ...(productionBuild ? { mode: "production" } : {}) });
-      await waitForAppHealth(context.ports.app, { process: app });
+      // A cold development compiler may spend most of the default health window
+      // loading Next configuration and instrumentation before it can compile the
+      // first health request. Keep the product-test and cleanup deadlines
+      // unchanged; only bound the owned cold start separately.
+      await waitForAppHealth(context.ports.app, { process: app, timeoutMs: productionBuild ? 120_000 : 240_000 });
     }
     // Leave time for owned app/container cleanup before the checkpoint helper's 300s deadline.
     const testOptions = { ...options, timeoutMs: phase === "database" ? 180_000 : 240_000 };

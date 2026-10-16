@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BusinessWorkPreviewSchema } from './work-preview';
 import { SourceRefSchema } from './artifacts';
 import { PermissionSchema } from './capabilities';
 import { CalendarDateSchema, HashSchema, IdSchema, InstantSchema, LocaleSchema, RevisionSchema } from './primitives';
@@ -124,6 +125,7 @@ export const RunProgressProjectionSchema = z.strictObject({
   results: z.array(RunResultRefSchema.extend({ title: z.string().max(240) })).max(40),
   decision: RunDecisionSchema.nullable().optional(),
   workDecision: RunWorkDecisionSchema.nullable().optional(),
+  workPreview: BusinessWorkPreviewSchema.nullable().optional(),
   branches: z.array(RunBranchProjectionSchema).max(8).optional(),
 });
 export const RunProgressSchema = RunProgressProjectionSchema.extend({

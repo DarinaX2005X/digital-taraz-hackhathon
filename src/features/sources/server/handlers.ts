@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { z } from 'zod';
 import { IdSchema } from '../../../contracts/primitives';
 import { AcceptSourcePageSchema, InitSourceUploadSchema, StartSourceOcrSchema } from '../../../contracts/sources';
+import { LibraryLifecycleMutationRequestSchema } from '../../../contracts/library-lifecycle';
 import type { IdentityActor } from '../../identity/server/handlers';
 import type { SessionPrincipal } from '../../identity/server/access';
 import { assertOrigin, errorResponse, IdentityError, json, limit, readJson, validate } from '../../identity/server/http';
@@ -16,6 +17,7 @@ import { withWorkspaceAccess } from '../../identity/server/access';
 import { authorizedUpload } from './service';
 import { sourcePageImage } from './page-image';
 import sharp from 'sharp';
+import { createSourceLibraryLifecycleService } from './library-lifecycle';
 
 const WorkspaceSchema = z.strictObject({ workspaceId: IdSchema });
 const integer = (value: string | undefined, fallback: number, maximum: number) => value === undefined ? fallback : validate(z.string().regex(/^(0|[1-9]\d*)$/).transform(Number).pipe(z.number().int().min(0).max(maximum)), value);
@@ -24,6 +26,7 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
   const documents = createSourceDocumentAdapter(options.pool, options.storage);
   const assets = createSourceVisualAssetService(options.pool, options.storage);
   const recognition = createSourceRecognitionService(options.pool, options.runtime, options.storage);
+  const mutateLifecycle = createSourceLibraryLifecycleService(options.pool);
   return async function handle(request: Request): Promise<Response> {
     try {
       if (!['GET', 'POST', 'PUT'].includes(request.method)) throw new IdentityError('NOT_FOUND', 'sources.errors.notFound');
@@ -33,10 +36,10 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
       await limit(options.pool, `source-api:${actor.user.id}:${request.method === 'GET' ? 'read' : 'write'}`, request.method === 'GET' ? 600 : 120, 60);
       const url = new URL(request.url), parts = url.pathname.slice('/api/sources'.length).split('/').filter(Boolean);
       if (request.method === 'GET') {
-        const query = queryObject(url, ['workspaceId', 'projectId', 'limit', 'after', 'uploadId', 'chunk', 'query', 'format', 'from', 'to', 'kind', 'pageLimit']);
+        const query = queryObject(url, ['workspaceId', 'projectId', 'limit', 'after', 'uploadId', 'chunk', 'query', 'format', 'lifecycleState', 'from', 'to', 'kind', 'pageLimit']);
         const workspaceId = validate(IdSchema, query.workspaceId);
         if (parts.length === 1 && parts[0] === 'library') {
-          const values = queryObject(url, ['workspaceId', 'projectId', 'query', 'format', 'from', 'to', 'limit', 'after']);
+          const values = queryObject(url, ['workspaceId', 'projectId', 'query', 'format', 'lifecycleState', 'from', 'to', 'limit', 'after']);
           return json(await service.listLibrary(principal, { ...values, workspaceId, limit: integer(values.limit, 30, 50) } as import('../../../contracts/sources').SourceLibraryQuery));
         }
         if (parts.length === 1 && parts[0] === 'assets') return json(await assets.list(principal, { workspaceId, projectId: validate(IdSchema, query.projectId), kind: query.kind as 'image' | 'font' | undefined, after: query.after, limit: integer(query.limit, 30, 50) }));
@@ -81,6 +84,11 @@ export function createSourceHandlers(options: { pool: Pool; origin: string; getA
       } else {
         queryObject(url, []);
         const body = await readJson(request);
+        if (parts.length === 2 && parts[1] === 'lifecycle') {
+          const input = validate(LibraryLifecycleMutationRequestSchema, body);
+          if (input.operationId !== idempotencyKey(request) || input.command.objectId !== validate(IdSchema, parts[0])) throw new IdentityError('VALIDATION_FAILED', 'sources.errors.validation');
+          return json(await mutateLifecycle(principal, input));
+        }
         if (parts.length === 2 && parts[0] === 'uploads' && parts[1] === 'init') return json(await service.init(principal, idempotencyKey(request), validate(InitSourceUploadSchema, body)), 201);
         if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'recognize') return json(await recognition.start(principal, validate(IdSchema, parts[1]), idempotencyKey(request), validate(StartSourceOcrSchema, body)), 202);
         if (parts.length === 3 && parts[0] === 'uploads' && parts[2] === 'review') return json(await recognition.accept(principal, validate(IdSchema, parts[1]), validate(AcceptSourcePageSchema, body)));

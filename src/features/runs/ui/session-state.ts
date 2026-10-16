@@ -38,6 +38,16 @@ export function sessionResultHref(run: Pick<Run, 'id' | 'workspaceId' | 'project
     const query = new URLSearchParams({ run: run.id });
     return `/app/projects/${run.projectId}/artifacts/${result.id}?${query}`;
   }
-  if (result.kind === 'source') return `/app/materials/sources/${result.id}?workspaceId=${run.workspaceId}`;
+  if (result.kind === 'source') return `/app/materials/sources/${result.id}?${new URLSearchParams({ workspaceId: run.workspaceId, from: 'project', run: run.id })}`;
   return null;
+}
+
+export function sessionArtifactResultHrefs(run: Pick<Run, 'id' | 'workspaceId' | 'projectId' | 'steps' | 'progress'>, artifactIds: readonly string[]) {
+  const available = new Map(sessionResults(run).filter((result) => result.kind === 'artifact').map((result) => [result.id, result]));
+  const titles = new Map(run.progress.results.filter((result) => result.kind === 'artifact').map((result) => [result.id, result.title]));
+  return Object.fromEntries([...new Set(artifactIds)].flatMap((artifactId) => {
+    const result = available.get(artifactId);
+    const href = result && sessionResultHref(run, result);
+    return href ? [[artifactId, { href, ...(titles.get(artifactId) ? { title: titles.get(artifactId) } : {}) }]] : [];
+  }));
 }

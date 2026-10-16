@@ -7,6 +7,7 @@ describe('identity navigation and input boundaries', () => {
   it('accepts only local product destinations and opaque state', () => {
     expect(safeReturnTo('/app/projects/one')).toBe('/app/projects/one');
     expect(safeReturnTo('/settings/profile')).toBe('/settings/profile');
+    expect(safeReturnTo('/app/profile#security')).toBe('/app/profile');
     for (const target of ['https://evil.test/app', '//evil.test/app', '/\\evil.test', '/api/auth/sign-out', '/app/../../api/auth', '/apple', '/app\n']) expect(safeReturnTo(target)).toBe('/app');
     expect(safeReturnTo('/app?goal=private&email=a%40b.test#private')).toBe('/app');
     const token = 'a'.repeat(64);

@@ -1,30 +1,58 @@
 import type { Locale } from '@/i18n';
-import type { TourStep } from './contracts';
+import { TOUR_STEPS, type TourStep } from './contracts';
 
-type Copy = { title: string; intro: string; start: string; show: string; next: string; skip: string; resume: string; replay: string; settings: string; error: string; retry: string; saved: string; continue: string; finish: string; steps: Record<TourStep, { title: string; body: string }> };
+type StepCopy = { title: string; body: string; unavailable: string };
+type Copy = {
+  title: string; intro: string; start: string; show: string; next: string; back: string; close: string; skip: string;
+  resume: string; replay: string; settings: string; error: string; retry: string; saved: string;
+  optional: string; skipStep: string; openWork: string; stepLabel: (step: TourStep) => string;
+  steps: Record<TourStep, StepCopy>;
+};
+
 export const tourCopy: Record<Locale, Copy> = {
-  ru: { title: 'Знакомство с Tirlik', intro: 'Короткие подсказки рядом с вашей работой. Их можно пропустить и открыть снова в настройках.', start: 'Показать, с чего начать', show: 'Показать на странице', next: 'Понятно, дальше', skip: 'Пропустить подсказки', resume: 'Продолжить знакомство', replay: 'Пройти сначала', settings: 'Обучение', error: 'Не удалось сохранить подсказки. Работа в проекте продолжается.', retry: 'Повторить', saved: 'Прогресс знакомства сохранён в вашем аккаунте.', continue: 'Следующие подсказки появятся, когда вы откроете проект или результат.', finish: 'Завершить знакомство', steps: {
-    start: { title: 'Начните со своей задачи', body: 'Опишите, что нужно получить. Название проекта можно оставить предложенным и изменить позже.' },
-    task: { title: 'Задача управляет результатом', body: 'Укажите, для кого готовите работу и что важно учесть. Кнопка «Подготовить результат» запускает вашу задачу.' },
-    materials: { title: 'Добавьте свои материалы', body: 'Прайс, запрос клиента и другие файлы останутся рядом с результатом. Перед запуском выберите нужные исходники.' },
-    edit: { title: 'Правьте сам результат', body: 'Меняйте текст, числа или объекты прямо в редакторе. Состояние сохранения видно рядом с названием.' },
-    history: { title: 'Проверяйте версии', body: 'Здесь можно сравнить изменения, восстановить черновик и вернуться к выбранному состоянию.' },
-    export: { title: 'Используйте готовую работу', body: 'Экспорт сохраняет текущую версию в файл. Сначала проверьте текст, расчёты и оформление.' },
-  } },
-  en: { title: 'Getting to know Tirlik', intro: 'Brief guidance beside your work. Skip it now and reopen it in settings at any time.', start: 'Show me where to start', show: 'Show on the page', next: 'Got it, next', skip: 'Skip guidance', resume: 'Continue the tour', replay: 'Start again', settings: 'Getting started', error: 'Could not save tour progress. You can keep working in your project.', retry: 'Retry', saved: 'Tour progress is saved in your account.', continue: 'More guidance appears when you open a project or a result.', finish: 'Finish the tour', steps: {
-    start: { title: 'Start with your own task', body: 'Describe the result you need. Keep the suggested project name and change it later if needed.' },
-    task: { title: 'Your task guides the result', body: 'Explain who the work is for and which requirements matter. Prepare the result starts your task.' },
-    materials: { title: 'Add your materials', body: 'Your price list, client request and other files stay beside the result. Choose the sources to use before starting.' },
-    edit: { title: 'Edit the actual result', body: 'Change text, numbers or objects directly in the editor. Save status appears beside the title.' },
-    history: { title: 'Review versions', body: 'Compare changes, recover a draft and return to a chosen state here.' },
-    export: { title: 'Use the finished work', body: 'Export saves the current version to a file. Check the wording, calculations and design first.' },
-  } },
-  kk: { title: 'Tirlik-пен танысу', intro: 'Жұмысыңыздың жанындағы қысқа кеңестер. Оларды өткізіп жіберіп, баптаулардан қайта ашуға болады.', start: 'Неден бастау керегін көрсету', show: 'Беттен көрсету', next: 'Түсінікті, әрі қарай', skip: 'Кеңестерді өткізу', resume: 'Танысуды жалғастыру', replay: 'Басынан бастау', settings: 'Бастау нұсқаулығы', error: 'Танысу барысын сақтау мүмкін болмады. Жобадағы жұмысты жалғастыра аласыз.', retry: 'Қайталау', saved: 'Танысу барысы аккаунтыңызда сақталды.', continue: 'Келесі кеңестер жобаны немесе нәтижені ашқанда пайда болады.', finish: 'Танысуды аяқтау', steps: {
-    start: { title: 'Өз тапсырмаңыздан бастаңыз', body: 'Қажетті нәтижені сипаттаңыз. Ұсынылған жоба атауын қалдырып, кейін өзгертуге болады.' },
-    task: { title: 'Тапсырма нәтижені бағыттайды', body: 'Жұмыстың кімге арналғанын және қандай талаптар маңызды екенін жазыңыз. «Нәтиже дайындау» тапсырмаңызды іске қосады.' },
-    materials: { title: 'Өз материалдарыңызды қосыңыз', body: 'Бағалар тізімі, клиент сұрауы мен басқа файлдар нәтиженің жанында қалады. Бастамас бұрын қажетті материалдарды таңдаңыз.' },
-    edit: { title: 'Нәтиженің өзін өңдеңіз', body: 'Мәтінді, сандарды немесе нысандарды тікелей редакторда өзгертіңіз. Сақталу күйі атаудың жанында көрсетіледі.' },
-    history: { title: 'Нұсқаларды тексеріңіз', body: 'Мұнда өзгерістерді салыстыруға, нобайды қалпына келтіруге және таңдалған күйге оралуға болады.' },
-    export: { title: 'Дайын жұмысты пайдаланыңыз', body: 'Экспорт ағымдағы нұсқаны файлға сақтайды. Алдымен мәтінді, есептеулерді және безендіруді тексеріңіз.' },
-  } },
+  ru: {
+    title: 'Первый результат в Tirlik', intro: 'Шесть коротких подсказок на той странице, где вы уже работаете. Тур не переводит вас в другой раздел и не запускает действия сам.',
+    start: 'Начать', show: 'Показать здесь', next: 'Дальше', back: 'Назад', close: 'Продолжить позже', skip: 'Пропустить обучение',
+    resume: 'Продолжить с моего шага', replay: 'Пройти сначала', settings: 'Обучение', error: 'Не удалось сохранить шаг. Работа не изменилась.', retry: 'Повторить',
+    saved: 'Текущий шаг сохранён в аккаунте.', optional: 'Короткое обучение, по желанию', skipStep: 'Пропустить отсутствующий шаг', openWork: 'Открыть работу',
+    stepLabel: (step) => `Шаг ${TOUR_STEPS.indexOf(step) + 1} из ${TOUR_STEPS.length}`,
+    steps: {
+      start: { title: 'Сформулируйте результат', body: 'Опишите деловую задачу своими словами и добавьте файлы, которые нужны для решения.', unavailable: 'Поле задачи есть в разделе «Работа». Этот шаг можно пропустить и продолжить без перехода.' },
+      task: { title: 'Следите за выполнением', body: 'В сессии видны план, текущая операция, существенный вопрос и уже готовые части результата.', unavailable: 'Выполнение появится после запуска задачи. Тур останется на текущей странице.' },
+      materials: { title: 'Проверяйте основания', body: 'Источники и факты остаются рядом с решением. Неизвестное не превращается в выдуманное значение.', unavailable: 'Контекст источников появится в проекте, когда задача использует материалы.' },
+      edit: { title: 'Откройте полезный результат', body: 'Готовую смету, предложение или план можно открыть и исправить напрямую.', unavailable: 'Результат ещё не создан или не открыт. Тур не переносит вас к нему автоматически.' },
+      history: { title: 'Сравнивайте версии', body: 'История сохраняет прежние состояния и позволяет вернуть выбранное как новую версию.', unavailable: 'История доступна внутри открытого сохранённого результата.' },
+      export: { title: 'Используйте готовую работу', body: 'Экспорт берёт выбранную сохранённую версию. Перед выгрузкой проверьте текст, расчёты и состав файлов.', unavailable: 'Экспорт доступен внутри готового результата. Отсутствующий шаг можно пропустить.' },
+    },
+  },
+  en: {
+    title: 'Your first result in Tirlik', intro: 'Six brief tips on the page where you are already working. The tour never moves you to another section or starts an action on its own.',
+    start: 'Start', show: 'Show here', next: 'Next', back: 'Back', close: 'Continue later', skip: 'Skip the tour',
+    resume: 'Continue from my step', replay: 'Start again', settings: 'Getting started', error: 'Could not save this step. Your work was not changed.', retry: 'Retry',
+    saved: 'Your current step is saved to the account.', optional: 'Optional brief tour', skipStep: 'Skip unavailable step', openWork: 'Open Work',
+    stepLabel: (step) => `Step ${TOUR_STEPS.indexOf(step) + 1} of ${TOUR_STEPS.length}`,
+    steps: {
+      start: { title: 'Describe the result', body: 'State the business task in your own words and add the files needed for the decision.', unavailable: 'The task field is in Work. You can skip this step and continue without navigation.' },
+      task: { title: 'Follow the execution', body: 'The session shows the plan, current operation, material question and any useful parts already ready.', unavailable: 'Execution appears after a task starts. The tour stays on the current page.' },
+      materials: { title: 'Check the evidence', body: 'Sources and facts stay beside the decision. An unknown value is never replaced with an invented one.', unavailable: 'Source context appears in a project when the task uses materials.' },
+      edit: { title: 'Open the useful result', body: 'Open the resulting estimate, proposal or plan and edit it directly.', unavailable: 'A result is not ready or open yet. The tour will not take you there automatically.' },
+      history: { title: 'Compare versions', body: 'History preserves earlier states and restores a chosen state as a new version.', unavailable: 'History is available inside an open, saved result.' },
+      export: { title: 'Use the finished work', body: 'Export uses the selected saved version. Review wording, calculations and included files first.', unavailable: 'Export is available inside a finished result. You can skip this unavailable step.' },
+    },
+  },
+  kk: {
+    title: 'Tirlik-тегі алғашқы нәтиже', intro: 'Сіз жұмыс істеп отырған беттегі алты қысқа кеңес. Тур басқа бөлімге өткізбейді және әрекетті өзі бастамайды.',
+    start: 'Бастау', show: 'Осы жерден көрсету', next: 'Әрі қарай', back: 'Артқа', close: 'Кейін жалғастыру', skip: 'Оқытуды өткізіп жіберу',
+    resume: 'Өз қадамымнан жалғастыру', replay: 'Басынан бастау', settings: 'Бастау нұсқаулығы', error: 'Қадамды сақтау мүмкін болмады. Жұмыс өзгерген жоқ.', retry: 'Қайталау',
+    saved: 'Ағымдағы қадам аккаунтта сақталды.', optional: 'Қысқа нұсқаулық, міндетті емес', skipStep: 'Жоқ қадамды өткізіп жіберу', openWork: 'Жұмысты ашу',
+    stepLabel: (step) => `${TOUR_STEPS.length} қадамның ${TOUR_STEPS.indexOf(step) + 1}-қадамы`,
+    steps: {
+      start: { title: 'Нәтижені сипаттаңыз', body: 'Бизнес міндетін өз сөзіңізбен жазыңыз және шешімге керек файлдарды қосыңыз.', unavailable: 'Тапсырма өрісі «Жұмыс» бөлімінде. Бұл қадамды өтіп, бет ауыстырмай жалғастыруға болады.' },
+      task: { title: 'Орындалуын бақылаңыз', body: 'Сессияда жоспар, ағымдағы әрекет, маңызды сұрақ және дайын пайдалы бөліктер көрінеді.', unavailable: 'Орындалу тапсырма басталғаннан кейін көрінеді. Тур ағымдағы бетте қалады.' },
+      materials: { title: 'Негіздерді тексеріңіз', body: 'Дереккөздер мен фактілер шешімнің жанында қалады. Белгісіз мән ойдан шығарылмайды.', unavailable: 'Дереккөз контексті материал қолданылған жоба ішінде көрінеді.' },
+      edit: { title: 'Пайдалы нәтижені ашыңыз', body: 'Дайын сметаны, ұсынысты немесе жоспарды ашып, тікелей өңдеңіз.', unavailable: 'Нәтиже әлі дайын емес немесе ашылмаған. Тур оған автоматты түрде апармайды.' },
+      history: { title: 'Нұсқаларды салыстырыңыз', body: 'Тарих бұрынғы күйлерді сақтайды және таңдалған күйді жаңа нұсқа ретінде қайтарады.', unavailable: 'Тарих ашық сақталған нәтиженің ішінде қолжетімді.' },
+      export: { title: 'Дайын жұмысты қолданыңыз', body: 'Экспорт таңдалған сақталған нұсқаны алады. Алдымен мәтінді, есепті және файлдар құрамын тексеріңіз.', unavailable: 'Экспорт дайын нәтиженің ішінде қолжетімді. Жоқ қадамды өткізуге болады.' },
+    },
+  },
 };

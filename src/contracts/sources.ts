@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IdSchema, InstantSchema, HashSchema } from './primitives';
 import { RunFailureSchema, RunStateSchema } from './runs';
+import { LibraryLifecycleStateSchema, LibraryMetadataRevisionSchema } from './library-lifecycle';
 
 export const SOURCE_MAX_BYTES = 20 * 1024 * 1024;
 export const SourceFormatSchema = z.enum(['text', 'csv', 'tsv', 'xlsx', 'docx', 'pdf', 'png', 'jpeg', 'webp', 'ttf', 'otf', 'woff']);
@@ -17,6 +18,7 @@ export const InitSourceUploadSchema = z.strictObject({
 export const SourceSummarySchema = z.strictObject({
   id: IdSchema, workspaceId: IdSchema, projectId: IdSchema, title: z.string(), accessClass: z.enum(['internal', 'confidential']),
   revision: z.number().int().nonnegative(), currentVersionId: IdSchema.nullable(),
+  metadataRevision: LibraryMetadataRevisionSchema, lifecycleState: LibraryLifecycleStateSchema, trashedAt: InstantSchema.nullable(),
   status: SourceUploadStatusSchema, format: SourceFormatSchema, fileName: z.string(), byteSize: z.number().int(),
   thumbnailUploadId: IdSchema.nullable().optional(),
   createdAt: InstantSchema, updatedAt: InstantSchema,
@@ -25,6 +27,7 @@ export const SourceListSchema = z.strictObject({ sources: z.array(SourceSummaryS
 const LibraryDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value);
 export const SourceLibraryQuerySchema = z.strictObject({
   workspaceId: IdSchema, projectId: IdSchema.optional(), query: z.string().trim().max(120).optional(), format: SourceFormatSchema.optional(),
+  lifecycleState: LibraryLifecycleStateSchema.default('active'),
   from: LibraryDateSchema.optional(), to: LibraryDateSchema.optional(), limit: z.number().int().min(1).max(50).default(30), after: z.string().max(1024).optional(),
 }).refine((value) => !value.from || !value.to || value.from <= value.to);
 export type SourceLibraryQuery = z.input<typeof SourceLibraryQuerySchema>;

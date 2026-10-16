@@ -11,25 +11,34 @@ import type { JsonValue } from '@/features/artifacts/domain/content-models';
 import { appendWorkspaceEvents } from '@/features/artifacts/server/workspace-events';
 
 export const materialError = (key: string, code: 'CONFLICT' | 'NOT_FOUND' | 'VALIDATION_FAILED' | 'FORBIDDEN' = 'CONFLICT') => new IdentityError(code, `materials.errors.${key}`);
-export interface CollectionRow { id: string; workspace_id: string; project_id: string; title: string; kind: MaterialCollection['kind']; access_class: 'internal' | 'confidential'; revision: number; mapping: ImportMapping | null; record_count: number; created_by: string; created_at: Date; updated_at: Date }
+export interface CollectionRow {
+  id: string; workspace_id: string; project_id: string; title: string; kind: MaterialCollection['kind'];
+  access_class: 'internal' | 'confidential'; revision: number; mapping: ImportMapping | null; record_count: number;
+  metadata_revision: number; lifecycle_state: 'active' | 'archived' | 'trashed'; restore_state: 'active' | 'archived' | null;
+  trashed_at: Date | null; created_by: string; created_at: Date; updated_at: Date;
+}
 export interface ImportRowDb { id: string; workspace_id: string; collection_id: string; actor_id: string; source_id: string; source_version_id: string; source_revision: number; content_hash: string; mapping: ImportMapping; mapping_hash: string; expected_revision: number; status: 'preparing' | 'preview' | 'applied' | 'cancelled' | 'failed'; next_chunk: number; chunk_count: number; header_seen: boolean; review_revision: number; counts: ImportCounts; error_code: string | null; applied_revision: number | null; created_at: Date }
 export interface RecordRow { id: string; collection_id: string; identity_key: string; identity_hash: string; current_revision: number; missing: boolean; label: string; cells: Record<string, MaterialCell>; row_hash: string }
 export interface StagedRow { import_id: string; ordinal: number; record_id: string; identity_key: string | null; identity_hash: string | null; label: string; cells: Record<string, MaterialCell>; row_hash: string; issues: string[]; change: 'added' | 'changed' | 'unchanged' | 'missing' | 'ambiguous'; excluded: boolean; key_override: string | null }
 export const emptyCounts = (): ImportCounts => ({ added: 0, changed: 0, unchanged: 0, missing: 0, ambiguous: 0, excluded: 0, unknownCells: 0, total: 0 });
 export const viewer = (access: WorkspaceAccess) => ({ userId: access.userId, workspaceId: access.workspace.id, authzVersion: access.workspace.authz_version });
-export const collectionDto = (row: CollectionRow) => CollectionSchema.parse({ id: row.id, workspaceId: row.workspace_id, projectId: row.project_id, title: row.title, kind: row.kind, accessClass: row.access_class, revision: row.revision, mapping: row.mapping, recordCount: row.record_count, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() });
+export const collectionDto = (row: CollectionRow) => CollectionSchema.parse({ id: row.id, workspaceId: row.workspace_id, projectId: row.project_id, title: row.title, kind: row.kind, accessClass: row.access_class, revision: row.revision, mapping: row.mapping, metadataRevision: row.metadata_revision, lifecycleState: row.lifecycle_state, trashedAt: row.trashed_at?.toISOString() ?? null, recordCount: row.record_count, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() });
 export const importDto = (row: ImportRowDb) => MaterialImportSchema.parse({ id: row.id, collectionId: row.collection_id, sourceRef: { sourceId: row.source_id, sourceVersionId: row.source_version_id, revision: row.source_revision }, mapping: row.mapping, status: row.status, expectedRevision: row.expected_revision, nextChunk: row.next_chunk, chunkCount: row.chunk_count, counts: row.counts, errorCode: row.error_code, appliedRevision: row.applied_revision, reviewRevision: row.review_revision, createdAt: row.created_at.toISOString() });
 
 export async function authorizedCollection(tx: PoolClient, access: WorkspaceAccess, id: string, scope: 'read' | 'edit', lock = false): Promise<CollectionRow> {
   validate(IdSchema, id);
-  const metadata = (await tx.query<CollectionRow>('SELECT * FROM material_collections WHERE workspace_id=$1 AND id=$2', [access.workspace.id, id])).rows[0];
+  const metadata = (await tx.query<Pick<CollectionRow, 'project_id' | 'access_class'>>('SELECT project_id,access_class FROM material_collections WHERE workspace_id=$1 AND id=$2', [access.workspace.id, id])).rows[0];
   if (!metadata) throw materialError('notFound', 'NOT_FOUND');
   await lockProjectAccess(tx, access, { projectId: metadata.project_id, scope, confidential: metadata.access_class === 'confidential' });
-  const row = (await tx.query<CollectionRow>(`SELECT * FROM material_collections WHERE workspace_id=$1 AND id=$2 FOR ${lock ? 'UPDATE' : 'SHARE'}`, [access.workspace.id, id])).rows[0];
+  if (lock) await tx.query('SELECT id FROM material_collections WHERE workspace_id=$1 AND id=$2 FOR UPDATE', [access.workspace.id, id]);
+  const row = (await tx.query<CollectionRow>(`SELECT c.*,l.metadata_revision,l.lifecycle_state,l.restore_state,l.trashed_at
+    FROM material_collections c JOIN library_collection_lifecycle l ON l.workspace_id=c.workspace_id AND l.collection_id=c.id
+    WHERE c.workspace_id=$1 AND c.id=$2`, [access.workspace.id, id])).rows[0];
   if (!row || row.project_id !== metadata.project_id || row.access_class !== metadata.access_class) throw materialError('conflict');
+  if (row.lifecycle_state === 'trashed') throw materialError('notFound', 'NOT_FOUND');
   if (scope === 'edit') {
     const project = (await tx.query<{ status: string }>('SELECT status FROM projects WHERE workspace_id=$1 AND id=$2', [access.workspace.id, row.project_id])).rows[0];
-    if (project?.status !== 'active') throw materialError('archived');
+    if (project?.status !== 'active' || row.lifecycle_state !== 'active') throw materialError('archived');
   }
   if (row.mapping) row.mapping = ImportMappingSchema.parse(row.mapping);
   return row;
@@ -83,5 +92,5 @@ export async function finishResolution(tx: PoolClient, access: WorkspaceAccess, 
   const result = await tx.query<CollectionRow>('UPDATE material_collections SET revision=$3,mapping=COALESCE($4::jsonb,mapping),record_count=(SELECT count(*) FROM material_records WHERE collection_id=$2 AND missing=false),updated_at=now() WHERE workspace_id=$1 AND id=$2 AND revision=$5 RETURNING *', [collection.workspace_id, collection.id, revision, mapping ? JSON.stringify(mapping) : null, collection.revision]);
   if (!result.rows[0]) throw materialError('revision');
   await appendWorkspaceEvents(tx, access, [{ projectId: collection.project_id, accessClass: collection.access_class, kind: 'collection.changed', objectId: collection.id, revision, payload: { resolutionId: resolution.id, resolutionKind } }]);
-  return result.rows[0];
+  return { ...collection, ...result.rows[0] };
 }
