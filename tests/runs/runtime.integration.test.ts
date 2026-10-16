@@ -346,9 +346,13 @@ describe('transactional runtime service', () => {
     expect(child).toMatchObject({ state: 'queued', goal: 'Prepare the same offer for a later date', progress: { parentRunId: created.id } });
     const parent = await service.read(owner.principal, created.id);
     expect(parent.progress.continuationRunId).toBe(child.id); expect(parent.actions.revise).toBe(false);
-    const grandchild = await service.resume(owner.principal, child.id, { expectedEpoch: child.epoch, goal: 'Use a smaller order' }, randomUUID());
-    expect(grandchild.progress.parentRunId).toBe(child.id);
-    await expect(service.resume(owner.principal, grandchild.id, { expectedEpoch: grandchild.epoch, goal: 'Try another branch' }, randomUUID())).rejects.toMatchObject({ failure: 'continuation_limit', code: 'CONFLICT', message: 'runs.errors.continuationLimit' });
+    let tail = child;
+    for (let depth = 2; depth <= 13; depth++) {
+      const next = await service.resume(owner.principal, tail.id, { expectedEpoch: tail.epoch, goal: `Human follow-up ${depth}` }, randomUUID());
+      expect(next.progress.parentRunId).toBe(tail.id);
+      tail = next;
+    }
+    expect(tail.goal).toBe('Human follow-up 13');
     expect((await service.read(owner.principal, child.id)).state).toBe('cancelled');
   });
   it('fences cancellation while preparation is in flight and never commits the late result', async () => {
@@ -483,6 +487,22 @@ describe('authoritative provider liability ledger', () => {
     expect(await ledger.reserve(changed)).toMatchObject({ usage: { id: usage.id }, replay: true, output });
     await expect(ledger.reserve({ ...changed, inputHash: hash({ changed: true }) })).rejects.toMatchObject({ failure: 'conflict' });
     expect((await pool.query('SELECT request_count,reserved_usd,spent_usd FROM agent_runs WHERE id=$1', [fence.runId])).rows[0]).toEqual({ request_count: 1, reserved_usd: '0.000000000000', spent_usd: '0.012345678901' });
+    expect((await pool.query('SELECT count(*)::int AS count FROM agent_run_usage WHERE run_id=$1', [fence.runId])).rows[0].count).toBe(1);
+  });
+  it('allows an explicit retry to replay a settled model output rejected by local validation', async () => {
+    const { ledger, reservation, fence, service, owner } = await claimedFixture();
+    const operation = reservation('settled_invalid_result');
+    const { usage } = await ledger.reserve(operation);
+    const output = { content: null, toolCalls: [{ id: 'read', name: 'read_artifact', arguments: '{"revision":"1"}' }] };
+    await ledger.dispatch(fence, usage.id);
+    await ledger.settle(usage.id, { state: 'succeeded', actualUsd: '0.01', inputTokens: 10, outputTokens: 3, output });
+    await pool.query("UPDATE agent_run_steps SET state='failed',failure_code='invalid_result',retryable=false,finished_at=now() WHERE id=$1", [fence.stepId]);
+    await pool.query("UPDATE agent_runs SET state='waiting_input',failure_code='invalid_result',lease_owner=NULL,lease_until=NULL WHERE id=$1", [fence.runId]);
+    const paused = await service.read(owner.principal, fence.runId);
+    expect(paused.actions).toMatchObject({ resume: true, retryStepIds: [fence.stepId] });
+    const resumed = await service.resume(owner.principal, fence.runId, { expectedEpoch: paused.epoch, stepId: fence.stepId }, randomUUID());
+    expect(resumed).toMatchObject({ state: 'queued', failure: null });
+    expect(resumed.steps.find((step) => step.id === fence.stepId)).toMatchObject({ state: 'planned', failure: null });
     expect((await pool.query('SELECT count(*)::int AS count FROM agent_run_usage WHERE run_id=$1', [fence.runId])).rows[0].count).toBe(1);
   });
   it('keeps released attempt history bound to its input and route while allowing an explicit known-rejected retry', async () => {

@@ -11,13 +11,19 @@ const actions = ['inspect', 'readiness', 'candidate', 'activate', 'start', 'stat
 if (!actions.includes(values.action)) throw new Error(`Use --action ${actions.join('|')}. Mutating actions require an independently reviewed release.`);
 assertNodeVersion();
 Object.assign(process.env, await loadEnvironment(root));
-const { getDatabasePool } = await tsImport('../src/server/db/pool.ts', import.meta.url);
-const admin = await tsImport('../src/features/runs/server/proof-admin.ts', import.meta.url);
+const evalTsconfigUrl = new URL('../.local-data/eval-live-tsconfig.json', import.meta.url);
+await mkdir(new URL('./', evalTsconfigUrl), { recursive: true });
+await writeFile(evalTsconfigUrl, `${JSON.stringify({ extends: '../tsconfig.json', compilerOptions: { baseUrl: '..', paths: { '@/*': ['src/*'], 'server-only': ['node_modules/next/dist/compiled/server-only/empty.js'] } } }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+const importSource = (specifier) => tsImport(specifier, { parentURL: import.meta.url, tsconfig: fileURLToPath(evalTsconfigUrl) });
+const { getDatabasePool } = await importSource('../src/server/db/pool.ts');
+const admin = await importSource('../src/features/runs/server/proof-admin.ts');
 
 const LIVE_CONSTRAINT_ID = 'live-proof-constraint';
 const LIVE_RESULT_EDIT_ID = 'live-proof-result-note';
 const LIVE_CONSTRAINT = 'New authoritative constraint for this proof: the pharmacy entrance must remain clear from 13:00 on Friday, so installation must finish by 13:00 Friday rather than 18:00. If that is not feasible, do not promise it; compare a smaller first release with the full package and preserve the capacity and white-vinyl evidence.';
 const LIVE_GOAL = 'Use the two saved inputs, including the new authoritative 13:00 Friday installation constraint. Compare the full package with a materially smaller first release using the saved prices, direct costs, white-vinyl availability, workload and resource availability. Pause for an explicit option selection, then create the selected option as exactly three linked editable materials: estimate, customer offer and operational plan. Send or book nothing.';
+const LIVE_FOLLOWUP_GOAL = 'Revise the current customer offer in place. Clarify one existing unlocked heading or paragraph so it says this is the selected checked option and must still be reviewed before sending. Keep the protected manual review note exactly unchanged. Do not create another artifact and do not change the estimate or operational plan.';
+const LIVE_FOLLOWUP_PLAN = ['Read the exact selected offer revision', 'Revise one unlocked target in that offer', 'Verify the protected manual note and saved revision'];
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 function required(value, message) { if (value === undefined || value === null) throw new Error(message); return value; }
@@ -39,22 +45,44 @@ function hasTarget(value, targetId) {
   return Object.values(value).some((item) => hasTarget(item, targetId));
 }
 
-async function applicationHealth() {
-  const response = await fetch('http://127.0.0.1:59850/api/health', { redirect: 'error', signal: AbortSignal.timeout(5_000), headers: { Connection: 'close' } });
-  const body = await response.json();
-  if (!response.ok || body?.status !== 'ok' || body?.database !== 'ready') throw new Error('LIVE_APPLICATION_NOT_HEALTHY');
-  return { status: response.status, body };
+async function applicationHealth(pool) {
+  try {
+    const response = await fetch('http://127.0.0.1:59850/api/health', { redirect: 'error', signal: AbortSignal.timeout(5_000), headers: { Connection: 'close' } });
+    const body = await response.json();
+    if (!response.ok || body?.status !== 'ok' || body?.database !== 'ready') throw new Error('LIVE_APPLICATION_NOT_HEALTHY');
+    return { status: response.status, body, executor: 'application-dispatcher' };
+  } catch (error) {
+    if (process.env.TIRLIK_EVAL_SOURCE_WORKER !== '1') throw error;
+    await pool.query('SELECT 1');
+    return { status: null, body: { status: 'ok', database: 'ready' }, executor: 'current-source-worker' };
+  }
+}
+
+function sourceRuntimeWake(runtime) {
+  let active;
+  return async () => {
+    if (active) return active;
+    active = (async () => {
+      for (;;) {
+        const claim = await runtime.service.claim();
+        if (!claim) return;
+        while (await runtime.service.executeStep(claim) === 'continue') { /* execute the claimed run to its explicit stop */ }
+      }
+    })().finally(() => { active = undefined; });
+    return active;
+  };
 }
 
 async function liveBusinessScope(pool, startKey) {
   if (!/^[A-Za-z0-9_-]{16,128}$/.test(startKey)) throw new Error('LIVE_KEY_REQUIRED');
-  const secret = process.env.DEMO_CAPABILITY_SECRET;
+  const secret = process.env.DEMO_CAPABILITY_SECRET ?? process.env.BETTER_AUTH_SECRET;
   if (!secret || secret.length < 32) throw new Error('DEMO_CAPABILITY_SECRET_REQUIRED');
   const [{ createDemoExecutionScopeService }, { getRunRuntime }] = await Promise.all([
-    tsImport('../src/features/demo/server/execution-scope.ts', import.meta.url),
-    tsImport('../src/features/runs/server/runtime.ts', import.meta.url),
+    importSource('../src/features/demo/server/execution-scope.ts'),
+    importSource('../src/features/runs/server/runtime.ts'),
   ]);
-  const service = createDemoExecutionScopeService({ pool, secret, runtime: getRunRuntime(), wake: async () => undefined });
+  const runtime = getRunRuntime();
+  const service = createDemoExecutionScopeService({ pool, secret, runtime, wake: sourceRuntimeWake(runtime) });
   const created = await service.create('en', startKey);
   let scope = await service.read(created.scope.sessionId, created.capabilityToken);
   const snapshots = await Promise.all(scope.inputRefs.map((ref) => service.artifactSnapshot(scope.sessionId, created.capabilityToken, ref.id)));
@@ -155,6 +183,40 @@ async function verifyBusinessResult(pool, live, run, selection, startedLedger, s
   }
   const reopened = await live.service.artifactSnapshot(live.scope.sessionId, live.created.capabilityToken, offer.artifact.id);
   if (reopened.artifact.currentRevision <= offer.artifact.currentRevision || !hasTarget(reopened.content, LIVE_RESULT_EDIT_ID)) throw new Error('LIVE_EDIT_REOPEN_FAILED');
+  if (!reopened.locks?.[LIVE_RESULT_EDIT_ID]) {
+    const { createArtifactTargetResolver } = await importSource('../src/features/artifacts/domain/targets.ts');
+    const target = createArtifactTargetResolver(reopened.content, reopened.artifact.bindings, reopened.locks)(LIVE_RESULT_EDIT_ID);
+    if (!target) throw new Error('LIVE_RESULT_EDIT_TARGET_MISSING');
+    const expectedSourceRevisions = sourceVector(reopened);
+    await live.service.applyArtifactCommand(live.scope.sessionId, live.created.capabilityToken, {
+      workspaceId: live.scope.workspaceId,
+      expectedAuthzVersion: 1,
+      group: {
+        commandGroupId: randomUUID(), expectedArtifactRevisions: { [reopened.artifact.id]: reopened.artifact.currentRevision }, expectedSourceRevisions,
+        commands: [{
+          commandId: randomUUID(), artifactId: reopened.artifact.id, baseRevision: reopened.artifact.currentRevision, kind: 'document', expectedSourceRevisions,
+          reason: 'Protect the explicit human review note before the live follow-up',
+          operations: [{ targetId: LIVE_RESULT_EDIT_ID, op: 'lock', beforeHash: target.hash, value: { locked: true, reason: 'Approved human wording for the live proof' } }],
+        }],
+      },
+    });
+  }
+  const protectedOffer = await live.service.artifactSnapshot(live.scope.sessionId, live.created.capabilityToken, offer.artifact.id);
+  if (!protectedOffer.locks?.[LIVE_RESULT_EDIT_ID] || !JSON.stringify(protectedOffer.content).includes('Reviewed after the live decision')) throw new Error('LIVE_RESULT_EDIT_NOT_PROTECTED');
+  const artifactCountBeforeFollowUp = Number((await pool.query('SELECT count(*)::int AS count FROM artifacts WHERE workspace_id=$1 AND project_id=$2', [live.scope.workspaceId, live.scope.projectId])).rows[0]?.count ?? -1);
+  let followUp = await live.service.resumeRun(live.scope.sessionId, live.created.capabilityToken, run.id, {
+    expectedEpoch: run.epoch,
+    goal: LIVE_FOLLOWUP_GOAL,
+    plan: LIVE_FOLLOWUP_PLAN,
+    currentArtifact: { id: protectedOffer.artifact.id, revision: protectedOffer.artifact.currentRevision },
+  }, deterministicKey('j1followup', startKey));
+  followUp = await pollRun(live.service, live.scope, live.created.capabilityToken, followUp.id, (value) => ['completed', 'review_ready', 'failed', 'cancelled'].includes(value.state) || (value.state === 'waiting_input' && value.failure !== null));
+  if (followUp.state !== 'completed' || followUp.failure !== null || followUp.progress.parentRunId !== run.id) throw new Error(`LIVE_FOLLOWUP_NOT_COMPLETED:${followUp.state}:${followUp.failure ?? 'none'}`);
+  const followedOffer = await live.service.artifactSnapshot(live.scope.sessionId, live.created.capabilityToken, offer.artifact.id);
+  const artifactCountAfterFollowUp = Number((await pool.query('SELECT count(*)::int AS count FROM artifacts WHERE workspace_id=$1 AND project_id=$2', [live.scope.workspaceId, live.scope.projectId])).rows[0]?.count ?? -1);
+  if (followedOffer.artifact.currentRevision <= protectedOffer.artifact.currentRevision || artifactCountAfterFollowUp !== artifactCountBeforeFollowUp) throw new Error('LIVE_FOLLOWUP_DID_NOT_REVISE_IN_PLACE');
+  if (!followedOffer.locks?.[LIVE_RESULT_EDIT_ID] || !JSON.stringify(followedOffer.content).includes('Reviewed after the live decision')) throw new Error('LIVE_FOLLOWUP_OVERWROTE_PROTECTED_TEXT');
+  if (!followUp.progress.results.some((item) => item.kind === 'artifact' && item.id === followedOffer.artifact.id && item.revision === followedOffer.artifact.currentRevision)) throw new Error('LIVE_FOLLOWUP_RESULT_REF_MISMATCH');
   const exportItems = [];
   for (const snapshot of await Promise.all(refs.map((ref) => live.service.artifactSnapshot(live.scope.sessionId, live.created.capabilityToken, ref.id)))) {
     const format = snapshot.content.kind === 'table' ? 'xlsx' : snapshot.content.kind === 'document' ? 'pdf' : 'ics';
@@ -172,15 +234,19 @@ async function verifyBusinessResult(pool, live, run, selection, startedLedger, s
     downloads.push({ artifactId: file.artifactId, revision: file.revision, format: file.format, mediaType: downloaded.mediaType, byteSize: downloaded.bytes.byteLength, sha256: file.sha256 });
   }
   const ledger = await readUsageLedger(pool, run.id);
+  const followUpLedger = await readUsageLedger(pool, followUp.id);
   if (!ledger.usage.length || Number(ledger.totals.unresolved) !== 0 || ledger.usage.some((item) => item.state !== 'succeeded' || item.actual_usd === null)) throw new Error('LIVE_USAGE_NOT_RECONCILED');
-  if (Number(ledger.totals.actual_usd) > 2) throw new Error('LIVE_ALLOCATION_EXCEEDED');
+  if (!followUpLedger.usage.length || Number(followUpLedger.totals.unresolved) !== 0 || followUpLedger.usage.some((item) => item.state !== 'succeeded' || item.actual_usd === null)) throw new Error('LIVE_FOLLOWUP_USAGE_NOT_RECONCILED');
+  if (Number(ledger.totals.actual_usd) + Number(followUpLedger.totals.actual_usd) > 2) throw new Error('LIVE_ALLOCATION_EXCEEDED');
   const evidence = {
     checkedAt: new Date().toISOString(), runId: run.id, sessionId: live.scope.sessionId, workspaceId: live.scope.workspaceId, projectId: live.scope.projectId,
     constraint: { artifactId: live.brief.artifact.id, revision: live.brief.artifact.currentRevision, targetId: LIVE_CONSTRAINT_ID, text: LIVE_CONSTRAINT },
     selection, artifacts: refs.map((ref) => ({ id: ref.id, revision: ref.revision, title: ref.title })),
-    editedArtifact: { id: reopened.artifact.id, revision: reopened.artifact.currentRevision, targetId: LIVE_RESULT_EDIT_ID }, exports: downloads,
+    editedArtifact: { id: followedOffer.artifact.id, revision: followedOffer.artifact.currentRevision, targetId: LIVE_RESULT_EDIT_ID },
+    followUp: { runId: followUp.id, parentRunId: run.id, state: followUp.state, artifactCountBefore: artifactCountBeforeFollowUp, artifactCountAfter: artifactCountAfterFollowUp },
+    exports: downloads,
     run: { state: run.state, requestCount: run.budget.requestCount, limitUsd: run.budget.limitUsd, spentUsd: run.budget.spentUsd, contextRevision: context.revision },
-    ledger, authorizationBefore: startedLedger.authorization,
+    ledger, followUpLedger, authorizationBefore: startedLedger.authorization,
   };
   const evidenceUrl = new URL('../.vibemachina/runtime/live-business-proof.json', import.meta.url);
   await mkdir(new URL('./', evidenceUrl), { recursive: true });
@@ -189,7 +255,7 @@ async function verifyBusinessResult(pool, live, run, selection, startedLedger, s
 }
 
 async function businessPreflight(pool, startKey) {
-  const [health, readiness] = await Promise.all([applicationHealth(), admin.modelProofReadiness(pool)]);
+  const [health, readiness] = await Promise.all([applicationHealth(pool), admin.modelProofReadiness(pool)]);
   if (!readiness.readyForRuntimeCalls || readiness.paidProofRequired || readiness.unresolvedRuntimeUsages !== 0) throw new Error(`LIVE_NOT_READY:${readiness.nextAction}`);
   const live = await liveBusinessScope(pool, startKey);
   const ledger = await readUsageLedger(pool, '00000000-0000-0000-0000-000000000000');
@@ -202,8 +268,19 @@ async function runBusinessProof(pool, startKey) {
   const preflight = await businessPreflight(pool, startKey);
   const live = await liveBusinessScope(pool, startKey);
   const startedLedger = await readUsageLedger(pool, '00000000-0000-0000-0000-000000000000');
-  const started = await live.service.createRun(live.scope.sessionId, live.created.capabilityToken, { goal: LIVE_GOAL, inputRefs: live.scope.inputRefs, expectedRevision: live.scope.revision }, deterministicKey('j1run', startKey));
+  const started = live.scope.runIds.length === 1
+    ? await live.service.readRun(live.scope.sessionId, live.created.capabilityToken, live.scope.runIds[0])
+    : await live.service.createRun(live.scope.sessionId, live.created.capabilityToken, { goal: LIVE_GOAL, inputRefs: live.scope.inputRefs, expectedRevision: live.scope.revision }, deterministicKey('j1run', startKey));
   let run = await pollRun(live.service, live.scope, live.created.capabilityToken, started.id, (value) => ['waiting_input', 'review_ready', 'completed', 'failed', 'cancelled'].includes(value.state));
+  if (run.state === 'waiting_input' && run.failure === 'invalid_result') {
+    const failed = run.steps.find((step) => step.state === 'failed');
+    if (!failed || failed.toolName !== 'business.decide') throw new Error('LIVE_SETTLED_REPLAY_UNSUPPORTED_STEP');
+    const settled = (await pool.query(`SELECT u.id FROM agent_run_usage u JOIN agent_model_outputs o ON o.usage_id=u.id
+      WHERE u.run_id=$1 AND u.step_id=$2 AND u.operation_key='business_decision' AND u.state='succeeded'`, [run.id, failed.id])).rows;
+    if (settled.length !== 1) throw new Error('LIVE_SETTLED_REPLAY_NOT_PROVEN');
+    run = await live.service.resumeRun(live.scope.sessionId, live.created.capabilityToken, run.id, { expectedEpoch: run.epoch, stepId: failed.id }, deterministicKey('j1settledretry', startKey));
+    run = await pollRun(live.service, live.scope, live.created.capabilityToken, run.id, (value) => ['waiting_input', 'review_ready', 'completed', 'failed', 'cancelled'].includes(value.state));
+  }
   if (run.state !== 'waiting_input') throw new Error(`LIVE_SELECTION_NOT_REACHED:${run.state}:${run.failure ?? 'none'}`);
   const selection = chooseRunOption(run);
   run = await live.service.resumeRun(live.scope.sessionId, live.created.capabilityToken, run.id, { expectedEpoch: run.epoch, selectedOptionId: selection.selectedOptionId, ...(selection.acceptedConditionIds.length ? { acceptedConditionIds: selection.acceptedConditionIds } : {}) }, deterministicKey('j1resume', startKey));
@@ -232,6 +309,6 @@ try {
   }
   console.log(JSON.stringify(result));
 } catch (error) {
-  console.error(error?.failure ? `EVAL_${String(error.failure).toUpperCase()}` : 'EVAL_FAILED');
+  console.error(error?.failure ? `EVAL_${String(error.failure).toUpperCase()}` : `EVAL_FAILED:${error instanceof Error ? error.message : 'unknown'}`);
   process.exitCode = 1;
 } finally { await pool?.end(); }

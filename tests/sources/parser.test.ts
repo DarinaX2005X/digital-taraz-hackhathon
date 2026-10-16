@@ -3,7 +3,7 @@ import JSZip from 'jszip';
 import PDFDocument from 'pdfkit';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import { extractSource, extractSourceToSink, SOURCE_CHUNK_FRAGMENT_LIMIT, validateSourceMagic } from '../../src/features/sources/server/parser';
+import { extractSource, extractSourceToSink, sourceParserFailureCategory, SOURCE_CHUNK_FRAGMENT_LIMIT, validateSourceMagic } from '../../src/features/sources/server/parser';
 import { inspectRelationships, readOfficeArchive } from '../../src/features/sources/server/archive';
 import { sourcePageImage } from '../../src/features/sources/server/page-image';
 
@@ -110,6 +110,11 @@ describe('bounded source extraction', () => {
     expect(() => validateSourceMagic(Buffer.from('not a PDF'), 'pdf')).toThrow();
     await expect(extractSource(Buffer.from(Array.from({ length: 101 }, () => 'x').join(',')), 'csv', options)).rejects.toMatchObject({ messageKey: 'sources.errors.columnLimit' });
     await expect(extractSource(Buffer.from([0xff, 0xff]), 'text', options)).rejects.toMatchObject({ messageKey: 'sources.errors.encoding' });
+  });
+  it('reduces parser failures to a safe category without retaining error text', () => {
+    expect(sourceParserFailureCategory(new TypeError('private document detail'))).toBe('TypeError');
+    expect(sourceParserFailureCategory(Object.assign(new Error('private document detail'), { name: 'unsafe value: secret' }))).toBe('Error');
+    expect(sourceParserFailureCategory('private document detail')).toBe('string');
   });
   it('rejects archive expansion, external relationships, XML entities and macro payloads', async () => {
     const bomb = new JSZip(); bomb.file('large.xml', 'x'.repeat(2 * 1024 * 1024));

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import type { Pool } from 'pg';
+import PDFDocument from 'pdfkit';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { IdentityViewerSchema, WorkspaceResultSchema } from '../../src/features/identity/contracts';
@@ -31,8 +32,38 @@ async function account() {
   const project = ProjectResultSchema.parse(await (await client.request('/api/projects', 'POST', { workspaceId: workspace.workspaceId, expectedAuthzVersion: workspace.authzVersion, title: 'Synthetic source project' }, { 'idempotency-key': randomUUID() })).json()).project;
   return { client, viewer, workspace, project };
 }
+async function syntheticLargePdf() {
+  return new Promise<Buffer>((resolve, reject) => {
+    const document = new PDFDocument({ autoFirstPage: false, compress: false }), chunks: Buffer[] = [];
+    document.on('data', (chunk: Buffer) => chunks.push(chunk)); document.on('error', reject); document.on('end', () => resolve(Buffer.concat(chunks)));
+    for (let page = 1; page <= 30; page += 1) {
+      document.addPage({ size: 'A4', margin: 48 });
+      document.fontSize(12).text(`Synthetic recovery page ${page}. This file contains generated test data only.`);
+    }
+    document.addContent(`\n%${'x'.repeat(6_350_000)}\n`);
+    document.end();
+  });
+}
 
 describe('mounted source upload and original HTTP path', () => {
+  it('reprocesses a failed stored 6-7 MB PDF through the mounted route and preserves its original', async () => {
+    const { client, workspace, project } = await account();
+    const bytes = await syntheticLargePdf(), workspaceId = workspace.workspaceId, query = `workspaceId=${workspaceId}`;
+    expect(bytes.length).toBeGreaterThanOrEqual(6 * 1024 * 1024); expect(bytes.length).toBeLessThan(7 * 1024 * 1024);
+    const initialized = SourceInitResultSchema.parse(await (await client.request('/api/sources/uploads/init', 'POST', { workspaceId, projectId: project.id, title: 'Synthetic large PDF', fileName: 'synthetic-large.pdf', format: 'pdf', size: bytes.length }, { 'idempotency-key': randomUUID() })).json());
+    const uploaded = SourceUploadResultSchema.parse(await (await client.request(`/api/sources/uploads/${initialized.upload.id}?${query}`, 'PUT', bytes, { 'x-upload-token': initialized.token! })).json());
+    expect(uploaded.upload).toMatchObject({ id: initialized.upload.id, sourceId: initialized.upload.sourceId, status: 'uploaded' });
+    await pool.query("UPDATE source_uploads SET status='failed',error_code='sources.errors.pdf' WHERE workspace_id=$1 AND id=$2", [workspaceId, initialized.upload.id]);
+    const finalizedResponse = await client.request(`/api/sources/uploads/${initialized.upload.id}/finalize`, 'POST', { workspaceId });
+    expect(finalizedResponse.status).toBe(200);
+    const ready = SourceUploadResultSchema.parse(await finalizedResponse.json());
+    expect(ready.upload).toMatchObject({ id: initialized.upload.id, sourceId: initialized.upload.sourceId, status: 'ready', manifest: { pageCount: 30, fragmentCount: 30, complete: true } });
+    const preview = SourcePreviewSchema.parse(await (await client.request(`/api/sources/${ready.upload.sourceId}/preview?${query}&uploadId=${ready.upload.id}`)).json());
+    expect(preview.chunk.fragments[0]?.text).toContain('Synthetic recovery page 1');
+    const original = await client.request(`/api/sources/${ready.upload.sourceId}/original?${query}&uploadId=${ready.upload.id}`);
+    expect(original.status).toBe(200); expect(Buffer.from(await original.arrayBuffer()).equals(bytes)).toBe(true);
+  }, 120_000);
+
   it('uploads own bytes, reads the preview and original, enforces actor/origin/session gates', async () => {
     const { client, viewer, workspace, project } = await account();
     const bytes = Buffer.from('Код,Цена\n0001,"12,50"\n0001,\n'), workspaceId = workspace.workspaceId, query = `workspaceId=${workspaceId}`;

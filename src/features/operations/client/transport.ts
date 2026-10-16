@@ -15,11 +15,17 @@ export class OperationsRequestError extends Error {
   constructor(readonly status: number, readonly messageKey: string) { super(messageKey); }
 }
 export interface OperationsContext { userId: string; signal?: AbortSignal }
+export interface OperationsClientOptions {
+  fetcher?: typeof fetch;
+  resolvePath?: (path: string) => string;
+}
 const queryString = (values: object) => new URLSearchParams(Object.entries(values).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, Array.isArray(value) ? value.join(',') : String(value)])).toString();
 
-export function createOperationsClient(fetcher: typeof fetch = fetch) {
+export function createOperationsClient(options: typeof fetch | OperationsClientOptions = {}) {
+  const fetcher = typeof options === 'function' ? options : options.fetcher ?? fetch;
+  const resolvePath = typeof options === 'function' ? (path: string) => path : options.resolvePath ?? ((path: string) => path);
   async function request<T>(path: string, method: 'GET' | 'POST', schema: z.ZodType<T>, context: OperationsContext, body?: unknown, operationId?: string) {
-    const response = await fetcher(path, {
+    const response = await fetcher(resolvePath(path), {
       method, credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer',
       headers: { 'X-Tirlik-User-Id': IdSchema.parse(context.userId), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }), ...(operationId ? { 'Idempotency-Key': IdSchema.parse(operationId) } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -42,4 +48,5 @@ export function createOperationsClient(fetcher: typeof fetch = fetch) {
 }
 
 export const operationsClient = createOperationsClient();
+export type OperationsClient = ReturnType<typeof createOperationsClient>;
 

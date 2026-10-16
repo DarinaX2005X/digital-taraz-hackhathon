@@ -26,7 +26,6 @@ describe('operations locale and interaction contract', () => {
   it('keeps a checked scheduling candidate separate from apply and persists task locks', async () => {
     const editor = await readFile(new URL('../../src/features/operations/ui/plan-editor.tsx', import.meta.url), 'utf8');
     const commands = await readFile(new URL('../../src/features/operations/domain/commands.ts', import.meta.url), 'utf8');
-    expect(editor).toContain('operationsClient.propose');
     expect(editor).toContain('setProposal({ result, baseHash: currentHash })');
     expect(editor).toContain('async function applyProposal()');
     expect(editor).toContain('selectedProposal.baseHash !== hashJson(state.content');

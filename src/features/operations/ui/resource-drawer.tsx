@@ -5,12 +5,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Check, Plus, Search, Settings2, UserRoundPlus, X } from 'lucide-react';
 import { Button, Dialog } from '@/ui';
 import type { ArtifactSnapshot } from '@/features/artifacts/contracts';
-import { operationsClient } from '../client/transport';
+import type { OperationsClient } from '../client/transport';
 import type { AvailabilityVersion, ResourceAssignment, WorkResource } from '../contracts';
 import type { OperationsCopy } from '../locales';
 import styles from './plan.module.css';
 
 interface Props {
+  transport: OperationsClient;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   snapshot: ArtifactSnapshot;
@@ -21,7 +22,7 @@ interface Props {
   onAvailabilityCreated?: (resource: WorkResource, version: AvailabilityVersion, previousAvailabilityVersionId: string | null) => void;
 }
 
-export function ResourceDrawer({ open, onOpenChange, snapshot, assignments, copy: t, onChange, onResolved, onAvailabilityCreated }: Props) {
+export function ResourceDrawer({ transport, open, onOpenChange, snapshot, assignments, copy: t, onChange, onResolved, onAvailabilityCreated }: Props) {
   const [query, setQuery] = useState(''), [resources, setResources] = useState<WorkResource[]>([]), [versions, setVersions] = useState<AvailabilityVersion[]>([]);
   const [loading, setLoading] = useState(false), [error, setError] = useState<unknown>(), [createOpen, setCreateOpen] = useState(false), [manageId, setManageId] = useState<string>();
   const [more, setMore] = useState<string | null>(null), [reload, setReload] = useState(0);
@@ -29,19 +30,19 @@ export function ResourceDrawer({ open, onOpenChange, snapshot, assignments, copy
     if (!open) return;
     const controller = new AbortController(), timer = setTimeout(() => {
       setLoading(true); setError(undefined);
-      void operationsClient.list({ workspaceId: snapshot.viewer.workspaceId, query, limit: 30 }, { userId: snapshot.viewer.userId, signal: controller.signal })
+      void transport.list({ workspaceId: snapshot.viewer.workspaceId, query, limit: 30 }, { userId: snapshot.viewer.userId, signal: controller.signal })
         .then((result) => { setResources(result.resources); setMore(result.nextAfter); })
         .catch((failure) => { if (!controller.signal.aborted) setError(failure); })
         .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     }, 180);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [open, query, reload, snapshot.viewer.workspaceId, snapshot.viewer.userId]);
+  }, [open, query, reload, snapshot.viewer.workspaceId, snapshot.viewer.userId, transport]);
   useEffect(() => { onResolved(resources, versions); }, [resources, versions, onResolved]);
   const selected = useMemo(() => new Map(assignments.map((item) => [item.resourceId, item])), [assignments]);
   async function loadMore() {
     if (!more) return; setLoading(true); setError(undefined);
     try {
-      const result = await operationsClient.list({ workspaceId: snapshot.viewer.workspaceId, query, after: more, limit: 30 }, { userId: snapshot.viewer.userId });
+      const result = await transport.list({ workspaceId: snapshot.viewer.workspaceId, query, after: more, limit: 30 }, { userId: snapshot.viewer.userId });
       setResources((current) => [...current, ...result.resources.filter((item) => !current.some((old) => old.id === item.id))]); setMore(result.nextAfter);
     } catch (failure) { setError(failure); } finally { setLoading(false); }
   }
@@ -86,17 +87,17 @@ export function ResourceDrawer({ open, onOpenChange, snapshot, assignments, copy
         {more && <Button pending={loading} onClick={() => { void loadMore(); }}>{t.more}</Button>}
       </div>
     </Dialog>
-    <CreateResourceDialog open={createOpen} onOpenChange={setCreateOpen} snapshot={snapshot} copy={t} onCreated={created} />
-    {managed && <AvailabilityDialog key={`${managed.id}:${managed.revision}`} resource={managed} open={Boolean(manageId)} onOpenChange={(value) => { if (!value) setManageId(undefined); }} snapshot={snapshot} copy={t} onUpdated={resourceUpdated} onCreated={availabilityCreated} onVersions={availabilityVersionsResolved} />}
+    <CreateResourceDialog transport={transport} open={createOpen} onOpenChange={setCreateOpen} snapshot={snapshot} copy={t} onCreated={created} />
+    {managed && <AvailabilityDialog transport={transport} key={`${managed.id}:${managed.revision}`} resource={managed} open={Boolean(manageId)} onOpenChange={(value) => { if (!value) setManageId(undefined); }} snapshot={snapshot} copy={t} onUpdated={resourceUpdated} onCreated={availabilityCreated} onVersions={availabilityVersionsResolved} />}
   </>;
 }
 
-function CreateResourceDialog({ open, onOpenChange, snapshot, copy: t, onCreated }: { open: boolean; onOpenChange: (open: boolean) => void; snapshot: ArtifactSnapshot; copy: OperationsCopy; onCreated: (resource: WorkResource) => void }) {
+function CreateResourceDialog({ transport, open, onOpenChange, snapshot, copy: t, onCreated }: { transport: OperationsClient; open: boolean; onOpenChange: (open: boolean) => void; snapshot: ArtifactSnapshot; copy: OperationsCopy; onCreated: (resource: WorkResource) => void }) {
   const [name, setName] = useState(''), [kind, setKind] = useState<WorkResource['kind']>('person'), [timezone, setTimezone] = useState('Asia/Qyzylorda'), [pending, setPending] = useState(false), [error, setError] = useState<unknown>();
   async function submit() {
     if (!name.trim()) return; setPending(true); setError(undefined);
     try {
-      const result = await operationsClient.create({ workspaceId: snapshot.viewer.workspaceId, expectedAuthzVersion: snapshot.viewer.authzVersion, displayName: name.trim(), kind, timezone, accessClass: 'internal' }, crypto.randomUUID(), { userId: snapshot.viewer.userId });
+      const result = await transport.create({ workspaceId: snapshot.viewer.workspaceId, expectedAuthzVersion: snapshot.viewer.authzVersion, displayName: name.trim(), kind, timezone, accessClass: 'internal' }, crypto.randomUUID(), { userId: snapshot.viewer.userId });
       onCreated(result.resource); setName('');
     } catch (failure) { setError(failure); } finally { setPending(false); }
   }
@@ -117,7 +118,7 @@ const initialDays = (): DayDraft[] => Array.from({ length: 7 }, (_, index) => ({
 const toMinute = (value: string) => { const [hour, minute] = value.split(':').map(Number); return hour! * 60 + minute!; };
 const today = () => new Date().toISOString().slice(0, 10);
 
-function AvailabilityDialog({ resource, open, onOpenChange, snapshot, copy: t, onUpdated, onCreated, onVersions }: { resource: WorkResource; open: boolean; onOpenChange: (open: boolean) => void; snapshot: ArtifactSnapshot; copy: OperationsCopy; onUpdated: (resource: WorkResource) => void; onCreated: (resource: WorkResource, version: AvailabilityVersion) => void; onVersions: (versions: AvailabilityVersion[]) => void }) {
+function AvailabilityDialog({ transport, resource, open, onOpenChange, snapshot, copy: t, onUpdated, onCreated, onVersions }: { transport: OperationsClient; resource: WorkResource; open: boolean; onOpenChange: (open: boolean) => void; snapshot: ArtifactSnapshot; copy: OperationsCopy; onUpdated: (resource: WorkResource) => void; onCreated: (resource: WorkResource, version: AvailabilityVersion) => void; onVersions: (versions: AvailabilityVersion[]) => void }) {
   const [days, setDays] = useState<DayDraft[]>(initialDays), [effectiveFrom, setEffectiveFrom] = useState(today), [effectiveTo, setEffectiveTo] = useState(''), [note, setNote] = useState('');
   const [exceptions, setExceptions] = useState<{ date: string; available: boolean; start: string; end: string; label: string }[]>([]), [history, setHistory] = useState<AvailabilityVersion[]>([]);
   const [pending, setPending] = useState(false), [editing, setEditing] = useState(false), [loading, setLoading] = useState(false), [error, setError] = useState<unknown>();
@@ -127,17 +128,17 @@ function AvailabilityDialog({ resource, open, onOpenChange, snapshot, copy: t, o
     void (async () => {
       setLoading(true); setError(undefined);
       try {
-        const result = await operationsClient.availabilityHistory(snapshot.viewer.workspaceId, resource.id, undefined, { userId: snapshot.viewer.userId, signal: controller.signal });
+        const result = await transport.availabilityHistory(snapshot.viewer.workspaceId, resource.id, undefined, { userId: snapshot.viewer.userId, signal: controller.signal });
         if (!controller.signal.aborted) { setHistory(result.versions); onVersions(result.versions); }
       } catch (failure) { if (!controller.signal.aborted) setError(failure); }
       finally { if (!controller.signal.aborted) setLoading(false); }
     })();
     return () => controller.abort();
-  }, [open, resource.id, snapshot.viewer.workspaceId, snapshot.viewer.userId, onVersions]);
+  }, [open, resource.id, snapshot.viewer.workspaceId, snapshot.viewer.userId, onVersions, transport]);
   async function submit() {
     setPending(true); setError(undefined);
     try {
-      const result = await operationsClient.createAvailability(resource.id, {
+      const result = await transport.createAvailability(resource.id, {
         workspaceId: snapshot.viewer.workspaceId, expectedAuthzVersion: snapshot.viewer.authzVersion, expectedResourceRevision: resource.revision,
         timezone: resource.timezone, effectiveFrom, effectiveTo: effectiveTo || null,
         weekdays: days.flatMap((day, index) => day.enabled ? [{ weekday: index + 1, intervals: [{ startMinute: toMinute(day.start), endMinute: toMinute(day.end) }] }] : []),
@@ -150,7 +151,7 @@ function AvailabilityDialog({ resource, open, onOpenChange, snapshot, copy: t, o
   async function saveResource() {
     if (!name.trim()) return; setEditing(true); setError(undefined);
     try {
-      const result = await operationsClient.update(resource.id, { workspaceId: snapshot.viewer.workspaceId, expectedAuthzVersion: snapshot.viewer.authzVersion, expectedRevision: resource.revision, displayName: name.trim(), kind, timezone: resourceTimezone, status }, crypto.randomUUID(), { userId: snapshot.viewer.userId });
+      const result = await transport.update(resource.id, { workspaceId: snapshot.viewer.workspaceId, expectedAuthzVersion: snapshot.viewer.authzVersion, expectedRevision: resource.revision, displayName: name.trim(), kind, timezone: resourceTimezone, status }, crypto.randomUUID(), { userId: snapshot.viewer.userId });
       onUpdated(result.resource);
     } catch (failure) { setError(failure); } finally { setEditing(false); }
   }

@@ -109,7 +109,9 @@ async function setup(options: SetupOptions = {}) {
 function contextOf(request: ModelRequest) {
   return JSON.parse(request.messages[1]!.content!) as {
     goal: string; answers: { questionId: string; answer: string }[]; plan: string[];
+    currentArtifact: { id: string; revision: number } | null;
     sources: { sourceRef: { sourceId: string; sourceVersionId: string; revision: number }; title: string; fragments: { id: string; text?: string; values?: string[] }[] }[];
+    artifacts: { artifactId: string; revision: number; kind: string; targets: { targetId: string; text: string; locked: boolean }[] }[];
     operations: { assessmentId: string }[]; decision: { blockers: { id: string; userResolvable: boolean }[] } | null; selectedOptionId: string | null; bundle: unknown;
     savedResults: { id: string; title: string }[];
   };
@@ -150,6 +152,16 @@ function createDecisionGateway(): (request: ModelRequest) => Promise<ModelOutput
     if (request.jsonSchema) return verified();
     const context = contextOf(request);
     if (!context.goal.toLowerCase().includes('custom service')) {
+      if (context.currentArtifact) {
+        const active = context.artifacts.find((artifact) => artifact.artifactId === context.currentArtifact!.id);
+        if (!active) throw new Error('CURRENT_ARTIFACT_CONTEXT_MISSING');
+        if (!active.targets.some((target) => target.text.includes('Follow-up heading'))) {
+          const target = active.targets.find((item) => !item.locked && !item.text.includes('My own wording'));
+          if (!target) throw new Error('EDITABLE_TARGET_MISSING');
+          return call('revise_document', { reason: 'Apply the human follow-up to the current document', updates: [{ targetId: target.targetId, text: 'Follow-up heading' }] });
+        }
+        return call('finish_work', { summary: 'The current memo was revised without replacing unrelated wording.' });
+      }
       if (!context.savedResults.some((result) => result.title === 'Meeting memo')) return call('create_document', { title: 'Meeting memo', paragraphs: [{ kind: 'paragraph', text: 'The revised goal uses a document path and preserves the edited plan.' }] });
       return call('finish_work', { summary: 'The revised memo is saved.' });
     }
@@ -178,6 +190,14 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     const run = RunSchema.parse(await response.json()); expect(RunSchema.parse(await (await f.request('', f.input, key)).json()).id).toBe(run.id);
     const waiting = await f.drain(run.id);
     expect(waiting).toMatchObject({ state: 'waiting_input', failure: null }); expect(waiting.progress.plan).toHaveLength(4); expect(waiting.progress.questions).toHaveLength(1);
+    const decisionRequests = f.complete.mock.calls.map(([request]) => request).filter((request) => !request.jsonSchema);
+    for (const request of decisionRequests) {
+      const modelContext = contextOf(request), names = request.tools?.map((tool) => tool.name) ?? [];
+      if (new Set(modelContext.operations.map((item) => item.assessmentId)).size < 2) expect(names).not.toContain('compare_decision_options');
+      if (modelContext.selectedOptionId === null) expect(names).not.toContain('prepare_decision_bundle');
+      if (!modelContext.savedResults.length) expect(names).not.toContain('finish_work');
+    }
+    expect(decisionRequests.some((request) => (request.tools ?? []).some((tool) => tool.name === 'compare_decision_options'))).toBe(true);
     expect(waiting.progress.decision).toMatchObject({ outcome: 'conditional', selectedOptionId: null, options: [{ id: 'standard', commercial: { quotedTotal: '2500.00', contribution: '700.00' } }, { id: 'accelerated', commercial: { quotedTotal: '3000.00', contribution: '1200.00' } }] });
     const publicStandard = waiting.progress.decision!.options.find((option) => option.id === 'standard')!;
     expect(publicStandard.sourceRefs).toHaveLength(4);
@@ -195,6 +215,9 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     const resumed = await f.service.resume(f.owner, run.id, resumeInput, resumeKey);
     expect((await f.service.resume(f.owner, run.id, resumeInput, resumeKey)).id).toBe(resumed.id);
     const done = await f.drain(resumed.id); expect(done.state).toBe('completed'); expect(done.progress.results).toHaveLength(3); expect(done.progress.decision?.selectedOptionId).toBe('standard');
+    const resumedDecisionRequests = f.complete.mock.calls.map(([request]) => request).filter((request) => !request.jsonSchema && contextOf(request).selectedOptionId === 'standard');
+    expect(resumedDecisionRequests.some((request) => (request.tools ?? []).some((tool) => tool.name === 'prepare_decision_bundle'))).toBe(true);
+    expect(resumedDecisionRequests.some((request) => contextOf(request).savedResults.length > 0 && (request.tools ?? []).some((tool) => tool.name === 'finish_work'))).toBe(true);
     expect(done.progress.branches?.find((branch) => branch.id === 'capacity_standard')?.resultRefs).toEqual([expect.objectContaining({ kind: 'artifact', id: expect.any(String), revision: 0 })]);
     const loaded = await Promise.all(done.progress.results.map((item) => f.read(item.id)));
     expect(loaded.map((item) => item.content.kind).sort()).toEqual(['document', 'plan', 'table']);
@@ -208,12 +231,29 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     const sources = Object.fromEntries(document.sourceFreshness.filter((item) => item.currentRevision !== undefined).map((item) => [item.sourceRef.sourceId, item.currentRevision!]));
     const artifactService = (await import('../../src/features/artifacts/server/service')).createArtifactService(pool);
     await artifactService.apply(f.owner, { workspaceId: f.workspaceId, expectedAuthzVersion: document.viewer.authzVersion, group: { commandGroupId: randomUUID(), expectedArtifactRevisions: { [document.artifact.id]: document.artifact.currentRevision }, expectedSourceRevisions: sources, commands: [{ commandId: randomUUID(), artifactId: document.artifact.id, baseRevision: document.artifact.currentRevision, kind: 'document', reason: 'Personal wording', expectedSourceRevisions: sources, operations: [{ targetId, op: 'set', beforeHash: resolver(targetId)!.hash, value: { ...paragraph, content: [{ type: 'text', text: 'My own wording survives reopening.' }] } }] }] } });
-    expect(JSON.stringify((await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: document.artifact.id })).content)).toContain('My own wording survives reopening.');
+    const manuallyEdited = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: document.artifact.id });
+    expect(JSON.stringify(manuallyEdited.content)).toContain('My own wording survives reopening.');
+    const manualResolver = createArtifactTargetResolver(manuallyEdited.content, manuallyEdited.artifact.bindings, manuallyEdited.locks);
+    const manualSources = Object.fromEntries(manuallyEdited.sourceFreshness.filter((item) => item.currentRevision !== undefined).map((item) => [item.sourceRef.sourceId, item.currentRevision!]));
+    await artifactService.apply(f.owner, { workspaceId: f.workspaceId, expectedAuthzVersion: manuallyEdited.viewer.authzVersion, group: { commandGroupId: randomUUID(), expectedArtifactRevisions: { [document.artifact.id]: manuallyEdited.artifact.currentRevision }, expectedSourceRevisions: manualSources, commands: [{ commandId: randomUUID(), artifactId: document.artifact.id, baseRevision: manuallyEdited.artifact.currentRevision, kind: 'document', reason: 'Protect approved personal wording', expectedSourceRevisions: manualSources, operations: [{ targetId, op: 'lock', beforeHash: manualResolver(targetId)!.hash, value: { locked: true, reason: 'Approved personal wording' } }] }] } });
+    const protectedEdit = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: document.artifact.id });
+    expect(protectedEdit.locks?.[targetId]?.reason).toBe('Approved personal wording');
+    await expect(artifactService.version(f.owner, { workspaceId: f.workspaceId, artifactId: document.artifact.id, revision: protectedEdit.artifact.currentRevision, expectedProjectId: f.projectId })).resolves.toMatchObject({ headRevision: protectedEdit.artifact.currentRevision, artifact: { status: 'draft' } });
     expect(RunSchema.parse(await (await f.request(`/${run.id}`)).json()).progress.results.map((item) => item.id)).toEqual(done.progress.results.map((item) => item.id));
-    const changedKey = randomUUID(), changedInput = { expectedEpoch: done.epoch, goal: 'Prepare a meeting memo from the selected sources.', plan: ['Extract decisions', 'Draft the memo'] };
-    const changed = await f.service.resume(f.owner, done.id, changedInput, changedKey); expect((await f.service.resume(f.owner, done.id, changedInput, changedKey)).id).toBe(changed.id);
-    const revised = await f.drain(changed.id); expect(revised.state).toBe('completed'); expect(revised.progress.plan).toEqual(changedInput.plan);
-    expect(revised.steps.some((step) => step.toolName === 'business.create_document')).toBe(true); expect(revised.steps.some((step) => step.toolName === 'business.compare_decision_options')).toBe(false);
+    const changedKey = randomUUID(), changedInput = { expectedEpoch: done.epoch, goal: 'Prepare a meeting memo from the selected sources.', plan: ['Extract decisions', 'Revise the current memo'], currentArtifact: { id: document.artifact.id, revision: protectedEdit.artifact.currentRevision } };
+    const changed = await f.service.resume(f.owner, done.id, changedInput, changedKey);
+    expect((await f.service.resume(f.owner, done.id, changedInput, changedKey)).id).toBe(changed.id);
+    const revised = await f.drain(changed.id);
+    expect(revised).toMatchObject({ state: 'completed', failure: null });
+    expect(revised.progress.plan).toEqual(changedInput.plan);
+    expect(revised.steps.some((step) => step.toolName === 'business.revise_document')).toBe(true); expect(revised.steps.some((step) => step.toolName === 'business.create_document')).toBe(false); expect(revised.steps.some((step) => step.toolName === 'business.compare_decision_options')).toBe(false);
+    const afterFollowUp = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: document.artifact.id });
+    expect(afterFollowUp.artifact.currentRevision).toBe(protectedEdit.artifact.currentRevision + 1);
+    expect(JSON.stringify(afterFollowUp.content)).toContain('Follow-up heading');
+    expect(JSON.stringify(afterFollowUp.content)).toContain('My own wording survives reopening.');
+    expect(afterFollowUp.locks?.[targetId]?.reason).toBe('Approved personal wording');
+    expect(revised.progress.results.find((result) => result.id === document.artifact.id)?.revision).toBe(afterFollowUp.artifact.currentRevision);
+    expect((await pool.query('SELECT id FROM artifacts WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(3);
   }, 90_000);
 
   it('keeps missing capacity or price in waiting_input with one material question and no offer success', async () => {
@@ -244,7 +284,10 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     const started = new Promise<void>((resolve) => { entered = resolve; });
     const f = await setup({ gateway: async (request) => {
       if (request.jsonSchema) return verified();
-      if (mode === 'malformed') return { content: null, toolCalls: [{ id: 'bad', name: 'compare_decision_options', arguments: '{"options":[]}' }] };
+      if (mode === 'malformed') {
+        expect(request.tools?.map((tool) => tool.name)).not.toContain('compare_decision_options');
+        return { content: null, toolCalls: [{ id: 'bad', name: 'compare_decision_options', arguments: '{"options":[]}' }] };
+      }
       if (mode === 'pending') { entered(); return new Promise<ModelOutput>((resolve) => { finish = resolve; }); }
       return call('finish_work', { summary: 'Not allowed' });
     } });

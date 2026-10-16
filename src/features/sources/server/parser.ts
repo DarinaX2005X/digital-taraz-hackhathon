@@ -17,6 +17,12 @@ const SOURCE_SINGLE_FRAGMENT_LIMIT = 2 * 1024 * 1024;
 const SOURCE_DECODE_WINDOW = 64 * 1024;
 const bad = (key: string) => new IdentityError('VALIDATION_FAILED', `sources.errors.${key}`);
 
+export function sourceParserFailureCategory(error: unknown) {
+  if (!(error instanceof Error)) return typeof error;
+  const category = error.name || error.constructor.name;
+  return /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/.test(category) ? category : 'Error';
+}
+
 function decode(bytes: Buffer, encoding: SourceOptions['encoding']): string {
   try { return new TextDecoder(encoding, { fatal: true }).decode(bytes); } catch { throw bad('encoding'); }
 }
@@ -160,7 +166,11 @@ export async function extractSourceToSink(bytes: Buffer, format: SourceFormat, o
         } else pages.push({ page, state: 'pending' });
         item.cleanup();
       }
-    } catch (error) { if (error instanceof IdentityError) throw error; throw bad('pdf'); }
+    } catch (error) {
+      if (error instanceof IdentityError) throw error;
+      console.error('SOURCE_PDF_PARSE_FAILED', { category: sourceParserFailureCategory(error) });
+      throw bad('pdf');
+    }
     finally { await loading.destroy(); }
     if (pages.some((page) => page.state === 'pending')) diagnostics.push('vision-required');
   } else if (format === 'ttf' || format === 'otf' || format === 'woff') {

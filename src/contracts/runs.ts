@@ -32,11 +32,13 @@ export const CreateRunSchema = z.strictObject({
   capabilityVersion: z.number().int().positive().max(10000), goal: z.string().trim().min(1).max(12000),
   locale: LocaleSchema, inputRefs: z.array(RunInputRefSchema).max(100),
 });
+export const RunCurrentArtifactSchema = z.strictObject({ id: IdSchema, revision: RevisionSchema });
 export const ResumeRunSchema = z.strictObject({
   expectedEpoch: z.number().int().nonnegative(), stepId: IdSchema.optional(),
   answers: z.array(z.strictObject({ questionId: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/), answer: z.string().trim().min(1).max(4000) })).max(10).optional(),
   goal: z.string().trim().min(1).max(12000).optional(),
   plan: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional(),
+  currentArtifact: RunCurrentArtifactSchema.optional(),
   selectedOptionId: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/).optional(),
   acceptedConditionIds: z.array(z.string().regex(/^accept_conditions_[a-z0-9_-]{1,32}$/)).max(20).optional(),
 }).superRefine((value, context) => {

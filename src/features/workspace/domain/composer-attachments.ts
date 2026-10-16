@@ -6,7 +6,7 @@ export const ComposerAttachmentSchema = z.strictObject({
   id: z.uuid(), operationKey: z.uuid(), title: z.string().trim().min(1).max(240),
   fileName: z.string().trim().min(1).max(240), size: z.number().int().min(1).max(SOURCE_MAX_BYTES),
   format: SourceFormatSchema,
-  state: z.enum(['local', 'needs-file', 'uploading', 'processing', 'ready', 'needs-review', 'failed']),
+  state: z.enum(['local', 'needs-file', 'uploading', 'processing', 'retry-processing', 'ready', 'needs-review', 'failed']),
   sourceId: z.uuid().optional(), uploadId: z.uuid().optional(), revision: z.number().int().positive().optional(),
   currentVersionId: z.uuid().optional(),
 });
@@ -21,7 +21,11 @@ export function addComposerFile(file: LocalFileDescriptor, id = crypto.randomUUI
 }
 
 export function restoreComposerAttachments(attachments: readonly ComposerAttachment[]): ComposerAttachment[] {
-  return attachments.map((item) => item.state === 'ready' || item.state === 'needs-review' ? { ...item } : { ...item, state: 'needs-file' });
+  return attachments.map((item) => {
+    if (item.state === 'ready' || item.state === 'needs-review') return { ...item };
+    if (item.uploadId && item.sourceId && ['processing', 'retry-processing', 'failed'].includes(item.state)) return { ...item, state: 'retry-processing' };
+    return { ...item, state: 'needs-file' };
+  });
 }
 
 export function matchesComposerFile(attachment: ComposerAttachment, file: LocalFileDescriptor) {

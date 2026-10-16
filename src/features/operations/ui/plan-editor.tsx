@@ -10,7 +10,7 @@ import { hashJson } from '@/features/artifacts/domain/canonical';
 import type { JsonValue } from '@/features/artifacts/domain/content-models';
 import { useLocale } from '@/i18n/provider';
 import { createPlanController } from '../client/controller';
-import { operationsClient } from '../client/transport';
+import { operationsClient, type OperationsClient } from '../client/transport';
 import type { AvailabilityVersion, CapacityAssessment, WorkResource } from '../contracts';
 import { assessPlanCapacity, capacityAssessmentKey } from '../domain/capacity';
 import { entryLockCommand, planCommand } from '../domain/commands';
@@ -33,8 +33,9 @@ const reasonKeys: Record<CapacityAssessment['reasons'][number], keyof typeof ope
   'scheduled-outside-availability': 'reasonOutside', 'effort-exceeds-window': 'reasonEffortWindow', 'overlapping-effort-exceeds-capacity': 'reasonOverlap', 'scope-too-large': 'reasonScope',
 };
 
-export function PlanEditor({ session, onFlushReady }: { session: ArtifactSession; onFlushReady?: (flush: (() => Promise<boolean>) | null) => void }) {
+export function PlanEditor({ session, onFlushReady, transport }: { session: ArtifactSession; onFlushReady?: (flush: (() => Promise<boolean>) | null) => void; transport?: OperationsClient }) {
   const { locale } = useLocale(), t = operationsCopies[locale];
+  const client = transport ?? operationsClient;
   const [controller] = useState(() => createPlanController(session, () => operationsCopies[locale].reasonEdit));
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
   const sessionState = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot), snapshot = sessionState.snapshot;
@@ -63,15 +64,15 @@ export function PlanEditor({ session, onFlushReady }: { session: ArtifactSession
       const loadedResources: WorkResource[] = [], loadedVersions: AvailabilityVersion[] = [];
       for (const id of ids) {
         const [resource, availability] = await Promise.all([
-          operationsClient.read(viewerWorkspaceId, id, { userId: viewerUserId, signal: abort.signal }),
-          operationsClient.availabilityHistory(viewerWorkspaceId, id, undefined, { userId: viewerUserId, signal: abort.signal }),
+          client.read(viewerWorkspaceId, id, { userId: viewerUserId, signal: abort.signal }),
+          client.availabilityHistory(viewerWorkspaceId, id, undefined, { userId: viewerUserId, signal: abort.signal }),
         ]);
         loadedResources.push(resource.resource); loadedVersions.push(...availability.versions);
       }
       if (!abort.signal.aborted) { setResources(loadedResources); setVersions(loadedVersions); }
     })().catch((failure) => { if (!abort.signal.aborted) setResourceError(failure); });
     return () => abort.abort();
-  }, [assignedResourceKey, viewerWorkspaceId, viewerUserId]);
+  }, [assignedResourceKey, client, viewerWorkspaceId, viewerUserId]);
   useEffect(() => {
     if (!proposalOpen || !viewerWorkspaceId || !viewerUserId) return;
     const abort = new AbortController();
@@ -79,14 +80,14 @@ export function PlanEditor({ session, onFlushReady }: { session: ArtifactSession
       const loaded: WorkResource[] = [];
       let after: string | undefined;
       do {
-        const page = await operationsClient.list({ workspaceId: viewerWorkspaceId, status: 'active', after, limit: 50 }, { userId: viewerUserId, signal: abort.signal });
+        const page = await client.list({ workspaceId: viewerWorkspaceId, status: 'active', after, limit: 50 }, { userId: viewerUserId, signal: abort.signal });
         loaded.push(...page.resources); after = page.nextAfter ?? undefined;
         if (loaded.length >= 2_000) after = undefined;
       } while (after && !abort.signal.aborted);
       if (!abort.signal.aborted) setResources((current) => [...loaded, ...current.filter((item) => !loaded.some((next) => next.id === item.id))]);
     })().catch((failure) => { if (!abort.signal.aborted) setResourceError(failure); });
     return () => abort.abort();
-  }, [assignedResourceKey, proposalOpen, viewerUserId, viewerWorkspaceId]);
+  }, [assignedResourceKey, client, proposalOpen, viewerUserId, viewerWorkspaceId]);
   const assessments = useMemo(() => assessPlanCapacity({ plan: state.content, resources, availabilityVersions: versions }), [state.content, resources, versions]);
   const byEntry = useMemo(() => {
     const result = new Map<string, CapacityAssessment[]>();
@@ -170,7 +171,7 @@ export function PlanEditor({ session, onFlushReady }: { session: ArtifactSession
         return (entry.sourceRefs ?? []).map((sourceRef) => ({ entryId: entry.id, sourceRef, availableAt }));
       });
       const currentHash = hashJson(state.content as unknown as JsonValue);
-      const result = await operationsClient.propose({
+      const result = await client.propose({
         workspaceId: snapshot.viewer.workspaceId,
         expectedAuthzVersion: snapshot.viewer.authzVersion,
         input: {
@@ -239,7 +240,7 @@ export function PlanEditor({ session, onFlushReady }: { session: ArtifactSession
       <TaskInspector entry={active} content={state.content} projectId={snapshot.artifact.projectId} canEdit={canEdit} locked={Boolean(active && snapshot.locks?.[active.id])} copy={t} locale={locale} timezone={state.content.timezone} resources={resourceMap} assessments={active ? byEntry.get(active.id) ?? [] : []} accepting={accepting} acceptReason={acceptReason} onAccepting={setAccepting} onAcceptReason={setAcceptReason} onAccept={accept} onLock={() => active && void toggleLock(active, Boolean(snapshot.locks?.[active.id]))} onClose={() => setActiveId(undefined)} onPatch={(value, boundary) => active && patch(active.id, value, boundary)} onResources={() => setResourceOpen(true)} />
     </div>
     <footer className={styles.statusbar}><span>{state.content.timezone}</span><output aria-live="polite">{state.phase === 'saving' ? t.saving : state.phase === 'dirty' ? state.localSaved ? t.local : t.saving : t.saved}</output></footer>
-    <ResourceDrawer open={resourceOpen} onOpenChange={setResourceOpen} snapshot={snapshot} assignments={active ? canonicalAssignments(active) : []} copy={t} onResolved={publishResources} onAvailabilityCreated={(resource, version, previousAvailabilityVersionId) => { const impact = assessAvailabilityVersionChange({ plan: state.content, resources: [...resources.filter((item) => item.id !== resource.id), resource], availabilityVersions: [...versions.filter((item) => item.id !== version.id), version], resourceId: resource.id, previousAvailabilityVersionId, nextAvailabilityVersion: version }); setAvailabilityImpact(impact.affectedEntryIds.length ? impact : undefined); }} onChange={(assignments) => { if (active) patch(active.id, { assignments, resourceIds: assignments.map((item) => item.resourceId), availabilityVersionIds: assignments.flatMap((item) => item.availabilityVersionId ? [item.availabilityVersionId] : []), capacityOverride: undefined }); }} />
+    <ResourceDrawer transport={client} open={resourceOpen} onOpenChange={setResourceOpen} snapshot={snapshot} assignments={active ? canonicalAssignments(active) : []} copy={t} onResolved={publishResources} onAvailabilityCreated={(resource, version, previousAvailabilityVersionId) => { const impact = assessAvailabilityVersionChange({ plan: state.content, resources: [...resources.filter((item) => item.id !== resource.id), resource], availabilityVersions: [...versions.filter((item) => item.id !== version.id), version], resourceId: resource.id, previousAvailabilityVersionId, nextAvailabilityVersion: version }); setAvailabilityImpact(impact.affectedEntryIds.length ? impact : undefined); }} onChange={(assignments) => { if (active) patch(active.id, { assignments, resourceIds: assignments.map((item) => item.resourceId), availabilityVersionIds: assignments.flatMap((item) => item.availabilityVersionId ? [item.availabilityVersionId] : []), capacityOverride: undefined }); }} />
   </section>;
 }
 
@@ -311,7 +312,7 @@ function PlanCalendar({ content, month, locked, copy: t, locale, canEdit, assess
   const leading = new Date(`${start}T00:00:00Z`).getUTCDay() || 7, gridStart = addCalendarDays(start, 1 - leading), days = Array.from({ length: 42 }, (_, index) => addCalendarDays(gridStart, index));
   const scheduled = (date: string) => content.entries.filter((entry) => entry.startDate && entry.endDate ? entry.startDate <= date && entry.endDate >= date : entry.startAt && entry.endAt ? zonedParts(entry.startAt, content.timezone).date <= date && zonedParts(Math.max(Date.parse(entry.startAt), Date.parse(entry.endAt) - 1), content.timezone).date >= date : false);
   function shift(delta: number) { const value = new Date(Date.UTC(year!, numericMonth! - 1 + delta, 1)); onMonth(`${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}`); }
-  return <div className={styles.calendarView}><header><button type="button" aria-label={t.monthPrevious} onClick={() => shift(-1)}><ArrowLeft size={18} /></button><h2>{new Intl.DateTimeFormat(localeTags[locale], { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(new Date(`${start}T00:00:00Z`))}</h2><button type="button" aria-label={t.monthNext} onClick={() => shift(1)}><ArrowRight size={18} /></button><Button onClick={() => onMonth(new Date().toISOString().slice(0, 7))}>{t.today}</Button></header><div className={styles.calendarWeekdays} aria-hidden="true">{[t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun].map((day) => <span key={day}>{day}</span>)}</div><div className={styles.calendarGrid}>{days.map((date) => { const items = scheduled(date); return <div key={date} className={`${styles.calendarDay} ${date < start || date > end ? styles.outsideMonth : ''}`} onDragOver={(event) => { if (canEdit) event.preventDefault(); }} onDrop={(event) => { if (!canEdit) return; event.preventDefault(); const id = event.dataTransfer.getData('text/plain'); if (id) onMoveDate(id, date); }}><time dateTime={date}>{Number(date.slice(-2))}</time>{items.slice(0, 4).map((entry) => <button type="button" key={entry.id} draggable={canEdit} className={`${styles.calendarTask} ${assessments.get(entry.id)?.some((item) => item.status === 'conflict') ? styles.calendarConflict : ''}`} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.id); }} onClick={() => onActivate(entry.id)}>{locked.has(entry.id) && <LockKeyhole size={11} aria-hidden="true" />}{entry.title}</button>)}{items.length > 4 && <small>+{items.length - 4} {t.more}</small>}</div>; })}</div></div>;
+  return <div className={styles.calendarView}><header><button type="button" aria-label={t.monthPrevious} onClick={() => shift(-1)}><ArrowLeft size={18} /></button><h2>{new Intl.DateTimeFormat(localeTags[locale], { timeZone: 'UTC', month: 'long', year: 'numeric' }).format(new Date(`${start}T00:00:00Z`))}</h2><button type="button" aria-label={t.monthNext} onClick={() => shift(1)}><ArrowRight size={18} /></button><Button className={styles.todayButton} onClick={() => onMonth(new Date().toISOString().slice(0, 7))}>{t.today}</Button></header><div className={styles.calendarWeekdays} aria-hidden="true">{[t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun].map((day) => <span key={day}>{day}</span>)}</div><div className={styles.calendarGrid}>{days.map((date) => { const items = scheduled(date); return <div key={date} className={`${styles.calendarDay} ${date < start || date > end ? styles.outsideMonth : ''}`} onDragOver={(event) => { if (canEdit) event.preventDefault(); }} onDrop={(event) => { if (!canEdit) return; event.preventDefault(); const id = event.dataTransfer.getData('text/plain'); if (id) onMoveDate(id, date); }}><time dateTime={date}>{Number(date.slice(-2))}</time>{items.slice(0, 4).map((entry) => <button type="button" key={entry.id} draggable={canEdit} className={`${styles.calendarTask} ${assessments.get(entry.id)?.some((item) => item.status === 'conflict') ? styles.calendarConflict : ''}`} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', entry.id); }} onClick={() => onActivate(entry.id)}>{locked.has(entry.id) && <LockKeyhole size={11} aria-hidden="true" />}{entry.title}</button>)}{items.length > 4 && <small>+{items.length - 4} {t.more}</small>}</div>; })}</div></div>;
 }
 
 function PlanChecklists({ content, canEdit, copy: t, onActivate, onChange }: { content: OperationalPlanContent; canEdit: boolean; copy: typeof operationsCopies.en; onActivate: (id: string) => void; onChange: (content: OperationalPlanContent) => void }) {

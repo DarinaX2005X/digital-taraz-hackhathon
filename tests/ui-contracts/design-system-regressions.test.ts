@@ -26,10 +26,22 @@ describe('approved Tirlik interface contract', () => {
     const workspace = read('src/features/workspace/ui/workspace.module.css');
     const runs = read('src/features/runs/ui/runs.module.css');
     expect(workspace).toContain('.sessionLayout { display: grid');
-    expect(workspace).toContain('gap: 0');
+    expect(workspace).toContain('gap: 16px');
+    expect(workspace).toContain('.sessionResult { min-height: 580px; margin: 0;');
     expect(workspace).toContain('background: var(--color-paper)');
     expect(runs).toContain('background: var(--color-deep-surface)');
     expect(runs).not.toMatch(/\.assistantSession[^}]*box-shadow/);
+  });
+
+  it('keeps dark assistant actions readable and bounds document scrolling below its toolbar', () => {
+    const runs = read('src/features/runs/ui/runs.module.css');
+    const documents = read('src/features/documents/ui/documents.module.css');
+    expect(runs).toContain('.assistantHeaderActions button:hover');
+    expect(runs).toContain('.assistantResults a:focus-visible { color: var(--color-on-deep);');
+    expect(runs).toContain('.assistantSession .questionForm { padding: 16px; color: var(--color-text); }');
+    expect(documents).toContain('height: calc(100dvh - 188px)');
+    expect(documents).toContain('min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable;');
+    expect(documents).toContain('.editor { height: auto; min-height: 0;');
   });
 
   it('uses overlays for elevation while dense editors remain flat', () => {

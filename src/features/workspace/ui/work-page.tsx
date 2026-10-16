@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Check, FileSpreadsheet, FileText, Folder, FolderPlus, Image, LayoutList, Plus, RefreshCw, Search, Trash2, Upload, XCircle } from 'lucide-react';
 import { useEffect, useReducer, useRef, useState } from 'react';
 import type { RunInputRef } from '@/contracts/runs';
+import type { SourceUpload } from '@/contracts/sources';
 import { useLocale } from '@/i18n/provider';
 import { formatInstant } from '@/i18n';
 import { identityClient } from '@/features/identity/ui';
@@ -65,7 +66,8 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
   const composerBlocked = attachments.some((item) => item.state === 'needs-file' || item.state === 'needs-review');
   const composerStateCopy: Record<ComposerAttachment['state'], string> = {
     local: t.composerFile_local, 'needs-file': t.composerFile_needsFile, uploading: t.composerFile_uploading,
-    processing: t.composerFile_processing, ready: t.composerFile_ready, 'needs-review': t.composerFile_needsReview, failed: t.composerFile_failed,
+    processing: t.composerFile_processing, 'retry-processing': t.composerFile_retryProcessing, ready: t.composerFile_ready,
+    'needs-review': t.composerFile_needsReview, failed: t.composerFile_failed,
   };
   const leave = useWorkspaceLeaveGuard(active && Boolean(title || goal || workspaceName || manualTitle || attachments.length), saving || uncertain || workspaceUncertain);
   function persistEntry(overrides: Partial<EntryDraft> = {}, attachmentSnapshot = attachmentsRef.current) {
@@ -172,7 +174,7 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
     let invalid = false;
     const next = [...attachmentsRef.current];
     for (const file of Array.from(selected)) {
-      const resumable = next.find((item) => ['needs-file', 'failed'].includes(item.state) && matchesComposerFile(item, file));
+      const resumable = next.find((item) => ['needs-file', 'retry-processing', 'failed'].includes(item.state) && matchesComposerFile(item, file));
       if (resumable) { files.current.set(resumable.id, file); Object.assign(resumable, { state: 'local' as const }); continue; }
       if (next.length >= 20) { invalid = true; continue; }
       const attachment = addComposerFile(file);
@@ -200,17 +202,23 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
         if (pinned.projectId !== projectId || pinned.sourceRef.revision !== current.revision) throw new Error('composer-source-changed');
         return { kind: 'source', id: current.sourceId, revision: current.revision };
       }
-      const file = files.current.get(current.id);
-      if (!file || !matchesComposerFile(current, file)) { update({ state: 'needs-file' }); throw new Error('composer-file-required'); }
-      update({ state: 'uploading' });
-      const initialized = await run((signal) => sourceClient.init(sourceUploadInput(current, workspaceId, projectId), current.operationKey, { userId: ownerId, signal }));
-      let upload = initialized.upload;
-      update({ sourceId: upload.sourceId, uploadId: upload.id });
-      if (upload.status === 'pending') {
-        if (!initialized.token) throw new Error('composer-upload-retry');
-        upload = (await run((signal) => sourceClient.put(workspaceId, upload.id, initialized.token!, file, { userId: ownerId, signal }))).upload;
+      let upload: SourceUpload;
+      if (current.state === 'retry-processing' && current.uploadId && current.sourceId) {
+        update({ state: 'processing' });
+        upload = (await run((signal) => sourceClient.finalize(workspaceId, current.uploadId!, { userId: ownerId, signal }))).upload;
+      } else {
+        const file = files.current.get(current.id);
+        if (!file || !matchesComposerFile(current, file)) { update({ state: 'needs-file' }); throw new Error('composer-file-required'); }
+        update({ state: 'uploading' });
+        const initialized = await run((signal) => sourceClient.init(sourceUploadInput(current, workspaceId, projectId), current.operationKey, { userId: ownerId, signal }));
+        upload = initialized.upload;
+        update({ sourceId: upload.sourceId, uploadId: upload.id });
+        if (upload.status === 'pending') {
+          if (!initialized.token) throw new Error('composer-upload-retry');
+          upload = (await run((signal) => sourceClient.put(workspaceId, upload.id, initialized.token!, file, { userId: ownerId, signal }))).upload;
+        }
+        if (upload.status === 'uploaded' || upload.status === 'failed' && upload.byteHash) { update({ state: 'processing' }); upload = (await run((signal) => sourceClient.finalize(workspaceId, upload.id, { userId: ownerId, signal }))).upload; }
       }
-      if (upload.status === 'uploaded' || upload.status === 'failed' && upload.byteHash) { update({ state: 'processing' }); upload = (await run((signal) => sourceClient.finalize(workspaceId, upload.id, { userId: ownerId, signal }))).upload; }
       if (upload.status === 'partial') { update({ state: 'needs-review', sourceId: upload.sourceId, uploadId: upload.id }); throw new Error('composer-review-required'); }
       if (upload.status !== 'ready' || !upload.versionId) throw new Error('composer-upload-retry');
       const pinned = await run((signal) => sourceClient.readVersion(workspaceId, upload.sourceId, upload.versionId!, { userId: ownerId, signal }), undefined, false);
@@ -218,7 +226,7 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
       update({ state: 'ready', sourceId: upload.sourceId, uploadId: upload.id, currentVersionId: upload.versionId, revision: pinned.sourceRef.revision });
       return { kind: 'source', id: upload.sourceId, revision: pinned.sourceRef.revision };
     } catch (failure) {
-      if (current.state !== 'needs-file' && current.state !== 'needs-review') update({ state: 'failed' });
+      if (current.state !== 'needs-file' && current.state !== 'needs-review') update({ state: current.uploadId && current.sourceId ? 'retry-processing' : 'failed' });
       throw failure;
     }
   }
@@ -314,7 +322,7 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
           <input ref={fileInput} id="work-source-input" className="tirlik-sr-only" type="file" multiple disabled={saving} accept=".txt,.md,.csv,.tsv,.xlsx,.docx,.pdf,.png,.jpg,.jpeg,.webp" onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.target.value = ''; }} />
           <div><Upload size={21} aria-hidden="true" /><span><strong>{t.ownMaterials}</strong><small>{t.composerDropHint}</small></span><label className="tl-button tl-button--secondary" htmlFor="work-source-input" aria-disabled={saving}>{t.chooseFiles}</label></div>
         </div>
-        {attachments.length > 0 && <ul className={styles.composerFiles}>{attachments.map((attachment) => <li key={attachment.id} data-state={attachment.state}><FileText size={19} aria-hidden="true" /><span><strong>{attachment.fileName}</strong><small>{Math.max(1, Math.ceil(attachment.size / 1024))} KB · {composerStateCopy[attachment.state]}</small></span>{attachment.state === 'ready' ? <Check size={18} aria-label={t.composerFile_ready} /> : attachment.state === 'failed' ? <XCircle size={18} aria-label={t.composerFile_failed} /> : attachment.state === 'needs-file' ? <Button variant="quiet" icon={RefreshCw} onClick={() => fileInput.current?.click()}>{t.reselectFile}</Button> : attachment.state === 'needs-review' && attachment.sourceId ? <Link href={`/app/materials/sources/${attachment.sourceId}?workspaceId=${workspaceId}`}>{t.reviewFile}</Link> : null}<Button variant="quiet" icon={Trash2} disabled={saving} onClick={() => removeAttachment(attachment)}>{t.removeFile}</Button></li>)}</ul>}
+        {attachments.length > 0 && <ul className={styles.composerFiles}>{attachments.map((attachment) => <li key={attachment.id} data-state={attachment.state}><FileText size={19} aria-hidden="true" /><span><strong>{attachment.fileName}</strong><small>{Math.max(1, Math.ceil(attachment.size / 1024))} KB · {composerStateCopy[attachment.state]}</small></span>{attachment.state === 'ready' ? <Check size={18} aria-label={t.composerFile_ready} /> : attachment.state === 'failed' || attachment.state === 'retry-processing' ? <XCircle size={18} aria-label={composerStateCopy[attachment.state]} /> : attachment.state === 'needs-file' ? <Button variant="quiet" icon={RefreshCw} onClick={() => fileInput.current?.click()}>{t.reselectFile}</Button> : attachment.state === 'needs-review' && attachment.sourceId ? <Link href={`/app/materials/sources/${attachment.sourceId}?workspaceId=${workspaceId}`}>{t.reviewFile}</Link> : null}<Button variant="quiet" icon={Trash2} disabled={saving} onClick={() => removeAttachment(attachment)}>{t.removeFile}</Button></li>)}</ul>}
         {savedProjectId && <p className={styles.composerSaved} role="status">{t.composerProjectSaved}</p>}
         {uncertain ? <p role="status">{t.taskUncertain}</p> : saveError instanceof Error && saveError.message.startsWith('composer-') ? <div className={styles.error} role="alert"><p>{saveError.message === 'composer-invalid-file' ? t.composerInvalidFile : saveError.message === 'composer-file-required' ? t.composerReselectRequired : saveError.message === 'composer-review-required' ? t.composerReviewRequired : saveError.message === 'composer-source-changed' ? t.composerSourceChanged : t.composerRetryFile}</p></div> : <WorkspaceError error={saveError} saving />}
         <div className={styles.composerActions}><Button variant="primary" type="submit" icon={ArrowUpRight} pending={saving} disabled={!draftReady || !goal.trim() || composerBlocked}>{uncertain ? t.taskCheck : t.startTask}</Button><label className="tl-button tl-button--secondary" htmlFor="work-source-input" aria-disabled={saving}><Upload size={18} />{t.ownMaterials}</label><Button icon={Plus} disabled={saving || uncertain || Boolean(savedProjectId)} onClick={() => setOpen(true)}>{t.manualCreate}</Button></div>

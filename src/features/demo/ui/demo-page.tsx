@@ -8,6 +8,7 @@ import type { Run, RunResultRef, RunState } from '@/contracts/runs';
 import type { ArtifactSnapshot } from '@/features/artifacts/contracts';
 import { createArtifactClient } from '@/features/artifacts/client/transport';
 import { AuthDialog, useIdentityAccount } from '@/features/identity/ui';
+import { createOperationsClient } from '@/features/operations/client/transport';
 import { AssistantSession, type AssistantSessionTransport } from '@/features/runs/ui/assistant-session';
 import { ArtifactWorkspacePage, type ArtifactWorkspaceTransport } from '@/features/workspace/ui/artifact-page';
 import { LocaleProvider } from '@/i18n/provider';
@@ -115,6 +116,7 @@ function DemoContent({ locale, initialArtifactId }: { locale: Locale; initialArt
       artifacts: createArtifactClient({ resolvePath }),
       exports: { resolvePath, capabilities: { history: false, versions: true, fonts: false, cancel: false, remove: false, bundle: true } },
       cache: { databaseName: `tirlik-demo-artifacts-v1-${sessionId}` },
+      operations: createOperationsClient({ resolvePath }),
     };
   }, [sessionId]);
 
@@ -243,6 +245,7 @@ function DemoContent({ locale, initialArtifactId }: { locale: Locale; initialArt
         </nav>
         <div className={styles.workspaceLayout}>
           <div className={styles.sessionPane}>
+            {run && ['failed', 'cancelled'].includes(run.state) && <InlineNotice tone="warning" title={t.runNeedsRestart} action={<Button icon={RefreshCw} pending={pending === 'run'} onClick={() => { void execute(true); }}>{t.restartRun}</Button>} />}
             {activeSession && runId && assistantTransport ? <AssistantSession key={activeSession.sessionId} userId={activeSession.actorId} workspaceId={activeSession.workspaceId} projectId={activeSession.projectId} initialRunId={runId} transport={assistantTransport} draftScopeKey={activeSession.sessionId} onRunData={adoptRun} onRunChange={setRunId} resultHref={(_activeRun, result) => result.kind === 'artifact' ? artifactHref(result.id) : null} runHref={() => `/${locale}/demo#demo-session`} />
               : <Surface className={styles.runStarter}>
                 <p className={styles.eyebrow}>{t.sessionTitle}</p><h3>{activeSession ? t.sessionLead : t.preparedTitle}</h3><p>{activeSession ? t.sessionBody : t.preparedBody}</p>

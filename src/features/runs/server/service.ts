@@ -12,10 +12,11 @@ import { assertFence, boundedObject, boundedTransaction, emitEvent, hash, loadRu
 import type { PlannedStep, RunCapability, RunRegistry, RunTool, ToolContext, ToolOutcome } from './registry';
 import { createBudgetLedger } from './budget';
 import { claimNextRun } from './queue';
+import { createArtifactService } from '../../artifacts/server/service';
 
 export interface Claim { runId: string; epoch: number; leaseOwner: string }
 export function createRunService(pool: Pool, registry: RunRegistry) {
-  const budget = createBudgetLedger(pool);
+  const budget = createBudgetLedger(pool), artifacts = createArtifactService(pool);
   async function peek(runId: string) {
     IdSchema.parse(runId);
     const run = (await pool.query<RunRow>('SELECT * FROM agent_runs WHERE id=$1', [runId])).rows[0];
@@ -165,18 +166,23 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
         const change = ResumeRunSchema.parse(input), capability = registry.capability(run.capability_id, run.capability_version);
         const expired = run.deadline_at !== null && run.deadline_at <= new Date();
         const childNeeded = change.goal !== undefined || change.plan !== undefined || expired || ['completed', 'review_ready'].includes(run.state);
+        if (change.currentArtifact && !childNeeded) throw new RunError('conflict', 'VALIDATION_FAILED');
         if (childNeeded && capability.continue) {
           if (run.state === 'cancelled' || run.failure_code === 'access_changed') throw new RunError('conflict');
           const unsafe = await tx.query("SELECT id FROM agent_run_usage WHERE run_id=$1 AND state IN ('reserved','dispatched','ambiguous') LIMIT 1", [runId]);
           if (unsafe.rowCount) throw new RunError('ambiguous_charge');
           if ((await tx.query('SELECT child_run_id FROM agent_run_continuations WHERE parent_run_id=$1', [runId])).rowCount) throw new RunError('conflict');
-          const ancestors = (await tx.query<{ depth: number }>(`WITH RECURSIVE chain AS (
-            SELECT parent_run_id,1 AS depth FROM agent_run_continuations WHERE child_run_id=$1
-            UNION ALL SELECT c.parent_run_id,p.depth+1 FROM agent_run_continuations c JOIN chain p ON c.child_run_id=p.parent_run_id WHERE p.depth<$2)
-            SELECT COALESCE(MAX(depth),0)::integer AS depth FROM chain`, [runId, RUN_LIMITS.continuationDepth])).rows[0];
-          if ((ancestors?.depth ?? 0) >= RUN_LIMITS.continuationDepth) throw new RunError('continuation_limit');
+          // Every explicit human follow-up is one serialized child with a fresh run budget and deadline.
+          // Capability-internal subprocess recursion remains independently bounded by its own planner/tool limits.
           const state = required((await tx.query<{ state: JsonObject }>('SELECT state FROM agent_run_contexts WHERE run_id=$1 FOR UPDATE', [runId])).rows[0]).state;
-          const nextInput: CreateRun = { workspaceId: run.workspace_id, projectId: run.project_id, capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: change.goal ?? run.goal, locale: run.locale, inputRefs: run.input_refs };
+          let inputRefs = run.input_refs;
+          if (change.currentArtifact) {
+            if (!run.project_id) throw new RunError('conflict', 'VALIDATION_FAILED');
+            const selected = await artifacts.versionInTransaction(tx, principal, { workspaceId: run.workspace_id, artifactId: change.currentArtifact.id, revision: change.currentArtifact.revision, expectedProjectId: run.project_id });
+            if (selected.headRevision !== change.currentArtifact.revision) throw new RunError('conflict');
+            inputRefs = [...inputRefs.filter((ref) => !(ref.kind === 'artifact' && ref.id === change.currentArtifact!.id)), { kind: 'artifact' as const, id: change.currentArtifact.id, revision: change.currentArtifact.revision }];
+          }
+          const nextInput: CreateRun = CreateRunSchema.parse({ workspaceId: run.workspace_id, projectId: run.project_id, capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: change.goal ?? run.goal, locale: run.locale, inputRefs });
           const continuation = capability.continue(nextInput, state, change);
           const child = await create(principal, nextInput, `continuation_${keyHash}`, { trusted: true, confidential: run.confidential, privateInput: { continuation: boundedObject(continuation.context) }, transaction: tx });
           if (!terminal(run.state)) {
@@ -209,7 +215,12 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
           await emitProjectionChange(tx, runId, capability, stored.state, nextContext, stored.revision + 1);
         } else {
         const stepId = 'stepId' in input ? input.stepId : undefined;
-        const retried = await tx.query("UPDATE agent_run_steps SET state='planned',retryable=false,failure_code=NULL,finished_at=NULL WHERE run_id=$1 AND state='failed' AND retryable=true AND ($2::uuid IS NULL OR id=$2)", [runId, stepId ?? null]);
+        const retried = await tx.query(`UPDATE agent_run_steps s SET state='planned',retryable=false,failure_code=NULL,finished_at=NULL
+          WHERE s.run_id=$1 AND s.state='failed' AND ($2::uuid IS NULL OR s.id=$2)
+          AND (s.retryable=true OR (s.failure_code='invalid_result' AND (
+            SELECT count(*) FROM agent_run_usage u JOIN agent_model_outputs o ON o.usage_id=u.id
+            WHERE u.run_id=s.run_id AND u.step_id=s.id AND u.state='succeeded'
+          )=1))`, [runId, stepId ?? null]);
         if (!retried.rowCount) {
           const continuation = run.state === 'waiting_input' && run.failure_code === null
             ? await tx.query("SELECT id FROM agent_run_steps WHERE run_id=$1 AND state='planned' AND ($2::uuid IS NULL OR id=$2) ORDER BY ordinal LIMIT 1", [runId, stepId ?? null]) : null;

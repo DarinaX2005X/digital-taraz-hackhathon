@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Pool } from 'pg';
+import PDFDocument from 'pdfkit';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { InitSourceUploadSchema } from '../../src/contracts/sources';
 import { createSourceService } from '../../src/features/sources/server/service';
@@ -25,6 +26,19 @@ async function fixture() {
   return { ...f, service, storage, storageRoot, body, upload };
 }
 
+async function syntheticLargePdf() {
+  return new Promise<Buffer>((resolve, reject) => {
+    const document = new PDFDocument({ autoFirstPage: false, compress: false }), chunks: Buffer[] = [];
+    document.on('data', (chunk: Buffer) => chunks.push(chunk)); document.on('error', reject); document.on('end', () => resolve(Buffer.concat(chunks)));
+    for (let page = 1; page <= 30; page += 1) {
+      document.addPage({ size: 'A4', margin: 48 });
+      document.fontSize(12).text(`Synthetic recovery page ${page}. This file contains generated test data only.`);
+    }
+    document.addContent(`\n%${'x'.repeat(6_350_000)}\n`);
+    document.end();
+  });
+}
+
 describe('source ingestion persistence and access', () => {
   it('saves immutable original, canonical manifest and every row; replays finalize without a second version', async () => {
     const f = await fixture(), bytes = Buffer.from('SKU,amount\n001,12.50\n001,\n');
@@ -42,6 +56,16 @@ describe('source ingestion persistence and access', () => {
     expect((await pool.query('SELECT id FROM source_versions WHERE source_id=$1', [detail.source.id])).rowCount).toBe(1);
     await expect(f.service.put(f.owner, f.workspaceId, initialized.upload.id, initialized.token!, new Blob([new Uint8Array(bytes)]).stream())).rejects.toMatchObject({ code: 'CONFLICT' });
   });
+  it('reprocesses a failed stored 6-7 MB PDF without another upload or source identity', async () => {
+    const f = await fixture(), bytes = await syntheticLargePdf();
+    expect(bytes.length).toBeGreaterThanOrEqual(6 * 1024 * 1024);
+    expect(bytes.length).toBeLessThan(7 * 1024 * 1024);
+    const initialized = await f.upload(bytes, { format: 'pdf', fileName: 'synthetic-large.pdf' });
+    await pool.query("UPDATE source_uploads SET status='failed',error_code='sources.errors.pdf' WHERE workspace_id=$1 AND id=$2", [f.workspaceId, initialized.upload.id]);
+    const ready = await f.service.finalize(f.owner, f.workspaceId, initialized.upload.id);
+    expect(ready.upload).toMatchObject({ id: initialized.upload.id, sourceId: initialized.upload.sourceId, status: 'ready', byteHash: sourceHash(bytes), manifest: { pageCount: 30, complete: true } });
+    expect((await pool.query('SELECT id FROM source_versions WHERE source_id=$1', [initialized.upload.sourceId])).rowCount).toBe(1);
+  }, 60_000);
   it('materializes 100000 CSV rows in bounded persisted chunks without truncation', async () => {
     const f = await fixture(), rows = Array.from({ length: 99_999 }, (_, index) => `${String(index + 1).padStart(6, '0')},${index + 1}`);
     const bytes = Buffer.from(`SKU,price\n${rows.join('\n')}\n`), initialized = await f.upload(bytes);

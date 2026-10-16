@@ -20,6 +20,14 @@ import { CreateExportSchema } from '@/features/exports/contracts';
 import type { ExportService } from '@/features/exports/server/service';
 import { identityTransaction, withWorkspaceAccessInTransaction, type IdentityPrincipal, type SessionPrincipal } from '@/features/identity/server/access';
 import { hasScope } from '@/features/identity/domain/policy';
+import {
+  CreateAvailabilityVersionSchema,
+  CreateWorkResourceSchema,
+  UpdateWorkResourceSchema,
+  WorkResourceListInputSchema,
+} from '@/features/operations/contracts';
+import { ProposeWorkPlanRequestSchema } from '@/features/operations/domain/propose-work-plan';
+import { createOperationsService } from '@/features/operations/server/service';
 import type { getRunRuntime } from '@/features/runs/server/runtime';
 import { hash, requestKey, type JsonObject } from '@/features/runs/server/data';
 
@@ -92,7 +100,7 @@ async function insertResource(tx: PoolClient, scope: { actorId: string; workspac
 
 export function createDemoExecutionScopeService(dependencies: DemoExecutionScopeDependencies) {
   if (dependencies.secret.length < 32) throw new Error('DEMO_CAPABILITY_SECRET_REQUIRED');
-  const now = dependencies.now ?? (() => new Date()), artifacts = createArtifactService(dependencies.pool), artifactEvents = createWorkspaceEventFeed(dependencies.pool);
+  const now = dependencies.now ?? (() => new Date()), artifacts = createArtifactService(dependencies.pool), artifactEvents = createWorkspaceEventFeed(dependencies.pool), operations = createOperationsService(dependencies.pool);
   let exportsPromise: Promise<ExportService> | undefined;
 
   function exportService() {
@@ -237,6 +245,53 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
     const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
     if (input.workspaceId !== scope.workspace_id) throw new DemoExecutionError('DEMO_FORBIDDEN');
     return artifactEvents(demoPrincipal(scope), input);
+  }
+
+  async function listResources(sessionId: string, token: string, raw: unknown) {
+    const input = WorkResourceListInputSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (input.workspaceId !== scope.workspace_id) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.list(demoPrincipal(scope), input);
+  }
+
+  async function readResource(sessionId: string, token: string, workspaceId: string, resourceId: string) {
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (IdSchema.parse(workspaceId) !== scope.workspace_id) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.read(demoPrincipal(scope), scope.workspace_id, IdSchema.parse(resourceId));
+  }
+
+  async function createResource(sessionId: string, token: string, raw: unknown, operationId: string) {
+    const input = CreateWorkResourceSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (input.workspaceId !== scope.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.create(demoPrincipal(scope), IdSchema.parse(operationId), input);
+  }
+
+  async function updateResource(sessionId: string, token: string, resourceId: string, raw: unknown, operationId: string) {
+    const input = UpdateWorkResourceSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (input.workspaceId !== scope.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.update(demoPrincipal(scope), IdSchema.parse(operationId), IdSchema.parse(resourceId), input);
+  }
+
+  async function createResourceAvailability(sessionId: string, token: string, resourceId: string, raw: unknown, operationId: string) {
+    const input = CreateAvailabilityVersionSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (input.workspaceId !== scope.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.createAvailability(demoPrincipal(scope), IdSchema.parse(operationId), IdSchema.parse(resourceId), input);
+  }
+
+  async function resourceAvailabilityHistory(sessionId: string, token: string, workspaceId: string, resourceId: string, beforeRevision?: number) {
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (IdSchema.parse(workspaceId) !== scope.workspace_id) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.availabilityHistory(demoPrincipal(scope), scope.workspace_id, IdSchema.parse(resourceId), beforeRevision);
+  }
+
+  async function proposePlan(sessionId: string, token: string, raw: unknown) {
+    const input = ProposeWorkPlanRequestSchema.parse(raw);
+    const scope = await identityTransaction(dependencies.pool, (tx) => lockScope(tx, sessionId, token));
+    if (input.workspaceId !== scope.workspace_id || input.expectedAuthzVersion !== 1) throw new DemoExecutionError('DEMO_FORBIDDEN');
+    return operations.propose(demoPrincipal(scope), input);
   }
 
   async function applyArtifactCommand(sessionId: string, token: string, raw: unknown) {
@@ -394,7 +449,13 @@ export function createDemoExecutionScopeService(dependencies: DemoExecutionScope
     });
   }
 
-  return { create, read, artifactAccess, artifactSnapshot, artifactHistory, artifactVersions, artifactVersion, workspaceEvents, applyArtifactCommand, artifactHistoryAction, branchArtifact, createExport, readExport, renderExport, downloadExport, downloadExportBundle, createRun, readRun, resumeRun, events, copy };
+  return {
+    create, read,
+    artifactAccess, artifactSnapshot, artifactHistory, artifactVersions, artifactVersion, workspaceEvents, applyArtifactCommand, artifactHistoryAction, branchArtifact,
+    listResources, readResource, createResource, updateResource, createResourceAvailability, resourceAvailabilityHistory, proposePlan,
+    createExport, readExport, renderExport, downloadExport, downloadExportBundle,
+    createRun, readRun, resumeRun, events, copy,
+  };
 }
 
 function derivedId(key: string, index: number) {

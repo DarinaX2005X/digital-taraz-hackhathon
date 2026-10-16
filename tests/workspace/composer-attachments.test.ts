@@ -20,12 +20,13 @@ describe('own-data-first composer attachments', () => {
     expect(addComposerFile({ name: 'script.exe', size: 10 }, attachmentId, operationKey)).toBeUndefined();
   });
 
-  it('requires only unfinished local files to be reselected after refresh', () => {
+  it('requires only unfinished local files to be reselected and preserves a retryable stored original after refresh', () => {
     const local = addComposerFile({ name: 'request.docx', size: 40 }, attachmentId, operationKey)!;
     const ready = { ...local, id: sourceId, state: 'ready' as const, sourceId, currentVersionId: versionId, revision: 1 };
     const review = { ...local, id: projectId, state: 'needs-review' as const, sourceId };
-    const restored = restoreComposerAttachments([local, ready, review]);
-    expect(restored.map((item) => item.state)).toEqual(['needs-file', 'ready', 'needs-review']);
+    const retry = { ...local, id: operationKey, state: 'failed' as const, sourceId, uploadId: projectId };
+    const restored = restoreComposerAttachments([local, ready, review, retry]);
+    expect(restored.map((item) => item.state)).toEqual(['needs-file', 'ready', 'needs-review', 'retry-processing']);
     expect(matchesComposerFile(restored[0]!, { name: 'request.docx', size: 40 })).toBe(true);
     expect(matchesComposerFile(restored[0]!, { name: 'request.docx', size: 41 })).toBe(false);
   });

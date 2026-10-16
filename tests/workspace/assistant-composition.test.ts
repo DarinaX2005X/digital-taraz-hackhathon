@@ -50,6 +50,45 @@ describe('assistant-first workspace composition', () => {
     expect(css).toContain(".sessionLayout[data-mobile-view='result'] > .sessionAssistant");
   });
 
+  it('keeps a persistent follow-up composer pinned to the exact saved artifact revision', () => {
+    const session = read('src/features/runs/ui/assistant-session.tsx');
+    const continuation = read('src/features/runs/ui/run-continuation.tsx');
+    const artifact = read('src/features/workspace/ui/artifact-page.tsx');
+    const runsCss = read('src/features/runs/ui/runs.module.css');
+    expect(session).toContain('RunFollowupComposer');
+    expect(session).toContain('prepareCurrentArtifact');
+    expect(session).toContain('intent.input = { expectedEpoch: intent.epoch');
+    expect(session).toContain("failure instanceof RunClientError && failure.status === 409");
+    expect(session).toContain('command.current = undefined; setReload((value) => value + 1)');
+    expect(session).toContain('runErrorText(commandError, runText)');
+    expect(continuation).toContain('tirlik.run-followup-draft.v1');
+    expect(continuation).not.toContain('Изменить задачу');
+    expect(artifact).toContain('await session.flush()');
+    expect(artifact).toContain('revision: current.snapshot.artifact.currentRevision');
+    expect(artifact).toContain('revision > current.snapshot.artifact.currentRevision');
+    expect(runsCss).toContain('grid-template-rows: auto minmax(0, 1fr) auto');
+  });
+
+  it('keeps authorized continuation history visible in bounded read-only pages', () => {
+    const session = read('src/features/runs/ui/assistant-session.tsx');
+    const historyStart = session.indexOf('history.runs.map((pastRun)');
+    const historyEnd = session.indexOf('<section className={styles.assistantGoal}', historyStart);
+    const historyRender = session.slice(historyStart, historyEnd);
+    expect(session).toContain('const HISTORY_PAGE_SIZE = 3');
+    expect(session).toContain('const HISTORY_LIMIT = 12');
+    expect(session).toContain('await transport.read(parentRunId, context)');
+    expect(session).toContain('workspaceId !== context.workspaceId || ancestor.projectId !== context.projectId');
+    expect(session).toContain('page.runs.reverse()');
+    expect(session).toContain('loadEarlierHistory');
+    expect(session).toContain('sessionResultHref(pastRun, result, resultHref)');
+    expect(session).toContain('[401, 403, 410].includes(status)');
+    expect(session).toContain('[401, 403, 404, 410].includes(status)');
+    expect(session).toContain('setHistory(emptyHistory())');
+    expect(historyRender).not.toContain('<DecisionPanel');
+    expect(historyRender).not.toContain('<RunContinuation');
+    expect(historyRender).not.toContain("mutate('resume'");
+  });
+
   it('does not create a project, run, or artifact during a route GET', () => {
     for (const path of ['src/app/app/work/page.tsx', 'src/app/app/projects/[projectId]/page.tsx', 'src/app/app/projects/[projectId]/artifacts/[artifactId]/page.tsx']) {
       const source = read(path);

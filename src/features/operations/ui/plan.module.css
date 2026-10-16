@@ -63,6 +63,7 @@
 .calendarView > header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
 .calendarView > header h2 { min-width: 220px; margin: 0; text-align: center; font-size: 19px; text-transform: capitalize; }
 .calendarView > header > button { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--plan-line); border-radius: 7px; background: #fff; cursor: pointer; }
+.calendarView > header > .todayButton { width: auto; min-width: max-content; height: 44px; padding-inline: 16px; white-space: nowrap; }
 .calendarWeekdays { display: grid; grid-template-columns: repeat(7, minmax(92px, 1fr)); color: var(--plan-muted); background: var(--plan-soft); border: solid var(--plan-line); border-width: 1px 1px 0; font-size: 12px; font-weight: 700; }
 .calendarWeekdays span { padding: 7px 8px; border-right: 1px solid var(--plan-line); }
 .calendarWeekdays span:last-child { border-right: 0; }

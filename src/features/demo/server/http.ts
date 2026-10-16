@@ -80,6 +80,25 @@ export async function handleDemoRequest(request: Request): Promise<Response> {
       }
       if (path.length >= 2) {
         const sessionId = IdSchema.parse(path[0]), token = capability(request, sessionId);
+        if (path[1] === 'operations' && path.length === 3 && path[2] === 'resources') {
+          const query = queryObject(url, ['workspaceId', 'query', 'kinds', 'status', 'after', 'limit']);
+          await limit(runtime.pool, `demo-operations:${sessionId}:GET`, 180, 60);
+          return json(await execution.listResources(sessionId, token, {
+            ...query,
+            kinds: query.kinds?.split(',').filter(Boolean) ?? [],
+            limit: numberQuery(query.limit),
+          }));
+        }
+        if (path[1] === 'operations' && path.length === 4 && path[2] === 'resources') {
+          const query = queryObject(url, ['workspaceId']);
+          await limit(runtime.pool, `demo-operations:${sessionId}:GET`, 180, 60);
+          return json(await execution.readResource(sessionId, token, query.workspaceId ?? '', IdSchema.parse(path[3])));
+        }
+        if (path[1] === 'operations' && path.length === 5 && path[2] === 'resources' && path[4] === 'availability') {
+          const query = queryObject(url, ['workspaceId', 'beforeRevision']);
+          await limit(runtime.pool, `demo-operations:${sessionId}:GET`, 180, 60);
+          return json(await execution.resourceAvailabilityHistory(sessionId, token, query.workspaceId ?? '', IdSchema.parse(path[3]), numberQuery(query.beforeRevision)));
+        }
         if (path[1] === 'artifacts' && path.length === 3) {
           queryObject(url, ['workspaceId']);
           return json(await execution.artifactSnapshot(sessionId, token, IdSchema.parse(path[2])));
@@ -128,6 +147,21 @@ export async function handleDemoRequest(request: Request): Promise<Response> {
       return response;
     }
     const sessionId = IdSchema.parse(path[0]), token = capability(request, sessionId);
+    if (path[1] === 'operations') {
+      await limit(runtime.pool, `demo-operations:${sessionId}:POST`, 60, 60);
+      if (path.length === 3 && path[2] === 'plan-proposals') {
+        return json(await execution.proposePlan(sessionId, token, await readArtifactJson(request)));
+      }
+      if (path.length === 3 && path[2] === 'resources') {
+        return json(await execution.createResource(sessionId, token, await readArtifactJson(request), idempotencyKey(request)), 201);
+      }
+      if (path.length === 5 && path[2] === 'resources' && path[4] === 'update') {
+        return json(await execution.updateResource(sessionId, token, IdSchema.parse(path[3]), await readArtifactJson(request), idempotencyKey(request)));
+      }
+      if (path.length === 5 && path[2] === 'resources' && path[4] === 'availability') {
+        return json(await execution.createResourceAvailability(sessionId, token, IdSchema.parse(path[3]), await readArtifactJson(request), idempotencyKey(request)), 201);
+      }
+    }
     if (path.length === 3 && path[1] === 'artifacts' && path[2] === 'access') {
       return json(await execution.artifactAccess(sessionId, token, await readArtifactJson(request)));
     }

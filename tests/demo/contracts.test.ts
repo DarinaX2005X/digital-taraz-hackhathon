@@ -11,6 +11,7 @@ import {
 } from '../../src/features/demo/contracts';
 import { demoCopy } from '../../src/features/demo/locales';
 import { demoDecisionResumeInput } from '../../src/features/demo/decision';
+import { createOperationsClient } from '../../src/features/operations/client/transport';
 
 const sessionId = '152973d6-2600-4aef-99e1-6c0a9a57c659';
 const runId = '252973d6-2600-4aef-99e1-6c0a9a57c650';
@@ -41,10 +42,39 @@ describe('K5 public demo wire contracts', () => {
     expect(source).toContain('<AssistantSession');
     expect(source).toContain('<ArtifactWorkspacePage');
     expect(source).toContain('createArtifactClient({ resolvePath })');
+    expect(source).toContain('createOperationsClient({ resolvePath })');
     expect(source).toContain('mode="scoped"');
     expect(source).not.toContain('function DecisionOption');
     expect(source).not.toContain('<DocumentEditor');
     expect(source).not.toContain('<SheetEditor');
+  });
+
+  it('threads scoped operations through the canonical plan editor instead of account APIs', async () => {
+    const [workspace, editor, drawer] = await Promise.all([
+      readFile(new URL('../../src/features/workspace/ui/artifact-page.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/features/operations/ui/plan-editor.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../../src/features/operations/ui/resource-drawer.tsx', import.meta.url), 'utf8'),
+    ]);
+    expect(workspace).toContain('transport={transport?.operations}');
+    expect(editor).toContain('const client = transport ?? operationsClient');
+    expect(editor).toContain('<ResourceDrawer transport={client}');
+    expect(drawer).toContain('transport.list');
+    expect(drawer).not.toContain('operationsClient.');
+  });
+
+  it('resolves canonical operations requests inside the temporary demo capability', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({
+      status: 'unknown',
+      candidate: { kind: 'plan', schemaVersion: 1, timezone: 'UTC', entries: [] },
+      changedEntryIds: [], unresolved: [], conflicts: [],
+      checkReceipt: { algorithmVersion: 'k2-interval-search-v1', visitedNodes: 0, searchLimit: 50_000, capacityAssessments: [], inputRevisionVector: {} },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    const client = createOperationsClient({ fetcher, resolvePath: (path) => `/api/demo/sessions/${sessionId}${path.slice(4)}` });
+    await client.propose({
+      workspaceId, expectedAuthzVersion: 1,
+      input: { plan: { kind: 'plan', schemaVersion: 1, timezone: 'UTC', entries: [] }, resourceRefs: [], window: { start: '2026-10-17T00:00:00.000Z', end: '2026-10-18T00:00:00.000Z' }, lockedEntryIds: [], materialConstraints: [], objective: 'earliest-finish' },
+    }, { userId: actorId });
+    expect(fetcher).toHaveBeenCalledWith(`/api/demo/sessions/${sessionId}/operations/plan-proposals`, expect.objectContaining({ method: 'POST', credentials: 'same-origin' }));
   });
 
   it('requires pinned input revisions and explicit copy destinations', () => {

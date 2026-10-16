@@ -30,6 +30,7 @@ import { useArtifactTranslations } from '@/features/artifacts/ui/common';
 import type { ArtifactOperation } from '@/features/artifacts/client/operations';
 import type { ArtifactOperationResult } from '@/features/artifacts/client/execute-operation';
 import type { ArtifactCacheOptions } from '@/features/artifacts/client/indexed-db';
+import type { OperationsClient } from '@/features/operations/client/transport';
 
 export type ArtifactWorkspaceCapabilities = {
   shell: boolean;
@@ -49,6 +50,7 @@ export type ArtifactWorkspaceTransport = {
   artifacts: ArtifactClient;
   exports?: ExportPanelTransport;
   cache?: ArtifactCacheOptions;
+  operations?: OperationsClient;
 };
 
 export type ArtifactWorkspacePageProps = {
@@ -221,6 +223,21 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
     if (editorFlush.current && !await editorFlush.current()) return false;
     return session.flush();
   }
+  const prepareCurrentArtifact = useCallback(async () => {
+    if (editorFlush.current && !await editorFlush.current()) return null;
+    if (!await session.flush()) return null;
+    await session.refresh();
+    const current = session.getSnapshot();
+    if (current.phase !== 'ready' || !current.snapshot || current.drafts.length || current.pending.length || current.operation.operation) return null;
+    return { id: current.snapshot.artifact.id, revision: current.snapshot.artifact.currentRevision };
+  }, [session]);
+  const handleAssistantRun = useCallback((next: Run | undefined) => {
+    setAssistantRun(next);
+    const current = session.getSnapshot();
+    if (!next || current.phase !== 'ready' || !current.snapshot) return;
+    const revision = sessionResults(next).find((result) => result.kind === 'artifact' && result.id === current.snapshot!.artifact.id)?.revision;
+    if (revision !== undefined && revision > current.snapshot.artifact.currentRevision) void session.refresh().catch(setError);
+  }, [session]);
   async function afterLinkedChange() { await session.refresh(); setRailAfter(undefined); setRailReload((value) => value + 1); }
   const loadLifecycleProjects = useCallback<OptionLoader>(async (query, signal) => {
     const current = session.getSnapshot();
@@ -313,13 +330,13 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
     {hasRecovery && <div className={styles.error}><p>{t.recover}</p>{capabilities.navigation && <Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link>}</div>}
     {capabilities.assistant && <div className={styles.sessionSwitch} role="group" aria-label={t.sessionView}><Button variant={mobileView === 'assistant' ? 'primary' : 'quiet'} onClick={() => setMobileView('assistant')}>{t.assistant}</Button><Button variant={mobileView === 'result' ? 'primary' : 'quiet'} onClick={() => setMobileView('result')}>{t.results}</Button></div>}
     <div className={`${styles.sessionLayout} ${assistantCollapsed ? styles.sessionLayoutCollapsed : ''}`} data-mobile-view={mobileView} style={capabilities.assistant || capabilities.rail ? undefined : { gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      {(capabilities.assistant || capabilities.rail) && <div className={styles.sessionAssistant}>{capabilities.assistant && <AssistantSession userId={snapshot.viewer.userId} workspaceId={snapshot.viewer.workspaceId} projectId={snapshot.artifact.projectId} initialRunId={activeRunId} sessionPath={artifactHref} collapsed={assistantCollapsed} onCollapsedChange={setAssistantCollapsed} onRunChange={selectRun} onRunData={setAssistantRun} onAccessLost={handleAssistantAccessLost} />}{capabilities.rail && <section className={styles.sessionResultList} aria-labelledby="session-result-list-title"><h2 id="session-result-list-title">{t.results}</h2>{resultList}</section>}</div>}
+      {(capabilities.assistant || capabilities.rail) && <div className={styles.sessionAssistant}>{capabilities.assistant && <AssistantSession userId={snapshot.viewer.userId} workspaceId={snapshot.viewer.workspaceId} projectId={snapshot.artifact.projectId} initialRunId={activeRunId} sessionPath={artifactHref} collapsed={assistantCollapsed} onCollapsedChange={setAssistantCollapsed} onRunChange={selectRun} onRunData={handleAssistantRun} onAccessLost={handleAssistantAccessLost} currentArtifactId={snapshot.artifact.id} prepareCurrentArtifact={prepareCurrentArtifact} />}{capabilities.rail && <section className={styles.sessionResultList} aria-labelledby="session-result-list-title"><h2 id="session-result-list-title">{t.results}</h2>{resultList}</section>}</div>}
       <section id="artifact-editor" tabIndex={-1} className={`${styles.editorMain} ${styles.sessionResult}`} aria-label={snapshot.artifact.title}>
         <EditorBoundary key={`${viewerUserId}:${artifactId}`} fallback={<div className={styles.editorFailure} role="alert"><h2>{t.editorUnavailable}</h2><p>{t.editorReloadHint}</p><Button icon={RefreshCw} onClick={() => window.location.reload()}>{t.reloadEditor}</Button>{capabilities.navigation && <Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link>}</div>}>
         {snapshot.content.kind === 'document' ? <DocumentEditor key={`${viewerUserId}:${artifactId}:${viewerAuthzVersion}`} session={session} onFlushReady={registerEditorFlush} />
           : snapshot.content.kind === 'table' ? <SheetEditor key={`${viewerUserId}:${artifactId}`} session={session} locale={locale} onFlushReady={registerEditorFlush} />
             : snapshot.content.kind === 'design' ? <DesignEditor key={`${viewerUserId}:${artifactId}`} session={session} state={state} onFlushReady={registerEditorFlush} />
-              : <PlanEditor key={`${viewerUserId}:${artifactId}`} session={session} onFlushReady={registerEditorFlush} />}
+              : <PlanEditor key={`${viewerUserId}:${artifactId}`} session={session} onFlushReady={registerEditorFlush} transport={transport?.operations} />}
         </EditorBoundary>
         {capabilities.sourceFreshness && snapshot.sourceFreshness.length > 0 && <SourceFreshnessPanel snapshot={snapshot} />}
       </section>

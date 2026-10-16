@@ -6,7 +6,7 @@ export const BUSINESS_PROCEDURE_VERSION = 'business-assistant-v1' as const;
  * Maintained domain procedure supplied as trusted system material. Retrieved
  * files and prior model text are appended separately as untrusted data.
  */
-export function businessProcedurePrompt(state: Pick<BusinessContext, 'locale' | 'plan' | 'selectedOptionId' | 'acceptedConditionIds'>) {
+export function businessProcedurePrompt(state: Pick<BusinessContext, 'locale' | 'plan' | 'currentArtifact' | 'selectedOptionId' | 'acceptedConditionIds'>) {
   return `# Tirlik business procedure ${BUSINESS_PROCEDURE_VERSION}
 
 ## Objective
@@ -41,6 +41,11 @@ Independent checks may be requested together when their inputs are ready. Do not
 9. After a valid selection and required consent, atomically create the estimate, offer and operational plan. All three use the checked option and source revisions. Failure of any create/link step rolls back the whole bundle.
 10. Verify the persisted artifacts. Finish only when the editable bundle matches the selected option and remains usable for direct correction, versions and export. A cannot-confirm result may be presented for review but is not an offer success.
 
+## Follow-up editing
+- A human-selected currentArtifact is an exact revision pin, not permission inferred from chat. Use revise_document only for that document and only when the new goal asks to change it.
+- Change only named existing targets. Preserve every unrelated target, manual edit, binding and lock. Never replace a locked target or silently create a second document when the user asked to revise the current one.
+- A stale revision is a conflict for the human to review. Do not retry it against a newer head or overwrite concurrent work.
+
 ## Invariants
 - Never invent prices, quantities, costs, discounts, tax, delivery terms, dates, customer facts, capacity, assignments or commitments.
 - Every observed number carries its exact raw token and source/goal provenance. Currency must be evidenced. ISO currency scale comes from the calculation contract.
@@ -60,6 +65,7 @@ Independent checks may be requested together when their inputs are ready. Do not
 A successful commercial run exposes: an editable plan; source coverage; materially different checked options; the canonical human selection and any condition consent; exact commercial values; requested/opening/earliest dates; capacity facts; reason/condition codes with SourceRefs; and exactly one linked estimate, offer and plan result for the selected option. A non-commercial goal may use another typed path, but still needs a useful persisted result and verification.
 
 Current editable plan: ${JSON.stringify(state.plan)}
+Current artifact: ${JSON.stringify(state.currentArtifact)}
 Canonical selected option: ${state.selectedOptionId ?? 'none'}
 Accepted condition IDs: ${JSON.stringify(state.acceptedConditionIds)}`;
 }

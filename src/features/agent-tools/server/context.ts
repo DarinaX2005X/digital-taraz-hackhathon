@@ -2,7 +2,7 @@ import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { SourceRefSchema } from '../../../contracts/artifacts';
 import { SourceFragmentSchema } from '../../../contracts/sources';
-import { RunInputRefSchema, RunQuestionSchema, RunResultRefSchema, type CreateRun } from '../../../contracts/runs';
+import { RunCurrentArtifactSchema, RunInputRefSchema, RunQuestionSchema, RunResultRefSchema, type CreateRun } from '../../../contracts/runs';
 import { IdSchema, LocaleSchema } from '../../../contracts/primitives';
 import { MaterialDecisionContextSchema } from '../../../contracts/materials';
 import { BusinessWorkDecisionSchema } from '../../../contracts/business-work';
@@ -61,6 +61,7 @@ const BusinessSourceSchema = z.preprocess((raw) => {
 }, CurrentBusinessSourceSchema);
 export const BusinessContextSchema = z.strictObject({
   schema: z.literal(1), procedureVersion: z.literal(BUSINESS_PROCEDURE_VERSION).default(BUSINESS_PROCEDURE_VERSION), goal: z.string().max(12000), locale: LocaleSchema, inputRefs: z.array(RunInputRefSchema).max(100),
+  currentArtifact: RunCurrentArtifactSchema.nullable().default(null),
   executionAuthority: WorkExecutionAuthoritySchema.nullable().default(null),
   sources: z.array(BusinessSourceSchema).max(100),
   sourceRoles: z.array(BusinessSourceRoleAssignmentSchema).max(100).default([]),
@@ -80,7 +81,7 @@ export const BusinessContextSchema = z.strictObject({
 });
 export type BusinessContext = z.infer<typeof BusinessContextSchema>;
 export function initialBusinessContext(input: CreateRun): BusinessContext {
-  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, executionAuthority: null, sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, workPreview: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
+  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, currentArtifact: null, executionAuthority: null, sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, workPreview: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
 }
 export function businessContext(context: ToolContext) { return BusinessContextSchema.parse(context.context); }
 export const principalFor = (context: ToolContext) => ({ kind: 'job' as const, userId: context.userId, authzVersion: context.authzVersion });
@@ -131,7 +132,7 @@ export function modelMessages(state: BusinessContext): ModelMessage[] {
   const evidence = state.sources.map((source) => ({ ...source, roles: state.sourceRoles.find((assignment) => assignment.sourceId === source.sourceRef.sourceId)?.roles ?? [], fragments: source.fragments }));
   return [
     { role: 'system', content: businessProcedurePrompt(state) },
-    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, bundle: state.bundle, savedResults: state.results }) },
+    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, currentArtifact: state.currentArtifact, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, bundle: state.bundle, savedResults: state.results }) },
     ...state.messages,
   ];
 }

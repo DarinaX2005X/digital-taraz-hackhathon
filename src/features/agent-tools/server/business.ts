@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
 import { RunProgressProjectionSchema, RunResultRefSchema, type RunProgressProjection } from '../../../contracts/runs';
-import type { DocumentNode } from '../../artifacts/domain/content-models';
+import { DocumentNodeSchema, type DocumentNode, type JsonValue } from '../../artifacts/domain/content-models';
+import { createArtifactTargetResolver } from '../../artifacts/domain/targets';
 import { createArtifactService } from '../../artifacts/server/service';
 import { withWorkspaceAccess } from '../../identity/server/access';
 import { readPinnedSource } from '../../sources/server/pinned-source';
-import { IdSchema, RevisionSchema } from '../../../contracts/primitives';
+import { ElementIdSchema, IdSchema, RevisionSchema } from '../../../contracts/primitives';
 import { currencyMinorUnitScale } from '../../../contracts/calculations';
 import { WorkExecutionAuthoritySchema } from '../../../contracts/business-work';
 import { excerptArtifact } from './artifact-context';
@@ -68,8 +69,38 @@ const VerifiedFinishSchema = z.strictObject({ summary: z.string().min(1).max(300
 const ResultSchema = z.strictObject({ results: z.array(RunResultRefSchema).min(1).max(40) });
 const DecisionBundleOutputSchema = z.strictObject({ optionId: z.string().min(1).max(50), results: z.array(RunResultRefSchema).length(3) });
 const ReadArtifactSchema = z.strictObject({ artifactId: IdSchema, revision: RevisionSchema.nullable(), offset: z.number().int().min(0).max(20000) });
+const ReviseDocumentSchema = z.strictObject({
+  reason: z.string().trim().min(1).max(1000),
+  updates: z.array(z.strictObject({ targetId: ElementIdSchema, text: z.string().min(1).max(12000) })).min(1).max(20),
+}).refine((value) => new Set(value.updates.map((update) => update.targetId)).size === value.updates.length, { message: 'Document targets must be unique.' });
+const ReviseDocumentOutputSchema = z.strictObject({ result: RunResultRefSchema });
 const policy = { scope: 'edit' as const, confidential: false };
 const decide = (round: number): PlannedStep => ({ tool: 'business.decide', version: 1, action: 'process', input: { round } });
+
+export function normalizeBusinessToolArguments(name: string, raw: unknown): unknown {
+  if (name !== 'read_artifact' || !raw || typeof raw !== 'object' || Array.isArray(raw)) return raw;
+  const integer = (value: unknown) => {
+    if (typeof value !== 'string' || !/^(?:0|[1-9]\d*)$/.test(value)) return value;
+    const numeric = Number(value);
+    return Number.isSafeInteger(numeric) ? numeric : value;
+  };
+  const input = raw as Record<string, unknown>;
+  return { ...input, revision: integer(input.revision), offset: integer(input.offset) };
+}
+
+export function isBusinessToolAvailable(name: string, state: BusinessContext): boolean {
+  switch (name) {
+    case 'revise_document': return state.currentArtifact !== null;
+    case 'compare_decision_options': return new Set(state.operations.map((item) => item.optionId)).size >= 2;
+    case 'prepare_decision_bundle': return state.decision !== null && state.selectedOptionId !== null;
+    case 'present_decision': return state.decision !== null && state.decision.options.every((option) => option.verdict === 'cannot-confirm');
+    case 'ask_user': return state.decision?.blockers.some((blocker) => blocker.userResolvable && blocker.question !== null) ?? false;
+    case 'finish_work': return state.results.length > 0
+      && (!state.decision || state.bundle !== null)
+      && (!state.workDecision?.requiresConsent || state.selectedOptionId !== null);
+    default: return true;
+  }
+}
 
 const publicOutcome = (verdict: 'can' | 'can-with-conditions' | 'cannot-confirm') => verdict === 'can' ? 'feasible' as const : verdict === 'can-with-conditions' ? 'conditional' as const : 'not_confirmed' as const;
 const boundedSourceRefs = <T,>(refs: readonly T[]) => [...new Map(refs.map((ref) => [JSON.stringify(ref), ref])).values()].slice(0, 100);
@@ -221,6 +252,30 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
       effect: async (tx, raw, context, state) => { const next = await readSources(tx, context, state, ReadSourcesSchema.parse(raw)); return { context: next, output: { sourceCount: next.sources.length, fragments: next.sources.reduce((total, source) => total + source.fragments.length, 0) } }; } },
     { name: 'read_artifact', description: 'Read a pinned selected artifact or a saved result, including editable stable targets, source lineage and locks. Offset paginates target excerpts. Saved-result revision null reads its current version.', schema: ReadArtifactSchema, action: 'read_sources', output: z.strictObject({ artifactId: IdSchema, included: z.number().int(), total: z.number().int() }),
       effect: async (tx, raw, context, state) => { const input = ReadArtifactSchema.parse(raw), next = await readArtifact(tx, context, state, input), excerpt = next.artifacts.find((item) => item.artifactId === input.artifactId)!; return { context: next, output: { artifactId: input.artifactId, included: excerpt.included, total: excerpt.total } }; } },
+    { name: 'revise_document', description: 'Revise named existing paragraph or heading targets in the exact human-selected current document revision. Unrelated targets, bindings and locks remain unchanged; a stale revision or locked target fails instead of being overwritten.', schema: ReviseDocumentSchema, action: 'prepare_document', output: ReviseDocumentOutputSchema,
+      effect: async (tx, raw, context, state) => {
+        const input = ReviseDocumentSchema.parse(raw), current = state.currentArtifact;
+        if (!current || !state.inputRefs.some((ref) => ref.kind === 'artifact' && ref.id === current.id && ref.revision === current.revision)) throw new RunError('invalid_result');
+        const loaded = await artifacts.versionInTransaction(tx, principalFor(context), { workspaceId: context.workspaceId, artifactId: current.id, revision: current.revision, expectedProjectId: context.projectId ?? undefined });
+        if (loaded.content.kind !== 'document') throw new RunError('invalid_result');
+        const resolve = createArtifactTargetResolver(loaded.content, loaded.artifact.bindings, loaded.locks);
+        const operations = input.updates.map((update) => {
+          const target = resolve(update.targetId), parsed = target ? DocumentNodeSchema.safeParse(target.value) : null;
+          if (!target || !parsed?.success || !['paragraph', 'heading'].includes(parsed.data.type)) throw new RunError('invalid_result');
+          const firstText = parsed.data.content?.find((node) => node.type === 'text');
+          const value: JsonValue = { type: parsed.data.type, ...(parsed.data.attrs ? { attrs: parsed.data.attrs } : {}), content: [{ type: 'text', text: update.text, ...(firstText?.marks ? { marks: firstText.marks } : {}) }] };
+          return { targetId: update.targetId, op: 'set' as const, beforeHash: target.hash, value };
+        });
+        const expectedSourceRevisions = Object.fromEntries(loaded.sourceFreshness.filter((item) => item.currentRevision !== undefined).map((item) => [item.sourceRef.sourceId, item.currentRevision!]));
+        const receipt = await artifacts.applyInTransaction(tx, principalFor(context), { workspaceId: context.workspaceId, expectedAuthzVersion: context.authzVersion, group: { commandGroupId: randomUUID(), expectedArtifactRevisions: { [current.id]: current.revision }, expectedSourceRevisions, commands: [{ commandId: randomUUID(), artifactId: current.id, baseRevision: current.revision, kind: 'document', operations, expectedSourceRevisions, reason: input.reason }] } }, 'ai');
+        const revision = receipt.committedRevisionVector[current.id];
+        if (revision === undefined) throw new RunError('invalid_result');
+        const updated = await artifacts.readInTransaction(tx, principalFor(context), { workspaceId: context.workspaceId, artifactId: current.id, expectedProjectId: context.projectId ?? undefined });
+        const excerpt = excerptArtifact({ artifactId: current.id, revision, title: updated.artifact.title, content: updated.content, bindings: updated.artifact.bindings, sourceRefs: updated.artifact.sourceRefs, lockedIds: Object.keys(updated.locks ?? {}) });
+        const result = { kind: 'artifact' as const, id: current.id, revision };
+        const results = [...state.results.filter((item) => !(item.kind === 'artifact' && item.id === current.id)), { ...result, title: updated.artifact.title }];
+        return { output: { result }, resultRefs: [result], context: { ...state, currentArtifact: { id: current.id, revision }, inputRefs: state.inputRefs.map((ref) => ref.kind === 'artifact' && ref.id === current.id ? { ...ref, revision } : ref), artifacts: [...state.artifacts.filter((item) => item.artifactId !== current.id), excerpt], results } };
+      } },
     { name: 'compare_decision_options', description: 'Run exact commercial checks over at least two materially different options and join them to real operations assessments. Produces can / can-with-conditions / cannot-confirm with evidence, never a narrative score. This tool does not create an offer.', schema: CompareDecisionOptionsSchema, action: 'calculate', output: DecisionPortfolioSchema,
       effect: async (_tx, raw, _context, state) => {
         let portfolio;
@@ -307,7 +362,7 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
   ];
   for (const extension of options.extensions ?? []) definitions.push(...extension(services));
   if (new Set(definitions.map((definition) => definition.name)).size !== definitions.length) throw new Error('DUPLICATE_BUSINESS_TOOL');
-  const modelTools = definitions.map((definition) => ({ name: definition.name, description: definition.description, parameters: boundedObject(z.toJSONSchema(definition.schema)) }));
+  const modelTool = (definition: BusinessToolDefinition) => ({ name: definition.name, description: definition.description, parameters: boundedObject(z.toJSONSchema(definition.schema)) });
   const tools: RunTool[] = definitions.map((definition) => ({
     name: `business.${definition.name}`, version: 1, purpose: definition.description, input: z.strictObject({ callId: z.string().min(1).max(128), arguments: definition.schema }), output: definition.output, policy, costClass: definition.costClass ?? (definition.prepare ? 'model' : 'local'), deadlineMs: (definition.costClass ?? (definition.prepare ? 'model' : 'local')) === 'local' ? 30_000 : 60_000, idempotency: 'receipt',
     ...(definition.prepare ? { prepare: (raw: unknown, context: ToolContext) => definition.prepare!((raw as { arguments: unknown }).arguments, context) } : {}),
@@ -320,15 +375,20 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
   tools.push({ name: 'business.bootstrap', version: 1, purpose: 'Read the selected pinned business materials', input: EmptySchema, output: z.strictObject({ sourceCount: z.number().int() }), policy, costClass: 'local', deadlineMs: 30_000, idempotency: 'receipt',
     execute: async (tx, _input, _prepared, context) => { let next = await readSources(tx, context, businessContext(context), { sourceId: null, ordinal: 0, offset: 0, limit: 40 }); for (const ref of next.inputRefs.filter((item) => item.kind === 'artifact')) next = await readArtifact(tx, context, next, { artifactId: ref.id, revision: ref.revision, offset: 0 }); return { output: { sourceCount: next.sources.length }, context: next, nextSteps: [decide(0)] }; } });
   tools.push({ name: 'business.decide', version: 1, purpose: 'Choose and validate the next business tool calls', input: z.strictObject({ round: z.number().int().min(0).max(10) }), output: z.strictObject({ tools: z.array(z.string()).min(1).max(4) }), policy, costClass: 'model', deadlineMs: 60_000, idempotency: 'receipt',
-    prepare: async (_raw, context) => { await reauthorize(context); return gateway.complete({ fence: context.fence, operationKey: 'business_decision', messages: modelMessages(businessContext(context)), maxOutputTokens: 6000, tools: modelTools, toolChoice: 'required', signal: context.signal }); },
+    prepare: async (_raw, context) => {
+      await reauthorize(context);
+      const state = businessContext(context), available = definitions.filter((definition) => isBusinessToolAvailable(definition.name, state));
+      return gateway.complete({ fence: context.fence, operationKey: 'business_decision', messages: modelMessages(state), maxOutputTokens: 6000, tools: available.map(modelTool), toolChoice: 'required', signal: context.signal });
+    },
     execute: async (_tx, _input, raw, context) => {
       const output = raw as ModelOutput, state = businessContext(context);
       if (!output.toolCalls.length || output.toolCalls.length > 4 || new Set(output.toolCalls.map((call) => call.id)).size !== output.toolCalls.length) throw new RunError('invalid_result');
-      const terminal = output.toolCalls.some((call) => definitions.find((definition) => definition.name === call.name)?.terminal);
+      const available = definitions.filter((definition) => isBusinessToolAvailable(definition.name, state));
+      const terminal = output.toolCalls.some((call) => available.find((definition) => definition.name === call.name)?.terminal);
       if (terminal && output.toolCalls.length !== 1) throw new RunError('invalid_result');
       const nextSteps: PlannedStep[] = output.toolCalls.map((call) => {
-        const definition = definitions.find((item) => item.name === call.name); if (!definition) throw new RunError('invalid_result');
-        let args: unknown; try { args = JSON.parse(call.arguments); } catch { throw new RunError('invalid_result'); }
+        const definition = available.find((item) => item.name === call.name); if (!definition) throw new RunError('invalid_result');
+        let args: unknown; try { args = normalizeBusinessToolArguments(call.name, JSON.parse(call.arguments)); } catch { throw new RunError('invalid_result'); }
         const parsed = definition.schema.safeParse(args); if (!parsed.success) throw new RunError('invalid_result');
         return { tool: `business.${call.name}`, version: 1, action: definition.action, input: { callId: call.id, arguments: parsed.data } };
       });
@@ -367,7 +427,7 @@ export function businessRegistration(pool: Pool, options: BusinessRegistrationOp
       })) throw new RunError('conflict', 'VALIDATION_FAILED');
       const answers = changedObjective ? incoming : [...state.answers, ...incoming].slice(-40);
       return {
-        context: { ...state, goal: input.goal, plan: change.plan ?? (change.goal ? [] : state.plan), questions: [], answers, messages: [], summary: '', round: 0, selectedOptionId: changedObjective ? null : controls.canonicalSelectedOptionId, acceptedConditionIds: changedObjective ? [] : controls.acceptedConditionIds, ...(changedObjective ? { operations: [], planProposals: [], decision: null, workDecision: null, workPreview: null, bundle: null } : {}) },
+        context: { ...state, goal: input.goal, inputRefs: input.inputRefs, plan: change.plan ?? (change.goal ? [] : state.plan), currentArtifact: changedObjective ? change.currentArtifact ?? null : state.currentArtifact, questions: [], answers, messages: [], summary: '', round: 0, selectedOptionId: changedObjective ? null : controls.canonicalSelectedOptionId, acceptedConditionIds: changedObjective ? [] : controls.acceptedConditionIds, ...(changedObjective ? { operations: [], planProposals: [], decision: null, workDecision: null, workPreview: null, bundle: null } : {}) },
         steps: !changedObjective && controls.pendingConsent ? [{ tool: 'business.ask_user', version: 1, action: 'continue', input: { callId: 'condition_consent', arguments: { blockerId: controls.pendingConsent } } }] : [decide(0)],
       };
     },

@@ -8,6 +8,9 @@ import { createArtifactTargetResolver } from '../../src/features/artifacts/domai
 import { IdentityViewerSchema } from '../../src/features/identity/contracts';
 import { DemoCopiedSchema, DemoRunStartedSchema, DemoSessionSchema, DemoStartedSchema } from '../../src/features/demo/contracts';
 import { demoCopy } from '../../src/features/demo/locales';
+import { AvailabilityHistorySchema, WorkResourceListSchema, WorkResourceResultSchema } from '../../src/features/operations/contracts';
+import { planCommand } from '../../src/features/operations/domain/commands';
+import { ProposeWorkPlanResultSchema } from '../../src/features/operations/domain/propose-work-plan';
 import { ProjectResultSchema } from '../../src/features/workspace/contracts';
 
 let pool: Pool, origin: string;
@@ -121,8 +124,51 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     expect(versions.versions.map((item) => item.revision)).toEqual([1, 0]);
     const events = WorkspaceEventPageSchema.parse(await (await client.request(`/api/demo/sessions/${started.sessionId}/workspace-events?workspaceId=${scope.workspaceId}&cursor=${encodeURIComponent(brief.cursor)}&limit=100`)).json());
     expect(events.workspaceId).toBe(scope.workspaceId); expect(events.events.some((event) => event.objectId === briefRef.id)).toBe(true);
+
+    const resourcesResponse = await client.request(`/api/demo/sessions/${started.sessionId}/operations/resources?workspaceId=${scope.workspaceId}&status=active&limit=50`);
+    expect(resourcesResponse.status).toBe(200);
+    const resources = WorkResourceListSchema.parse(await resourcesResponse.json());
+    expect(resources.viewer).toMatchObject({ userId: scope.actorId, workspaceId: scope.workspaceId, authzVersion: 1 });
+    expect(resources.resources.map((resource) => resource.displayName).sort()).toEqual(['Prepress and installation team', 'Wide-format printer']);
+    for (const resource of resources.resources) {
+      const readResponse = await client.request(`/api/demo/sessions/${started.sessionId}/operations/resources/${resource.id}?workspaceId=${scope.workspaceId}`);
+      expect(readResponse.status).toBe(200);
+      expect(WorkResourceResultSchema.parse(await readResponse.json()).resource.id).toBe(resource.id);
+      const availabilityResponse = await client.request(`/api/demo/sessions/${started.sessionId}/operations/resources/${resource.id}/availability?workspaceId=${scope.workspaceId}`);
+      expect(availabilityResponse.status).toBe(200);
+      const availability = AvailabilityHistorySchema.parse(await availabilityResponse.json());
+      expect(availability.versions[0]?.id).toBe(resource.currentAvailabilityVersionId);
+    }
+
+    const planRef = scope.inputRefs[1]!;
+    const planResponse = await client.request(`/api/demo/sessions/${started.sessionId}/artifacts/${planRef.id}?workspaceId=${scope.workspaceId}`);
+    expect(planResponse.status).toBe(200);
+    const planSnapshot = ArtifactSnapshotSchema.parse(await planResponse.json());
+    if (planSnapshot.content.kind !== 'plan') throw new Error('DEMO_PLAN_INPUT_REQUIRED');
+    const proposalResponse = await client.request(`/api/demo/sessions/${started.sessionId}/operations/plan-proposals`, 'POST', {
+      workspaceId: scope.workspaceId,
+      expectedAuthzVersion: 1,
+      input: {
+        plan: planSnapshot.content,
+        resourceRefs: resources.resources.flatMap((resource) => resource.currentAvailabilityVersionId ? [{ id: resource.id, revision: resource.revision, availabilityVersionId: resource.currentAvailabilityVersionId }] : []),
+        window: { start: new Date(Date.now() - 7 * 86_400_000).toISOString(), end: new Date(Date.now() + 21 * 86_400_000).toISOString() },
+        lockedEntryIds: [], materialConstraints: [], objective: 'earliest-finish',
+      },
+    });
+    expect(proposalResponse.status).toBe(200);
+    const proposal = ProposeWorkPlanResultSchema.parse(await proposalResponse.json());
+    expect(['feasible', 'partial']).toContain(proposal.status);
+    expect(proposal.changedEntryIds).toContain('sary-arqa-pharmacy');
+    const proposalCommand = await planCommand(planSnapshot, proposal.candidate, 'Apply scoped demo plan proposal');
+    expect(proposalCommand).not.toBeNull();
+    const proposalCommandGroupId = randomUUID();
+    const proposalGroup = { ...proposalCommand!, commandGroupId: proposalCommandGroupId, commands: proposalCommand!.commands.map((command) => ({ ...command, commandId: randomUUID() })) };
+    const applyProposalResponse = await client.request(`/api/demo/sessions/${started.sessionId}/artifacts/commands`, 'POST', { workspaceId: scope.workspaceId, expectedAuthzVersion: 1, group: proposalGroup }, proposalCommandGroupId);
+    expect(applyProposalResponse.status).toBe(200);
+    expect(CommandReceiptSchema.parse(await applyProposalResponse.json()).committedRevisionVector[planRef.id]).toBe(1);
+
     const editedScope = DemoSessionSchema.parse(await (await client.request(`/api/demo/sessions/${started.sessionId}`)).json());
-    expect(editedScope).toMatchObject({ revision: 1, inputRefs: expect.arrayContaining([expect.objectContaining({ id: briefRef.id, revision: 1 })]) });
+    expect(editedScope).toMatchObject({ revision: 2, inputRefs: expect.arrayContaining([expect.objectContaining({ id: briefRef.id, revision: 1 }), expect.objectContaining({ id: planRef.id, revision: 1 })]) });
 
     const exportResponse = await client.request(`/api/demo/sessions/${started.sessionId}/exports`, 'POST', { workspaceId: scope.workspaceId, expectedAuthzVersion: 1, locale: 'ru', items: [{ artifactId: briefRef.id, revision: 1, formats: ['pdf'] }] }, randomUUID());
     expect(exportResponse.status).toBe(201);
@@ -139,6 +185,7 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     const foreignStarted = DemoStartedSchema.parse(await (await foreign.request('/api/demo/sessions', 'POST', { locale: 'kk' }, randomUUID())).json());
     expect(foreignStarted.sessionId).not.toBe(started.sessionId);
     expect((await foreign.request(`/api/demo/sessions/${started.sessionId}`)).status).toBe(404);
+    expect((await foreign.request(`/api/demo/sessions/${started.sessionId}/operations/resources?workspaceId=${scope.workspaceId}`)).status).toBe(404);
 
     const runResponse = await client.request(`/api/demo/sessions/${started.sessionId}/runs`, 'POST', { goal: demoCopy.ru.goal, inputRefs: editedScope.inputRefs, expectedRevision: editedScope.revision }, randomUUID());
     expect(runResponse.status).toBe(202);
@@ -157,6 +204,14 @@ describe('isolated K5 public demo over real HTTP and PostgreSQL', () => {
     const changedRun = RunSchema.parse(await changedResponse.json());
     expect(changedRun.id).not.toBe(createdRun.runId); expect(changedRun.goal).toBe(changedGoal);
     expect((await pool.query('SELECT reason FROM agent_run_continuations WHERE parent_run_id=$1 AND child_run_id=$2', [createdRun.runId, changedRun.id])).rows[0]).toEqual({ reason: 'goal-change' });
+
+    await pool.query(`UPDATE agent_runs SET state='failed',failure_code='PROVIDER_FAILED',execution_epoch=execution_epoch+1,lease_owner=NULL,lease_until=NULL,finished_at=now(),updated_at=now() WHERE id=$1`, [changedRun.id]);
+    const restartResponse = await client.request(`/api/demo/sessions/${started.sessionId}/runs`, 'POST', { goal: changedGoal, inputRefs: editedScope.inputRefs, expectedRevision: editedScope.revision }, randomUUID());
+    expect(restartResponse.status).toBe(202);
+    const restarted = DemoRunStartedSchema.parse(await restartResponse.json());
+    expect(restarted.runId).not.toBe(changedRun.id);
+    const restartedRun = RunSchema.parse(await (await client.request(`/api/demo/sessions/${started.sessionId}/runs/${restarted.runId}`)).json());
+    expect(restartedRun.progress.parentRunId).toBeNull();
 
     const authority = (await pool.query<{ capability_id: string; capability_version: number; execution_authority: { kind?: string; sessionId?: string } | null }>(`SELECT r.capability_id,r.capability_version,c.state->'executionAuthority' AS execution_authority FROM agent_runs r JOIN agent_run_contexts c ON c.run_id=r.id WHERE r.id=$1`, [createdRun.runId])).rows[0]!;
     expect(authority.capability_id).toBe('business.goal'); expect(authority.capability_version).toBe(1);

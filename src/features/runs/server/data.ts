@@ -103,16 +103,21 @@ export async function snapshot(transaction: PoolClient, run: RunRow, projected?:
   const publicProgress = RunProgressProjectionSchema.parse(projected ?? { plan: [], questions: [], summary: '', results: [], decision: null });
   const progress = RunProgressSchema.parse({ ...publicProgress, parentRunId, continuationRunId });
   const unsafeUsage = ((await transaction.query("SELECT 1 FROM agent_run_usage WHERE run_id=$1 AND state IN ('reserved','dispatched','ambiguous') LIMIT 1", [run.id])).rowCount ?? 0) > 0;
+  const replayableInvalidSteps = new Set((await transaction.query<{ id: string }>(`SELECT s.id FROM agent_run_steps s
+    WHERE s.run_id=$1 AND s.state='failed' AND s.failure_code='invalid_result' AND (
+      SELECT count(*) FROM agent_run_usage u JOIN agent_model_outputs o ON o.usage_id=u.id
+      WHERE u.run_id=s.run_id AND u.step_id=s.id AND u.state='succeeded'
+    )=1`, [run.id])).rows.map((row) => row.id));
   const withinLifetime = !run.deadline_at || run.deadline_at > new Date();
   const canRevise = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed' && !unsafeUsage;
   const canResume = !unsafeUsage && withinLifetime && ['waiting_input', 'failed'].includes(run.state)
-    && (steps.some((step) => step.retryable) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
+    && (steps.some((step) => step.retryable || replayableInvalidSteps.has(step.id)) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
   return RunSchema.parse({
     id: run.id, workspaceId: run.workspace_id, projectId: run.project_id, createdBy: run.created_by,
     capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale,
     state: run.state, epoch: run.execution_epoch, cursor: Number(run.event_sequence), failure: run.failure_code,
     createdAt: iso(run.created_at), updatedAt: iso(run.updated_at), startedAt: iso(run.started_at), deadlineAt: iso(run.deadline_at),
     budget: { limitUsd: run.budget_limit_usd, reservedUsd: run.reserved_usd, spentUsd: run.spent_usd, requestCount: run.request_count, requestLimit: 12 },
-    steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable).map((step) => step.id) : [] },
+    steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable || replayableInvalidSteps.has(step.id)).map((step) => step.id) : [] },
   });
 }
