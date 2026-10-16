@@ -1,5 +1,5 @@
 # 02 Полный набор полезных бизнес-работ
-Status: active
+Status: done
 
 Старт по contract не равен готовности: обязательные producer handovers до done находятся в PLAN, включая K7; partial/mock результат не закрывает пакет.
 
@@ -8,7 +8,7 @@ Status: active
 Общие [PLAN](../PLAN.md), [DESIGN](../DESIGN.md), PROJECT C1/C5–C10, K0–K6, P2/P3. UI владельцы отвечают за entry, result, editing, return, локали RU/KK/EN и все состояния, включая narrow/keyboard/feedback. Общие schemas/registry/migrations — только 01.3; feature-specific API prefixes принадлежат указанному пакету.
 
 ## 02.1 Подготовить финансовую модель, прогноз и обоснованную закупку
-Status: active
+Status: done
 Requirements: R01, R12, R13, R14, R15, R16, R35, R82, R91, R92, R99, R104, R109
 Depends on: none
 Owner: SUBAGENT money_procurement
@@ -31,10 +31,10 @@ Status: done
 Принят engines/builders substep: finance cash/accrual и bigint money, нормализация checked facts/FX; forecast bounded ARIMA/SARIMA против baseline с rolling-origin, WAPE/MAE и residual ranges; procurement stock allocation/pack/MOQ/delivery/tax/FX/expiry и исключение неполных предложений.15 focused domain tests PASS. Isolated PostgreSQL3journeys PASS: reviewed CSV mapping/query, atomic artifact pairs/replay, manual edit/reopen, normal fresh XLSX/DOCX bytes и stale-fact rejection после коррекции. Canonical descriptors подключены runtime. UI/actions полного02.1 остаются ниже.
 
 ### 02.1.2 Полная работа с собственными данными
-Status: active
+Status: done
 Import/mapping → сравнение → ручная правка → сохранение → фактический экспорт → reopen → новые факты. P3, lineage и failure recovery подтверждены сервером; читабельность/взаимодействие принимает пользователь.
 
-Найденный consumer gap устранён в переданном пакете:01.2 монтирует настоящие FinanceWorkspace/ForecastWorkspace/ProcurementWorkspace через bounded authoritative workPreview. Typed action меняет допущения/имя сценария и вызывает canonical пересчёт точной ревизии в новую сохраняемую ветку; manual edits и исходный результат сохраняются. Прежняя Run projection не переписывается: локальный preview и ссылки base/branch обновляются явным результатом операции. Producer unit4/4 и PostgreSQL3/3PASS подтверждают пересчёт, idempotent replay, сохранение ручных ячеек/имени и неизменённой base branch; ранее actual XLSX/DOCX и freshness проверены теми же сервисами. Scoped session tests/type/lint PASS; whole-file handover producer+consumer quiescent. Завершение02.1 фиксируется после общего checkpoint; внешний вид и общая многодоменная проверка04.1 остаются отдельными границами.
+Найденный consumer gap устранён в переданном пакете:01.2 монтирует настоящие FinanceWorkspace/ForecastWorkspace/ProcurementWorkspace через bounded authoritative workPreview. Typed action меняет допущения/имя сценария и вызывает canonical пересчёт точной ревизии в новую сохраняемую ветку; manual edits и исходный результат сохраняются. Прежняя Run projection не переписывается: локальный preview и ссылки base/branch обновляются явным результатом операции. Producer unit4/4 и PostgreSQL3/3PASS подтверждают пересчёт, idempotent replay, сохранение ручных ячеек/имени и неизменённой base branch; ранее actual XLSX/DOCX и freshness проверены теми же сервисами. Scoped session tests/type/lint PASS. Whole-file handover producer+consumer сохранён в checkpointbb70f61, check-plan/diff/type/lint/unit-domain-locale-contracts/production build PASS, push origin/main выполнен.02.1 принят; внешний вид и общая многодоменная проверка04.1 остаются отдельными границами.
 
 ## 02.2 Создать кампанию и полноценные редактируемые макеты
 Status: done

@@ -34,6 +34,43 @@ function ledgerFixture() {
   };
   return { ledger: ledger as unknown as BudgetLedger, lookupOperation: ledger.lookupOperation, reserve: ledger.reserve, dispatch: ledger.dispatch, settle: ledger.settle, releaseUndispatched: ledger.releaseUndispatched };
 }
+function multiStepLedgerFixture() {
+  const usages = new Map<string, UsageRow>();
+  const outputs = new Map<string, Record<string, unknown>>();
+  const key = (input: { fence: ModelRequest['fence']; operationKey: string }) => `${input.fence.runId}:${input.fence.stepId}:${input.operationKey}`;
+  const ledger = {
+    lookupOperation: vi.fn(async (input) => {
+      const usage = usages.get(key(input));
+      if (usage && usage.input_hash !== input.inputHash) throw new RunError('conflict');
+      if (!usage || usage.state === 'released') return null;
+      return { usage, replay: true, output: outputs.get(usage.id) ?? null };
+    }),
+    reserve: vi.fn(async (input) => {
+      const operation = key(input);
+      const existing = usages.get(operation);
+      if (existing) return { usage: existing, replay: true, output: outputs.get(existing.id) ?? null };
+      const usage = { id: randomUUID(), state: 'reserved', ...input, operation_key: input.operationKey, input_hash: input.inputHash, reserved_usd: input.reservedUsd } as unknown as UsageRow;
+      usages.set(operation, usage);
+      return { usage, replay: false, output: null };
+    }),
+    dispatch: vi.fn(async (_fence, usageId) => {
+      const usage = [...usages.values()].find((candidate) => candidate.id === usageId);
+      if (!usage || usage.state !== 'reserved') throw new Error('duplicate');
+      usage.state = 'dispatched';
+      return usage;
+    }),
+    settle: vi.fn(async (usageId, result) => {
+      const usage = [...usages.values()].find((candidate) => candidate.id === usageId);
+      if (!usage) throw new Error('missing');
+      usage.state = result.state;
+      if (result.output) outputs.set(usageId, result.output);
+      return usage;
+    }),
+    releaseUndispatched: vi.fn(async () => 0),
+    recoverExpired: vi.fn(async () => []),
+  };
+  return { ledger: ledger as unknown as BudgetLedger, reserve: ledger.reserve };
+}
 function response(overrides: Record<string, unknown> = {}) {
   return new Response(JSON.stringify({ id: 'synthetic-provider-call', model: 'synthetic/model', choices: [{ finish_reason: 'stop', message: { content: '{"ok":true}', reasoning: 'private reasoning must not persist' } }], usage: { prompt_tokens: 42, completion_tokens: 8, cost: 0.0000122 }, ...overrides }), { status: 200 });
 }
@@ -82,6 +119,26 @@ describe('single model gateway', () => {
     expect(JSON.stringify(fixture.settle.mock.calls)).not.toContain('private reasoning');
     expect(await gateway.complete(input)).toEqual({ content: '{"ok":true}', toolCalls: [] });
     expect(send).toHaveBeenCalledOnce();
+  });
+  it('uses distinct call keys for the same semantic operation in separate steps and replays each step independently', async () => {
+    const fixture = multiStepLedgerFixture();
+    const send = vi.fn(async () => response());
+    const gateway = createModelGateway({ ledger: fixture.ledger, apiKey: 'synthetic-secret', authorizationId: 'synthetic', pricing: async () => syntheticPrice(), fetch: send });
+    const first = request();
+    const second = { ...first, fence: { ...first.fence, stepId: randomUUID(), leaseOwner: randomUUID() } };
+
+    const firstOutput = await gateway.complete(first);
+    await expect(gateway.complete(second)).resolves.toEqual(firstOutput);
+    const reservations = fixture.reserve.mock.calls.map(([input]) => input);
+    expect(reservations).toHaveLength(2);
+    expect(reservations.map((input) => input.operationKey)).toEqual(['unit_operation', 'unit_operation']);
+    expect(new Set(reservations.map((input) => input.attemptKey)).size).toBe(2);
+    expect(reservations.every((input) => input.attemptKey.length <= 128)).toBe(true);
+    expect(send).toHaveBeenCalledTimes(2);
+
+    await expect(gateway.complete(first)).resolves.toEqual(firstOutput);
+    expect(fixture.reserve).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(2);
   });
   it('does not dispatch when authorization reservation fails', async () => {
     const fixture = ledgerFixture(); fixture.reserve.mockRejectedValueOnce(new Error('budget rejected'));

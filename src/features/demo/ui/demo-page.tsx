@@ -1,122 +1,273 @@
 'use client';
+
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, GitCompareArrows, RefreshCw, Save, Undo2 } from 'lucide-react';
-import type { ChangeSet } from '@/contracts/dependencies';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowRight, BriefcaseBusiness, Clock3, FileText, Play, RefreshCw, ShieldCheck } from 'lucide-react';
+import type { Run, RunResultRef, RunState } from '@/contracts/runs';
+import type { ArtifactSnapshot } from '@/features/artifacts/contracts';
+import { createArtifactClient } from '@/features/artifacts/client/transport';
+import { AuthDialog, useIdentityAccount } from '@/features/identity/ui';
+import { AssistantSession, type AssistantSessionTransport } from '@/features/runs/ui/assistant-session';
+import { ArtifactWorkspacePage, type ArtifactWorkspaceTransport } from '@/features/workspace/ui/artifact-page';
 import { LocaleProvider } from '@/i18n/provider';
 import type { Locale } from '@/i18n/locales';
-import { Button, Dialog, LocaleSelect, ProductHeader } from '@/ui';
-import { identityClient } from '@/features/identity/ui';
-import { publicWorkDestination } from '@/features/public-site/entry';
-import { useIdentityAccount } from '@/features/identity/ui/identity-locale-provider';
-import { createArtifactSession, type ArtifactSession } from '@/features/artifacts/client/session';
-import { artifactDraft, selectableGroups } from '@/features/dependencies/domain/proposal';
-import { ChangePreview } from '@/features/change-review';
-import { createDemoSeed } from '../domain/sample';
-import { createDemoStore, demoArtifact, DemoConflict, type DemoStore } from '../domain/store';
+import { Button, CheckboxField, EmptyState, InlineNotice, LoadingState, LocaleSelect, ProductHeader, SelectField, Surface, TextareaField } from '@/ui';
+import { demoClient, DemoRequestError } from '../client';
+import type { DemoCopied, DemoSession, DemoStarted } from '../contracts';
 import { demoCopy } from '../locales';
 import styles from './demo.module.css';
 
-const DocumentEditor = dynamic(() => import('@/features/documents/ui/document-editor').then((module) => module.DocumentEditor), { ssr: false });
-const SheetEditor = dynamic(() => import('@/features/sheets/ui').then((module) => module.SheetEditor), { ssr: false });
-interface Ready { store: DemoStore; document: ArtifactSession; table: ArtifactSession }
-export function DemoPage({ locale }: { locale: Locale }) { return <LocaleProvider initialLocale={locale}><DemoContent locale={locale} /></LocaleProvider>; }
-function DemoContent({ locale }: { locale: Locale }) {
+type Failure = { kind: 'expired' | 'rate' | 'unavailable' | 'invalid'; retryAfter?: number };
+type Material = { id: string; title: string; kind: 'input' | 'result'; revision?: number };
+const settledStates = new Set<RunState>(['waiting_input', 'review_ready', 'completed', 'failed', 'cancelled']);
+const storageKey = (locale: Locale) => `tirlik.demo-session.v2.${locale}`;
+const interpolate = (value: string, variables: Record<string, string | number>) => Object.entries(variables).reduce((text, [key, replacement]) => text.replace(`{${key}}`, String(replacement)), value);
+
+function mapFailure(error: unknown): Failure {
+  if (error instanceof DemoRequestError) {
+    if (error.status === 404 || error.status === 410 || error.code === 'DEMO_EXPIRED') return { kind: 'expired' };
+    if (error.status === 429) return { kind: 'rate', retryAfter: error.retryAfterSeconds };
+    return { kind: 'unavailable' };
+  }
+  if (error instanceof Error && (error.name === 'ZodError' || error.message.includes('parse'))) return { kind: 'invalid' };
+  return { kind: 'unavailable' };
+}
+
+function failureText(failure: Failure, copy: typeof demoCopy.ru) {
+  if (failure.kind === 'expired') return copy.expired;
+  if (failure.kind === 'rate') return interpolate(copy.rate, { seconds: failure.retryAfter ?? 60 });
+  if (failure.kind === 'invalid') return copy.invalid;
+  return copy.unavailable;
+}
+
+function startedFromSession(session: DemoSession): DemoStarted {
+  return {
+    sessionId: session.sessionId,
+    expiresAt: session.expiresAt,
+    revision: session.revision,
+    locale: session.locale,
+    actorId: session.actorId,
+    workspaceId: session.workspaceId,
+    projectId: session.projectId,
+    inputRefs: session.inputRefs,
+  };
+}
+
+function MaterialSelection({ materials, selected, disabled, onChange }: { materials: Material[]; selected: string[]; disabled: boolean; onChange: (ids: string[]) => void }) {
+  const toggle = (id: string, checked: boolean) => onChange(checked ? [...new Set([...selected, id])] : selected.filter((item) => item !== id));
+  return <div className={styles.materialChoices}>{materials.map((material) => <CheckboxField key={material.id} label={material.title} checked={selected.includes(material.id)} disabled={disabled} onChange={(event) => toggle(material.id, event.target.checked)} />)}</div>;
+}
+
+export function DemoPage({ locale, initialArtifactId }: { locale: Locale; initialArtifactId?: string }) {
+  return <LocaleProvider initialLocale={locale}><DemoContent locale={locale} initialArtifactId={initialArtifactId} /></LocaleProvider>;
+}
+
+function DemoContent({ locale, initialArtifactId }: { locale: Locale; initialArtifactId?: string }) {
   const t = demoCopy[locale], router = useRouter(), account = useIdentityAccount();
-  const [ready, setReady] = useState<Ready>(), [boot, setBoot] = useState(0), [tab, setTab] = useState<'document' | 'table'>('document'), [price, setPrice] = useState('2500'), [busy, setBusy] = useState(false), [message, setMessage] = useState<string>(), [error, setError] = useState(false), [reviewOpen, setReviewOpen] = useState(false), [resetOpen, setResetOpen] = useState(false), [changeset, setChangeset] = useState<ChangeSet>(), [selected, setSelected] = useState<string[]>([]), [lastGroup, setLastGroup] = useState<string>();
-  const flushDocument = useRef<(() => Promise<boolean>) | null>(null), flushTable = useRef<(() => Promise<boolean>) | null>(null), ownAttempt = useRef<string | null>(null);
-  const registerDocument = useCallback((flush: (() => Promise<boolean>) | null) => { flushDocument.current = flush; }, []), registerTable = useCallback((flush: () => Promise<boolean>) => { flushTable.current = flush; }, []);
-  const storageKey = `tirlik-workshop-example-v1:${locale}`;
+  const [started, setStarted] = useState<DemoStarted>();
+  const [session, setSession] = useState<DemoSession>();
+  const [run, setRun] = useState<Run>();
+  const [runId, setRunId] = useState<string>();
+  const [goal, setGoal] = useState(t.goal);
+  const [selectedArtifactId, setSelectedArtifactId] = useState<string>();
+  const [artifactView, setArtifactView] = useState<{ id: string; snapshot: ArtifactSnapshot }>();
+  const [selectedArtifacts, setSelectedArtifacts] = useState<string[]>([]);
+  const [workspaceId, setWorkspaceId] = useState('');
+  const [copyResult, setCopyResult] = useState<DemoCopied>();
+  const [pending, setPending] = useState<'restore' | 'start' | 'run' | 'copy'>();
+  const [failure, setFailure] = useState<Failure>();
+  const [authOpen, setAuthOpen] = useState(false);
+  const runAttempt = useRef<{ signature: string; key: string } | undefined>(undefined);
+  const copyAttempt = useRef<{ signature: string; key: string } | undefined>(undefined);
+  const refreshedRun = useRef('');
+  const activeSession = session ?? started;
+  const sessionId = activeSession?.sessionId;
+
+  const artifactResults = useMemo(() => {
+    const results = run?.progress.results.filter((result): result is RunResultRef & { kind: 'artifact'; title: string } => result.kind === 'artifact') ?? [];
+    const decision = run?.progress.workDecision;
+    const selected = decision?.options.find((option) => option.id === decision.selectedOptionId);
+    return selected ? results.filter((result) => selected.artifactIds.includes(result.id)) : results;
+  }, [run]);
+
+  const materials = useMemo<Material[]>(() => {
+    const inputs = activeSession?.inputRefs.filter((ref) => ref.kind === 'artifact').map((ref, index) => ({ id: ref.id, revision: ref.revision, kind: 'input' as const, title: index === 0 ? t.inputBrief : index === 1 ? t.inputPlan : `${t.inputMaterial} ${index + 1}` })) ?? [];
+    const known = new Set(inputs.map((item) => item.id));
+    const results = artifactResults.filter((result) => !known.has(result.id)).map((result) => ({ id: result.id, revision: result.revision, kind: 'result' as const, title: result.title }));
+    return [...inputs, ...results];
+  }, [activeSession, artifactResults, t]);
+
+  const resultMaterials = useMemo(() => materials.filter((material) => material.kind === 'result'), [materials]);
+  const effectiveSelectedArtifactId = initialArtifactId && materials.some((item) => item.id === initialArtifactId)
+    ? initialArtifactId
+    : selectedArtifactId && materials.some((item) => item.id === selectedArtifactId) ? selectedArtifactId : materials[0]?.id;
+  const effectiveSelectedArtifacts = selectedArtifacts.length && selectedArtifacts.every((id) => artifactResults.some((item) => item.id === id))
+    ? selectedArtifacts
+    : artifactResults.map((item) => item.id);
+  const workspaces = account.viewer?.workspaces.filter((item) => item.scopes.includes('edit')) ?? [];
+  const selectedWorkspaceId = workspaces.some((item) => item.workspaceId === workspaceId) ? workspaceId : workspaces[0]?.workspaceId ?? '';
+
+  const workspaceTransport = useMemo<ArtifactWorkspaceTransport | undefined>(() => {
+    if (!sessionId) return undefined;
+    const resolvePath = (path: string) => `/api/demo/sessions/${encodeURIComponent(sessionId)}${path.slice(4)}`;
+    return {
+      artifacts: createArtifactClient({ resolvePath }),
+      exports: { resolvePath, capabilities: { history: false, versions: true, fonts: false, cancel: false, remove: false, bundle: true } },
+      cache: { databaseName: `tirlik-demo-artifacts-v1-${sessionId}` },
+    };
+  }, [sessionId]);
+
+  const assistantTransport = useMemo<AssistantSessionTransport | undefined>(() => sessionId ? {
+    read: (targetRunId) => demoClient.run(sessionId, targetRunId),
+    continue: (targetRunId, input, idempotencyKey) => demoClient.resumeRun(sessionId, targetRunId, input, idempotencyKey),
+  } : undefined, [sessionId]);
+
+  const adoptRun = useCallback((next: Run | undefined) => {
+    setRun(next);
+    if (next) setRunId(next.id);
+  }, []);
+
+  const refreshSession = useCallback(async (targetSessionId: string) => {
+    const next = await demoClient.session(targetSessionId);
+    setSession(next);
+    setStarted(startedFromSession(next));
+    return next;
+  }, []);
+
   useEffect(() => {
-    let disposed = false, instance: Ready | undefined;
-    const timer = setTimeout(async () => {
-      try {
-        const saved = localStorage.getItem(storageKey), store = createDemoStore(createDemoSeed(locale), { saved, persist: (value) => localStorage.setItem(storageKey, value) });
-        const session = (id: string) => createArtifactSession({ initial: store.snapshot(id), client: store.client, cache: { databaseName: `tirlik-example-${store.seed.snapshots[0]!.viewer.workspaceId}-${id}` }, isIdentityCurrent: () => !disposed });
-        instance = { store, document: session(store.seed.documentId), table: session(store.seed.tableId) };
-        await Promise.all([instance.document.initialize(), instance.table.initialize()]);
-        if (disposed) { instance.document.dispose(); instance.table.dispose(); return; }
-        if (!instance.document.getSnapshot().storageReady || !instance.table.getSnapshot().storageReady) throw new Error('example-storage-unavailable');
-        setReady(instance); setError(false); setMessage(saved ? t.saved : undefined);
-        const target = await artifactDraft(demoArtifact(store.snapshot(store.seed.tableId))).target(store.seed.priceTargetId);
-        setPrice(String((target?.value as { v?: unknown })?.v ?? 2500));
-      } catch { if (!disposed) { setMessage(t.storageError); setError(true); } }
+    const id = (() => { try { return localStorage.getItem(storageKey(locale)); } catch { return null; } })();
+    if (!id) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setPending('restore');
+      void demoClient.session(id).then(async (restored) => {
+        if (cancelled) return;
+        setSession(restored); setStarted(startedFromSession(restored));
+        const latestRunId = restored.runIds.at(-1);
+        if (latestRunId) adoptRun(await demoClient.run(restored.sessionId, latestRunId));
+        setFailure(undefined);
+      }).catch((error) => {
+        if (cancelled) return;
+        const mapped = mapFailure(error); setFailure(mapped);
+        if (mapped.kind === 'expired') try { localStorage.removeItem(storageKey(locale)); } catch { /* Visible reset remains available. */ }
+      }).finally(() => { if (!cancelled) setPending(undefined); });
     }, 0);
-    return () => { disposed = true; clearTimeout(timer); instance?.document.dispose(); instance?.table.dispose(); flushDocument.current = null; flushTable.current = null; };
-  }, [locale, storageKey, boot, t.saved, t.storageError]);
-  async function flush() {
-    if (!ready) return false;
-    if (flushDocument.current && !await flushDocument.current()) return false;
-    if (flushTable.current && !await flushTable.current()) return false;
-    return await ready.document.flush() && await ready.table.flush();
-  }
-  async function refresh() { if (ready) await Promise.all([ready.document.refresh(), ready.table.refresh()]); }
-  async function action(run: () => Promise<void>) {
-    if (busy || !ready) return; setBusy(true); setMessage(undefined); setError(false);
-    try { if (!await flush()) throw new Error('save-pending'); await run(); }
-    catch (failure) { setMessage(failure instanceof DemoConflict ? t.stale : t.failed); setError(true); }
-    finally { setBusy(false); }
-  }
-  function changePrice(event: React.FormEvent) {
-    event.preventDefault();
-    const normalized = price.trim().replace(',', '.');
-    if (!/^\d{1,7}(?:\.\d{1,2})?$/.test(normalized) || Number(normalized) > 1_000_000) { setMessage(t.invalidPrice); setError(true); return; }
-    void action(async () => {
-      const store = ready!.store, snapshot = store.snapshot(store.seed.tableId), target = (await artifactDraft(demoArtifact(snapshot)).target(store.seed.priceTargetId))!, vector = { [store.seed.sourceRef.sourceId]: 1 };
-      await store.apply({ commandGroupId: crypto.randomUUID(), expectedArtifactRevisions: { [snapshot.artifact.id]: snapshot.artifact.currentRevision }, expectedSourceRevisions: vector, commands: [{ commandId: crypto.randomUUID(), artifactId: snapshot.artifact.id, kind: 'table', baseRevision: snapshot.artifact.currentRevision, expectedSourceRevisions: vector, reason: t.applyPrice, operations: [{ targetId: target.targetId, op: 'set', beforeHash: target.hash, value: { v: Number(normalized), t: 2 } }] }] });
-      await refresh(); await preparePreview();
-    });
-  }
-  async function preparePreview() {
-    const store = ready!.store, proposal = await store.prepare(), initial = store.seed.snapshots[0]!;
-    setChangeset({ id: crypto.randomUUID(), workspaceId: initial.viewer.workspaceId, projectId: initial.artifact.projectId, createdBy: initial.viewer.userId, createdAt: proposal.preparedAt, revision: 0, state: 'ready', proposal, acceptedGroupIds: [], rejectedGroupIds: [] });
-    setSelected(selectableGroups(proposal)); setReviewOpen(true);
-  }
-  function accept() { if (changeset) void action(async () => { const receipt = await ready!.store.accept(changeset.proposal, selected); setLastGroup(receipt.commandGroupId); await refresh(); setReviewOpen(false); setMessage(t.ready); setChangeset(undefined); }); }
-  function undo() { if (lastGroup) void action(async () => { const prepared = await ready!.document.prepareHistory('undo', lastGroup); if (!prepared.operation) throw new DemoConflict('sample-history-conflict'); await ready!.document.run(prepared.operation); await refresh(); setLastGroup(undefined); setMessage(t.saved); }); }
-  function reset() {
-    ready?.document.dispose(); ready?.table.dispose();
-    try { localStorage.removeItem(storageKey); } catch { setError(true); setMessage(t.failed); return; }
-    setReady(undefined); setChangeset(undefined); setLastGroup(undefined); setResetOpen(false); setBoot((value) => value + 1);
-  }
-  async function ownWork() {
-    if (busy) return; setBusy(true); setError(false);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [locale, adoptRun]);
+
+  useEffect(() => {
+    if (!activeSession || !workspaceTransport || !effectiveSelectedArtifactId) return;
+    const controller = new AbortController();
+    void workspaceTransport.artifacts.snapshot(effectiveSelectedArtifactId, { viewer: { userId: activeSession.actorId, workspaceId: activeSession.workspaceId, authzVersion: 1 }, signal: controller.signal }, activeSession.projectId)
+      .then((snapshot) => { if (!controller.signal.aborted) { setArtifactView({ id: effectiveSelectedArtifactId, snapshot }); setFailure(undefined); } })
+      .catch((error) => { if (!controller.signal.aborted) setFailure(mapFailure(error)); })
+    return () => controller.abort();
+  }, [activeSession, workspaceTransport, effectiveSelectedArtifactId]);
+
+  const refreshKey = run && settledStates.has(run.state) && sessionId ? `${sessionId}:${run.id}:${run.state}:${run.epoch}` : '';
+  useEffect(() => {
+    if (!refreshKey || !sessionId || refreshedRun.current === refreshKey) return;
+    refreshedRun.current = refreshKey;
+    const timer = window.setTimeout(() => { void refreshSession(sessionId).catch(() => undefined); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [refreshKey, sessionId, refreshSession]);
+
+  async function start() {
+    if (pending) return;
+    setPending('start'); setFailure(undefined); setCopyResult(undefined);
     try {
-      if (ready && !await flush()) throw new Error('save-pending');
-      ownAttempt.current ??= crypto.randomUUID();
-      const intent = await identityClient.saveIntent({ goal: t.ownGoal, returnTo: '/app/work' }, ownAttempt.current);
-      router.push(publicWorkDestination(Boolean(account.viewer), intent.intentToken));
-    } catch { setMessage(t.failed); setError(true); setBusy(false); }
+      const next = await demoClient.start(locale);
+      setStarted(next); setSession(undefined); setRun(undefined); setRunId(undefined); setSelectedArtifacts([]); setSelectedArtifactId(next.inputRefs.find((ref) => ref.kind === 'artifact')?.id);
+      try { localStorage.setItem(storageKey(locale), next.sessionId); } catch { /* The signed capability still protects the current tab. */ }
+    } catch (error) { setFailure(mapFailure(error)); }
+    finally { setPending(undefined); }
   }
-  function download() { void action(async () => {
-    const snapshot = ready!.store.snapshot(ready!.store.seed.documentId);
-    const response = await fetch('/api/demo/export', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ locale, content: snapshot.content, title: snapshot.artifact.title }), credentials: 'omit', cache: 'no-store' });
-    if (!response.ok) { setMessage(t.exportFailed); setError(true); return; }
-    const blob = await response.blob(), url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = 'tirlik-workshop-offer.docx'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }); }
+
+  async function execute(retry = false) {
+    if (!activeSession || pending) return;
+    setPending('run'); setFailure(undefined); setCopyResult(undefined);
+    try {
+      const fresh = await refreshSession(activeSession.sessionId);
+      const nextGoal = goal.trim() || t.goal;
+      const signature = `${fresh.sessionId}:${fresh.revision}:${fresh.inputRefs.map((ref) => `${ref.id}:${ref.revision ?? ''}`).join(',')}:${nextGoal}`;
+      if (retry || runAttempt.current?.signature !== signature) runAttempt.current = { signature, key: crypto.randomUUID() };
+      const created = await demoClient.startRun(fresh.sessionId, { goal: nextGoal, inputRefs: fresh.inputRefs, expectedRevision: fresh.revision }, runAttempt.current!.key);
+      setRunId(created.runId);
+      adoptRun(await demoClient.run(fresh.sessionId, created.runId));
+    } catch (error) { setFailure(mapFailure(error)); }
+    finally { setPending(undefined); }
+  }
+
+  function reset() {
+    if (sessionId) try { localStorage.removeItem(storageKey(locale)); } catch { /* The old scope still expires server-side. */ }
+    setStarted(undefined); setSession(undefined); setRun(undefined); setRunId(undefined); setGoal(t.goal); setSelectedArtifactId(undefined); setArtifactView(undefined); setSelectedArtifacts([]); setFailure(undefined); setCopyResult(undefined); refreshedRun.current = '';
+  }
+
+  async function copy() {
+    if (!activeSession || !selectedWorkspaceId || !effectiveSelectedArtifacts.length || pending) return;
+    if (!account.viewer) { setAuthOpen(true); return; }
+    setPending('copy'); setFailure(undefined);
+    try {
+      const fresh = await refreshSession(activeSession.sessionId);
+      const signature = `${fresh.sessionId}:${fresh.revision}:${selectedWorkspaceId}:${[...effectiveSelectedArtifacts].sort().join(',')}`;
+      if (copyAttempt.current?.signature !== signature) copyAttempt.current = { signature, key: crypto.randomUUID() };
+      setCopyResult(await demoClient.copy(fresh.sessionId, { expectedRevision: fresh.revision, artifactIds: effectiveSelectedArtifacts, destinationWorkspaceId: selectedWorkspaceId }, copyAttempt.current!.key));
+    } catch (error) { setFailure(mapFailure(error)); }
+    finally { setPending(undefined); }
+  }
+
+  const scopedResultIds = new Set(session?.results.filter((result) => result.kind === 'artifact').map((result) => result.id) ?? []);
+  const copyReady = resultMaterials.length > 0 && Boolean(run && ['review_ready', 'completed'].includes(run.state)) && resultMaterials.every((result) => scopedResultIds.has(result.id));
+  const selectedMaterial = materials.find((material) => material.id === effectiveSelectedArtifactId);
+  const artifactSnapshot = artifactView && artifactView.id === effectiveSelectedArtifactId ? artifactView.snapshot : undefined;
+  const artifactLoading = Boolean(effectiveSelectedArtifactId && !artifactSnapshot);
+  const artifactHref = (artifactId: string) => `/${locale}/demo?${new URLSearchParams({ artifact: artifactId })}#demo-workspace`;
+
   return <div className={styles.page}>
-    <ProductHeader wide homeHref={`/${locale}`} homeLabel={t.home}><LocaleSelect compact selectedLocale={locale} onLocaleChange={(next) => { void action(async () => { router.push(`/${next}/demo`); }); }} /><Link className="tl-button tl-button--secondary" href={`/${locale}#start`}>{t.own}</Link></ProductHeader>
-    <main className={styles.main}><section className={styles.intro}><div><h1>{t.title}</h1><p>{t.intro}</p></div><div className={styles.actions}><Button icon={RefreshCw} disabled={busy} onClick={() => setResetOpen(true)}>{t.reset}</Button></div></section>
-      {message && <p className={error ? styles.error : styles.notice} role={error ? 'alert' : 'status'}>{message}</p>}
-      {!ready ? <p className={styles.loading}>{error ? t.storageError : t.loading}</p> : <div className={styles.layout}>
-        <aside className={styles.controls}><h2>{t.example}</h2><form onSubmit={changePrice}><label>{t.price}<input inputMode="decimal" value={price} maxLength={12} onChange={(event) => setPrice(event.target.value)} disabled={busy} /></label><Button type="submit" variant="primary" pending={busy}>{t.applyPrice}</Button></form><div className={styles.controlsActions}>
-          <Button icon={GitCompareArrows} disabled={busy} onClick={() => { void action(preparePreview); }}>{t.review}</Button>
-          <Button icon={Save} disabled={busy} onClick={() => { void action(async () => { localStorage.setItem(storageKey, ready.store.serialize()); setMessage(t.saved); }); }}>{t.save}</Button>
-          <Button disabled={busy} onClick={() => { void action(async () => { setReady(undefined); setBoot((value) => value + 1); }); }}>{t.reopen}</Button>
-          {lastGroup && <Button icon={Undo2} disabled={busy} onClick={undo}>{t.undo}</Button>}
-        </div><p>{t.private}</p></aside>
-        <section className={styles.work}><header className={styles.workHeader}><div className={styles.tabs} role="tablist" aria-label={t.example}>{(['document', 'table'] as const).map((value) => <button type="button" key={value} role="tab" aria-selected={tab === value} aria-controls={`sample-${value}`} disabled={busy} onClick={() => { void action(async () => { setTab(value); }); }}>{t[value]}</button>)}</div><Button icon={Download} disabled={busy} onClick={download}>{t.export}</Button></header>
-          <p className={styles.hint}>{t.editHint}</p><div className={styles.editor} id={`sample-${tab}`} role="tabpanel">
-            {tab === 'document' ? <DocumentEditor key={ready.store.seed.documentId} session={ready.document} resources={false} onFlushReady={registerDocument} /> : <SheetEditor key={ready.store.seed.tableId} session={ready.table} locale={locale} onFlushReady={registerTable} />}
+    <ProductHeader homeHref={`/${locale}`} homeLabel={t.home}><LocaleSelect compact selectedLocale={locale} onLocaleChange={(next) => router.push(`/${next}/demo`)} /></ProductHeader>
+    <main className={styles.main}>
+      <header className={styles.projectHeader}>
+        <div className={styles.scopeLine}><span><ShieldCheck aria-hidden="true" size={16} />{t.scopeTitle}</span><p>{t.scopeBody}</p></div>
+        <div className={styles.projectHeading}><div><p className={styles.overline}>{t.title}</p><h1>{t.projectTitle}</h1><p>{t.intro}</p></div>{activeSession && <p className={styles.expiry}><Clock3 size={17} aria-hidden="true" />{interpolate(t.expires, { time: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(activeSession.expiresAt)) })}</p>}</div>
+        <dl className={styles.facts}><div><dt>{t.customer}</dt><dd>{t.customerValue}</dd></div><div><dt>{t.amount}</dt><dd>{t.amountValue}</dd></div><div><dt>{t.deadline}</dt><dd>{t.deadlineValue}</dd></div><div><dt>{t.load}</dt><dd>{t.loadValue}</dd></div></dl>
+      </header>
+
+      {failure && <InlineNotice tone={failure.kind === 'expired' ? 'warning' : 'danger'} title={failureText(failure, t)} action={failure.kind === 'expired' ? <Button icon={RefreshCw} onClick={() => { void start(); }}>{t.start}</Button> : activeSession && !runId ? <Button icon={RefreshCw} onClick={() => { void execute(true); }}>{t.retry}</Button> : undefined} />}
+
+      <section id="demo-workspace" className={styles.workspace} aria-labelledby="demo-workspace-title">
+        <div className={styles.workspaceHeading}><div><h2 id="demo-workspace-title">{t.caseTitle}</h2><p>{activeSession ? t.workspaceBody : t.startBody}</p></div><strong>{activeSession ? t.savedInputs : t.preparedStatus}</strong></div>
+        <nav className={styles.materialTabs} aria-label={t.materialsTitle}>
+          {activeSession ? materials.map((material) => <Link key={material.id} href={artifactHref(material.id)} prefetch={false} aria-current={material.id === effectiveSelectedArtifactId ? 'page' : undefined} data-kind={material.kind}><FileText size={18} aria-hidden="true" /><span><small>{material.kind === 'input' ? t.inputLabel : t.resultLabel}</small>{material.title}</span></Link>)
+            : <><span className={styles.materialPreview}><FileText size={18} aria-hidden="true" /><span><small>{t.inputLabel}</small>{t.inputBrief}</span></span><span className={styles.materialPreview}><FileText size={18} aria-hidden="true" /><span><small>{t.inputLabel}</small>{t.inputPlan}</span></span></>}
+        </nav>
+        <div className={styles.workspaceLayout}>
+          <div className={styles.sessionPane}>
+            {activeSession && runId && assistantTransport ? <AssistantSession key={activeSession.sessionId} userId={activeSession.actorId} workspaceId={activeSession.workspaceId} projectId={activeSession.projectId} initialRunId={runId} transport={assistantTransport} draftScopeKey={activeSession.sessionId} onRunData={adoptRun} onRunChange={setRunId} resultHref={(_activeRun, result) => result.kind === 'artifact' ? artifactHref(result.id) : null} runHref={() => `/${locale}/demo#demo-session`} />
+              : <Surface className={styles.runStarter}>
+                <p className={styles.eyebrow}>{t.sessionTitle}</p><h3>{activeSession ? t.sessionLead : t.preparedTitle}</h3><p>{activeSession ? t.sessionBody : t.preparedBody}</p>
+                <TextareaField id="demo-goal" label={t.goalLabel} value={goal} rows={7} maxLength={12000} disabled={Boolean(pending)} onChange={(event) => setGoal(event.target.value)} />
+                {activeSession ? <Button variant="primary" icon={Play} pending={pending === 'run'} pendingLabel={t.running} disabled={!goal.trim() || artifactLoading} onClick={() => { void execute(); }}>{t.run}</Button>
+                  : <Button variant="primary" icon={Play} pending={pending === 'start'} pendingLabel={t.starting} disabled={!goal.trim()} onClick={() => { void start(); }}>{t.start}</Button>}
+              </Surface>}
           </div>
-        </section>
-      </div>}
-      <section className={styles.own}><div><h2>{t.own}</h2><p>{t.ownHint}</p></div><Button variant="primary" pending={busy} onClick={() => { void ownWork(); }}>{t.own}</Button></section>
+          <div className={styles.artifactPane} aria-live="polite">
+            {!activeSession ? <div className={styles.preparedInputs}><div><p className={styles.eyebrow}>{t.preparedLabel}</p><h2>{t.preparedInputsTitle}</h2><p>{t.preparedInputsBody}</p></div><article><FileText size={22} aria-hidden="true" /><div><span>{t.inputLabel}</span><h3>{t.inputBrief}</h3><p>{t.inputBriefBody}</p></div></article><article><Clock3 size={22} aria-hidden="true" /><div><span>{t.inputLabel}</span><h3>{t.inputPlan}</h3><p>{t.inputPlanBody}</p></div></article></div>
+              : artifactLoading ? <LoadingState label={t.loadingMaterial} /> : artifactSnapshot && workspaceTransport ? <ArtifactWorkspacePage key={artifactSnapshot.artifact.id} initial={artifactSnapshot} projectTitle={t.projectTitle} mode="scoped" transport={workspaceTransport} /> : <EmptyState icon={FileText} title={t.materialUnavailable} description={selectedMaterial?.title ?? t.chooseMaterial} />}
+          </div>
+        </div>
+      </section>
+
+      {copyReady && <section className={styles.copy} aria-labelledby="demo-copy-title"><div><h2 id="demo-copy-title">{t.copyTitle}</h2><p>{t.copyBody}</p></div>
+        <div className={styles.copyControls}><MaterialSelection materials={resultMaterials} selected={effectiveSelectedArtifacts} disabled={pending === 'copy'} onChange={setSelectedArtifacts} />
+          {account.viewer ? workspaces.length ? <SelectField label={t.chooseWorkspace} value={selectedWorkspaceId} disabled={pending === 'copy'} onChange={(event) => setWorkspaceId(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.workspaceId} value={workspace.workspaceId}>{workspace.name}</option>)}</SelectField> : <InlineNotice tone="warning" title={t.noWorkspace} action={<Link className="tl-button tl-button--secondary" href="/settings/team">{t.openTeam}</Link>} /> : null}
+          {copyResult ? <InlineNotice tone="success" title={t.copied} action={<Link className="tl-button tl-button--primary" href={`/app/projects/${copyResult.projectId}`}>{t.openCopy}<ArrowRight size={18} aria-hidden="true" /></Link>} />
+            : <Button variant="primary" icon={BriefcaseBusiness} pending={pending === 'copy'} pendingLabel={t.copying} disabled={Boolean(account.viewer && (!selectedWorkspaceId || !effectiveSelectedArtifacts.length))} onClick={() => { if (account.viewer) void copy(); else setAuthOpen(true); }}>{account.viewer ? t.copy : t.signInToCopy}</Button>}
+        </div>
+      </section>}
+
+      {activeSession && <div className={styles.reset}><Button variant="quiet" icon={RefreshCw} disabled={Boolean(pending)} onClick={reset}>{t.reset}</Button></div>}
     </main>
-    <footer className={styles.footer}><p>Tirlik. {t.footer}</p><nav aria-label={t.help}><Link href={`/${locale}/help`}>{t.help}</Link><Link href={`/${locale}/privacy`}>{t.privacy}</Link></nav></footer>
-    <Dialog open={reviewOpen} onOpenChange={setReviewOpen} title={t.review} className={styles.review} dismissible={!busy} footer={<div className={styles.actions}><Button variant="primary" pending={busy} disabled={!selected.length} onClick={accept}>{t.accept}</Button><Button disabled={busy} onClick={() => setReviewOpen(false)}>{t.cancel}</Button></div>}>{changeset && <ChangePreview changeset={changeset} locale={locale} selected={selected} onSelect={setSelected} disabled={busy} />}</Dialog>
-    <Dialog open={resetOpen} onOpenChange={setResetOpen} title={t.resetTitle} description={t.resetDescription} footer={<div className={styles.actions}><Button variant="danger" onClick={reset}>{t.reset}</Button><Button onClick={() => setResetOpen(false)}>{t.cancel}</Button></div>}><p>{t.private}</p></Dialog>
+    <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={`/${locale}/demo${effectiveSelectedArtifactId ? `?artifact=${encodeURIComponent(effectiveSelectedArtifactId)}` : ''}`} onAuthenticated={() => setAuthOpen(false)} />
   </div>;
 }

@@ -62,6 +62,10 @@ function imageData(image: AuthorizedImage) {
   // The byte digest is checked separately from provenance, which the source service authorizes.
   return { type: 'image_url', image_url: { url: `data:${image.mime};base64,${data.toString('base64')}` } };
 }
+function modelAttemptKey(request: ModelRequest, attempt: number) {
+  const step = createHash('sha256').update(request.fence.stepId).digest('hex').slice(0, 16);
+  return `${request.operationKey}_${step}_${request.fence.epoch}_${attempt}`;
+}
 export function createModelGateway(options: GatewayOptions) {
   const send = options.fetch ?? fetch;
   async function complete(request: ModelRequest): Promise<ModelOutput> {
@@ -107,7 +111,7 @@ export function createModelGateway(options: GatewayOptions) {
     };
     for (let attempt = 0; attempt <= (options.safe429Retries ?? 0); attempt++) {
       if (request.signal?.aborted) throw new RunError('cancelled');
-      const reservation = await options.ledger.reserve({ fence: request.fence, operationKey: request.operationKey, attemptKey: `${request.operationKey}_${request.fence.epoch}_${attempt}`, inputHash, reservedUsd, pricing: price, maxOutputTokens: request.maxOutputTokens, authorizationId: options.authorizationId, keyFingerprint: hashKey(options.apiKey) });
+      const reservation = await options.ledger.reserve({ fence: request.fence, operationKey: request.operationKey, attemptKey: modelAttemptKey(request, attempt), inputHash, reservedUsd, pricing: price, maxOutputTokens: request.maxOutputTokens, authorizationId: options.authorizationId, keyFingerprint: hashKey(options.apiKey) });
       if (reservation.usage.state === 'succeeded') {
         if (!reservation.output) throw new RunError('invalid_result');
         return ModelOutputSchema.parse(reservation.output);
