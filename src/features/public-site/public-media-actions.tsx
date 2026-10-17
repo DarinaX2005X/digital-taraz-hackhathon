@@ -6,7 +6,7 @@ import { Dialog } from "@/ui";
 import type { PublicCopy } from "./copy";
 import styles from "./public-site.module.css";
 
-const videoPath = "/video/tirlik-product-film-ru.mp4";
+const videoPath = "/video/tirlik-product-film-v2-ru.mp4";
 
 export function PublicMediaActions({ copy }: { copy: PublicCopy }) {
   const [open, setOpen] = useState(false);
@@ -26,9 +26,8 @@ export function PublicMediaActions({ copy }: { copy: PublicCopy }) {
     </a>
     <Dialog open={open} onOpenChange={setOpen} title={copy.videoTitle} description={copy.videoDescription} returnFocus={trigger} className={styles.mediaDialog}
       footer={<a className="tl-button tl-button--secondary" href={videoPath} download><Download size={17} aria-hidden="true" />{copy.videoDownload}</a>}>
-      {open && <video className={styles.mediaVideo} controls playsInline preload="none" width={1920} height={1080} poster="/video/tirlik-product-film-poster.jpg" aria-label={copy.videoTitle}>
+      {open && <video className={styles.mediaVideo} controls playsInline preload="none" width={1920} height={1080} aria-label={copy.videoTitle}>
         <source src={videoPath} type="video/mp4" />
-        <track src="/video/tirlik-product-film-ru.vtt" kind="captions" srcLang="ru" label="Русский" default />
         <a href={videoPath} download>{copy.videoDownload}</a>
       </video>}
     </Dialog>

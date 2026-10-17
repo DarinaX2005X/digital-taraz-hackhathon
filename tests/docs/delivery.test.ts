@@ -31,7 +31,7 @@ describe('public delivery documentation', () => {
     expect(markdown).toContain('BETTER_AUTH_URL');
     expect(markdown).toContain('SMTP_REQUIRE_TLS');
     expect(markdown).toContain('https://tirlik.vercel.app/ru/demo');
-    expect(markdown).toContain('public/video/tirlik-product-film-ru.mp4');
+    expect(markdown).toContain('public/video/tirlik-product-film-v2-ru.mp4');
     expect(markdown).toContain('delivery/presentation/tirlik-presentation.pdf');
     expect(markdown).toContain('delivery/presentation/tirlik-presentation.pptx');
     expect(markdown).toContain(`${SOURCE_MAX_BYTES / 1024 / 1024} МБ`);

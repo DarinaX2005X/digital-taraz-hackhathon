@@ -9,13 +9,12 @@
 <p align="center">
   <a href="https://tirlik.vercel.app">Открыть Tirlik</a> ·
   <a href="https://tirlik.vercel.app/ru/demo">Попробовать рабочий пример</a> ·
-  <a href="https://tirlik.vercel.app/video/tirlik-product-film-ru.mp4">Смотреть видео</a> ·
+  <a href="https://tirlik.vercel.app/video/tirlik-product-film-v2-ru.mp4">Смотреть видео</a> ·
   <a href="https://tirlik.vercel.app/presentation/tirlik-presentation.pdf">Открыть презентацию</a>
 </p>
 
 <p align="center">
   <a href="https://tirlik.vercel.app/presentation/tirlik-presentation.pptx">Редактируемая презентация</a> ·
-  <a href="https://tirlik.vercel.app/video/tirlik-product-film-ru.vtt">Субтитры</a> ·
   <a href="https://github.com/DarinaX2005X/digital-taraz-hackhathon">Исходный код</a>
 </p>
 
@@ -39,10 +38,8 @@ Tirlik помогает людям внутри бизнеса пройти пу
 
 ## Материалы для знакомства
 
-[![Постер продуктового видео Tirlik](public/video/tirlik-product-film-poster.jpg)](public/video/tirlik-product-film-ru.mp4)
-
 - [Рабочий пример](https://tirlik.vercel.app/ru/demo) открывает готовое пространство, где можно быстро посмотреть исходники, задачи, решения и редактируемые результаты.
-- [Продуктовое видео](public/video/tirlik-product-film-ru.mp4) — русскоязычная анимация длительностью 104 секунды, 1920×1080, 60 fps, H.264/AAC. Рядом лежат [субтитры](public/video/tirlik-product-film-ru.vtt) и [редактируемый исходник](delivery/video/README.md).
+- [Продуктовое видео v2](public/video/tirlik-product-film-v2-ru.mp4) — русскоязычная анимация длительностью 104 секунды, 1920×1080, 60 fps, H.264/AAC. [Техническая справка о фильме](delivery/video/README.md) фиксирует параметры и происхождение файла.
 - [Презентация в PDF](delivery/presentation/tirlik-presentation.pdf) показывает функции сайта и основные рабочие переходы. Доступны также [редактируемый PPTX](delivery/presentation/tirlik-presentation.pptx) и [инструкция по воспроизведению](delivery/presentation/README.md).
 
 ## Что можно сделать
