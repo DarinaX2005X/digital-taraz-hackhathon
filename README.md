@@ -14,11 +14,6 @@
 </p>
 
 <p align="center">
-  <a href="https://tirlik.vercel.app/presentation/tirlik-presentation.pptx">Редактируемая презентация</a> ·
-  <a href="https://github.com/DarinaX2005X/digital-taraz-hackhathon">Исходный код</a>
-</p>
-
-<p align="center">
   <img alt="Next.js 16.4" src="https://img.shields.io/badge/Next.js-16.4-17332e?style=flat-square">
   <img alt="React 19.3" src="https://img.shields.io/badge/React-19.3-086a60?style=flat-square">
   <img alt="PostgreSQL 17" src="https://img.shields.io/badge/PostgreSQL-17-315e57?style=flat-square">
@@ -33,8 +28,6 @@ Tirlik помогает людям внутри бизнеса пройти пу
 Публичный сайт и рабочий пример доступны без локальной установки. Пример открывает обычное рабочее пространство с заранее сохранёнными исходниками и результатами: в нём можно пройти те же страницы, редакторы и API-пути, не загружая свои данные. Полная самостоятельная копия запускается одной командой после настройки `.env.local` и сохраняет PostgreSQL, файлы и workflow-состояние между перезапусками.
 
 ![Авторская предметная иллюстрация рабочих материалов Tirlik](public/site/business-materials.png)
-
-Иллюстрация создана для проекта и не является снимком интерфейса или доказательством результата. Её происхождение описано в [реестре публичных материалов](public/site/ASSETS.md).
 
 ## Материалы для знакомства
 
