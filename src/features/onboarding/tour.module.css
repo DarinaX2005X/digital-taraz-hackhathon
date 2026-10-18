@@ -33,6 +33,12 @@
   .guide .actions { justify-content: flex-start; }
 }
 
+@media (max-width: 600px) {
+  .guide { gap: var(--space-3); padding: var(--space-3); }
+  .guide .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; gap: var(--space-1); }
+  .guide .actions > button { min-inline-size: 0; inline-size: 100%; padding-inline: var(--space-2); font-size: .875rem; line-height: 1.35; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .highlight { scroll-behavior: auto; }
 }

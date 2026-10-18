@@ -12,6 +12,23 @@ import { tourCopy } from './copy';
 import { completeTourStep, firstAvailableTourStep, focusableTourAnchor, previousCompletedSteps, resolveTourView, tourDismissedKey } from './state-machine';
 import styles from './tour.module.css';
 
+export function tourViewportScrollDelta(input: {
+  guideTop: number;
+  guideBottom: number;
+  targetTop: number;
+  targetHeight: number;
+  viewportHeight: number;
+  margin?: number;
+  minimumTargetVisible?: number;
+}) {
+  const margin = input.margin ?? 16;
+  const viewportBottom = input.viewportHeight - margin;
+  const targetVisible = Math.min(input.targetHeight, input.minimumTargetVisible ?? 180);
+  const minimumDelta = Math.max(input.guideBottom - viewportBottom, input.targetTop + targetVisible - viewportBottom);
+  const maximumDelta = input.guideTop - margin;
+  return Math.min(Math.max(0, minimumDelta), maximumDelta);
+}
+
 function useTour(ownerId: string) {
   const account = useIdentityAccount();
   const { authEpoch, isCurrent } = account;
@@ -84,7 +101,10 @@ export function TourGuide({ ownerId, anchors }: { ownerId: string; anchors: Part
     const temporaryTabIndex = !target.hasAttribute('tabindex'); if (temporaryTabIndex) target.setAttribute('tabindex', '-1');
     const highlightClass = styles.highlight;
     target.setAttribute('data-tour-highlight', 'true'); if (highlightClass) target.classList.add(highlightClass);
-    guide.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' }); target.focus({ preventScroll: true });
+    const guideBox = guide.getBoundingClientRect(), targetBox = target.getBoundingClientRect();
+    const scrollDelta = tourViewportScrollDelta({ guideTop: guideBox.top, guideBottom: guideBox.bottom, targetTop: targetBox.top, targetHeight: targetBox.height, viewportHeight: document.documentElement.clientHeight });
+    if (Math.abs(scrollDelta) > 0.5) window.scrollBy({ top: scrollDelta, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
+    target.focus({ preventScroll: true });
     return () => { target.removeAttribute('data-tour-highlight'); if (highlightClass) target.classList.remove(highlightClass); if (temporaryTabIndex) target.removeAttribute('tabindex'); };
   }, [focusAnchorId]);
   if (!tour.visible || !tour.progress || !dismissal.ready || dismissal.dismissed) return null;

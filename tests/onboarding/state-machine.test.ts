@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { emptyTour, type TourProgress } from '@/features/onboarding/contracts';
+import { tourViewportScrollDelta } from '@/features/onboarding/tour';
 import {
   completeTourStep,
   createTourTransition,
@@ -176,11 +177,18 @@ describe('onboarding route and step state machine', () => {
     expect(focusableTourAnchor(view, true, true, true)).toBeUndefined();
   });
 
+  it('shares the viewport between a readable guide and an actionable target', () => {
+    expect(tourViewportScrollDelta({ guideTop: 101, guideBottom: 262, targetTop: 498, targetHeight: 186, viewportHeight: 768 })).toBe(0);
+    const mobileDelta = tourViewportScrollDelta({ guideTop: 139, guideBottom: 507, targetTop: 803, targetHeight: 186, viewportHeight: 844 });
+    expect(mobileDelta).toBe(123);
+    expect(139 - mobileDelta).toBe(16);
+    expect(844 - (803 - mobileDelta)).toBe(164);
+  });
+
   it('automatically reveals the active target and exposes no missing-step or show button', () => {
     const source = readFileSync(new URL('../../src/features/onboarding/tour.tsx', import.meta.url), 'utf8');
     const copy = readFileSync(new URL('../../src/features/onboarding/copy.ts', import.meta.url), 'utf8');
     expect(source).toContain('if (!focusAnchorId) return');
-    expect(source).toContain('scrollIntoView');
     expect(source).toContain('focusableTourAnchor');
     expect(source).not.toContain('LocateFixed');
     expect(source).not.toContain('t.show');

@@ -61,7 +61,7 @@ function assistantRegistry() {
     id: 'business.goal', version: 1, publicStart: true, policy,
     initialize: (input, privateInput) => {
       const continuation = privateInput.continuation as Record<string, unknown> | undefined;
-      return { context: continuation ?? { goal: input.goal, plan: ['Check the material unknown'], questions: [], summary: '', results: [], decision, branches: [branch], privateEvidence: 'must-never-leave-the-server', answers: [{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }], messages: [{ role: 'assistant', content: 'private model text' }] }, steps: [ask] };
+      return { context: continuation ?? { goal: input.goal, plan: ['Check the material unknown'], questions: [], summary: '', results: [], decision, branches: [branch], privateEvidence: 'must-never-leave-the-server', answers: [{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }], messages: [{ role: 'assistant', content: 'private model text' }] }, steps: continuation ? [finish] : [ask] };
     },
     continue: (input, context, change) => {
       if (change.answers?.length) {
@@ -84,7 +84,7 @@ function assistantRegistry() {
   };
   const tools: RunTool[] = [{
     name: 'assistant.ask', version: 1, purpose: 'Pause for one material business answer', input: z.strictObject({}), output: z.strictObject({ asked: z.literal(true) }), policy, costClass: 'local', deadlineMs: 30_000, idempotency: 'receipt',
-    execute: async (_tx, _input, _prepared, context) => ({ output: { asked: true }, context: { ...context.context, questions: [{ id: 'delivery_date', text: 'What delivery date is required?', required: true }], branches: [{ ...branch, state: 'waiting_input' as const, parentStepId: context.fence.stepId }] }, nextSteps: [finish], state: 'waiting_input' }),
+    execute: async (_tx, _input, _prepared, context) => ({ output: { asked: true }, context: { ...context.context, questions: [{ id: 'delivery_date', text: 'What delivery date is required?', required: true }], branches: [{ ...branch, state: 'waiting_input' as const, parentStepId: context.fence.stepId }] }, nextSteps: [], state: 'waiting_input' }),
   }, {
     name: 'assistant.finish', version: 1, purpose: 'Finish the synthetic assistant continuation', input: z.strictObject({}), output: z.strictObject({ saved: z.literal(true) }), policy, costClass: 'local', deadlineMs: 30_000, idempotency: 'receipt',
     execute: async (_tx, _input, _prepared, context) => ({ output: { saved: true }, context: { ...context.context, questions: [], summary: 'Saved a reviewed result.', branches: [{ ...branch, state: 'completed' as const, parentStepId: context.fence.stepId }] }, state: 'completed' }),
@@ -368,6 +368,7 @@ describe('transactional runtime service', () => {
     await service.executeStep(firstClaim);
     const waiting = await service.read(owner.principal, created.id);
     expect(waiting).toMatchObject({ state: 'waiting_input', progress: { questions: [{ id: 'delivery_date', required: true }], answeredQuestions: [{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }], decision: { outcome: 'conditional', options: [{ id: 'standard' }, { id: 'later' }] }, branches: [{ id: 'delivery_check', state: 'waiting_input' }] }, actions: { resume: true, revise: true } });
+    expect(waiting.steps.some((step) => step.state === 'planned')).toBe(false);
     expect(JSON.stringify(waiting)).not.toContain('must-never-leave-the-server');
     expect(JSON.stringify(waiting)).not.toContain('private model text');
     expect((await service.read(owner.principal, created.id)).progress.answeredQuestions).toEqual([{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }]);
@@ -377,7 +378,8 @@ describe('transactional runtime service', () => {
     expect(JSON.stringify(waitingEvents)).not.toContain('must-never-leave-the-server');
     const outsider = await scope();
     await expect(service.events(outsider.principal, created.id, waitingEvents.cursor)).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    await service.resume(owner.principal, created.id, { expectedEpoch: waiting.epoch, answers: [{ questionId: 'delivery_date', answer: '2026-10-30' }] }, randomUUID());
+    const answered = await service.resume(owner.principal, created.id, { expectedEpoch: waiting.epoch, answers: [{ questionId: 'delivery_date', answer: '2026-10-30' }] }, randomUUID());
+    expect(answered.deadlineAt).toBe(waiting.deadlineAt);
     const secondClaim = await service.claim(); if (!secondClaim) throw new Error('claim missing');
     await service.executeStep(secondClaim);
     const completed = await service.read(owner.principal, created.id);
@@ -400,6 +402,31 @@ describe('transactional runtime service', () => {
     }
     expect(tail.goal).toBe('Human follow-up 13');
     expect((await service.read(owner.principal, child.id)).state).toBe('cancelled');
+  });
+  it('continues an expired unanswered business question as a child without changing the parent budget', async () => {
+    const owner = await scope();
+    const service = createRunService(pool, assistantRegistry());
+    const input = { workspaceId: owner.workspaceId, projectId: null, capabilityId: 'business.goal', capabilityVersion: 1, goal: 'Prepare a viable delivery offer', locale: 'en' as const, inputRefs: [] };
+    const created = await service.create(owner.principal, input, randomUUID());
+    const claim = await service.claim(); if (!claim) throw new Error('claim missing');
+    await service.executeStep(claim);
+    await pool.query("UPDATE agent_runs SET started_at=now()-interval '11 minutes',deadline_at=now()-interval '1 second',request_count=3,spent_usd=0.1 WHERE id=$1", [created.id]);
+    const expired = await service.read(owner.principal, created.id);
+    expect(expired).toMatchObject({ state: 'waiting_input', failure: null, budget: { requestCount: 3, spentUsd: '0.100000000000' }, actions: { resume: true } });
+
+    const child = await service.resume(owner.principal, created.id, { expectedEpoch: expired.epoch, answers: [{ questionId: 'delivery_date', answer: '2026-11-03' }] }, randomUUID());
+    expect(child).toMatchObject({ state: 'queued', deadlineAt: null, budget: { limitUsd: created.budget.limitUsd, reservedUsd: '0.000000000000', spentUsd: '0.000000000000', requestCount: 0 }, progress: { parentRunId: created.id, answeredQuestions: [{ questionId: 'legacy_scope' }, { questionId: 'delivery_date', question: 'What delivery date is required?', answer: '2026-11-03' }] } });
+    const parent = await service.read(owner.principal, created.id);
+    expect(parent).toMatchObject({ state: 'cancelled', budget: { requestCount: 3, spentUsd: '0.100000000000' }, progress: { continuationRunId: child.id } });
+    expect(parent.deadlineAt).toBe(expired.deadlineAt);
+
+    const childClaim = await service.claim(); if (!childClaim) throw new Error('child claim missing');
+    expect(childClaim.runId).toBe(child.id);
+    const runningChild = await service.read(owner.principal, child.id);
+    expect(runningChild.deadlineAt).not.toBeNull();
+    expect(new Date(runningChild.deadlineAt!).getTime()).toBeGreaterThan(new Date(expired.deadlineAt!).getTime());
+    await service.executeStep(childClaim);
+    expect(await service.read(owner.principal, child.id)).toMatchObject({ state: 'completed', progress: { answeredQuestions: [{ questionId: 'legacy_scope' }, { questionId: 'delivery_date', answer: '2026-11-03' }] } });
   });
   it('fences cancellation while preparation is in flight and never commits the late result', async () => {
     let ready!: () => void; let release!: () => void; let effects = 0;

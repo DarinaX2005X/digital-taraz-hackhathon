@@ -137,8 +137,11 @@ export async function snapshots(transaction: PoolClient, runs: readonly RunRow[]
     const replayableInvalidSteps = replayableByRun.get(run.id) ?? new Set<string>();
     const withinLifetime = !run.deadline_at || run.deadline_at > now;
     const canRevise = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed' && !unsafeUsage;
-    const canResume = !unsafeUsage && withinLifetime && ['waiting_input', 'failed'].includes(run.state)
-      && (steps.some((step) => step.retryable || replayableInvalidSteps.has(step.id)) || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')));
+    const canAnswerBusinessQuestion = run.capability_id === 'business.goal' && !continuationRunId && run.state === 'waiting_input'
+      && run.failure_code === null && publicProgress.questions.length > 0;
+    const canResume = !unsafeUsage && (canAnswerBusinessQuestion || (withinLifetime && ['waiting_input', 'failed'].includes(run.state)
+      && (steps.some((step) => step.retryable || replayableInvalidSteps.has(step.id))
+        || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')))));
     return RunSchema.parse({
       id: run.id, workspaceId: run.workspace_id, projectId: run.project_id, createdBy: run.created_by,
       capabilityId: run.capability_id, capabilityVersion: run.capability_version, goal: run.goal, locale: run.locale,
