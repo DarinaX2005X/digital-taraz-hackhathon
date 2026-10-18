@@ -12,6 +12,11 @@ const AiPlanEvidenceBasisSchema = z.discriminatedUnion('kind', [
 ]);
 type AiPlanEvidenceBasis = z.infer<typeof AiPlanEvidenceBasisSchema>;
 
+const AiPlanPublicValueSchema = z.strictObject({
+  value: z.string().trim().min(1).max(4000),
+  basis: AiPlanEvidenceBasisSchema,
+});
+
 const AiPlanScheduleSchema = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('unscheduled') }),
   z.strictObject({ kind: z.literal('date'), startDate: CalendarDateSchema, endDate: CalendarDateSchema, basis: AiPlanEvidenceBasisSchema }),
@@ -23,6 +28,8 @@ const AiPlanTaskSchema = z.strictObject({
   title: z.string().trim().min(1).max(1000),
   description: z.string().trim().min(1).max(12000).optional(),
   notes: z.string().trim().min(1).max(12000).optional(),
+  responsibleLabel: AiPlanPublicValueSchema.optional(),
+  acceptanceCriteria: AiPlanPublicValueSchema.optional(),
   status: z.strictObject({ value: z.enum(['todo', 'in-progress', 'done', 'cancelled']), basis: AiPlanEvidenceBasisSchema }).optional(),
   schedule: AiPlanScheduleSchema.default({ kind: 'unscheduled' }),
   duration: z.strictObject({ minutes: z.number().int().min(0).max(10_000_000), basis: AiPlanEvidenceBasisSchema }).optional(),
@@ -56,6 +63,7 @@ export interface AiPlanEvidenceSource { sourceRef: SourceRef; fragments: readonl
 export interface AiPlanBuildContext {
   goal: string;
   defaultTimezone: string;
+  locale?: 'ru' | 'kk' | 'en';
   sources: readonly AiPlanEvidenceSource[];
   linkedArtifactIds: readonly string[];
   makeId: () => string;
@@ -84,6 +92,8 @@ export function buildAiPlan(raw: unknown, context: AiPlanBuildContext): BuiltAiP
       ...(task.duration ? [task.duration.basis] : []),
       ...(task.effort ? [task.effort.basis] : []),
       ...(task.quantity ? [task.quantity.basis] : []),
+      ...(task.responsibleLabel ? [task.responsibleLabel.basis] : []),
+      ...(task.acceptanceCriteria ? [task.acceptanceCriteria.basis] : []),
     ];
     const sourceRefs = evidenceSourceRefs(bases, context.goal, sourceById);
     for (const ref of sourceRefs) planSourceRefs.set(sourceRefKey(ref), ref);
@@ -94,9 +104,10 @@ export function buildAiPlan(raw: unknown, context: AiPlanBuildContext): BuiltAiP
       : task.schedule.kind === 'time'
         ? { startAt: task.schedule.startAt, endAt: task.schedule.endAt }
         : {};
+    const description = publicDescription(task, context.locale ?? 'en');
     return {
       id: ids.get(task.key)!, title: task.title, status: task.status?.value ?? 'todo',
-      ...(task.description ? { description: task.description } : {}),
+      ...(description ? { description } : {}),
       ...(task.notes || assumptions.length ? { notes: [task.notes, ...new Set(assumptions)].filter(Boolean).join('\n') } : {}),
       ...schedule,
       ...(task.duration === undefined ? {} : { durationMinutes: task.duration.minutes }),
@@ -111,6 +122,36 @@ export function buildAiPlan(raw: unknown, context: AiPlanBuildContext): BuiltAiP
   });
   const content = validateOperationalPlan({ kind: 'plan', schemaVersion: 1, timezone: input.timezone ?? context.defaultTimezone, entries });
   return { title: input.title, content, sourceRefs: [...planSourceRefs.values()] };
+}
+
+const publicLabels = {
+  ru: {
+    responsible: 'Ответственный', proposedResponsible: 'Предлагаемый ответственный (не назначение)',
+    acceptance: 'Критерий приёмки', proposedAcceptance: 'Предлагаемый критерий приёмки',
+  },
+  kk: {
+    responsible: 'Жауапты', proposedResponsible: 'Ұсынылған жауапты (тағайындау емес)',
+    acceptance: 'Қабылдау критерийі', proposedAcceptance: 'Ұсынылған қабылдау критерийі',
+  },
+  en: {
+    responsible: 'Responsible', proposedResponsible: 'Proposed responsible party (not an assignment)',
+    acceptance: 'Acceptance criterion', proposedAcceptance: 'Proposed acceptance criterion',
+  },
+} as const;
+
+function publicDescription(task: z.infer<typeof AiPlanTaskSchema>, locale: 'ru' | 'kk' | 'en') {
+  const labels = publicLabels[locale], lines = task.description ? [task.description] : [];
+  if (task.responsibleLabel) {
+    const label = task.responsibleLabel.basis.kind === 'assumption' ? labels.proposedResponsible : labels.responsible;
+    lines.push(`${label}: ${task.responsibleLabel.value}`);
+  }
+  if (task.acceptanceCriteria) {
+    const label = task.acceptanceCriteria.basis.kind === 'assumption' ? labels.proposedAcceptance : labels.acceptance;
+    lines.push(`${label}: ${task.acceptanceCriteria.value}`);
+  }
+  const description = lines.join('\n');
+  if (description.length > 12000) throw new Error('AI_PLAN_PUBLIC_DESCRIPTION_TOO_LARGE');
+  return description;
 }
 
 function evidenceSourceRefs(bases: readonly AiPlanEvidenceBasis[], goal: string, sources: ReadonlyMap<string, AiPlanEvidenceSource>): SourceRef[] {

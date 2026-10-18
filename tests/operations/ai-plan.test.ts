@@ -24,11 +24,34 @@ describe('typed AI plan construction', () => {
     expect(result.content.entries[1]?.dependencies).toEqual([result.content.entries[0]?.id]);
     expect(result.content.entries[0]?.notes).toContain('Assumption: allow one hour');
     expect(result.content.entries[0]?.linkedArtifactIds).toEqual([artifactId]);
+    expect(result.content.entries[1]).toMatchObject({ assignments: [], resourceIds: [] });
+    expect(result.content.entries[1]?.description).toBeUndefined();
     expect(result.sourceRefs).toEqual([{ sourceId, sourceVersionId, revision: 2, fragmentId }]);
+  });
+
+  it.each([
+    ['ru', 'Предлагаемый ответственный (не назначение)', 'Предлагаемый критерий приёмки'],
+    ['kk', 'Ұсынылған жауапты (тағайындау емес)', 'Ұсынылған қабылдау критерийі'],
+    ['en', 'Proposed responsible party (not an assignment)', 'Proposed acceptance criterion'],
+  ] as const)('keeps typed public responsibility and acceptance text in %s without inventing an assignment', (locale, responsible, acceptance) => {
+    const result = buildAiPlan({ title: 'Launch', tasks: [{
+      key: 'prepare', title: 'Prepare', description: 'Public working instruction',
+      responsibleLabel: { value: 'Demo lead', basis: { kind: 'assumption', note: 'INTERNAL-RESPONSIBILITY-CAVEAT' } },
+      acceptanceCriteria: { value: 'Approved launch sheet', basis: { kind: 'assumption', note: 'INTERNAL-ACCEPTANCE-CAVEAT' } },
+      notes: 'INTERNAL-TASK-NOTE', dependencies: [], checklist: [], linkedArtifactIds: [], evidence: [],
+    }] }, { ...context(), locale });
+    const entry = result.content.entries[0]!;
+    expect(entry.description).toBe(`Public working instruction\n${responsible}: Demo lead\n${acceptance}: Approved launch sheet`);
+    expect(entry.description).not.toContain('INTERNAL-');
+    expect(entry.notes).toContain('INTERNAL-TASK-NOTE');
+    expect(entry.notes).toContain('INTERNAL-RESPONSIBILITY-CAVEAT');
+    expect(entry.notes).toContain('INTERNAL-ACCEPTANCE-CAVEAT');
+    expect(entry).toMatchObject({ assignments: [], resourceIds: [], availabilityVersionIds: [] });
   });
 
   it('rejects unseen evidence and dependency cycles', () => {
     expect(() => buildAiPlan({ title: 'Bad', tasks: [{ key: 'one', title: 'One', dependencies: [], checklist: [], linkedArtifactIds: [], evidence: [{ kind: 'source', sourceId, fragmentId, detail: 'not in the fragment' }] }] }, context())).toThrow('AI_PLAN_SOURCE_NOT_IN_CONTEXT');
+    expect(() => buildAiPlan({ title: 'Bad public fact', tasks: [{ key: 'one', title: 'One', responsibleLabel: { value: 'Unverified owner', basis: { kind: 'source', sourceId, fragmentId, detail: 'not in the fragment' } }, dependencies: [], checklist: [], linkedArtifactIds: [], evidence: [] }] }, context())).toThrow('AI_PLAN_SOURCE_NOT_IN_CONTEXT');
     expect(() => buildAiPlan({ title: 'Cycle', tasks: [
       { key: 'one', title: 'One', dependencies: ['two'], checklist: [], linkedArtifactIds: [], evidence: [] },
       { key: 'two', title: 'Two', dependencies: ['one'], checklist: [], linkedArtifactIds: [], evidence: [] },

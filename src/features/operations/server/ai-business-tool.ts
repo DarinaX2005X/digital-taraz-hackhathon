@@ -132,7 +132,7 @@ export function operationsBusinessTools(services: BusinessToolServices): readonl
     },
     {
       name: 'create_plan',
-      description: 'Save an editable work plan after reading the selected materials. Dates, duration, effort, quantity, status, and source evidence must be explicit. Missing assignees or availability stay unknown. This tool sends no invitations and makes no booking or purchase.',
+      description: 'Save an editable work plan after reading the selected materials. Dates, duration, effort, quantity, status, and source evidence must be explicit. Use responsibleLabel and acceptanceCriteria for requested human-readable public responsibility and acceptance text. A responsible label is descriptive and never creates a resource assignment; missing assignees or availability stay unknown. This tool sends no invitations and makes no booking or purchase.',
       schema: CreateAiPlanSchema,
       action: 'save',
       output: ResultSchema,
@@ -231,6 +231,7 @@ function aiContext(state: Parameters<BusinessToolDefinition['effect']>[3]) {
   return {
     goal: [state.goal, ...state.answers.map((answer) => answer.answer)].join('\n'),
     defaultTimezone: 'Asia/Qyzylorda',
+    locale: state.locale,
     sources: state.sources.map((source) => ({
       sourceRef: source.sourceRef,
       fragments: source.fragments.map((fragment) => ({ id: fragment.id, evidenceText: [fragment.text, fragment.values ? JSON.stringify(fragment.values) : undefined, fragment.formulas ? JSON.stringify(fragment.formulas) : undefined].filter(Boolean).join('\n') })),

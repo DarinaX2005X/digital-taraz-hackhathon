@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
 import { operationsExportAdapter } from '@/features/operations/server/exports';
 import { parsePlanCalendar } from '@/features/operations/icalendar';
+import { buildAiPlan } from '@/features/operations/ai-plan';
 import type { OperationalPlanContent } from '@/features/operations/domain/model';
 
 const resourceId = '00000000-0000-4000-8000-000000000201';
@@ -32,6 +33,34 @@ describe('fixed plan export adapters', () => {
     expect(workbook.worksheets[0]?.getCell('A2').value).toBe('Prepare');
     expect(workbook.worksheets[0]?.getCell('I2').value).toBe('Aruzhan');
     expect(workbook.getWorksheet('_tirlik')?.getCell('B1').value).toBe(7);
+  });
+
+  it('keeps typed public responsibility and acceptance text in default XLSX and ICS while internal notes stay private', async () => {
+    const built = buildAiPlan({ title: 'Demo launch', tasks: [{
+      key: 'launch', title: 'Launch', description: 'Run the opening checklist.',
+      responsibleLabel: { value: 'Demo lead', basis: { kind: 'assumption', note: 'INTERNAL-RESPONSIBILITY-CAVEAT' } },
+      acceptanceCriteria: { value: 'Opening checklist signed', basis: { kind: 'assumption', note: 'INTERNAL-ACCEPTANCE-CAVEAT' } },
+      notes: 'INTERNAL-TASK-NOTE',
+      schedule: { kind: 'date', startDate: '2026-02-02', endDate: '2026-02-02', basis: { kind: 'assumption', note: 'INTERNAL-SCHEDULE-CAVEAT' } },
+      dependencies: [], checklist: [], linkedArtifactIds: [], evidence: [],
+    }] }, { goal: 'Prepare a demonstration launch plan.', defaultTimezone: 'Asia/Qyzylorda', locale: 'en', sources: [], linkedArtifactIds: [], makeId: () => 'public_task' });
+    expect(built.content.entries[0]).toMatchObject({ assignments: [], resourceIds: [] });
+
+    const renderInput = { ...base, content: built.content, planResources: { resources: [], warnings: [] } };
+    const calendarFile = await operationsExportAdapter.render({ ...renderInput, format: 'ics' });
+    const calendar = new TextDecoder().decode(calendarFile.bytes), calendarDescription = parsePlanCalendar(calendarFile.bytes, built.content.timezone)[0]?.description ?? '';
+    expect(calendarDescription).toContain('Proposed responsible party (not an assignment): Demo lead');
+    expect(calendarDescription).toContain('Proposed acceptance criterion: Opening checklist signed');
+    for (const secret of ['INTERNAL-TASK-NOTE', 'INTERNAL-RESPONSIBILITY-CAVEAT', 'INTERNAL-ACCEPTANCE-CAVEAT', 'INTERNAL-SCHEDULE-CAVEAT']) expect(calendar).not.toContain(secret);
+
+    const rendered = await operationsExportAdapter.render({ ...renderInput, format: 'xlsx' });
+    const workbook = new ExcelJS.Workbook(); await workbook.xlsx.load(Buffer.from(rendered.bytes) as never);
+    const sheet = workbook.worksheets[0]!, description = String(sheet.getCell('B2').value ?? '');
+    expect(description).toContain('Proposed responsible party (not an assignment): Demo lead');
+    expect(description).toContain('Proposed acceptance criterion: Opening checklist signed');
+    expect(sheet.getCell('I2').value).toBe('');
+    const workbookText = JSON.stringify(workbook.worksheets.map((item) => item.getSheetValues()));
+    for (const secret of ['INTERNAL-TASK-NOTE', 'INTERNAL-RESPONSIBILITY-CAVEAT', 'INTERNAL-ACCEPTANCE-CAVEAT', 'INTERNAL-SCHEDULE-CAVEAT']) expect(workbookText).not.toContain(secret);
   });
 
   it('keeps distinct historical labels for two pinned revisions of one resource', async () => {
