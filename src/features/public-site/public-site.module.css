@@ -11,9 +11,16 @@
 .mediaActions>:global(.tl-button) { width:100%; min-height:48px; padding-inline:16px; }
 .presentationDownload { justify-self:end; display:inline-flex; align-items:center; gap:7px; min-height:36px; color:var(--color-muted); font-size:var(--type-meta); text-underline-offset:4px; }
 .presentationDownload:focus-visible { outline:2px solid var(--color-focus); outline-offset:4px; border-radius:var(--radius-control); }
-.mediaDialog:global(.tl-dialog) { inline-size:min(70rem,calc(100vw - var(--space-8))); }
-.mediaDialog:global(.tl-dialog) :global(.tl-dialog__body) { display:grid; place-items:center; overflow:hidden; }
-.mediaVideo { display:block; inline-size:auto; max-inline-size:100%; block-size:auto; max-block-size:clamp(1px,calc(100dvh - 16.5rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)),39.375rem); aspect-ratio:16/9; object-fit:contain; border-radius:var(--radius-control); background:#08211b; }
+.mediaDialog:global(.tl-dialog) { inline-size:min(72rem,calc(100vw - var(--space-4))); max-block-size:calc(100dvh - var(--space-4) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow:hidden; }
+.mediaDialog:global(.tl-dialog) :global(.tl-dialog__header) { align-items:center; padding:clamp(10px,2dvh,18px) clamp(14px,2.4vw,24px); }
+.mediaDialog:global(.tl-dialog) :global(.tl-dialog__heading-group) { display:flex; flex:1 1 auto; align-items:center; flex-wrap:wrap; gap:4px clamp(12px,2vw,22px); }
+.mediaDialog:global(.tl-dialog) :global(.tl-dialog__description) { flex:1 1 28rem; margin:0; }
+.mediaDialog:global(.tl-dialog) :global(.tl-dialog__body) { display:grid; place-items:center; overflow:hidden; padding:clamp(8px,1.5vw,18px); background:var(--color-deep-surface); }
+.mediaDialogMeta { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px 16px; min-inline-size:0; }
+.mediaDownload { display:inline-flex; flex:0 0 auto; align-items:center; justify-content:center; gap:7px; min-block-size:var(--size-touch); padding:7px 12px; border:1px solid var(--color-control-border); border-radius:var(--radius-control); background:var(--color-surface); color:var(--color-text); font-weight:var(--weight-semibold); line-height:var(--type-dense-line); text-decoration:none; transition:transform var(--motion-press) var(--motion-ease),background-color var(--motion-hover) var(--motion-ease),border-color var(--motion-hover) var(--motion-ease); }
+.mediaDownload:focus-visible { outline:2px solid var(--color-focus); outline-offset:3px; }
+.mediaDownload:active { transform:scale(.98); }
+.mediaVideo { display:block; inline-size:100%; max-inline-size:100%; block-size:auto; max-block-size:calc(100dvh - 7rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)); aspect-ratio:16/9; object-fit:contain; border-radius:var(--radius-control); background:#08211b; }
 .explore,.back,.informationLink { display:inline-flex; align-items:center; gap:10px; min-height:var(--size-touch); font-size:var(--type-dense); font-weight:var(--weight-medium); text-decoration:none; }
 .heroWorkflow { position:relative; min-width:0; width:min(100%,720px); aspect-ratio:1.32; margin:0; justify-self:end; }
 .heroWorkflowPath { position:absolute; inset:4% 0 0; width:100%; height:100%; overflow:visible; fill:none; stroke:rgb(10 104 97 / 38%); stroke-width:2; stroke-linecap:round; stroke-dasharray:7 9; }
@@ -152,6 +159,7 @@
 .explore svg,.back svg,.informationLink svg,.scenarioChoices button svg { transition:transform var(--motion-hover) var(--motion-ease); }
 @media (hover: hover) and (pointer: fine) {
   .headerNav a:hover,.footer nav a:hover { text-decoration:underline; }
+  .mediaDownload:hover { border-color:rgb(10 104 97 / 28%); background:var(--color-selected); transform:translateY(-1px); }
   .footerBrand:hover img,.site :global(.tl-product-header__brand:hover img) { transform:rotate(-5deg) scale(1.06); filter:saturate(1.15); }
   .exampleBand:hover { border-color:rgb(183 224 208 / 36%); box-shadow:0 22px 50px rgb(23 58 50 / 18%); transform:translateY(-2px); }
   .exampleBand>:global(.tl-button--primary:hover) { border-color:#b7d2c8; background:#eaf0ec; color:#17332e; }
@@ -167,6 +175,13 @@
   .scenarioChoices button:hover svg:last-child,.informationLink:hover svg,.explore:hover svg { transform:translateX(4px); }
   .back:hover svg { transform:translateX(-4px); }
   .informationCard:hover section { border-color:var(--color-action); transform:translateX(4px); }
+}
+@media (orientation:landscape) and (max-height:600px) {
+  .mediaDialog:global(.tl-dialog) { block-size:calc(100dvh - var(--space-4) - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+  .mediaDialog:global(.tl-dialog) :global(.tl-dialog__header) { padding-block:8px; }
+  .mediaDialog:global(.tl-dialog) :global(.tl-dialog__title) { font-size:var(--type-object); line-height:var(--type-object-line); }
+  .mediaDialog:global(.tl-dialog) :global(.tl-dialog__body) { padding:8px; }
+  .mediaVideo { inline-size:auto; block-size:100%; max-inline-size:100%; max-block-size:100%; }
 }
 @media (max-width:1100px) {
   .hero { grid-template-columns:minmax(300px,.82fr) minmax(450px,1.18fr); gap:30px; padding-inline:40px; }
@@ -246,7 +261,7 @@
   .heroWorkflow { animation:arrive 520ms 90ms var(--motion-ease) both; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .site a svg,.site :global(.tl-product-header__brand img),.footerBrand img,.information section,.scenarioChoices button,.scenarioChoices button svg,.proofPlan button,.exampleBand,.heroGoalObject,.heroAssistantObject,.heroDecisionObject,.heroResultObject { transition:none; transform:none !important; }
+  .site a svg,.site :global(.tl-product-header__brand img),.footerBrand img,.information section,.scenarioChoices button,.scenarioChoices button svg,.proofPlan button,.exampleBand,.heroGoalObject,.heroAssistantObject,.heroDecisionObject,.heroResultObject,.mediaDownload { transition:none; transform:none !important; }
 }
 @media (prefers-reduced-transparency: reduce) { .startWork form { background:var(--color-surface); } }
 @keyframes arrive { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }

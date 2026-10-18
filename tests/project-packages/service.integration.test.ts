@@ -32,11 +32,11 @@ describe('project release packages in PostgreSQL', () => {
       assets: () => ({ async image() { throw new Error('UNEXPECTED_IMAGE'); } }),
     });
     const packages = createProjectPackageService(pool, exports), authzVersion = await currentArtifactAuthz(pool, fixture.workspaceId);
-    const release = { projectId: fixture.projectId, title: 'Verified October package', audience: 'Client team', knownOmissions: ['Wet signature'] };
-    const created = await packages.create(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, expectedAuthzVersion: authzVersion, locale: 'en', release, items: [{ artifactId: artifact.artifact.id, revision: 0, formats: ['pdf'], options: {} }] });
+    const release = { projectId: fixture.projectId, title: 'Verified October package', audience: 'Client team', knownOmissions: ['Wet signature'], basis: 'saved-draft' as const };
+    const created = await packages.create(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, expectedAuthzVersion: authzVersion, locale: 'en', historicalDraft: true, release, items: [{ artifactId: artifact.artifact.id, revision: 0, formats: ['pdf'], options: {} }] });
     const otherProject = await fixture.projects.create(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, title: 'Other project', expectedAuthzVersion: authzVersion });
     const otherArtifact = await fixture.service.create(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, projectId: otherProject.project.id, expectedAuthzVersion: authzVersion, title: 'Other document', content: testDocument() });
-    await packages.create(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, expectedAuthzVersion: authzVersion, locale: 'en', release: { ...release, projectId: otherProject.project.id }, items: [{ artifactId: otherArtifact.artifact.id, revision: 0, formats: ['pdf'], options: {} }] });
+    await packages.create(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, expectedAuthzVersion: authzVersion, locale: 'en', historicalDraft: true, release: { ...release, projectId: otherProject.project.id }, items: [{ artifactId: otherArtifact.artifact.id, revision: 0, formats: ['pdf'], options: {} }] });
     await fixture.projects.setGrant(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, projectId: fixture.projectId, userId: fixture.member.userId, scopes: ['read', 'export'], expectedAuthzVersion: authzVersion });
 
     expect(created.release).toEqual(release);

@@ -27,6 +27,14 @@ describe('assistant-first session state', () => {
     expect(assistantSessionState(run('cancelled'))).toBe('interrupted');
   });
 
+  it('does not present a parked runtime failure as a question for the user', () => {
+    const value = run('waiting_input');
+    value.failure = 'invalid_result';
+    expect(assistantSessionState(value)).toBe('failed');
+    value.progress.results = [{ kind: 'artifact', id: id('5'), revision: 1, title: 'Draft' }];
+    expect(assistantSessionState(value)).toBe('partial');
+  });
+
   it('deduplicates result receipts and keeps the session id in an artifact link', () => {
     const value = run('review_ready', [{ kind: 'artifact', id: id('5'), revision: 2, title: 'Estimate' }]);
     value.steps = [{ id: id('6'), runId: value.id, ordinal: 1, action: 'save', state: 'succeeded', toolName: 'artifact.save', toolVersion: 1, attempt: 1, failure: null, retryable: false, resultRefs: value.progress.results, startedAt: null, finishedAt: null }];

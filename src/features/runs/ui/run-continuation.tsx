@@ -19,10 +19,12 @@ export const runAnswerDraftKey = (ownerId: string, runId: string) => `tirlik.run
 export const runFollowupDraftKey = (ownerId: string, runId: string, artifactId?: string) => `tirlik.run-followup-draft.v1:${ownerId}:${runId}:${artifactId ?? 'none'}`;
 const legacyDraftKey = (ownerId: string, runId: string) => `tirlik.run-session-draft.v1:${ownerId}:${runId}`;
 
-export function RunContinuation({ run, locale, pending, onContinue, draftOwnerId, runHref, structuredDecision = false }: { run: Run; locale: Locale; pending: boolean; onContinue: (change: RunChange) => void; draftOwnerId?: string; runHref?: (runId: string) => string; structuredDecision?: boolean }) {
+export function RunContinuation({ run, locale, pending, onContinue, draftOwnerId, runHref, structuredDecision = false, compact = false }: { run: Run; locale: Locale; pending: boolean; onContinue: (change: RunChange) => void; draftOwnerId?: string; runHref?: (runId: string) => string; structuredDecision?: boolean; compact?: boolean }) {
   const text = copy[locale], [answers, setAnswers] = useState<Record<string, string>>({});
   const draftKey = draftOwnerId ? runAnswerDraftKey(draftOwnerId, run.id) : undefined;
-  const visibleQuestions = run.progress.questions.filter((question) => !structuredDecision || !run.progress.decision || question.id !== 'select_option' && !question.id.startsWith('accept_conditions_'));
+  const visibleQuestions = run.state === 'waiting_input' && run.failure === null
+    ? run.progress.questions.filter((question) => !structuredDecision || !run.progress.decision || question.id !== 'select_option' && !question.id.startsWith('accept_conditions_'))
+    : [];
   const restored = useRef(false);
   useEffect(() => {
     if (!draftKey || !draftOwnerId) { restored.current = true; return; }
@@ -47,8 +49,8 @@ export function RunContinuation({ run, locale, pending, onContinue, draftOwnerId
   return <div className={styles.continuation}>
     {run.progress.parentRunId && <Link className={styles.textLink} href={runHref?.(run.progress.parentRunId) ?? `/app/runs/${run.progress.parentRunId}`}>{text.parent}</Link>}
     {run.progress.continuationRunId && <Link className={styles.textLink} href={runHref?.(run.progress.continuationRunId) ?? `/app/runs/${run.progress.continuationRunId}`}>{text.child}<ArrowRight size={16} aria-hidden="true" /></Link>}
-    {run.progress.summary && <p className={styles.resultSummary}>{run.progress.summary}</p>}
-    {!!run.progress.plan.length && <section aria-label={text.plan}><h3>{text.plan}</h3><ol className={styles.workPlan}>{run.progress.plan.map((step, index) => <li key={`${index}:${step}`}>{step}</li>)}</ol></section>}
+    {!compact && run.progress.summary && <p className={styles.resultSummary}>{run.progress.summary}</p>}
+    {!compact && !!run.progress.plan.length && <section aria-label={text.plan}><h3>{text.plan}</h3><ol className={styles.workPlan}>{run.progress.plan.map((step, index) => <li key={`${index}:${step}`}>{step}</li>)}</ol></section>}
     {!!visibleQuestions.length && run.actions.resume && <form onSubmit={submitAnswers} className={styles.questionForm}>
       <h3>{text.questions}</h3>
       {visibleQuestions.map((question) => <TextareaField key={question.id} label={question.text} required={question.required} maxLength={4000} rows={3} disabled={pending} value={answers[question.id] ?? ''} onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))} />)}
@@ -57,7 +59,7 @@ export function RunContinuation({ run, locale, pending, onContinue, draftOwnerId
   </div>;
 }
 
-export function RunFollowupComposer({ run, locale, pending, draftOwnerId, artifactId, error, onContinue }: { run: Run; locale: Locale; pending: boolean; draftOwnerId: string; artifactId?: string; error?: string; onContinue: (change: RunChange) => void }) {
+export function RunFollowupComposer({ run, locale, pending, disabled = false, draftOwnerId, artifactId, error, onContinue }: { run: Run; locale: Locale; pending: boolean; disabled?: boolean; draftOwnerId: string; artifactId?: string; error?: string; onContinue: (change: RunChange) => void }) {
   const text = copy[locale], [goal, setGoal] = useState('');
   const draftKey = runFollowupDraftKey(draftOwnerId, run.id, artifactId);
   const restored = useRef(false);
@@ -82,8 +84,8 @@ export function RunFollowupComposer({ run, locale, pending, draftOwnerId, artifa
   }, [draftKey, goal]);
   const submit = (event: FormEvent) => { event.preventDefault(); const value = goal.trim(); if (value) onContinue({ goal: value }); };
   return <form className={styles.followupComposer} onSubmit={submit}>
-    <TextareaField label={text.followup} placeholder={text.followupHint} required maxLength={12000} rows={3} disabled={pending} value={goal} onChange={(event) => setGoal(event.target.value)} />
-    <div className={styles.followupMeta}><Button type="submit" variant="primary" icon={Send} pending={pending} disabled={!goal.trim()}>{text.apply}</Button></div>
+    <TextareaField label={text.followup} placeholder={text.followupHint} required maxLength={12000} rows={3} disabled={pending || disabled} value={goal} onChange={(event) => setGoal(event.target.value)} />
+    <div className={styles.followupMeta}><Button type="submit" variant="primary" icon={Send} pending={pending} disabled={disabled || !goal.trim()}>{text.apply}</Button></div>
     {error && <p className={styles.followupError} role="alert">{error}</p>}
   </form>;
 }

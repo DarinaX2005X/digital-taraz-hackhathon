@@ -2,6 +2,7 @@ import type * as Fabric from 'fabric';
 import type { DesignLayer, DesignPage } from '../domain/model';
 import type { DesignAction } from '../domain/actions';
 import { rotatePoint, snapLayer } from '../domain/geometry';
+import { loadDesignCanvasFont } from './font-family';
 
 export type CanvasModel = { page: DesignPage; selection: string[]; locked: Set<string>; editable: boolean; zoom: number };
 type Options = { element: HTMLCanvasElement; workspaceId: string; userId: string; signal?: AbortSignal; onSelection(ids: string[]): void; onAction(action: DesignAction, typingKey?: string): void; onError(): void };
@@ -35,7 +36,7 @@ export async function createDesignCanvas(options: Options) {
     return pending;
   }
   async function font(id: string | undefined, weight: number) {
-    if (!id) { await document.fonts.load(`${weight} 16px "Noto Sans"`); return 'Noto Sans'; }
+    if (!id) return loadDesignCanvasFont(document.fonts, weight);
     let pending=fonts.get(id);
     if (!pending) { pending=bytes(id).then(async(blob)=>{const face=new FontFace(`Tirlik-${id}`,await blob.arrayBuffer());await face.load();if(!disposed){document.fonts.add(face);loadedFonts.add(face);}});fonts.set(id,pending); }
     await pending; return `Tirlik-${id}`;

@@ -31,7 +31,7 @@ export type TourView =
   | { kind: 'welcome' }
   | { kind: 'step'; step: TourStep; anchorId: string }
   | { kind: 'resume'; step: TourStep; href: string; transition: TourTransition }
-  | { kind: 'unavailable'; step: TourStep }
+  | { kind: 'waiting'; step: TourStep }
   | { kind: 'hidden' };
 
 export function orderedCompletedSteps(completedSteps: readonly TourStep[]) {
@@ -44,15 +44,27 @@ export function nextTourStep(progress: Pick<TourProgress, 'completedSteps'>): To
   return TOUR_STEPS.find((step) => !completed.has(step));
 }
 
-export function completedThrough(progress: Pick<TourProgress, 'completedSteps'>, step: TourStep) {
-  const position = TOUR_STEPS.indexOf(step);
-  if (step !== nextTourStep(progress)) return orderedCompletedSteps(progress.completedSteps);
-  return TOUR_STEPS.slice(0, position + 1);
+export function completeTourStep(progress: Pick<TourProgress, 'completedSteps'>, step: TourStep) {
+  return orderedCompletedSteps([...progress.completedSteps, step]);
 }
 
-export function previousCompletedSteps(progress: Pick<TourProgress, 'completedSteps'>) {
+export function previousCompletedSteps(
+  progress: Pick<TourProgress, 'completedSteps'>,
+  beforeStep?: TourStep,
+  anchors: Partial<Record<TourStep, string>> = {},
+) {
   const completed = orderedCompletedSteps(progress.completedSteps);
-  return completed.slice(0, -1);
+  const before = beforeStep ? TOUR_STEPS.indexOf(beforeStep) : TOUR_STEPS.length;
+  const previous = [...completed].reverse().find((step) => TOUR_STEPS.indexOf(step) < before && (!beforeStep || Boolean(anchors[step])));
+  return previous ? completed.filter((step) => step !== previous) : undefined;
+}
+
+export function firstAvailableTourStep(
+  progress: Pick<TourProgress, 'completedSteps'>,
+  anchors: Partial<Record<TourStep, string>>,
+) {
+  const completed = new Set(progress.completedSteps);
+  return TOUR_STEPS.find((step) => !completed.has(step) && Boolean(anchors[step]));
 }
 
 export function resolveTourView(
@@ -63,7 +75,7 @@ export function resolveTourView(
 ): TourView {
   if (progress.state === 'available') return { kind: 'welcome' };
   if (progress.state !== 'active') return { kind: 'hidden' };
-  const step = nextTourStep(progress);
+  const step = firstAvailableTourStep(progress, anchors) ?? nextTourStep(progress);
   if (!step) return { kind: 'hidden' };
   const anchorId = anchors[step];
   if (anchorId) return { kind: 'step', step, anchorId };
@@ -75,7 +87,11 @@ export function resolveTourView(
   ) {
     return { kind: 'resume', step, href: transition.returnTo, transition };
   }
-  return { kind: 'unavailable', step };
+  return { kind: 'waiting', step };
+}
+
+export function focusableTourAnchor(view: TourView, visible: boolean, ready: boolean, dismissed: boolean) {
+  return visible && ready && !dismissed && view.kind === 'step' ? view.anchorId : undefined;
 }
 
 export function transitionStillRelevant(

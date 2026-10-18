@@ -16,6 +16,7 @@ import { isLayerLocked, layerLocations, newLayer, type DesignLayer } from '../do
 import { designMessages } from '../locales';
 import { AssetPicker, type PickedDesignAsset } from './asset-picker';
 import { fieldBindingProperty } from '@/contracts/artifacts';
+import { fitDesignPage } from './viewport-fit';
 import styles from './design-editor.module.css';
 
 function NumberField({label,value,onCommit,min,max,step=1,disabled}:{label:string;value:number;onCommit(value:number):void;min?:number;max?:number;step?:number;disabled?:boolean}) {
@@ -28,7 +29,7 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
   const {locale}=useLocale(),t=designMessages(locale);
   const [controller]=useState(()=>createDesignController(session));
   const current=useSyncExternalStore(controller.subscribe,controller.getSnapshot,controller.getSnapshot);
-  const [pageId,setPageId]=useState(current.content.pages[0]!.id),[selection,setSelection]=useState<string[]>([]),[zoom,setZoom]=useState(.5),[error,setError]=useState(false),[canvasError,setCanvasError]=useState(false),[engineReady,setEngineReady]=useState(0),[picker,setPicker]=useState<'image'|'replace-image'|'font'|'fact'|'brand-color'|undefined>(),[multiple,setMultiple]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
+  const [pageId,setPageId]=useState(current.content.pages[0]!.id),[selection,setSelection]=useState<string[]>([]),[zoom,setZoom]=useState(.5),[fitMode,setFitMode]=useState(true),[error,setError]=useState(false),[canvasError,setCanvasError]=useState(false),[engineReady,setEngineReady]=useState(0),[picker,setPicker]=useState<'image'|'replace-image'|'font'|'fact'|'brand-color'|undefined>(),[multiple,setMultiple]=useState(false),[historyBusy,setHistoryBusy]=useState(false);
   const canvasRef=useRef<HTMLCanvasElement>(null),viewportRef=useRef<HTMLDivElement>(null),engine=useRef<DesignCanvas|undefined>(undefined);
   const snapshot=sessionState.snapshot,workspaceId=snapshot?.artifact.workspaceId,userId=snapshot?.viewer.userId,authzVersion=snapshot?.viewer.authzVersion;
   const page=current.content.pages.find((item)=>item.id===pageId)??current.content.pages[0]!;
@@ -40,14 +41,31 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
   const editable=!!snapshot?.permissions.edit&&!['archived','trashed'].includes(snapshot.artifact.status)&&sessionState.storageReady&&['ready','dirty','saving'].includes(current.phase);
   const locked=useMemo(()=>new Set([...locations.values()].filter((item)=>snapshot&&isLayerLocked(snapshot,item)).flatMap((item)=>[item.layer.id,...item.ancestors])),[locations,snapshot]);
   const selectionLocked=selectedIds.some((id)=>locked.has(id));
+  const applyFit=useCallback(()=>{
+    const viewport=viewportRef.current;
+    if(!viewport||viewport.clientWidth<=0||viewport.clientHeight<=0)return;
+    const next=fitDesignPage({viewportWidth:viewport.clientWidth,viewportHeight:viewport.clientHeight,pageWidth:page.width,pageHeight:page.height});
+    setZoom((value)=>value===next?value:next);
+  },[page.width,page.height]);
+  const fit=useCallback(()=>{setFitMode(true);applyFit();},[applyFit]);
   const dispatch=useCallback(async(action:DesignAction,typingKey?:string,sourceFreshness?:SourceFreshness[])=>{
     setError(false);
-    try {const result=await controller.action(action,t.editor,{typingKey,sourceFreshness});if(result){setSelection(result.selection);if(result.pageId)setPageId(result.pageId);}}
+    try {const result=await controller.action(action,t.editor,{typingKey,sourceFreshness});if(result){setSelection(result.selection);if(result.pageId){setPageId(result.pageId);setFitMode(true);}}}
     catch{setError(true);}
   },[controller,t.editor]);
   const callbacks=useRef({dispatch});
   useEffect(()=>{callbacks.current={dispatch};},[dispatch]);
   useEffect(()=>controller.mount(),[controller]);
+  useEffect(()=>{
+    if(!fitMode||sessionState.phase!=='ready')return;
+    const viewport=viewportRef.current;
+    if(!viewport)return;
+    applyFit();
+    if(typeof ResizeObserver==='undefined')return;
+    const observer=new ResizeObserver(applyFit);
+    observer.observe(viewport);
+    return()=>observer.disconnect();
+  },[applyFit,fitMode,sessionState.phase]);
   const flush=useCallback(async()=>{engine.current?.finishText();return controller.flush();},[controller]);
   useEffect(()=>{onFlushReady?.(flush);return()=>onFlushReady?.(null);},[onFlushReady,flush]);
   useEffect(()=>{
@@ -68,7 +86,6 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
   function transform(key:keyof DesignLayer['transform'],value:number){if(!layer)return;const next={...layer.transform,[key]:value};if(layer.type==='group'&&(key==='width'||key==='height')){const scale=value/layer.transform[key];next.width=layer.transform.width*scale;next.height=layer.transform.height*scale;}update({transform:next});}
   function add(type:'text'|'shape',shape?:DesignLayer['shape']){void dispatch({type:'insert-layer',pageId:page.id,layer:newLayer(type,crypto.randomUUID(),{text:t.newText,shape})});}
   function pick(asset:PickedDesignAsset){if(picker==='font'&&layer)update({fontAssetId:asset.id,style:{...layer.style,fontWeight:400,fontStyle:'normal'}});else if(picker==='replace-image'&&layer)update({assetId:asset.id,crop:undefined});else{const ratio=asset.width&&asset.height?asset.width/asset.height:1;const width=Math.min(page.width*.7,480);void dispatch({type:'insert-layer',pageId:page.id,layer:newLayer('image',crypto.randomUUID(),{assetId:asset.id,width,height:width/ratio})});}setPicker(undefined);}
-  function fit(){const bounds=viewportRef.current?.getBoundingClientRect();if(bounds)setZoom(Math.min(4,Math.max(.01,Math.min((bounds.width-64)/page.width,(bounds.height-64)/page.height))));}
   const status=current.phase==='ready'?t.saved:current.phase==='saving'?t.saving:current.phase==='dirty'?t.dirty:current.phase==='failed'?t.failed:current.phase==='conflict'?t.conflict:current.phase==='recovery'?t.recovery:'';
   if(!snapshot||sessionState.phase!=='ready'||current.phase==='hidden')return null;
   const lockedLayer=!!layer&&locked.has(layer.id),canChange=editable&&!selectionLocked&&selectedIds.length>0;
@@ -82,14 +99,18 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
       <ToolbarItem render={<IconButton icon={Circle} label={t.ellipse} onClick={()=>add('shape','ellipse')} disabled={!editable}/>}/>
       <ToolbarItem render={<IconButton icon={Minus} label={t.line} onClick={()=>add('shape','line')} disabled={!editable}/>}/>
       <ToolbarItem render={<IconButton icon={ImagePlus} label={t.addImage} onClick={()=>setPicker('image')} disabled={!editable}/>}/>
-      <ImportDesignButton snapshot={snapshot} beforeOpen={flush} disabled={!editable}/><span className={styles.spacer}/><span className={styles.status} role="status">{!snapshot.permissions.edit?t.readOnly:status}{current.phase!=='ready'&&current.localSaved?` · ${t.local}`:''}</span>
+      <ImportDesignButton snapshot={snapshot} beforeOpen={flush} disabled={!editable}/>
+      <ToolbarItem render={<IconButton icon={ZoomOut} label={t.zoomOut} onClick={()=>{setFitMode(false);setZoom((value)=>Math.max(.01,value/1.25));}}/>}/>
+      <output className={styles.zoomValue}>{Math.round(canvasZoom*100)}%</output>
+      <ToolbarItem render={<IconButton icon={ZoomIn} label={t.zoomIn} onClick={()=>{setFitMode(false);setZoom((value)=>Math.min(4,value*1.25));}}/>}/>
+      <ToolbarItem render={<Button variant="quiet" onClick={fit}>{t.fit}</Button>}/><span className={styles.spacer}/><span className={styles.status} role="status">{!snapshot.permissions.edit?t.readOnly:status}{current.phase!=='ready'&&current.localSaved?` · ${t.local}`:''}</span>
       <ToolbarItem render={<IconButton icon={Save} label={t.save} disabled={!editable} onClick={()=>void flush()}/>}/>
     </Toolbar>
     {['failed','conflict','recovery'].includes(current.phase)&&<div className={styles.notice} role="alert">{status}{current.phase==='failed'&&<Button onClick={()=>void controller.retry()}>{t.retry}</Button>}</div>}
     {error&&<p className={styles.notice} role="alert">{t.actionError}</p>}
     <div className={styles.body}>
       <aside className={styles.sidebar} aria-label={t.layers}>
-        <h3>{t.pages}</h3><ol className={styles.pages}>{current.content.pages.map((item,index)=><li key={item.id}><button className={styles.pageButton} aria-current={item.id===page.id} aria-label={`${t.page} ${index+1}`} onClick={()=>{engine.current?.finishText();setPageId(item.id);setSelection([]);}}>{index+1}</button></li>)}<li><IconButton icon={Plus} label={t.addPage} disabled={!editable||current.content.pages.length>=100} onClick={()=>void dispatch({type:'insert-page',page:{id:crypto.randomUUID(),width:page.width,height:page.height,unit:page.unit,background:page.background,layers:[]}})}/></li></ol>
+        <h3>{t.pages}</h3><ol className={styles.pages}>{current.content.pages.map((item,index)=><li key={item.id}><button className={styles.pageButton} aria-current={item.id===page.id} aria-label={`${t.page} ${index+1}`} onClick={()=>{engine.current?.finishText();setFitMode(true);setPageId(item.id);setSelection([]);}}>{index+1}</button></li>)}<li><IconButton icon={Plus} label={t.addPage} disabled={!editable||current.content.pages.length>=100} onClick={()=>void dispatch({type:'insert-page',page:{id:crypto.randomUUID(),width:page.width,height:page.height,unit:page.unit,background:page.background,layers:[]}})}/></li></ol>
         <h3>{t.layers}</h3><label className={styles.checkbox}><input type="checkbox" checked={multiple} onChange={(event)=>setMultiple(event.target.checked)}/>{t.selectMultiple}</label>
         <ul className={styles.layerList}>{[...locations.values()].filter((item)=>item.pageId===page.id).reverse().map((item)=>{const itemSelected=selectedIds.includes(item.layer.id);return <li className={styles.layerRow} key={item.layer.id} data-selected={itemSelected} data-hidden={item.layer.hidden} style={{paddingInlineStart:Math.max(0,item.ancestors.length-1)*10}}><button className={styles.layerSelect} aria-pressed={itemSelected} onClick={(event)=>{engine.current?.finishText();setSelection((ids)=>multiple||event.shiftKey?ids.includes(item.layer.id)?ids.filter((id)=>id!==item.layer.id):[...ids,item.layer.id]:[item.layer.id]);}}>{item.layer.type==='text'?<Type size={16}/>:item.layer.type==='image'?<ImagePlus size={16}/>:item.layer.type==='group'?<Group size={16}/>:<Square size={16}/>}<span>{item.layer.name||item.layer.text?.slice(0,40)||(item.layer.type==='shape'?t[item.layer.shape??'rect']:t[item.layer.type])}</span>{locked.has(item.layer.id)&&<Lock size={14}/>}</button></li>;})}</ul>
         {!page.layers.length&&<p className={styles.hint}>{t.empty}</p>}
@@ -105,7 +126,7 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
           if(delta){event.preventDefault();void dispatch({type:'translate',ids:selectedIds,x:delta[0]!,y:delta[1]!});}
           if(event.key==='Delete'||event.key==='Backspace'){event.preventDefault();void dispatch({type:'remove',ids:selectedIds});}
         }}><div className={styles.canvasWrap}><canvas key={`${workspaceId}-${userId}-${authzVersion}`} ref={canvasRef}/></div></div>
-        <div className={styles.canvasFooter}><IconButton icon={ZoomOut} label={t.zoomOut} onClick={()=>setZoom((value)=>Math.max(.01,value/1.25))}/><output>{Math.round(canvasZoom*100)}%</output><IconButton icon={ZoomIn} label={t.zoomIn} onClick={()=>setZoom((value)=>Math.min(4,value*1.25))}/><Button variant="quiet" onClick={fit}>{t.fit}</Button><span className={styles.spacer}/><span className={styles.selectedCount}>{page.width} × {page.height} {page.unit}</span></div>
+        <div className={styles.canvasFooter}><span className={styles.spacer}/><span className={styles.selectedCount}>{page.width} × {page.height} {page.unit}</span></div>
       </div>
       <aside className={styles.inspector} aria-label={t.properties}>
         <h3>{t.properties}</h3>

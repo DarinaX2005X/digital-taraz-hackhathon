@@ -50,7 +50,7 @@ function privateInput(request: RecurringRunRequest): JsonObject {
   };
 }
 
-export function createRecurringRunBridge(pool: Pool, service: CanonicalRunService): RecurringRunBridge {
+export function createRecurringRunBridge(pool: Pool, service: CanonicalRunService, wake: () => Promise<unknown> = async () => undefined): RecurringRunBridge {
   return {
     async start(request) {
       const run = await service.create(
@@ -59,6 +59,7 @@ export function createRecurringRunBridge(pool: Pool, service: CanonicalRunServic
         request.operationId,
         { trusted: true, privateInput: privateInput(request), budgetLimitUsd: request.definition.budget.maximumUsd },
       );
+      await wake().catch(() => undefined);
       return { runId: run.id, state: run.state === 'waiting_input' ? 'waiting_input' : 'queued' };
     },
     async cancel(request) {

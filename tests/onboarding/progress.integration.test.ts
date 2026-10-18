@@ -21,9 +21,9 @@ describe('account-scoped optional onboarding', () => {
     expect((await handler(request(skipped, f.member.userId))).status).toBe(409);
     expect(await (await handler(request(skipped))).json()).toMatchObject({ revision: 1, state: 'skipped' });
     expect(await (await handler(request(skipped))).json()).toMatchObject({ revision: 1, state: 'skipped' });
-    expect(await (await handler(request({ ...skipped, expectedRevision: 1, state: 'active', completedSteps: ['start'] }))).json()).toMatchObject({ revision: 2, state: 'active', completedSteps: ['start'] });
+    expect(await (await handler(request({ ...skipped, expectedRevision: 1, state: 'active', completedSteps: ['task'] }))).json()).toMatchObject({ revision: 2, state: 'active', completedSteps: ['task'] });
     expect((await handler(request({ ...skipped, expectedRevision: 1 }))).status).toBe(409);
-    expect(await (await handler(request({ ...skipped, expectedRevision: 2, state: 'active', completedSteps: ['start'] }))).json()).toMatchObject({ revision: 3, state: 'active', completedSteps: ['start'] });
+    expect(await (await handler(request({ ...skipped, expectedRevision: 2, state: 'active', completedSteps: ['task'] }))).json()).toMatchObject({ revision: 3, state: 'active', completedSteps: ['task'] });
     expect(await (await handler(request({ ...skipped, expectedRevision: 3, state: 'active' }))).json()).toMatchObject({ revision: 4, completedSteps: [] });
     expect((await pool.query('SELECT id FROM artifacts WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(0);
     expect((await pool.query('SELECT id FROM projects WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(1);

@@ -8,6 +8,7 @@ import { hasScope } from '../../identity/domain/policy';
 import { lockProjectAccess, withWorkspaceAccess, type IdentityPrincipal, type SessionPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { IdentityError } from '../../identity/server/http';
 import { assertSourceReadAccess } from '../../sources/server/source-heads';
+import { RunBudgetLimitSchema } from '../../runs/domain/limits';
 import {
   CreateWorkRuleSchema,
   ListWorkOccurrencesSchema,
@@ -35,6 +36,22 @@ const ruleColumns = 'id,workspace_id,project_id,owner_id,title,state,current_ver
 const versionColumns = 'id,workspace_id,rule_id,version,definition,reason,created_by,created_at';
 const occurrenceColumns = 'id,workspace_id,project_id,rule_id,rule_version,trigger,state,run_id,branch_id,reason_code,restarted_from,created_at,updated_at,completed_at';
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+async function synchronizeLinkedOccurrences(database: Pool | PoolClient, input: { workspaceId: string; ruleId?: string; occurrenceId?: string }) {
+  await database.query(`UPDATE work_occurrences o SET
+      state=r.state,
+      reason_code=CASE WHEN o.state='cancelled' AND o.reason_code='cancelled_by_user' AND r.state='cancelled' THEN o.reason_code ELSE r.failure_code END,
+      completed_at=CASE WHEN r.state IN ('completed','failed','cancelled') THEN COALESCE(o.completed_at,r.updated_at) ELSE NULL END,
+      updated_at=GREATEST(o.updated_at,r.updated_at)
+    FROM agent_runs r
+    WHERE o.workspace_id=$1 AND o.run_id=r.id AND r.workspace_id=o.workspace_id
+      AND ($2::uuid IS NULL OR o.rule_id=$2) AND ($3::uuid IS NULL OR o.id=$3)
+      AND (o.state,o.reason_code,o.completed_at) IS DISTINCT FROM (
+        r.state,
+        CASE WHEN o.state='cancelled' AND o.reason_code='cancelled_by_user' AND r.state='cancelled' THEN o.reason_code ELSE r.failure_code END,
+        CASE WHEN r.state IN ('completed','failed','cancelled') THEN COALESCE(o.completed_at,r.updated_at) ELSE NULL END
+      )`, [input.workspaceId, input.ruleId ?? null, input.occurrenceId ?? null]);
+}
 
 function rulePermissions(access: WorkspaceAccess, row: RuleRow) {
   const subject = { ...access.membership, projectScopes: access.projectScopes };
@@ -71,6 +88,7 @@ async function loadVersion(tx: PoolClient, workspaceId: string, ruleId: string, 
 }
 
 async function validateDefinition(tx: PoolClient, access: WorkspaceAccess, projectId: string, definition: WorkRuleDefinition) {
+  if (!RunBudgetLimitSchema.safeParse(definition.budget.maximumUsd).success) throw new IdentityError('VALIDATION_FAILED', 'identity.errors.validationFailed');
   if (!(await tx.query('SELECT 1 FROM pg_timezone_names WHERE name=$1', [definition.timezone])).rowCount) throw new IdentityError('VALIDATION_FAILED', 'identity.errors.validationFailed');
   for (const selector of definition.sourceSelectors) {
     const source = (await tx.query<{ project_id: string }>('SELECT project_id FROM sources WHERE workspace_id=$1 AND id=$2 AND state<>\'trashed\'', [access.workspace.id, selector.sourceId])).rows[0];
@@ -182,6 +200,7 @@ export function createRecurringWorkService(pool: Pool, bridge?: RecurringRunBrid
     const body = ListWorkOccurrencesSchema.parse(input);
     return withWorkspaceAccess(pool, principal, { workspaceId: body.workspaceId, scope: 'read' }, async (tx, workspace) => {
       const secured = await ruleAccess(tx, workspace, body.ruleId, 'read');
+      await synchronizeLinkedOccurrences(tx, { workspaceId: body.workspaceId, ruleId: body.ruleId });
       const rows = (await tx.query<OccurrenceRow>(`SELECT ${occurrenceColumns} FROM work_occurrences WHERE workspace_id=$1 AND rule_id=$2 ORDER BY created_at DESC,id DESC LIMIT $3`, [body.workspaceId, body.ruleId, body.limit])).rows;
       return WorkOccurrenceListSchema.parse({ occurrences: rows.map(occurrenceDto), authzVersion: secured.access.workspace.authz_version });
     });
@@ -189,6 +208,7 @@ export function createRecurringWorkService(pool: Pool, bridge?: RecurringRunBrid
 
   async function occurrenceSnapshot(principal: IdentityPrincipal, workspaceId: string, occurrenceId: string, scope: 'read' | 'edit' = 'read', expectedAuthzVersion?: number) {
     return withWorkspaceAccess(pool, principal, { workspaceId, scope, ...(expectedAuthzVersion ? { expectedAuthzVersion } : {}) }, async (tx, workspace) => {
+      await synchronizeLinkedOccurrences(tx, { workspaceId, occurrenceId });
       const row = (await tx.query<OccurrenceRow>(`SELECT ${occurrenceColumns} FROM work_occurrences WHERE workspace_id=$1 AND id=$2`, [workspaceId, occurrenceId])).rows[0];
       if (!row) throw new IdentityError('NOT_FOUND', 'identity.errors.notFound');
       await lockProjectAccess(tx, workspace, { projectId: row.project_id, scope });
@@ -203,10 +223,12 @@ export function createRecurringWorkService(pool: Pool, bridge?: RecurringRunBrid
     await withWorkspaceAccess(pool, principal, { workspaceId, scope: 'edit' }, async (tx, workspace) => {
       const secured = await ruleAccess(tx, workspace, body.ruleId, 'edit', true); rule = secured.row; authzVersion = secured.access.workspace.authz_version;
       const saved = await loadVersion(tx, workspaceId, body.ruleId, body.ruleVersion); definition = saved.definition;
+      await synchronizeLinkedOccurrences(tx, { workspaceId, occurrenceId: body.occurrenceId });
       const prior = (await tx.query<OccurrenceRow>(`SELECT ${occurrenceColumns} FROM work_occurrences WHERE rule_id=$1 AND rule_version=$2 AND id=$3 FOR UPDATE`, [body.ruleId, body.ruleVersion, body.occurrenceId])).rows[0];
       if (prior) { occurrence = occurrenceDto(prior); reused = true; return; }
       if (rule.current_version !== body.ruleVersion) pauseReason = 'rule_version_stale';
       else if (rule.state !== 'enabled') pauseReason = 'rule_disabled';
+      else if (!RunBudgetLimitSchema.safeParse(definition.budget.maximumUsd).success) pauseReason = 'run_budget';
       else if (!triggerMatches(definition, body)) pauseReason = 'trigger_mismatch';
       else {
         const today = (await tx.query<{ count: number }>("SELECT count(*)::int AS count FROM work_occurrences WHERE workspace_id=$1 AND rule_id=$2 AND created_at>=date_trunc('day',now() AT TIME ZONE $3) AT TIME ZONE $3", [workspaceId, body.ruleId, definition.timezone])).rows[0]?.count ?? 0;
@@ -263,6 +285,7 @@ export function createRecurringWorkService(pool: Pool, bridge?: RecurringRunBrid
   }
   async function restart(principal: SessionPrincipal, input: z.input<typeof RestartOccurrenceSchema>) {
     const body = RestartOccurrenceSchema.parse(input), previous = await occurrenceSnapshot(principal, body.workspaceId, body.occurrenceId, 'edit', body.expectedAuthzVersion);
+    if (!['paused', 'failed', 'cancelled'].includes(previous.state)) throw new IdentityError('CONFLICT', 'identity.errors.conflict');
     const trigger = { ...previous.trigger, at: new Date().toISOString() };
     return start(principal, { ruleId: previous.ruleId, ruleVersion: previous.ruleVersion, occurrenceId: randomUUID(), trigger }, previous.id);
   }

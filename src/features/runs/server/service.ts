@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { CreateRunSchema, CancelRunSchema, ResumeRunSchema, RunEventsPageSchema, RunProgressProjectionSchema, RunResultRefSchema, RunListCursorSchema, RunListPageSchema, ToolReceiptSchema, UsdSchema, type CreateRun, type RunEventsPage, type RunPolicy, type RunProgressProjection, type RunState } from '../../../contracts/runs';
+import { CreateRunSchema, CancelRunSchema, ResumeRunSchema, RunEventsPageSchema, RunProgressProjectionSchema, RunResultRefSchema, RunListCursorSchema, RunListPageSchema, ToolReceiptSchema, type CreateRun, type RunEventsPage, type RunPolicy, type RunProgressProjection, type RunState } from '../../../contracts/runs';
 import { IdSchema } from '../../../contracts/primitives';
 import { identityTransaction, lockProjectAccess, withWorkspaceAccess, withWorkspaceAccessInTransaction, type IdentityPrincipal, type WorkspaceAccess } from '../../identity/server/access';
 import { hasScope } from '../../identity/domain/policy';
 import { IdentityError } from '../../identity/server/http';
 import { RunError } from '../domain/errors';
-import { RUN_LIMITS } from '../domain/limits';
+import { RUN_LIMITS, RunBudgetLimitSchema } from '../domain/limits';
 import { assertFence, boundedObject, boundedTransaction, emitEvent, hash, loadRun, lockStep, requestKey, required, snapshots, terminal, withinSignal, type JsonObject, type RunFence, type RunRow, type StepRow } from './data';
 import type { PlannedStep, RunCapability, RunRegistry, RunTool, ToolContext, ToolOutcome } from './registry';
 import { createBudgetLedger } from './budget';
@@ -77,7 +77,7 @@ export function createRunService(pool: Pool, registry: RunRegistry) {
     if (!options.trusted && !capability.publicStart) throw new RunError('access_changed', 'FORBIDDEN');
     if (!options.trusted && (options.privateInput !== undefined || options.confidential !== undefined || options.transaction !== undefined || options.budgetLimitUsd !== undefined)) throw new RunError('access_changed', 'FORBIDDEN');
     const privateInput = boundedObject(options.privateInput ?? {});
-    const budgetLimitUsd = options.budgetLimitUsd === undefined ? RUN_LIMITS.runUsd : UsdSchema.parse(options.budgetLimitUsd);
+    const budgetLimitUsd = RunBudgetLimitSchema.parse(options.budgetLimitUsd ?? RUN_LIMITS.runUsd);
     const requestHash = hash({ input, privateInput, ...(options.confidential ? { trustedConfidential: true } : {}), ...(options.budgetLimitUsd !== undefined ? { trustedBudgetLimitUsd: budgetLimitUsd } : {}) });
     const keyHash = requestKey(key);
     const request = { workspaceId: input.workspaceId, projectId: input.projectId ?? undefined, ...capability.policy, confidential: capability.policy.confidential || options.confidential === true };

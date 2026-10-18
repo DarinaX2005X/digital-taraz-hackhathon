@@ -77,7 +77,12 @@ export function createDocumentController(session: ArtifactSession, reason: () =>
       publish({ phase: 'saving', error: undefined });
       await session.enqueue(command, { [base.artifact.id]: currentGeneration });
     } catch (error) { publish({ phase: 'failed', error }); }
-    finally { building = false; }
+    finally {
+      building = false;
+      // A very fast acknowledgement can clear the in-flight command while
+      // enqueue is still unwinding. Do not lose edits made during that flight.
+      if (!disposed && !flight && state.phase === 'dirty' && generation > acknowledged) schedule(0);
+    }
   }
   function receive() {
     if (disposed) return;

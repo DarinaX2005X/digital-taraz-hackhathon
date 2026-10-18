@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, FileClock, FileText, FolderOpen, LogIn, RefreshCw } from 'lucide-react';
+import { ArrowLeft, FileClock, FileText, FolderOpen, LogIn, Maximize2, Minimize2, RefreshCw } from 'lucide-react';
 import { Component, useCallback, useEffect, useRef, useState, type MouseEventHandler, type ReactNode } from 'react';
 import { useLocale } from '@/i18n/provider';
 import { AuthDialog } from '@/features/identity/ui';
@@ -19,6 +19,7 @@ import { SourceFreshnessPanel } from '@/features/artifacts/ui/source-freshness';
 import { artifactClient, type ArtifactClient } from '@/features/artifacts/client/transport';
 import { Button, Dialog, EmptyState, LoadingState, SaveStatus, type OptionLoader, type SelectOption } from '@/ui';
 import { WorkspaceShell, useWorkspaceCopy } from './shell';
+import { escapeBelongsToNestedDialog, fullscreenTabDestination } from './editor-fullscreen';
 import styles from './workspace.module.css';
 import { workspaceClient } from '../client/transport';
 import { TourGuide } from '@/features/onboarding/tour';
@@ -70,6 +71,12 @@ const SheetEditor = dynamic(() => import('@/features/sheets/ui').then((module) =
 const DesignEditor = dynamic(() => import('@/features/designs/ui/design-editor').then((module) => module.DesignEditor), { ssr: false, loading: EditorLoading });
 const PlanEditor = dynamic(() => import('@/features/operations').then((module) => module.PlanEditor), { ssr: false, loading: EditorLoading });
 
+const editorViewCopy = {
+  ru: { expand: 'Развернуть редактор', collapse: 'Вернуться в рабочую область' },
+  kk: { expand: 'Редакторды толық ашу', collapse: 'Жұмыс аймағына оралу' },
+  en: { expand: 'Expand editor', collapse: 'Return to workspace' },
+} as const;
+
 class EditorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
@@ -104,6 +111,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
   const [activeRunId, setActiveRunId] = useState(initialRunId), [assistantCollapsed, setAssistantCollapsed] = useState(false);
   const [assistantRun, setAssistantRun] = useState<Run>();
   const [mobileView, setMobileView] = useState<'assistant' | 'result'>('result');
+  const [editorExpanded, setEditorExpanded] = useState(false);
   const [wasPrivate, setWasPrivate] = useState(privateVisible);
   const [lifecycleAction, setLifecycleAction] = useState<ArtifactAction>();
   const [lifecycleDraft, setLifecycleDraft] = useState<ArtifactActionDraft>();
@@ -111,6 +119,8 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
   const [lifecyclePreparing, setLifecyclePreparing] = useState(false);
   const exitResolver = useRef<((proceed: boolean) => void) | undefined>(undefined);
   const editorFlush = useRef<(() => Promise<boolean>) | null>(null);
+  const editorExpandButton = useRef<HTMLButtonElement>(null);
+  const editorRegion = useRef<HTMLElement>(null);
   const registerEditorFlush = useCallback((flush: (() => Promise<boolean>) | null) => { editorFlush.current = flush; }, []);
   const railSerial = useRef(0);
   const activeRunRef = useRef(initialRunId);
@@ -143,6 +153,39 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
   const handleAssistantAccessLost = useCallback(() => { session.suspend(); }, [session]);
   if (wasPrivate !== privateVisible) { setWasPrivate(privateVisible); if (!privateVisible) setRail(undefined); }
   useEffect(() => () => { exitResolver.current?.(false); }, []);
+  useEffect(() => {
+    if (!editorExpanded) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const frame = requestAnimationFrame(() => {
+      editorRegion.current?.focus({ preventScroll: true });
+      window.dispatchEvent(new Event('resize'));
+    });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' && editorRegion.current) {
+        const focusable = [...editorRegion.current.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex="-1"])')].filter((item) => !item.hidden && item.getAttribute('aria-hidden') !== 'true' && item.getClientRects().length > 0 && getComputedStyle(item).visibility !== 'hidden');
+        const first = focusable[0], last = focusable.at(-1);
+        const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        const destination = fullscreenTabDestination(active, editorRegion.current, first, last, event.shiftKey, (candidate) => Boolean(editorRegion.current?.contains(candidate)));
+        if (destination) {
+          event.preventDefault(); destination.focus();
+        }
+        return;
+      }
+      if (event.key === 'Escape' && !event.defaultPrevented && !escapeBelongsToNestedDialog(event.target, editorRegion.current)) {
+        event.preventDefault();
+        setEditorExpanded(false);
+        requestAnimationFrame(() => editorExpandButton.current?.focus({ preventScroll: true }));
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    };
+  }, [editorExpanded]);
   useEffect(() => {
     if (!capabilities.recordView || !privateVisible || !viewerUserId || !viewerWorkspaceId || viewerAuthzVersion === undefined || !projectId || !artifactId) return;
     const controller = new AbortController();
@@ -323,6 +366,7 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
     <header className={styles.pageHeading}><h1>{snapshot.artifact.title}</h1><div className={styles.actions}>
       {capabilities.rail && <Button className={styles.mobileOnly} icon={FileText} onClick={() => setRailOpen(true)}>{t.results}</Button>}
       <SaveStatus state={state.autosave?.status === 'saving' ? 'saving' : hasRecovery ? state.autosave?.locallyPersisted ? 'local' : 'unsaved' : 'saved'} />
+      <Button ref={editorExpandButton} icon={Maximize2} onClick={() => setEditorExpanded(true)}>{editorViewCopy[locale].expand}</Button>
       {capabilities.navigation && <Link className="tl-button tl-button--secondary" href={`/app/materials?workspaceId=${snapshot.viewer.workspaceId}&projectId=${snapshot.artifact.projectId}`}><FolderOpen size={18} />{t.source}</Link>}
       {capabilities.navigation && <Link id="artifact-history" className="tl-button tl-button--secondary" href={historyHref}><FileClock size={18} />{t.history}</Link>}
       {capabilities.review && <ChangeReviewPanel key={`${viewerUserId}:${viewerWorkspaceId}:${projectId}:${viewerAuthzVersion}`} viewer={snapshot.viewer} projectId={snapshot.artifact.projectId} locale={locale} disabled={state.loading || Boolean(state.operation.operation)} beforeReview={beforeReview} onCommitted={afterLinkedChange} onUndo={async (groupId) => { const prepared = await session.prepareHistory('undo', groupId); if (prepared.operation) { await session.run(prepared.operation); await afterLinkedChange(); } }} />}
@@ -334,15 +378,16 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
     {capabilities.assistant && <div className={styles.sessionSwitch} role="group" aria-label={t.sessionView}><Button variant={mobileView === 'assistant' ? 'primary' : 'quiet'} onClick={() => setMobileView('assistant')}>{t.assistant}</Button><Button variant={mobileView === 'result' ? 'primary' : 'quiet'} onClick={() => setMobileView('result')}>{t.results}</Button></div>}
     <div className={`${styles.sessionLayout} ${assistantCollapsed ? styles.sessionLayoutCollapsed : ''}`} data-mobile-view={mobileView} style={capabilities.assistant || capabilities.rail ? undefined : { gridTemplateColumns: 'minmax(0, 1fr)' }}>
       {(capabilities.assistant || capabilities.rail) && <div className={styles.sessionAssistant}>{capabilities.assistant && <AssistantSession userId={snapshot.viewer.userId} workspaceId={snapshot.viewer.workspaceId} projectId={snapshot.artifact.projectId} initialRunId={activeRunId} sessionPath={artifactHref} collapsed={assistantCollapsed} onCollapsedChange={setAssistantCollapsed} onRunChange={selectRun} onRunData={handleAssistantRun} onAccessLost={handleAssistantAccessLost} currentArtifactId={snapshot.artifact.id} prepareCurrentArtifact={prepareCurrentArtifact} />}{capabilities.rail && <section className={styles.sessionResultList} aria-labelledby="session-result-list-title"><h2 id="session-result-list-title">{t.results}</h2>{resultList}</section>}</div>}
-      <section id="artifact-editor" tabIndex={-1} className={`${styles.editorMain} ${styles.sessionResult}`} aria-label={snapshot.artifact.title}>
+      <section ref={editorRegion} id="artifact-editor" tabIndex={-1} className={`${styles.editorMain} ${styles.sessionResult} ${editorExpanded ? styles.sessionResultExpanded : ''}`} role={editorExpanded ? 'dialog' : undefined} aria-label={snapshot.artifact.title} aria-modal={editorExpanded || undefined}>
+        <div className={styles.editorExpandedBar} hidden={!editorExpanded}><Button icon={Minimize2} onClick={() => { setEditorExpanded(false); requestAnimationFrame(() => editorExpandButton.current?.focus({ preventScroll: true })); }}>{editorViewCopy[locale].collapse}</Button></div>
         <EditorBoundary key={`${viewerUserId}:${artifactId}`} fallback={<div className={styles.editorFailure} role="alert"><h2>{t.editorUnavailable}</h2><p>{t.editorReloadHint}</p><Button icon={RefreshCw} onClick={() => window.location.reload()}>{t.reloadEditor}</Button>{capabilities.navigation && <Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link>}</div>}>
         {snapshot.content.kind === 'document' ? <DocumentEditor key={`${viewerUserId}:${artifactId}:${viewerAuthzVersion}`} session={session} onFlushReady={registerEditorFlush} />
           : snapshot.content.kind === 'table' ? <SheetEditor key={`${viewerUserId}:${artifactId}`} session={session} locale={locale} onFlushReady={registerEditorFlush} />
             : snapshot.content.kind === 'design' ? <DesignEditor key={`${viewerUserId}:${artifactId}`} session={session} state={state} onFlushReady={registerEditorFlush} />
               : <PlanEditor key={`${viewerUserId}:${artifactId}`} session={session} onFlushReady={registerEditorFlush} transport={transport?.operations} />}
         </EditorBoundary>
-        {capabilities.sourceFreshness && snapshot.sourceFreshness.length > 0 && <SourceFreshnessPanel snapshot={snapshot} />}
-        {capabilities.collaboration && <ArtifactThread
+        {!editorExpanded && capabilities.sourceFreshness && snapshot.sourceFreshness.length > 0 && <SourceFreshnessPanel snapshot={snapshot} />}
+        {!editorExpanded && capabilities.collaboration && <ArtifactThread
           key={`${viewerUserId}:${artifactId}:${snapshot.artifact.currentRevision}`}
           userId={snapshot.viewer.userId}
           workspaceId={snapshot.viewer.workspaceId}

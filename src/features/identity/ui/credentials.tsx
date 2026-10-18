@@ -12,7 +12,7 @@ import { authReturnTo } from "../domain/return-to";
 import { authHref, IdentityFrame, OperationError, PasswordField, type AuthReturn } from "./common";
 import { useIdentityOperation, useIdentityTranslations } from "./hooks";
 import { useIdentityAccount } from "./identity-locale-provider";
-import { identityClient } from "./transport";
+import { IdentityTransportError, identityClient } from "./transport";
 import { focusFirstError, hasErrors, passwordVariables, validateCredentials, type FormErrors } from "./validation";
 import styles from "./identity.module.css";
 import { RequestEmailForm } from "./recovery";
@@ -56,7 +56,10 @@ export function CredentialsForm({ mode, returnTo, intentToken, onAuthenticated, 
       const mutation = await (signup
         ? identityClient.signUp({ name: values.name.trim(), email, password: values.password, locale, ...destination }, { signal })
         : identityClient.signIn({ email, password: values.password, ...destination }, { signal }));
-      const viewer = mutation.status === "signed-in" ? await account.refresh().catch(() => null) : null;
+      const viewer = await account.refresh();
+      if (!viewer || viewer.user.email !== email.toLowerCase()) {
+        throw new IdentityTransportError({ messageKey: "identity.errors.signInRequired", fieldErrors: {}, status: 401 });
+      }
       return { ...mutation, preferredLocale: viewer?.user.locale };
     });
     if (!result) return;
@@ -84,16 +87,20 @@ export function CredentialsForm({ mode, returnTo, intentToken, onAuthenticated, 
   </>;
 }
 
-export function SignInPage(props: AuthReturn) {
+function CredentialsPage({ initialMode, ...props }: AuthReturn & { initialMode: "sign-in" | "sign-up" }) {
   const t = useIdentityTranslations();
   const router = useRouter();
-  return <IdentityFrame title={t("identity.signIn.title")} description={t("identity.signIn.description")}><CredentialsForm {...props} mode="sign-in" onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
+  const [mode, setMode] = useState(initialMode);
+  const signup = mode === "sign-up";
+  return <IdentityFrame title={t(signup ? "identity.signUp.title" : "identity.signIn.title")} description={t(signup ? "identity.signUp.description" : "identity.signIn.description")}><CredentialsForm {...props} mode={mode} onModeChange={setMode} onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
+}
+
+export function SignInPage(props: AuthReturn) {
+  return <CredentialsPage {...props} initialMode="sign-in" />;
 }
 
 export function SignUpPage(props: AuthReturn) {
-  const t = useIdentityTranslations();
-  const router = useRouter();
-  return <IdentityFrame title={t("identity.signUp.title")} description={t("identity.signUp.description")}><CredentialsForm {...props} mode="sign-up" onAuthenticated={(target) => { router.replace(target); router.refresh(); }} /></IdentityFrame>;
+  return <CredentialsPage {...props} initialMode="sign-up" />;
 }
 
 export function AuthDialog({ open, onOpenChange, onAuthenticated, returnTo, intentToken, returnFocus }: AuthReturn & { open: boolean; onOpenChange: (open: boolean) => void; onAuthenticated: (returnTo: string) => void; returnFocus?: RefObject<HTMLElement | null> }) {

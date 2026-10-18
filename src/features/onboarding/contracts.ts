@@ -11,8 +11,8 @@ const CompletedStepsSchema = z.array(TourStepSchema).max(TOUR_STEPS.length).supe
   if (new Set(value).size !== value.length) {
     context.addIssue({ code: 'custom', message: 'Tour steps cannot be completed twice.' });
   }
-  if (value.some((step, index) => step !== TOUR_STEPS[index])) {
-    context.addIssue({ code: 'custom', message: 'Tour steps must be completed in order.' });
+  if (value.some((step, index) => index > 0 && TOUR_STEPS.indexOf(step) <= TOUR_STEPS.indexOf(value[index - 1]!))) {
+    context.addIssue({ code: 'custom', message: 'Completed tour steps must use canonical order.' });
   }
 });
 

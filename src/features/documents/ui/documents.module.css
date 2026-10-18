@@ -92,18 +92,18 @@
 .menuContent { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
 
 .toolMenu > .menuContent {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: var(--space-2);
-  right: var(--space-2);
-  z-index: 10;
+  position: static;
+  grid-column: 1 / -1;
+  width: 100%;
   min-height: 68px;
+  margin-top: var(--space-2);
   padding: var(--space-3);
   background: var(--color-raised);
   border: 1px solid var(--color-divider);
-  border-radius: var(--radius-overlay);
-  box-shadow: var(--shadow-overlay);
+  border-radius: var(--radius-inset);
 }
+
+.toolMenu[open] { display: grid; flex: 1 0 100%; grid-template-columns: max-content minmax(0, 1fr); order: 20; min-width: 0; }
 
 .toolMenu:not([open]) > .menuContent,
 .tableMenu:not([open]) > .menuContent { display: none; }
@@ -273,11 +273,10 @@
 }
 
 @media (max-width: 767px) {
-  .editor { height: auto; min-height: 0; border-radius: var(--radius-inset); }
-  .surface { flex: none; overflow: visible; overscroll-behavior: auto; scrollbar-gutter: auto; }
+  .editor { height: min(78svh, 760px); min-height: 520px; border-radius: var(--radius-inset); }
+  .surface { flex: 1 1 auto; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
   .toolbar { padding: var(--space-2); }
   .toolGroup { margin-right: 0; padding-right: var(--space-1); }
-  .toolMenu > .menuContent { left: var(--space-1); right: var(--space-1); }
   .find { align-items: stretch; padding: var(--space-3); }
   .find label { width: 100%; }
   .find > span[role='status'] { width: 100%; padding: 0; }
@@ -289,9 +288,10 @@
 }
 
 @media (max-width: 480px) {
-  .toolGroup { width: 100%; padding-bottom: var(--space-1); border-right: 0; border-bottom: 1px solid var(--color-divider); }
-  .toolGroup:last-child { border-bottom: 0; }
-  .toolbar select { flex: 1 1 140px; max-width: none; }
+  .toolGroup { margin: 0; padding-right: var(--space-1); border-right: 1px solid var(--color-divider); }
+  .toolGroup:last-child { padding-right: 0; border-right: 0; }
+  .toolbar select { max-width: 146px; }
+  .toolMenu summary { padding-inline: var(--space-2); }
   .sheet :global(.tiptap) { padding-inline: var(--space-3); }
   .sheet :global(.document-page-break) { margin-inline: calc(-1 * var(--space-3)); }
 }
@@ -302,7 +302,8 @@
 }
 
 @container document-editor (max-width: 480px) {
-  .toolbarActions :global(.tl-button) { width: 100%; }
+  .toolbarActions { justify-content: flex-end; }
+  .toolbarActions :global(.tl-button) { width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

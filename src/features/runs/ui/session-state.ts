@@ -28,7 +28,9 @@ export function assistantSessionState(run: Run | null | undefined, hasEnteredGoa
   if (!run) return hasEnteredGoal ? 'entered' : 'empty';
   const hasResult = sessionResults(run).length > 0;
   if (run.state === 'queued' || run.state === 'running') return hasResult ? 'partial' : 'planning';
-  if (run.state === 'waiting_input') return 'waiting_input';
+  // The runtime can park a failed step in waiting_input so that a bounded
+  // retry remains possible. That is not a question for the user.
+  if (run.state === 'waiting_input') return run.failure ? hasResult ? 'partial' : 'failed' : 'waiting_input';
   if (run.state === 'review_ready') return hasResult ? 'review_ready' : 'partial';
   if (run.state === 'completed') return hasResult ? 'completed' : 'partial';
   if (run.state === 'failed') return hasResult ? 'partial' : 'failed';

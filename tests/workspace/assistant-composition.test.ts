@@ -45,9 +45,34 @@ describe('assistant-first workspace composition', () => {
       expect(source).toContain("setMobileView('assistant')");
       expect(source).toContain("setMobileView('result')");
     }
-    expect(css).toContain('@media (max-width: 1199px)');
+    expect(css).toContain('@media (max-width: 959px)');
     expect(css).toContain(".sessionLayout[data-mobile-view='assistant'] > .sessionResult");
     expect(css).toContain(".sessionLayout[data-mobile-view='result'] > .sessionAssistant");
+  });
+
+  it('shows only confirmed public progress and keeps terminal recovery actions truthful', () => {
+    const session = read('src/features/runs/ui/assistant-session.tsx');
+    const continuation = read('src/features/runs/ui/run-continuation.tsx');
+    expect(session).toContain('setLiveEvent');
+    expect(session).toContain('runText.actions[visibleLiveEvent.action]');
+    expect(session).toContain("data.state === 'queued' || data.state === 'running'");
+    expect(session).toContain('data.failure && retryStepId');
+    expect(continuation).toContain("run.state === 'waiting_input' && run.failure === null");
+    expect(session).not.toContain('technicalDetails');
+    expect(session).not.toContain('text.technical');
+    expect(session).not.toMatch(/chain.of.thought|modelMessages/i);
+  });
+
+  it('expands the same mounted editor and restores keyboard focus on exit', () => {
+    const artifact = read('src/features/workspace/ui/artifact-page.tsx');
+    const css = read('src/features/workspace/ui/workspace.module.css');
+    expect(artifact).toContain('editorExpanded ? styles.sessionResultExpanded');
+    expect(artifact).toContain("event.key === 'Escape'");
+    expect(artifact).toContain("event.key === 'Tab'");
+    expect(artifact).toContain('editorExpandButton.current?.focus');
+    expect(artifact).toContain("window.dispatchEvent(new Event('resize'))");
+    expect(css).toContain('.sessionResultExpanded');
+    for (const editor of ['DocumentEditor', 'SheetEditor', 'DesignEditor', 'PlanEditor']) expect(artifact.match(new RegExp(`<${editor}`, 'g'))).toHaveLength(1);
   });
 
   it('keeps a persistent follow-up composer pinned to the exact saved artifact revision', () => {
@@ -72,7 +97,7 @@ describe('assistant-first workspace composition', () => {
   it('keeps authorized continuation history visible in bounded read-only pages', () => {
     const session = read('src/features/runs/ui/assistant-session.tsx');
     const historyStart = session.indexOf('history.runs.map((pastRun)');
-    const historyEnd = session.indexOf('<section className={styles.assistantGoal}', historyStart);
+    const historyEnd = session.indexOf('<article className={styles.currentTurn}', historyStart);
     const historyRender = session.slice(historyStart, historyEnd);
     expect(session).toContain('const HISTORY_PAGE_SIZE = 3');
     expect(session).toContain('const HISTORY_LIMIT = 12');

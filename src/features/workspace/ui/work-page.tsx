@@ -16,6 +16,7 @@ import { workspaceClient } from '../client/transport';
 import type { CreateProject } from '../contracts';
 import { WorkspaceAccessState, WorkspaceError, WorkspaceShell, useWorkspaceAccess, useWorkspaceCopy } from './shell';
 import styles from './workspace.module.css';
+import entryStyles from './workspace-entry.module.css';
 import { useWorkspaceLeaveGuard } from './leave-guard';
 import { isDefiniteRequestRejection, retainRequestAttempt, type RequestAttempt } from '../domain/request-attempt';
 import { initialProjectListState, projectListReducer } from '../domain/project-list-state';
@@ -307,7 +308,28 @@ export function WorkPage({ ownerId, initialWorkspaceId, intentToken }: { ownerId
   }
 
   if (!active) return <WorkspaceShell><WorkspaceAccessState access={access} returnTo="/app/work" /></WorkspaceShell>;
-  if (!memberships.length) return <WorkspaceShell beforeSignOut={leave.beforeSignOut} onSignedOut={discardEntry} onClickCapture={leave.onClickCapture}><main className={styles.main}>{leave.confirmation}<section className={styles.noWorkspace}><h1>{t.noWorkspace}</h1><p className={styles.muted}>{t.noWorkspaceDescription}</p><form className={styles.form} onSubmit={createWorkspace}><InputField label={t.workspaceName} placeholder={t.personalWorkspace} maxLength={100} value={workspaceName} disabled={saving || workspaceUncertain} onChange={(event) => setWorkspaceName(event.target.value)} /><WorkspaceError error={saveError} saving />{draftStorageFailed && <p role="status">{t.draftNotSaved}</p>}<Button variant="primary" type="submit" icon={Plus} pending={saving} disabled={!draftReady}>{workspaceUncertain ? t.checkCreation : t.createWorkspace}</Button></form></section></main></WorkspaceShell>;
+  if (!memberships.length) return <WorkspaceShell beforeSignOut={leave.beforeSignOut} onSignedOut={discardEntry} onClickCapture={leave.onClickCapture}><main className={`${styles.main} ${entryStyles.main}`}>{leave.confirmation}<section className={entryStyles.entry} aria-labelledby="workspace-entry-title">
+    <div className={entryStyles.intro}>
+      <div className={entryStyles.heading}><h1 id="workspace-entry-title">{t.noWorkspace}</h1><p>{t.noWorkspaceDescription}</p></div>
+      <form className={entryStyles.form} onSubmit={createWorkspace}>
+        <InputField label={t.workspaceName} placeholder={t.personalWorkspace} maxLength={100} value={workspaceName} disabled={saving || workspaceUncertain} onChange={(event) => setWorkspaceName(event.target.value)} />
+        <p className={entryStyles.fieldHint}>{t.workspaceNameHint}</p>
+        <WorkspaceError error={saveError} saving />
+        {draftStorageFailed && <p role="status" className={entryStyles.status}>{t.draftNotSaved}</p>}
+        <Button variant="primary" type="submit" icon={Plus} pending={saving} disabled={!draftReady}>{workspaceUncertain ? t.checkCreation : t.createWorkspace}</Button>
+      </form>
+      <p className={entryStyles.next}>{t.workspaceNext}</p>
+    </div>
+    <aside className={entryStyles.composition} aria-label={t.workspacePurposeTitle}>
+      <div className={entryStyles.compositionHeader}><span className={entryStyles.mark}><Folder size={22} aria-hidden="true" /></span><div><h2>{t.workspacePurposeTitle}</h2><p>{t.workspacePurpose}</p></div></div>
+      <div className={entryStyles.flow}>
+        <div className={entryStyles.material}><FileText size={22} aria-hidden="true" /><span><strong>{t.workspaceMaterials}</strong><small>{t.workspaceMaterialsDetail}</small></span></div>
+        <ArrowUpRight className={entryStyles.arrow} size={22} aria-hidden="true" />
+        <div className={entryStyles.result}><LayoutList size={22} aria-hidden="true" /><span><strong>{t.workspaceResults}</strong><small>{t.workspaceResultsDetail}</small></span></div>
+      </div>
+      <div className={entryStyles.sheet} aria-hidden="true"><span /><span /><span /></div>
+    </aside>
+  </section></main></WorkspaceShell>;
   return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onSignedOut={discardEntry} onClickCapture={leave.onClickCapture}><main className={styles.main}>
     {leave.confirmation}
     {membership?.scopes.includes('edit') && <TourGuide ownerId={ownerId} anchors={{ start: 'work-task-goal' }} />}

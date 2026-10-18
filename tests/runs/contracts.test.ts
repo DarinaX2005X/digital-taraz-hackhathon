@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CreateRunSchema, ResumeRunSchema, RunDecisionSchema, RunEventSchema, RunProgressProjectionSchema, ToolReceiptSchema, UsdSchema } from '../../src/contracts/runs';
+import { RUN_LIMITS, RunBudgetLimitSchema } from '../../src/features/runs/domain/limits';
 import { addUsd, exceedsUsd, subtractUsd, usd, usdString } from '../../src/features/runs/domain/money';
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -52,5 +53,9 @@ describe('canonical run contracts', () => {
     expect(exceedsUsd('0.3', '0.146944', '0.146944')).toBe(false);
     expect(exceedsUsd('0.3', '0.299999999999', '0.000000000002')).toBe(true);
     for (const invalid of ['1e-9', '-1', 'NaN', '0.0000000000001']) expect(UsdSchema.safeParse(invalid).success).toBe(false);
+  });
+  it('matches the persisted run budget boundaries exactly', () => {
+    for (const valid of ['0.000000000001', '0.25', '0.50', '0.500000000000', RUN_LIMITS.runUsd]) expect(RunBudgetLimitSchema.safeParse(valid).success).toBe(true);
+    for (const invalid of ['0', '-0.01', '0.500000000001', '1', '0.5000000000001', '1e-3', 'NaN']) expect(RunBudgetLimitSchema.safeParse(invalid).success).toBe(false);
   });
 });

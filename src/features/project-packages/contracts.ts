@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { IdSchema, InstantSchema, RevisionSchema } from '../../contracts/primitives';
 import { CreateExportSchema, ExportFormatSchema, ExportReleaseSchema } from '../exports/contracts';
 
-export const CreateProjectPackageSchema = CreateExportSchema.safeExtend({ release: ExportReleaseSchema });
+const CreateProjectPackageReleaseSchema = ExportReleaseSchema.safeExtend({ basis: z.enum(['accepted', 'saved-draft']) });
+export const ProjectPackageReleaseSchema = ExportReleaseSchema.safeExtend({ basis: z.enum(['accepted', 'saved-draft']).default('saved-draft') });
+export const CreateProjectPackageSchema = CreateExportSchema.safeExtend({ release: CreateProjectPackageReleaseSchema }).superRefine((value, context) => {
+  if ((value.release.basis === 'accepted') === value.historicalDraft) context.addIssue({ code: 'custom', path: ['historicalDraft'], message: 'Accepted packages must not be drafts, and saved drafts must be labelled as drafts.' });
+});
 export const ProjectPackageListInputSchema = z.strictObject({ workspaceId: IdSchema, projectId: IdSchema });
 
 const PackageFileSchema = z.strictObject({
@@ -13,8 +17,8 @@ const PackageFileSchema = z.strictObject({
 });
 export const ProjectPackageSchema = z.strictObject({
   id: IdSchema, workspaceId: IdSchema, createdAt: InstantSchema, historicalDraft: z.boolean(), locale: z.enum(['ru', 'kk', 'en']),
-  privateFieldsPolicy: z.enum(['exclude-internal', 'include-authorized']), release: ExportReleaseSchema,
-  revisions: z.array(z.strictObject({ artifactId: IdSchema, revision: RevisionSchema })).min(1).max(20),
+  privateFieldsPolicy: z.enum(['exclude-internal', 'include-authorized']), release: ProjectPackageReleaseSchema,
+  revisions: z.array(z.strictObject({ artifactId: IdSchema, revision: RevisionSchema, approval: z.strictObject({ decisionId: IdSchema, actorId: IdSchema, createdAt: InstantSchema }).optional() })).min(1).max(20),
   status: z.enum(['queued', 'rendering', 'partial', 'ready', 'failed', 'cancelled']), files: z.array(PackageFileSchema).max(200),
   bundle: z.strictObject({ fileName: z.string().min(1).max(300), sha256: z.string().length(64), byteSize: z.number().int().nonnegative() }).optional(),
   manifestHash: z.string().length(64).optional(), authzVersion: z.number().int().positive(), leaseExpiresAt: InstantSchema.optional(),

@@ -276,7 +276,7 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
   });
 
   it('corrects the observed plan.calendar and fact-5 response through a strict structured envelope', async () => {
-    let first = true;
+    let stage: 'plan' | 'invalid-proposal' | 'done' = 'plan';
     const f = await setup({ extensions: [proposalToolExtension], gateway: async (request) => {
       if (request.jsonSchema) {
         expect(request.operationKey).toBe('business_decision_correction');
@@ -301,8 +301,16 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
         expect(inputSchema.properties.plan.additionalProperties).toBe(false);
         return { content: JSON.stringify({ toolCalls: [{ id: 'corrected_proposal', name: 'propose_work_plan', arguments: { proposalId: 'checked-work', title: 'Checked work', input: proposalInput } }] }), toolCalls: [] };
       }
-      if (!first) throw new Error('UNEXPECTED_MODEL_CALL');
-      first = false;
+      if (stage === 'plan') {
+        stage = 'invalid-proposal';
+        const context = contextOf(request);
+        return calls(
+          { name: 'plan_work', args: { steps: ['Read the selected evidence', 'Prepare a checked plan'] } },
+          { name: 'classify_sources', args: { assignments: context.sources.map((source) => ({ sourceId: source.sourceRef.sourceId, roles: ['request'] })) } },
+        );
+      }
+      if (stage !== 'invalid-proposal') throw new Error('UNEXPECTED_MODEL_CALL');
+      stage = 'done';
       const context = contextOf(request), source = context.sources[0]!.sourceRef;
       const badInput = {
         ...proposalInput,
@@ -315,8 +323,7 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
       );
     } });
     const run = await f.service.create(f.owner, f.input, randomUUID()), claim = await f.service.claim();
-    expect(await f.service.executeStep(claim!)).toBe('continue');
-    expect(await f.service.executeStep(claim!)).toBe('continue');
+    for (let index = 0; index < 5; index++) expect(await f.service.executeStep(claim!)).toBe('continue');
     const corrected = await f.service.read(f.owner, run.id);
     expect(corrected).toMatchObject({ state: 'running', failure: null });
     expect(corrected.steps.some((step) => step.toolName === 'business.propose_work_plan' && step.state === 'planned')).toBe(true);
@@ -325,7 +332,7 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
 
   it('rejects double-encoded nested input and invented SourceRefs after the one bounded correction', async () => {
     for (const invalid of ['double-encoded', 'invented-source'] as const) {
-      let first = true;
+      let stage: 'plan' | 'invalid-proposal' | 'done' = 'plan';
       const f = await setup({ extensions: [proposalToolExtension], gateway: async (request) => {
         if (request.jsonSchema) {
           const input = invalid === 'double-encoded'
@@ -333,12 +340,20 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
             : { ...proposalInput, materialConstraints: [{ entryId: 'work', sourceRef: { sourceId: '00000000-0000-0000-0000-000000000000', sourceVersionId: '00000000-0000-0000-0000-000000000000', revision: 1 }, availableAt: '2026-11-01T09:00:00.000Z' }] };
           return { content: JSON.stringify({ toolCalls: [{ id: `invalid_${invalid}`, name: 'propose_work_plan', arguments: { proposalId: 'invalid', title: 'Invalid', input } }] }), toolCalls: [] };
         }
-        if (!first) throw new Error('UNEXPECTED_MODEL_CALL');
-        first = false;
+        if (stage === 'plan') {
+          stage = 'invalid-proposal';
+          const context = contextOf(request);
+          return calls(
+            { name: 'plan_work', args: { steps: ['Read the selected evidence', 'Prepare a checked plan'] } },
+            { name: 'classify_sources', args: { assignments: context.sources.map((source) => ({ sourceId: source.sourceRef.sourceId, roles: ['request'] })) } },
+          );
+        }
+        if (stage !== 'invalid-proposal') throw new Error('UNEXPECTED_MODEL_CALL');
+        stage = 'done';
         return call('propose_work_plan', { proposalId: 'broken', title: 'Broken', input: { ...proposalInput, plan: { ...proposalInput.plan, calendar: {} } } });
       } });
       const run = await f.service.create(f.owner, f.input, randomUUID()), claim = await f.service.claim();
-      expect(await f.service.executeStep(claim!)).toBe('continue');
+      for (let index = 0; index < 4; index++) expect(await f.service.executeStep(claim!)).toBe('continue');
       expect(await f.service.executeStep(claim!)).toBe('stopped');
       expect(await f.service.read(f.owner, run.id)).toMatchObject({ state: 'waiting_input', failure: 'invalid_result' });
     }
@@ -351,6 +366,14 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     const waiting = await f.drain(run.id);
     expect(waiting).toMatchObject({ state: 'waiting_input', failure: null }); expect(waiting.progress.plan).toHaveLength(4); expect(waiting.progress.questions).toHaveLength(1);
     const decisionRequests = f.complete.mock.calls.map(([request]) => request).filter((request) => !request.jsonSchema);
+    const decisionRequestMetrics = decisionRequests.map((request) => ({
+      bytes: Buffer.byteLength(JSON.stringify({ messages: request.messages, tools: request.tools, toolChoice: request.toolChoice, maxOutputTokens: request.maxOutputTokens })),
+      messages: request.messages.length,
+      tools: request.tools?.map((tool) => tool.name) ?? [],
+    }));
+    expect(decisionRequestMetrics.every((metric) => metric.messages === 2)).toBe(true);
+    expect(Math.max(...decisionRequestMetrics.map((metric) => metric.bytes))).toBeLessThan(30_000);
+    expect(decisionRequestMetrics.slice(2).every((metric) => metric.tools.length === 1)).toBe(true);
     for (const request of decisionRequests) {
       const modelContext = contextOf(request), names = request.tools?.map((tool) => tool.name) ?? [];
       if (new Set(modelContext.operations.map((item) => item.assessmentId)).size < 2) expect(names).not.toContain('compare_decision_options');
@@ -407,6 +430,12 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     expect(revised).toMatchObject({ state: 'completed', failure: null });
     expect(revised.progress.plan).toEqual(changedInput.plan);
     expect(revised.steps.some((step) => step.toolName === 'business.revise_document')).toBe(true); expect(revised.steps.some((step) => step.toolName === 'business.create_document')).toBe(false); expect(revised.steps.some((step) => step.toolName === 'business.compare_decision_options')).toBe(false);
+    const followUpRequests = f.complete.mock.calls.map(([request]) => request).filter((request) => !request.jsonSchema && contextOf(request).currentArtifact?.id === document.artifact.id);
+    expect(followUpRequests.map((request) => request.tools?.map((tool) => tool.name))).toEqual([
+      ['plan_work', 'read_artifact', 'revise_document'],
+      ['finish_work'],
+    ]);
+    expect(followUpRequests.every((request) => request.messages.length === 2)).toBe(true);
     const afterFollowUp = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: document.artifact.id });
     expect(afterFollowUp.artifact.currentRevision).toBe(protectedEdit.artifact.currentRevision + 1);
     expect(JSON.stringify(afterFollowUp.content)).toContain('Follow-up heading');
@@ -415,6 +444,18 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     expect(revised.progress.results.find((result) => result.id === document.artifact.id)?.revision).toBe(afterFollowUp.artifact.currentRevision);
     expect((await pool.query('SELECT id FROM artifacts WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(3);
   }, 90_000);
+
+  it('completes verified work when the verifier returns only non-blocking observations', async () => {
+    const normal = createDecisionGateway();
+    const f = await setup({ gateway: async (request) => request.operationKey === 'business_verification'
+      ? { content: JSON.stringify({ verdict: 'ready', findings: [{ id: 'optional_note', text: 'A non-blocking review note.', required: false }] }), toolCalls: [] }
+      : normal(request) });
+    f.input.goal = 'Prepare a meeting memo from the selected sources.';
+    const run = await f.service.create(f.owner, f.input, randomUUID()), completed = await f.drain(run.id);
+
+    expect(completed).toMatchObject({ state: 'completed', failure: null, progress: { questions: [] } });
+    expect(completed.steps.at(-1)).toMatchObject({ toolName: 'business.finish_work', state: 'succeeded' });
+  });
 
   it('keeps missing capacity or price in waiting_input with one material question and no offer success', async () => {
     const missingCapacity = await setup({ availability: 'Workshop opens 2026-11-01. Team availability has not been entered.' });

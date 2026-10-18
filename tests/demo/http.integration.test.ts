@@ -51,7 +51,7 @@ async function authenticate(client: Client) {
   const email = `demo-copy-${randomUUID()}@example.test`;
   const signup = await client.request('/api/auth/sign-up/email', 'POST', { email, password, name: 'Synthetic demo owner', locale: 'ru', returnTo: '/ru/demo' });
   expect(signup.status).toBe(200);
-  expect(await signup.json()).toEqual({ status: 'signed-in', returnTo: '/ru/demo' });
+  expect(await signup.json()).toEqual({ status: 'account-checked', returnTo: '/ru/demo' });
   expect((await client.request('/api/identity/me')).status).toBe(200);
   await client.request('/api/auth/sign-out', 'POST', {});
   const login = await client.request('/api/auth/sign-in/email', 'POST', { email, password, returnTo: '/ru/demo' });

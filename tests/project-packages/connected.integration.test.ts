@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DependencyEdge } from '../../src/contracts/dependencies';
 import { tableCellTargetId } from '../../src/features/artifacts/domain/targets';
 import { createDependencyService } from '../../src/features/dependencies/server/service';
+import { createCollaborationService } from '../../src/features/collaboration/server/service';
 import { documentExportAdapter } from '../../src/features/exports/server/documents';
 import { ExportRegistry } from '../../src/features/exports/server/registry';
 import { createExportService } from '../../src/features/exports/server/service';
@@ -63,7 +64,10 @@ describe('connected change review and release package acceptance', () => {
     const exports = createExportService({ pool, storage: new LocalExportStorage(directory), registry: new ExportRegistry([documentExportAdapter, sheetExportAdapter]), assets: () => ({ async image() { throw new Error('UNEXPECTED_IMAGE'); } }) });
     const packages = createProjectPackageService(pool, exports), origin = 'http://127.0.0.1:3000';
     const ownerHandlers = createProjectPackageHandlers({ pool, origin, service: packages, getActor: async () => ({ user: { id: fixture.owner.userId }, session: { id: fixture.owner.sessionId } } as never) });
-    const release = { projectId: fixture.projectId, title: 'Approved client package', audience: 'Client procurement team', knownOmissions: ['Wet signature'] };
+    const collaboration = createCollaborationService(pool);
+    const documentApproval = await collaboration.decide(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, projectId: fixture.projectId, artifactId: document.artifact.id, artifactRevision: 1, decision: 'approved', note: 'Accepted for delivery', expectedAuthzVersion: authzVersion });
+    const tableApproval = await collaboration.decide(fixture.owner, randomUUID(), { workspaceId: fixture.workspaceId, projectId: fixture.projectId, artifactId: table.artifact.id, artifactRevision: 1, decision: 'approved', note: 'Accepted for delivery', expectedAuthzVersion: authzVersion });
+    const release = { projectId: fixture.projectId, title: 'Approved client package', audience: 'Client procurement team', knownOmissions: ['Wet signature'], basis: 'accepted' as const };
     const createBody = { workspaceId: fixture.workspaceId, expectedAuthzVersion: authzVersion, locale: 'ru', release, items: [
       { artifactId: document.artifact.id, revision: persistedDocument.artifact.currentRevision, formats: ['docx'], options: {} },
       { artifactId: table.artifact.id, revision: persistedTable.artifact.currentRevision, formats: ['xlsx'], options: {} },
@@ -74,7 +78,10 @@ describe('connected change review and release package acceptance', () => {
     const created = await createdResponse.json() as { id: string; authzVersion: number; release: typeof release };
     expect(created.release).toEqual(release);
     const ready = await exports.render(fixture.owner, fixture.workspaceId, created.id, created.authzVersion);
-    expect(ready.status).toBe('ready'); expect(ready.revisions).toEqual([{ artifactId: document.artifact.id, revision: 1 }, { artifactId: table.artifact.id, revision: 1 }]);
+    expect(ready.status).toBe('ready'); expect(ready.revisions).toEqual([
+      { artifactId: document.artifact.id, revision: 1, approval: { decisionId: documentApproval.id, actorId: documentApproval.actorId, createdAt: documentApproval.createdAt } },
+      { artifactId: table.artifact.id, revision: 1, approval: { decisionId: tableApproval.id, actorId: tableApproval.actorId, createdAt: tableApproval.createdAt } },
+    ]);
 
     const reopened = await packages.list(fixture.owner, { workspaceId: fixture.workspaceId, projectId: fixture.projectId });
     expect(reopened.packages[0]).toMatchObject({ id: created.id, status: 'ready', release, revisions: ready.revisions });

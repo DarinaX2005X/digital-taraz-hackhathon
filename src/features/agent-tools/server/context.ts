@@ -130,9 +130,9 @@ export async function readSources(tx: PoolClient, context: ToolContext, state: B
 }
 export function modelMessages(state: BusinessContext): ModelMessage[] {
   const evidence = state.sources.map((source) => ({ ...source, roles: state.sourceRoles.find((assignment) => assignment.sourceId === source.sourceRef.sourceId)?.roles ?? [], fragments: source.fragments }));
+  const recentActions = state.messages.flatMap((message) => message.role === 'assistant' ? (message.toolCalls ?? []).map((call) => call.name) : []).slice(-20);
   return [
     { role: 'system', content: businessProcedurePrompt(state) },
-    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, currentArtifact: state.currentArtifact, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, bundle: state.bundle, savedResults: state.results }) },
-    ...state.messages,
+    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, currentArtifact: state.currentArtifact, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, workPreview: state.workPreview, bundle: state.bundle, savedResults: state.results, recentActions }) },
   ];
 }

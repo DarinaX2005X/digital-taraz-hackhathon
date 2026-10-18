@@ -61,7 +61,7 @@ export function createIdentityHandlers(options: IdentityOptions) {
         const failure = await response.json().catch(() => ({})) as { code?: string };
         if (path === '/sign-up/email' && failure.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') {
           // Match a successful signup response without creating a session or exposing whether the address exists.
-          return json({ status: 'signed-in', returnTo: authReturnTo(body.returnTo, typeof body.intentToken === 'string' ? body.intentToken : undefined) });
+          return json({ status: 'account-checked', returnTo: authReturnTo(body.returnTo, typeof body.intentToken === 'string' ? body.intentToken : undefined) });
         }
         if (path === '/change-password' && failure.code === 'INVALID_PASSWORD') throw new IdentityError('VALIDATION_FAILED', 'identity.errors.invalidPassword', { currentPassword: ['identity.errors.invalidPassword'] });
         if (['INVALID_EMAIL_OR_PASSWORD', 'INVALID_PASSWORD', 'PASSWORD_MISMATCH'].includes(failure.code ?? '')) throw new IdentityError('UNAUTHENTICATED', 'identity.errors.invalidCredentials');
@@ -73,7 +73,7 @@ export function createIdentityHandlers(options: IdentityOptions) {
       }
       const resultHeaders = new Headers();
       for (const value of response.headers.getSetCookie()) resultHeaders.append('Set-Cookie', value);
-      const statuses = { '/sign-up/email': 'signed-in', '/sign-in/email': 'signed-in', '/request-password-reset': 'accepted', '/reset-password': 'password-reset', '/change-password': 'password-changed', '/sign-out': 'signed-out' } as const;
+      const statuses = { '/sign-up/email': 'account-checked', '/sign-in/email': 'signed-in', '/request-password-reset': 'accepted', '/reset-password': 'password-reset', '/change-password': 'password-changed', '/sign-out': 'signed-out' } as const;
       if (path === '/sign-out') resultHeaders.append('Set-Cookie', `${browserCookie}=; Max-Age=0; ${browserAttributes}`);
       const returnTo = ['/sign-up/email', '/sign-in/email'].includes(path) ? authReturnTo(body.returnTo, typeof body.intentToken === 'string' ? body.intentToken : undefined) : undefined;
       return json({ status: statuses[path as AuthPath], ...(returnTo ? { returnTo } : {}) }, 200, resultHeaders);

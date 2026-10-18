@@ -14,6 +14,7 @@ import { createCampaignWorkToolDescriptor } from '../../campaigns/server';
 import type { WorkExecutionContext } from '../../../contracts/business-work';
 import { configureRecurringRunBridge } from '../../recurring-work/server';
 import { createRecurringRunBridge } from './recurring-bridge';
+import { dispatchRunQueue } from './dispatcher';
 
 function principalForBusinessWork(context: WorkExecutionContext) {
   return { kind: 'job' as const, userId: context.authority.userId, authzVersion: context.expectedAuthzVersion };
@@ -36,7 +37,7 @@ function createRuntime() {
   const pool = getDatabasePool();
   const registry = createApplicationRunRegistry();
   const service = createRunService(pool, registry);
-  configureRecurringRunBridge(createRecurringRunBridge(pool, service));
+  configureRecurringRunBridge(createRecurringRunBridge(pool, service, dispatchRunQueue));
   return { pool, registry, service, ledger: createBudgetLedger(pool) };
 }
 export function getRunRuntime() { return runtime ??= createRuntime(); }

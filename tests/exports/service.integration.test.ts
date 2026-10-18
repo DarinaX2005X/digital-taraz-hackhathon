@@ -48,6 +48,24 @@ describe('immutable private export lifecycle in PostgreSQL', () => {
     await expect(f.exports.create(f.owner, randomUUID(), f.input())).rejects.toMatchObject({ messageKey: 'exports.errors.historicalConsent' });
     const job = await f.exports.create(f.owner, randomUUID(), { ...f.input(), historicalDraft: true }); expect(job.historicalDraft).toBe(true); expect(job.files[0]!.fileName).toContain('-draft');
   });
+  it('freezes an exact approval receipt for accepted packages while keeping saved drafts unapproved', async () => {
+    const f = await fixture(), release = { projectId: f.projectId, title: 'Client delivery', audience: 'Client', knownOmissions: [], basis: 'accepted' as const };
+    await expect(f.exports.create(f.owner, randomUUID(), { ...f.input(), release })).rejects.toMatchObject({ messageKey: 'exports.errors.approvalRequired' });
+    const approvalId = randomUUID();
+    await pool.query(`INSERT INTO artifact_version_decisions(id,workspace_id,project_id,artifact_id,artifact_revision,decision,note,actor_id,created_at)
+      VALUES($1,$2,$3,$4,0,'approved','Accepted for delivery',$5,$6)`, [approvalId, f.workspaceId, f.projectId, f.artifact.artifact.id, f.owner.userId, new Date('2026-10-18T08:00:00.000Z')]);
+    const accepted = await f.exports.create(f.owner, randomUUID(), { ...f.input(), release });
+    expect(accepted.revisions[0]?.approval).toMatchObject({ decisionId: approvalId, actorId: f.owner.userId, createdAt: '2026-10-18T08:00:00.000Z' });
+    const ready = await f.exports.render(f.owner, f.workspaceId, accepted.id, 1);
+    const zip = await JSZip.loadAsync((await f.exports.downloadBundle(f.owner, f.workspaceId, ready.id)).bytes);
+    const manifest = JSON.parse(await zip.file('manifest.json')!.async('string')) as { release: { basis: string }; revisions: { approval?: { decisionId: string } }[] };
+    expect(manifest.release.basis).toBe('accepted'); expect(manifest.revisions[0]?.approval?.decisionId).toBe(approvalId);
+    await pool.query(`INSERT INTO artifact_version_decisions(id,workspace_id,project_id,artifact_id,artifact_revision,decision,note,actor_id,created_at)
+      VALUES($1,$2,$3,$4,0,'changes_requested','Revise before delivery',$5,$6)`, [randomUUID(), f.workspaceId, f.projectId, f.artifact.artifact.id, f.owner.userId, new Date('2026-10-18T09:00:00.000Z')]);
+    await expect(f.exports.create(f.owner, randomUUID(), { ...f.input(), release })).rejects.toMatchObject({ messageKey: 'exports.errors.approvalRequired' });
+    const draft = await f.exports.create(f.owner, randomUUID(), { ...f.input(), historicalDraft: true, release: { ...release, basis: 'saved-draft' } });
+    expect(draft.historicalDraft).toBe(true); expect(draft.revisions[0]?.approval).toBeUndefined();
+  });
   it('requires current confidential scope before internal fields can enter a frozen manifest', async () => {
     const f = await fixture();
     await f.projects.setGrant(f.owner, randomUUID(), { workspaceId: f.workspaceId, projectId: f.projectId, userId: f.member.userId, scopes: ['read', 'export'], expectedAuthzVersion: 1 });

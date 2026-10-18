@@ -18,6 +18,7 @@ export const ExportReleaseSchema = z.strictObject({
   title: z.string().trim().min(1).max(240),
   audience: z.string().trim().min(1).max(240),
   knownOmissions: z.array(z.string().trim().min(1).max(1000)).max(100),
+  basis: z.enum(['accepted', 'saved-draft']).optional(),
 }).refine((release) => new Set(release.knownOmissions).size === release.knownOmissions.length, {
   message: 'Known release omissions must be unique.',
 });
@@ -37,6 +38,6 @@ export type PrivateFieldsPolicy = CreateExport['privateFieldsPolicy'];
 export interface ExportWarning { code: string; targetId?: string; message?: string }
 export interface ExportFile { id: string; artifactId: string; revision: number; format: ExportFormat; fileName: string; status: 'pending' | 'ready' | 'failed'; mediaType?: string; sha256?: string; byteSize?: number; errorKey?: string; warnings: ExportWarning[] }
 export interface ExportBundle { fileName: string; sha256: string; byteSize: number }
-export interface ExportJob { id: string; workspaceId: string; createdAt: string; historicalDraft: boolean; locale: ExportLocale; privateFieldsPolicy: PrivateFieldsPolicy; release?: ExportRelease; revisions: { artifactId: string; revision: number }[]; status: 'queued' | 'rendering' | 'partial' | 'ready' | 'failed' | 'cancelled'; files: ExportFile[]; bundle?: ExportBundle; manifestHash?: string; authzVersion: number; leaseExpiresAt?: string }
+export interface ExportJob { id: string; workspaceId: string; createdAt: string; historicalDraft: boolean; locale: ExportLocale; privateFieldsPolicy: PrivateFieldsPolicy; release?: ExportRelease; revisions: { artifactId: string; revision: number; approval?: { decisionId: string; actorId: string; createdAt: string } }[]; status: 'queued' | 'rendering' | 'partial' | 'ready' | 'failed' | 'cancelled'; files: ExportFile[]; bundle?: ExportBundle; manifestHash?: string; authzVersion: number; leaseExpiresAt?: string }
 export const formatsForKind = { document: ['docx', 'pdf'], table: ['xlsx', 'csv'], design: ['png', 'jpeg', 'pdf', 'tirlik'], plan: ['xlsx', 'pdf', 'ics'] } as const satisfies Record<string, readonly ExportFormat[]>;
 export const registeredExportKinds: readonly (keyof typeof formatsForKind)[] = ['document', 'table', 'design', 'plan'];

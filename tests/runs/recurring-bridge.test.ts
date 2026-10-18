@@ -19,7 +19,8 @@ describe('recurring run bridge', () => {
       cancel: vi.fn(),
     } as unknown as Parameters<typeof createRecurringRunBridge>[1];
     const pool = { query: vi.fn(async () => ({ rows: [{ locale: 'kk' }] })) } as unknown as Pool;
-    const bridge = createRecurringRunBridge(pool, service);
+    const wake = vi.fn(async () => 1);
+    const bridge = createRecurringRunBridge(pool, service, wake);
     const principal = { kind: 'job' as const, userId: id('1'), authzVersion: 7 };
     const sourceId = id('2'), sourceVersionId = id('3'), branchId = id('4'), contextId = id('5'), occurrenceId = id('6'), ruleId = id('7');
     const definition = {
@@ -41,6 +42,7 @@ describe('recurring run bridge', () => {
     const result = await bridge.start({ principal, operationId: occurrenceId, workspaceId: occurrence.workspaceId, projectId: occurrence.projectId, authzVersion: 7, definition, occurrence, sourceRefs: [sourceRef], branchId });
 
     expect(result).toEqual({ runId, state: 'queued' });
+    expect(wake).toHaveBeenCalledOnce();
     expect(service.create).toHaveBeenCalledWith(principal, {
       workspaceId: occurrence.workspaceId, projectId: occurrence.projectId,
       capabilityId: 'business.goal', capabilityVersion: 1, goal: definition.goal, locale: 'kk',
@@ -62,7 +64,8 @@ describe('recurring run bridge', () => {
       cancel: vi.fn(async () => run(runId, 'cancelled', 6)),
     } as unknown as Parameters<typeof createRecurringRunBridge>[1];
     const pool = { query: vi.fn(async () => ({ rows: [{ locale: 'unexpected' }] })) } as unknown as Pool;
-    const bridge = createRecurringRunBridge(pool, service);
+    const wake = vi.fn(async () => { throw new Error('SYNTHETIC_WAKE_FAILURE'); });
+    const bridge = createRecurringRunBridge(pool, service, wake);
     const occurrenceId = id('6'), ruleId = id('7');
     const definition = {
       goal: 'Prepare work', sourceSelectors: [], contextRefs: [], capability: { id: 'other.ignored', version: 9 }, procedureVersion: 1,
@@ -73,6 +76,7 @@ describe('recurring run bridge', () => {
     const occurrence = { id: occurrenceId, workspaceId: id('8'), projectId: id('a'), ruleId, ruleVersion: 1, trigger: { kind: 'manual' as const, at: '2026-10-17T08:00:00.000Z', sourceRefs: [] }, state: 'queued' as const, runId: null, branchId: null, reasonCode: null, restartedFrom: null, createdAt: '2026-10-17T08:00:00.000Z', updatedAt: '2026-10-17T08:00:00.000Z', completedAt: null };
     const principal = { kind: 'job' as const, userId, authzVersion: 3 };
     expect(await bridge.start({ principal, operationId: occurrenceId, workspaceId: occurrence.workspaceId, projectId: occurrence.projectId, authzVersion: 3, definition, occurrence, sourceRefs: [], branchId: null })).toEqual({ runId, state: 'waiting_input' });
+    expect(wake).toHaveBeenCalledOnce();
     expect(service.create).toHaveBeenCalledWith(principal, expect.objectContaining({ capabilityId: 'business.goal', capabilityVersion: 1, locale: 'ru' }), occurrenceId, expect.anything());
 
     const sessionPrincipal = { kind: 'session' as const, userId, sessionId: id('b') };

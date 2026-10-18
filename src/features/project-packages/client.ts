@@ -1,7 +1,8 @@
 import { ProjectPackageListResultSchema, ProjectPackageSchema, CreateProjectPackageSchema, type CreateProjectPackage } from './contracts';
 import type { ArtifactViewer } from '../artifacts/contracts';
+import { ErrorEnvelopeSchema } from '../../contracts/errors';
 
-export class ProjectPackageRequestError extends Error { constructor(readonly status: number, readonly uncertain: boolean) { super('project-package-request-failed'); } }
+export class ProjectPackageRequestError extends Error { constructor(readonly status: number, readonly uncertain: boolean, readonly messageKey?: string) { super('project-package-request-failed'); } }
 async function json(response: Response, uncertain: boolean) {
   const maximum = 24 * 1024 * 1024;
   if (Number(response.headers.get('Content-Length')) > maximum) throw new ProjectPackageRequestError(response.status, uncertain);
@@ -16,7 +17,10 @@ export function createProjectPackageClient(viewer: ArtifactViewer, projectId: st
     try { response = await fetcher(path, { credentials: 'same-origin', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer', ...init }); }
     catch { throw new ProjectPackageRequestError(0, uncertain); }
     const body = await json(response, uncertain);
-    if (!response.ok) throw new ProjectPackageRequestError(response.status, uncertain && response.status >= 500);
+    if (!response.ok) {
+      const envelope = ErrorEnvelopeSchema.safeParse(body);
+      throw new ProjectPackageRequestError(response.status, uncertain && response.status >= 500, envelope.success ? envelope.data.messageKey : undefined);
+    }
     return body;
   }
   return {

@@ -104,7 +104,7 @@ export function createIdentityClient(options: ClientOptions = {}) {
 
   return {
     signIn: (input: z.input<typeof SignInSchema>, opts?: RequestOptions) => request("/api/auth/sign-in/email", "POST", statusResult("signed-in"), validate(SignInSchema, input), opts),
-    signUp: (input: z.input<typeof SignUpSchema>, opts?: RequestOptions) => request("/api/auth/sign-up/email", "POST", statusResult("signed-in"), validate(SignUpSchema, input), opts),
+    signUp: (input: z.input<typeof SignUpSchema>, opts?: RequestOptions) => request("/api/auth/sign-up/email", "POST", statusResult("account-checked"), validate(SignUpSchema, input), opts),
     requestPasswordReset: (input: z.input<typeof RequestMailSchema>, opts?: RequestOptions) => request("/api/auth/request-password-reset", "POST", statusResult("accepted"), validate(RequestMailSchema, input), opts),
     resetPassword: (input: z.input<typeof ResetPasswordSchema>, opts?: RequestOptions) => request("/api/auth/reset-password", "POST", statusResult("password-reset"), validate(ResetPasswordSchema, input), opts),
     changePassword: (input: z.input<typeof ChangePasswordSchema>, opts?: RequestOptions) => request("/api/auth/change-password", "POST", statusResult("password-changed"), validate(ChangePasswordSchema, input), opts),

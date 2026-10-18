@@ -2,14 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, LocateFixed, Pause, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pause, RotateCcw } from 'lucide-react';
 import { useLocale } from '@/i18n/provider';
 import { useIdentityAccount } from '@/features/identity/ui/identity-locale-provider';
 import { Button } from '@/ui';
 import { requestTour, TourRequestError } from './client';
 import { TOUR_VERSION, type TourProgress, type TourStep, type UpdateTour } from './contracts';
 import { tourCopy } from './copy';
-import { completedThrough, previousCompletedSteps, resolveTourView, tourDismissedKey } from './state-machine';
+import { completeTourStep, firstAvailableTourStep, focusableTourAnchor, previousCompletedSteps, resolveTourView, tourDismissedKey } from './state-machine';
 import styles from './tour.module.css';
 
 function useTour(ownerId: string) {
@@ -75,33 +75,34 @@ function useReadyAnchors(anchors: Partial<Record<TourStep, string>>) {
 
 export function TourGuide({ ownerId, anchors }: { ownerId: string; anchors: Partial<Record<TourStep, string>> }) {
   const tour = useTour(ownerId); const { locale } = useLocale(); const t = tourCopy[locale];
-  const dismissal = useTourDismissal(ownerId); const readyAnchors = useReadyAnchors(anchors); const [focused, setFocused] = useState<string>();
+  const dismissal = useTourDismissal(ownerId); const readyAnchors = useReadyAnchors(anchors);
+  const view = tour.progress ? resolveTourView(tour.progress, readyAnchors, '/') : { kind: 'hidden' as const };
+  const focusAnchorId = focusableTourAnchor(view, tour.visible, dismissal.ready, dismissal.dismissed);
   useEffect(() => {
-    if (!focused) return; const target = document.getElementById(focused); if (!target) return;
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : undefined;
+    if (!focusAnchorId) return; const target = document.getElementById(focusAnchorId); if (!target) return;
     const temporaryTabIndex = !target.hasAttribute('tabindex'); if (temporaryTabIndex) target.setAttribute('tabindex', '-1');
     const highlightClass = styles.highlight;
     target.setAttribute('data-tour-highlight', 'true'); if (highlightClass) target.classList.add(highlightClass);
     target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' }); target.focus({ preventScroll: true });
-    return () => { target.removeAttribute('data-tour-highlight'); if (highlightClass) target.classList.remove(highlightClass); if (temporaryTabIndex) target.removeAttribute('tabindex'); if (previous?.isConnected) previous.focus({ preventScroll: true }); };
-  }, [focused]);
+    return () => { target.removeAttribute('data-tour-highlight'); if (highlightClass) target.classList.remove(highlightClass); if (temporaryTabIndex) target.removeAttribute('tabindex'); };
+  }, [focusAnchorId]);
   if (!tour.visible || !tour.progress || !dismissal.ready || dismissal.dismissed) return null;
-  const view = resolveTourView(tour.progress, readyAnchors, '/');
-  if (view.kind === 'hidden' || view.kind === 'resume') return null;
+  if (view.kind === 'hidden' || view.kind === 'resume' || view.kind === 'waiting') return null;
+  if (view.kind === 'welcome' && !firstAvailableTourStep(tour.progress, readyAnchors)) return null;
   const copy = view.kind === 'welcome' ? undefined : t.steps[view.step];
   const title = view.kind === 'welcome' ? t.title : copy?.title;
-  const body = view.kind === 'welcome' ? t.intro : view.kind === 'unavailable' ? copy?.unavailable : copy?.body;
+  const body = view.kind === 'welcome' ? t.intro : copy?.body;
+  const backSteps = view.kind === 'step' && tour.progress ? previousCompletedSteps(tour.progress, view.step, readyAnchors) : undefined;
   async function advance(step: TourStep) {
-    if (!tour.progress) return; const completed = completedThrough(tour.progress, step);
-    if (await tour.update(completed.length === Object.keys(t.steps).length ? 'completed' : 'active', completed)) setFocused(undefined);
+    if (!tour.progress) return; const completed = completeTourStep(tour.progress, step);
+    await tour.update(completed.length === Object.keys(t.steps).length ? 'completed' : 'active', completed);
   }
   return <aside className={styles.guide} aria-label={t.title} aria-live="polite">
     <div className={styles.content}><p className={styles.progress}>{view.kind === 'welcome' ? t.optional : t.stepLabel(view.step)}</p><h2>{title}</h2><p>{body}</p>{tour.error && <p className={styles.error} role="alert">{t.error}</p>}</div>
     <div className={styles.actions}>
-      {view.kind === 'welcome' && <Button variant="primary" pending={tour.pending} onClick={() => { void tour.update('active'); }}>{t.start}</Button>}
-      {view.kind === 'step' && <><Button icon={LocateFixed} disabled={tour.pending} onClick={() => setFocused(view.anchorId)}>{t.show}</Button><Button variant="primary" icon={ArrowRight} pending={tour.pending} onClick={() => { void advance(view.step); }}>{t.next}</Button></>}
-      {view.kind === 'unavailable' && <Button variant="primary" icon={ArrowRight} pending={tour.pending} onClick={() => { void advance(view.step); }}>{t.skipStep}</Button>}
-      {view.kind !== 'welcome' && tour.progress.completedSteps.length > 0 && <Button icon={ArrowLeft} disabled={tour.pending} onClick={() => { void tour.update('active', previousCompletedSteps(tour.progress!)); }}>{t.back}</Button>}
+      {view.kind === 'welcome' && <Button variant="primary" pending={tour.pending} onClick={() => { void tour.update('active', tour.progress?.completedSteps); }}>{t.start}</Button>}
+      {view.kind === 'step' && <Button variant="primary" icon={ArrowRight} pending={tour.pending} onClick={() => { void advance(view.step); }}>{t.next}</Button>}
+      {backSteps && <Button icon={ArrowLeft} disabled={tour.pending} onClick={() => { void tour.update('active', backSteps); }}>{t.back}</Button>}
       {view.kind !== 'welcome' && <Button variant="quiet" icon={Pause} disabled={tour.pending} onClick={dismissal.dismiss}>{t.close}</Button>}
       <Button variant="quiet" disabled={tour.pending} onClick={() => { void tour.update('skipped'); }}>{t.skip}</Button>
     </div>
@@ -111,7 +112,7 @@ export function TourGuide({ ownerId, anchors }: { ownerId: string; anchors: Part
 export function TourSettings({ ownerId }: { ownerId: string }) {
   const tour = useTour(ownerId); const { locale } = useLocale(); const t = tourCopy[locale]; const router = useRouter(); const dismissal = useTourDismissal(ownerId);
   if (!tour.visible) return null; const resumable = tour.progress?.state === 'active';
-  async function startFromSettings(replay = false) { dismissal.resume(); if (await tour.update('active', replay ? [] : tour.progress?.completedSteps)) router.push('/app/work'); }
+  async function startFromSettings(replay = false) { dismissal.resume(); await tour.update('active', replay ? [] : tour.progress?.completedSteps); }
   return <section id="tour" tabIndex={-1} className={styles.settings} aria-labelledby="tour-title"><h2 id="tour-title">{t.title}</h2><p>{t.intro}</p>{tour.error && <p className={styles.error} role="alert">{t.error}</p>}<div className={styles.actions}>
     {tour.progress?.state === 'available' && <Button variant="primary" pending={tour.pending} onClick={() => { void startFromSettings(); }}>{t.start}</Button>}
     {resumable && <Button variant="primary" pending={tour.pending} onClick={() => { void startFromSettings(); }}>{t.resume}</Button>}

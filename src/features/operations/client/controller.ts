@@ -64,7 +64,12 @@ export function createPlanController(session: ArtifactSession, reason: () => str
       publish({ phase: 'saving', error: undefined });
       await session.enqueue(command, { [base.artifact.id]: currentGeneration });
     } catch (error) { publish({ phase: 'failed', error }); }
-    finally { building = false; }
+    finally {
+      building = false;
+      // A metadata refresh may acknowledge the first save before enqueue
+      // returns. Reschedule the newer generation after that narrow race.
+      if (!disposed && !flight && state.phase === 'dirty' && generation > acknowledged) schedule(0);
+    }
   }
   function receive() {
     if (disposed) return;

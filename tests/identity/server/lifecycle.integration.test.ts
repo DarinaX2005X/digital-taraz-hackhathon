@@ -45,7 +45,7 @@ async function mailLink(email: string): Promise<URL> {
 async function signup(client: HttpClient, email: string, locale = 'ru') {
   const response = await client.request('/api/auth/sign-up/email', 'POST', { name: 'Synthetic Owner', email, password, locale, returnTo: '/app/projects' });
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ status: 'signed-in', returnTo: '/app/projects' });
+  expect(await response.json()).toEqual({ status: 'account-checked', returnTo: '/app/projects' });
   expect(response.headers.getSetCookie().some((value) => /HttpOnly/i.test(value) && /SameSite=Lax/i.test(value))).toBe(true);
 }
 async function login(client: HttpClient, email: string, currentPassword = password) {
@@ -173,9 +173,11 @@ describe('real HTTP, PostgreSQL and Mailpit account lifecycle', () => {
     const email = `expiry-${randomUUID()}@example.test`;
     const client = new HttpClient();
     await signup(client, email);
-    const duplicate = await client.request('/api/auth/sign-up/email', 'POST', { name: 'Synthetic Owner', email, password, locale: 'ru', returnTo: '/app/projects' });
+    const stranger = new HttpClient();
+    const duplicate = await stranger.request('/api/auth/sign-up/email', 'POST', { name: 'Synthetic Owner', email, password, locale: 'ru', returnTo: '/app/projects' });
     expect(duplicate.status).toBe(200);
-    expect(await duplicate.json()).toEqual({ status: 'signed-in', returnTo: '/app/projects' });
+    expect(await duplicate.json()).toEqual({ status: 'account-checked', returnTo: '/app/projects' });
+    expect((await stranger.request('/api/identity/me')).status).toBe(401);
     expect((await pool.query('SELECT count(*)::int AS count FROM identity_users WHERE email=$1', [email])).rows[0].count).toBe(1);
     for (let index = 0; index < 10; index++) expect((await client.request('/api/auth/sign-in/email', 'POST', { email, password: 'wrong password long enough' })).status).toBe(401);
     const throttled = await client.request('/api/auth/sign-in/email', 'POST', { email, password });

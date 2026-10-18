@@ -37,11 +37,12 @@ describe('approved Tirlik interface contract', () => {
     const runs = read('src/features/runs/ui/runs.module.css');
     const documents = read('src/features/documents/ui/documents.module.css');
     expect(runs).toContain('.assistantHeaderActions button:hover');
-    expect(runs).toContain('.assistantResults a:focus-visible { color: var(--color-on-deep);');
+    expect(runs).toContain('.turnResults a, .turnResults > span { min-height: 36px;');
+    expect(runs).toContain('.turnResults a:hover, .turnResults a:focus-visible { border-color: #a9d9c7;');
     expect(runs).toContain('.assistantSession .questionForm { padding: 16px; color: var(--color-text); }');
     expect(documents).toContain('height: calc(100dvh - 188px)');
     expect(documents).toContain('min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable;');
-    expect(documents).toContain('.editor { height: auto; min-height: 0;');
+    expect(documents).toContain('.editor { height: min(78svh, 760px); min-height: 520px;');
   });
 
   it('uses overlays for elevation while dense editors remain flat', () => {

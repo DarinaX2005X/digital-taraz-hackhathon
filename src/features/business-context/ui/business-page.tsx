@@ -25,7 +25,7 @@ type OutcomeDraft = { occurrenceId: string; label: string; metricKey: string; pe
 
 const emptyFact = (): FactDraft => ({ id: crypto.randomUUID(), category: 'profile', label: '', value: '', confirmed: false });
 const emptyContext = (): ContextDraft => ({ title: '', reason: '', facts: [emptyFact()], colors: '', fonts: '', voice: '' });
-const emptyRule = (): RuleDraft => ({ title: '', goal: '', reason: '', maximumUsd: '1.00', contextIds: [] });
+export const emptyRule = (): RuleDraft => ({ title: '', goal: '', reason: '', maximumUsd: '0.25', contextIds: [] });
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyOutcome = (): OutcomeDraft => ({ occurrenceId: '', label: '', metricKey: '', periodStart: today(), periodEnd: today(), value: '', evidence: '', note: '' });
 const lines = (value: string) => [...new Set(value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean))];
@@ -35,7 +35,14 @@ const contextDraft = (detail: BusinessContextDetail): ContextDraft => ({
   colors: detail.version.brandKit.colors.join('\n'), fonts: detail.version.brandKit.fontFamilies.join('\n'), voice: detail.version.brandKit.voiceRules.join('\n'),
 });
 const categoryKeys: FactCategory[] = ['profile', 'customer', 'supplier', 'contact', 'assumption', 'rule'];
-const terminal = new Set<WorkOccurrence['state']>(['completed', 'failed', 'cancelled']);
+const cancellableOccurrences = new Set<WorkOccurrence['state']>(['queued', 'running', 'waiting_input', 'review_ready']);
+const restartableOccurrences = new Set<WorkOccurrence['state']>(['paused', 'failed', 'cancelled']);
+
+export function occurrenceMutationForState(state: WorkOccurrence['state']): 'cancel' | 'restart' | null {
+  if (cancellableOccurrences.has(state)) return 'cancel';
+  if (restartableOccurrences.has(state)) return 'restart';
+  return null;
+}
 
 function ErrorNotice({ error, retry }: { error: unknown; retry?: () => void }) {
   const { locale } = useLocale(), t = businessCopy(locale);
@@ -207,7 +214,7 @@ export function BusinessPage({ ownerId, initialWorkspaceId }: { ownerId: string;
         <section aria-labelledby="rules-title"><div className={styles.sectionHeading}><div><h2 id="rules-title">{t.rules}</h2><p>{t.rulesHint}</p></div>{projectId && <Button icon={Plus} onClick={() => { setRuleEditor(emptyRule()); setSaved(false); }}>{t.addRule}</Button>}</div>
           {!projectId ? <p className={styles.muted}>{t.selectProject}</p> : rules.length ? <ul className={styles.ruleList}>{rules.map((item) => <li key={item.id} data-selected={currentRule?.id === item.id}><button className={styles.ruleSelect} type="button" onClick={() => setSelectedRuleId(item.id)}><span><strong>{item.title}</strong><small>{t.revision} {item.currentVersion}</small></span><span className={styles.status} data-state={item.state}>{t[item.state]}</span></button><div className={styles.actions}>{item.permissions.edit && <Button icon={Pencil} variant="quiet" onClick={() => { void openRule(item); }}>{t.editContext}</Button>}{item.permissions.enable && <Button icon={item.state === 'enabled' ? CirclePause : CheckCircle2} variant="quiet" onClick={() => { void setRuleState(item, item.state === 'enabled' ? 'paused' : 'enabled'); }}>{item.state === 'enabled' ? t.pause : t.enable}</Button>}{item.permissions.run && <Button icon={Play} variant="primary" onClick={() => { void startRule(item); }}>{t.run}</Button>}</div></li>)}</ul> : <p className={styles.muted}>{t.noRules}</p>}
         </section>
-        {currentRule && <section aria-labelledby="occurrences-title"><div className={styles.subheading}><h3 id="occurrences-title">{t.occurrences}</h3></div>{visibleOccurrences.length ? <ol className={styles.timeline}>{visibleOccurrences.map((item) => <li key={item.id}><History size={18} aria-hidden="true" /><div><strong>{t.status}: {item.state}</strong><time dateTime={item.createdAt}>{formatInstant(locale, item.createdAt)}</time>{item.reasonCode && <small>{t.reasonCode}: {item.reasonCode}</small>}<div className={styles.actions}>{item.runId && <Link href={`/app/projects/${item.projectId}?run=${item.runId}`}>{t.openRun}</Link>}{!terminal.has(item.state) && <Button variant="quiet" onClick={() => { void mutateOccurrence(item, 'cancel'); }}>{t.cancelRun}</Button>}{terminal.has(item.state) && item.state !== 'completed' && <Button variant="quiet" icon={RotateCcw} onClick={() => { void mutateOccurrence(item, 'restart'); }}>{t.restartRun}</Button>}</div></div></li>)}</ol> : <p className={styles.muted}>{t.noOccurrences}</p>}</section>}
+        {currentRule && <section aria-labelledby="occurrences-title"><div className={styles.subheading}><h3 id="occurrences-title">{t.occurrences}</h3></div>{visibleOccurrences.length ? <ol className={styles.timeline}>{visibleOccurrences.map((item) => <li key={item.id}><History size={18} aria-hidden="true" /><div><strong>{t.status}: {item.state}</strong><time dateTime={item.createdAt}>{formatInstant(locale, item.createdAt)}</time>{item.reasonCode && <small>{t.reasonCode}: {item.reasonCode}</small>}<div className={styles.actions}>{item.runId && <Link href={`/app/projects/${item.projectId}?run=${item.runId}`}>{t.openRun}</Link>}{occurrenceMutationForState(item.state) === 'cancel' && <Button variant="quiet" onClick={() => { void mutateOccurrence(item, 'cancel'); }}>{t.cancelRun}</Button>}{occurrenceMutationForState(item.state) === 'restart' && <Button variant="quiet" icon={RotateCcw} onClick={() => { void mutateOccurrence(item, 'restart'); }}>{t.restartRun}</Button>}</div></div></li>)}</ol> : <p className={styles.muted}>{t.noOccurrences}</p>}</section>}
       </aside>
     </div>}
     {projectId && <section className={styles.outcomes} aria-labelledby="outcomes-title"><div className={styles.sectionHeading}><div><h2 id="outcomes-title">{t.outcomes}</h2><p>{t.outcomesHint}</p></div><Button icon={Plus} onClick={() => setOutcomeEditor(emptyOutcome())} disabled={!visibleOccurrences.length}>{t.addOutcome}</Button></div>{outcomes.length ? <div className={styles.outcomeTable} role="table"><div className={styles.outcomeHeader} role="row"><span role="columnheader">{t.metric}</span><span role="columnheader">{t.period}</span><span role="columnheader">{t.resultValue}</span></div>{outcomes.map((item) => <div className={styles.outcomeRow} role="row" key={item.id}><strong role="cell">{item.label}</strong><span role="cell">{item.periodStart} — {item.periodEnd}</span><span role="cell">{valueText(locale, item.value)}</span>{item.evidence.note && <small>{item.evidence.note}</small>}</div>)}</div> : <p className={styles.muted}>{t.noOutcomes}</p>}</section>}

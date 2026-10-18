@@ -11,6 +11,7 @@ describe('versioned business assistant procedure', () => {
     for (const property of ['Partial/truncated', 'exact commercial evaluation', 'operations assessment', 'selectedOptionId', 'acceptedConditionIds', 'same key', 'estimate, offer and operational plan']) expect(prompt).toContain(property);
     expect(prompt).toContain('use only when the goal needs them');
     expect(prompt).not.toContain('always run every');
+    expect(Buffer.byteLength(prompt)).toBeLessThan(7_000);
   });
 
   it('keeps eval cases focused on different necessary work rather than a fixed cast of roles', () => {

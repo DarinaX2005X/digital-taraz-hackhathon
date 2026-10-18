@@ -207,7 +207,7 @@ export function ProjectPage({ ownerId, initial, selectedSource, initialRunId, in
   </form>;
   return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onClickCapture={leave.onClickCapture}><main className={styles.main}>
     {leave.confirmation}
-    {canEdit && <TourGuide ownerId={ownerId} anchors={{ task: 'project-session', materials: 'project-sources', edit: 'project-results' }} />}
+    {canEdit && <TourGuide ownerId={ownerId} anchors={{ task: 'project-session', materials: 'project-sources', ...(artifacts?.artifacts.length ? { edit: 'project-results' } : {}) }} />}
     <Link className={styles.back} href={`/app/work?workspace=${workspaceId}`}><ArrowLeft size={18} />{t.back}</Link>
     <header className={styles.pageHeading}><div><h1>{project.title}</h1><p className={styles.meta}>{formatInstant(locale, project.updatedAt)}{result.canEdit === false && <span>{t.readOnly}</span>}</p></div><div className={styles.actions}>
       <Link className="tl-button tl-button--secondary" href={`/app/projects/${projectId}/changes`}><GitCompareArrows size={18} />{t.changes}</Link>

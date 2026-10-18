@@ -1,4 +1,5 @@
 .editor {
+  container: sheet-editor / inline-size;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -24,12 +25,20 @@
 
 .toolGroup {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
+  min-width: max-content;
   padding-right: var(--space-2);
   border-right: 1px solid var(--color-divider);
 }
+
+.toolbar :global(.tl-button),
+.toolbar details {
+  flex: 0 0 auto;
+}
+
+.toolbar :global(.tl-button__label) { white-space: nowrap; }
 
 .toolGroup:last-of-type { border-right: 0; }
 .exportAction { margin-left: auto; }
@@ -329,7 +338,7 @@
   .importPanel button:hover:not(:disabled) { border-color: var(--color-action); background: var(--color-selected); }
 }
 
-@media (max-width: 1100px) {
+@container sheet-editor (max-width: 1100px) {
   .toolbar { flex-wrap: wrap; }
   .exportAction { margin-left: 0; }
   .workbench { grid-template-columns: minmax(0, 1fr) 280px; }
@@ -339,10 +348,9 @@
   .saveState { grid-column: 1 / -1; justify-self: end; padding-bottom: var(--space-2); }
 }
 
-@media (max-width: 760px) {
-  .editor { border-radius: var(--radius-inset); }
+@container sheet-editor (max-width: 760px) {
   .toolbar { gap: var(--space-1); padding: var(--space-2); }
-  .toolGroup { flex-wrap: wrap; padding-right: var(--space-1); }
+  .toolGroup { flex-wrap: wrap; width: 100%; min-width: 0; padding-right: var(--space-1); }
   .toolbar select { max-width: 144px; }
   .formula { grid-template-columns: auto auto minmax(90px, 1fr); }
   .formula :global(.tl-button) { grid-column: 1 / -1; width: 100%; }
@@ -358,7 +366,7 @@
   .chart { margin: var(--space-3); }
 }
 
-@media (max-width: 500px) {
+@container sheet-editor (max-width: 500px) {
   .toolbar { align-items: stretch; }
   .toolGroup { width: 100%; border-right: 0; border-bottom: 1px solid var(--color-divider); padding-bottom: var(--space-1); }
   .toolGroup:last-of-type { border-bottom: 0; }
@@ -369,6 +377,10 @@
   .sourceCard,
   .formulaHelp { grid-column: auto; }
   .twoColumns { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  .editor { border-radius: var(--radius-inset); }
 }
 
 @media (prefers-reduced-motion: reduce) {

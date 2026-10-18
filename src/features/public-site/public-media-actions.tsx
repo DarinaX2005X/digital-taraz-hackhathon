@@ -24,8 +24,10 @@ export function PublicMediaActions({ copy }: { copy: PublicCopy }) {
     <a className={styles.presentationDownload} href="/presentation/tirlik-presentation.pptx" download>
       <Download size={15} aria-hidden="true" />{copy.presentationDownload}
     </a>
-    <Dialog open={open} onOpenChange={setOpen} title={copy.videoTitle} description={copy.videoDescription} returnFocus={trigger} className={styles.mediaDialog}
-      footer={<a className="tl-button tl-button--secondary" href={videoPath} download><Download size={17} aria-hidden="true" />{copy.videoDownload}</a>}>
+    <Dialog open={open} onOpenChange={setOpen} title={copy.videoTitle} description={<span className={styles.mediaDialogMeta}>
+      <span>{copy.videoDescription}</span>
+      <a className={styles.mediaDownload} href={videoPath} download><Download size={16} aria-hidden="true" />{copy.videoDownload}</a>
+    </span>} returnFocus={trigger} className={styles.mediaDialog}>
       {open && <video className={styles.mediaVideo} controls playsInline preload="none" width={1920} height={1080} aria-label={copy.videoTitle}>
         <source src={videoPath} type="video/mp4" />
         <a href={videoPath} download>{copy.videoDownload}</a>
