@@ -20,7 +20,7 @@ export interface RunCopy {
 
 export interface AssistantSessionCopy {
   assistant: string; emptyTitle: string; emptyText: string; plan: string; activity: string; results: string;
-  resultRequired: string; resultRequiredText: string; technical: string; fullActivity: string; noResults: string;
+  resultRequired: string; resultRequiredText: string; failureWithoutResults: string; technical: string; fullActivity: string; noResults: string;
   stop: string; stopTitle: string; stopText: string; keepWorking: string; checkAgain: string; openResult: string;
   collapse: string; expand: string; switchAssistant: string; switchResult: string; currentResult: string;
   branches: string; branchStates: Record<'planned' | 'running' | 'waiting_input' | 'review_ready' | 'completed' | 'failed' | 'cancelled', string>;
@@ -106,7 +106,7 @@ export const runCatalog: Record<Locale, RunCopy> = { ru, kk, en };
 export const assistantSessionCatalog: Record<Locale, AssistantSessionCopy> = {
   ru: {
     assistant: 'Ассистент', emptyTitle: 'Опишите деловую задачу', emptyText: 'Tirlik составит план, выполнит доступные проверки и откроет результат в рабочем компоненте.',
-    plan: 'План', activity: 'Что уже сделано', results: 'Результаты', resultRequired: 'Нужен рабочий результат', resultRequiredText: 'Ответ ассистента сохранён, но задача не считается завершённой, пока нет проверяемого материала или операции.',
+    plan: 'План', activity: 'Что уже сделано', results: 'Результаты', resultRequired: 'Нужен рабочий результат', resultRequiredText: 'Ответ ассистента сохранён, но задача не считается завершённой, пока нет проверяемого материала или операции.', failureWithoutResults: 'Действие не выполнено. Сообщения и контекст работы остаются доступны.',
     technical: 'Технические сведения', fullActivity: 'Открыть полную историю', noResults: 'Готового материала пока нет.', stop: 'Остановить', stopTitle: 'Остановить работу?', stopText: 'Уже созданные результаты сохранятся. Запущенная операция может завершиться после остановки.', keepWorking: 'Продолжить работу', checkAgain: 'Проверить состояние', openResult: 'Открыть',
     collapse: 'Свернуть ассистента', expand: 'Вернуть ассистента', switchAssistant: 'Ассистент', switchResult: 'Результат', currentResult: 'Текущий результат',
     branches: 'Параллельные части работы', branchStates: { planned: 'Запланировано', running: 'Выполняется', waiting_input: 'Нужно решение', review_ready: 'Готово к проверке', completed: 'Готово', failed: 'Не выполнено', cancelled: 'Остановлено' },
@@ -118,7 +118,7 @@ export const assistantSessionCatalog: Record<Locale, AssistantSessionCopy> = {
   },
   kk: {
     assistant: 'Ассистент', emptyTitle: 'Іскерлік тапсырманы сипаттаңыз', emptyText: 'Tirlik жоспар құрып, қолжетімді тексерулерді орындайды және нәтижені жұмыс компонентінде ашады.',
-    plan: 'Жоспар', activity: 'Орындалған әрекеттер', results: 'Нәтижелер', resultRequired: 'Жұмыс нәтижесі қажет', resultRequiredText: 'Ассистент жауабы сақталды, бірақ тексерілетін материал немесе операция болмайынша тапсырма аяқталды деп саналмайды.',
+    plan: 'Жоспар', activity: 'Орындалған әрекеттер', results: 'Нәтижелер', resultRequired: 'Жұмыс нәтижесі қажет', resultRequiredText: 'Ассистент жауабы сақталды, бірақ тексерілетін материал немесе операция болмайынша тапсырма аяқталды деп саналмайды.', failureWithoutResults: 'Әрекет орындалмады. Хабарламалар мен жұмыс мәнмәтіні қолжетімді болып қалады.',
     technical: 'Техникалық мәліметтер', fullActivity: 'Толық тарихты ашу', noResults: 'Дайын материал әлі жоқ.', stop: 'Тоқтату', stopTitle: 'Жұмысты тоқтату керек пе?', stopText: 'Жасалған нәтижелер сақталады. Басталған операция тоқтатқаннан кейін аяқталуы мүмкін.', keepWorking: 'Жұмысты жалғастыру', checkAgain: 'Күйін тексеру', openResult: 'Ашу',
     collapse: 'Ассистентті жинау', expand: 'Ассистентті қайтару', switchAssistant: 'Ассистент', switchResult: 'Нәтиже', currentResult: 'Ағымдағы нәтиже',
     branches: 'Қатар орындалатын жұмыс бөліктері', branchStates: { planned: 'Жоспарланған', running: 'Орындалуда', waiting_input: 'Шешім қажет', review_ready: 'Тексеруге дайын', completed: 'Дайын', failed: 'Орындалмады', cancelled: 'Тоқтатылды' },
@@ -130,7 +130,7 @@ export const assistantSessionCatalog: Record<Locale, AssistantSessionCopy> = {
   },
   en: {
     assistant: 'Assistant', emptyTitle: 'Describe the business task', emptyText: 'Tirlik will make a plan, run the available checks, and open the result in a working component.',
-    plan: 'Plan', activity: 'Work completed', results: 'Results', resultRequired: 'A working result is still needed', resultRequiredText: 'The assistant response is saved, but the task is not complete until it produces a verifiable material or operation.',
+    plan: 'Plan', activity: 'Work completed', results: 'Results', resultRequired: 'A working result is still needed', resultRequiredText: 'The assistant response is saved, but the task is not complete until it produces a verifiable material or operation.', failureWithoutResults: 'The action failed. The messages and work context remain available.',
     technical: 'Technical details', fullActivity: 'Open full activity', noResults: 'No working material is ready yet.', stop: 'Stop', stopTitle: 'Stop this work?', stopText: 'Created results will remain. An operation already in progress may finish after you stop.', keepWorking: 'Keep working', checkAgain: 'Check status', openResult: 'Open',
     collapse: 'Collapse assistant', expand: 'Restore assistant', switchAssistant: 'Assistant', switchResult: 'Result', currentResult: 'Current result',
     branches: 'Parallel work', branchStates: { planned: 'Planned', running: 'Running', waiting_input: 'Needs a decision', review_ready: 'Ready to review', completed: 'Done', failed: 'Failed', cancelled: 'Stopped' },

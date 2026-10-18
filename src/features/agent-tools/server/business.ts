@@ -82,7 +82,15 @@ const CreateDesignSchema = z.strictObject({
   if (!value.layers.some((layer) => layer.type === 'text')) context.addIssue({ code: 'custom', path: ['layers'], message: 'A useful design needs editable text.' });
   for (const [index, layer] of value.layers.entries()) {
     const { x, y, width, height } = layer.transform;
-    if (x < 0 || y < 0 || x + width > value.width || y + height > value.height) context.addIssue({ code: 'custom', path: ['layers', index, 'transform'], message: 'Layer must fit inside the canvas.' });
+    if (layer.type === 'text') {
+      if (x < 0 || y < 0 || x + width > value.width || y + height > value.height) context.addIssue({ code: 'custom', path: ['layers', index, 'transform'], message: 'Text layer must fit inside the canvas.' });
+      continue;
+    }
+    const intersectsCanvas = x < value.width && y < value.height && x + width > 0 && y + height > 0;
+    const boundedBleed = width <= value.width * 2 && height <= value.height * 2
+      && x >= -value.width && y >= -value.height
+      && x + width <= value.width * 2 && y + height <= value.height * 2;
+    if (!intersectsCanvas || !boundedBleed) context.addIssue({ code: 'custom', path: ['layers', index, 'transform'], message: 'Shape layer must intersect the canvas and stay within one canvas of its bounds.' });
   }
 });
 const TableValueSchema = z.union([z.string().max(4000), z.number().finite(), z.boolean(), z.null()]);

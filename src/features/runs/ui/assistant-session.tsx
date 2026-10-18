@@ -13,7 +13,7 @@ import { runErrorText } from '../client/state';
 import { openRunEvents } from '../client/events';
 import { runCatalog, assistantSessionCatalog } from '../locales';
 import { RunContinuation, RunFollowupComposer, runAnswerDraftKey, runFollowupDraftKey, type RunChange } from './run-continuation';
-import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionResultHref, sessionResults, showGenericResume, type SessionResultHrefResolver } from './session-state';
+import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionFailureMessage, sessionResultHref, sessionResults, showGenericResume, type SessionResultHrefResolver } from './session-state';
 import { DecisionPanel } from './decision-panel';
 import { WorkDecisionPanel } from '@/features/campaigns/ui/work-decision-panel';
 import { WorkPreviewPanel } from './work-preview-panel';
@@ -295,7 +295,7 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
           const pastState = assistantSessionState(pastRun), pastResults = sessionResults(pastRun);
           return <article className={styles.historyTurn} key={pastRun.id}>
             {sessionConversationTurns(pastRun).map((turn) => <div className={turn.role === 'user' ? styles.historyUser : styles.historyAssistant} key={turn.key}><span>{turn.role === 'user' ? historyText.you : historyText.assistant}</span><p>{turn.content}</p></div>)}
-            <div className={styles.historyAssistant}><span>{historyText.assistant}</span><strong>{text.states[pastState]}</strong>{pastRun.progress.summary && <p>{pastRun.progress.summary}</p>}{pastRun.failure && <p>{runText.failures[pastRun.failure]}</p>}
+            <div className={styles.historyAssistant}><span>{historyText.assistant}</span><strong>{text.states[pastState]}</strong>{pastRun.progress.summary && <p>{pastRun.progress.summary}</p>}{pastRun.failure && <p>{sessionFailureMessage(pastRun, runText.failures, text.failureWithoutResults)}</p>}
               {pastResults.length > 0 && <div className={styles.historyResults}><small>{historyText.results}</small>{pastResults.map((result) => { const href = sessionResultHref(pastRun, result, resultHref); const title = pastRun.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? runText[result.kind]; return href ? <Link key={`${result.kind}:${result.id}:${result.revision ?? ''}`} href={href}>{title}<ArrowUpRight size={13} aria-hidden="true" /></Link> : <span key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{title}</span>; })}</div>}
             </div>
           </article>;
@@ -308,7 +308,7 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
         <div className={`${styles.historyAssistant} ${styles.currentAssistant}`}><span>{historyText.assistant}</span><strong><span className={styles.assistantState} data-state={state}>{text.states[state]}</span></strong>
           {data.progress.summary && <p className={styles.resultSummary}>{data.progress.summary}</p>}
           {error !== undefined && <div className={styles.sessionError} role="alert"><p>{runText.errors.unavailable}</p><Button icon={RefreshCw} onClick={() => setReload((value) => value + 1)}>{text.checkAgain}</Button></div>}
-          {data.failure && <p className={styles.sessionNotice}>{runText.failures[data.failure]}</p>}
+          {data.failure && <p className={styles.sessionNotice}>{sessionFailureMessage(data, runText.failures, text.failureWithoutResults)}</p>}
           {missingDecisionPrompt && <div className={styles.sessionError} role="alert"><p>{historyText.missingPrompt}</p><Button icon={RefreshCw} onClick={() => setReload((value) => value + 1)}>{historyText.retry}</Button></div>}
           {visibleLiveEvent && liveAction && liveState && <div className={styles.liveActivity} role="status" aria-live="polite">{visibleLiveEvent.stepState === 'claimed' || visibleLiveEvent.state === 'queued' || visibleLiveEvent.state === 'running' ? <LoaderCircle className="tl-spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}<span><strong>{liveAction}</strong><small>{liveState}</small></span></div>}
           {resultlessCompletion && <div className={styles.resultRequired} role="status"><strong>{text.resultRequired}</strong><p>{text.resultRequiredText}</p></div>}

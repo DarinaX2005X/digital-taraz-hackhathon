@@ -428,6 +428,35 @@ describe('transactional runtime service', () => {
     await service.executeStep(childClaim);
     expect(await service.read(owner.principal, child.id)).toMatchObject({ state: 'completed', progress: { answeredQuestions: [{ questionId: 'legacy_scope' }, { questionId: 'delivery_date', answer: '2026-11-03' }] } });
   });
+  it('continues one expired settled business decision failure as a child and preserves its approved answer', async () => {
+    const owner = await scope();
+    const service = createRunService(pool, assistantRegistry());
+    const input = { workspaceId: owner.workspaceId, projectId: null, capabilityId: 'business.goal', capabilityVersion: 1, goal: 'Create the approved campaign design', locale: 'en' as const, inputRefs: [] };
+    const created = await service.create(owner.principal, input, randomUUID());
+    const claim = await service.claim(); if (!claim) throw new Error('claim missing');
+    await service.executeStep(claim);
+    const stepId = created.steps[0]!.id;
+    await pool.query("UPDATE agent_run_contexts SET state=jsonb_set(jsonb_set(state,'{questions}','[]'::jsonb),'{answers}',to_jsonb($2::jsonb)) WHERE run_id=$1", [created.id, JSON.stringify([{ questionId: 'clarify_headline', question: 'What headline should the design use?', answer: 'Approved exact headline' }])]);
+    await pool.query("UPDATE agent_run_steps SET tool_name='business.decide',state='failed',failure_code='invalid_result',retryable=false,finished_at=now() WHERE id=$1", [stepId]);
+    await pool.query("UPDATE agent_runs SET state='waiting_input',failure_code='invalid_result',started_at=now()-interval '11 minutes',deadline_at=now()-interval '1 second',request_count=2,spent_usd=0.0012384512 WHERE id=$1", [created.id]);
+
+    const expired = await service.read(owner.principal, created.id);
+    expect(expired).toMatchObject({ state: 'waiting_input', failure: 'invalid_result', progress: { questions: [], answeredQuestions: [{ questionId: 'clarify_headline', answer: 'Approved exact headline' }] }, actions: { resume: true, retryStepIds: [stepId] } });
+    const unsafeUsageId = randomUUID();
+    await pool.query(`INSERT INTO agent_run_usage(id,run_id,step_id,call_key,operation_key,input_hash,workspace_id,budget_day,state,model,endpoint,pricing_snapshot,reserved_usd,lease_epoch,authorization_id)
+      VALUES($1,$2,$3,'unsafe_resume_guard','unsafe_resume_guard',$4,$5,(now() AT TIME ZONE 'UTC')::date,'reserved',$6,$7,$8,0.1,$9,$10)`, [unsafeUsageId, created.id, stepId, 'a'.repeat(64), owner.workspaceId, currentPrice.model, currentPrice.endpoint, currentPrice, claim.epoch, grantId]);
+    for (const state of ['reserved', 'dispatched', 'ambiguous'] as const) {
+      if (state === 'dispatched') await pool.query("UPDATE agent_run_usage SET state='dispatched',dispatched_at=now() WHERE id=$1", [unsafeUsageId]);
+      if (state === 'ambiguous') await pool.query("UPDATE agent_run_usage SET state='ambiguous' WHERE id=$1", [unsafeUsageId]);
+      expect((await service.read(owner.principal, created.id)).actions).toMatchObject({ resume: false, retryStepIds: [] });
+    }
+    await pool.query('DELETE FROM agent_run_usage WHERE id=$1', [unsafeUsageId]);
+    const child = await service.resume(owner.principal, created.id, { expectedEpoch: expired.epoch, stepId }, randomUUID());
+    expect(child).toMatchObject({ state: 'queued', goal: created.goal, budget: { limitUsd: created.budget.limitUsd, reservedUsd: '0.000000000000', spentUsd: '0.000000000000', requestCount: 0 }, progress: { parentRunId: created.id, questions: [], answeredQuestions: [{ questionId: 'clarify_headline', question: 'What headline should the design use?', answer: 'Approved exact headline' }] } });
+    const parent = await service.read(owner.principal, created.id);
+    expect(parent).toMatchObject({ state: 'cancelled', budget: { requestCount: 2, spentUsd: '0.001238451200' }, progress: { continuationRunId: child.id, answeredQuestions: [{ answer: 'Approved exact headline' }] }, actions: { resume: false, retryStepIds: [] } });
+    await expect(service.resume(owner.principal, created.id, { expectedEpoch: parent.epoch, stepId }, randomUUID())).rejects.toMatchObject({ failure: 'conflict' });
+  });
   it('fences cancellation while preparation is in flight and never commits the late result', async () => {
     let ready!: () => void; let release!: () => void; let effects = 0;
     const prepared = new Promise<void>((resolve) => { ready = resolve; }); const gate = new Promise<void>((resolve) => { release = resolve; });

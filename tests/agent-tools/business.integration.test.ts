@@ -124,6 +124,22 @@ function contextOf(request: ModelRequest) {
     savedResults: { id: string; title: string }[];
   };
 }
+
+it('accepts bounded decorative shape bleed while rejecting detached shapes and overflowing editable text', () => {
+  const registration = businessRegistration(pool, { gateway: { complete: async () => verified() } });
+  const schema = registration.tools.find((tool) => tool.name === 'business.create_design')!.input;
+  const design = { title: 'Bounded bleed', width: 1080, height: 1080, unit: 'px', background: '#101820', layers: [
+    { type: 'shape', name: 'Top accent', shape: 'ellipse', transform: { x: 760, y: -80, width: 400, height: 400, rotation: 0 }, fill: '#ffcc00', stroke: 'transparent', strokeWidth: 0, radius: 0, opacity: 1 },
+    { type: 'shape', name: 'Bottom accent', shape: 'ellipse', transform: { x: -60, y: 800, width: 300, height: 300, rotation: 0 }, fill: '#ffcc00', stroke: 'transparent', strokeWidth: 0, radius: 0, opacity: 1 },
+    { type: 'text', name: 'Headline', text: 'Editable headline', transform: { x: 80, y: 100, width: 700, height: 180, rotation: 0 }, color: '#ffffff', fontSize: 72, fontWeight: '700', align: 'left', lineHeight: 1.1, letterSpacing: 0 },
+  ] };
+  const parse = (arguments_: unknown) => schema.safeParse({ callId: 'shape_bounds', arguments: arguments_ }).success;
+
+  expect(parse(design)).toBe(true);
+  expect(parse({ ...design, layers: design.layers.map((layer, index) => index === 0 ? { ...layer, transform: { ...layer.transform, x: -1200 } } : layer) })).toBe(false);
+  expect(parse({ ...design, layers: design.layers.map((layer, index) => index === 0 ? { ...layer, transform: { ...layer.transform, x: -100, width: 2200 } } : layer) })).toBe(false);
+  expect(parse({ ...design, layers: design.layers.map((layer, index) => index === 2 ? { ...layer, transform: { ...layer.transform, x: -1 } } : layer) })).toBe(false);
+});
 function sourceFact(context: ReturnType<typeof contextOf>, title: string, token: string) {
   const source = context.sources.find((item) => item.title === title)!;
   const fragment = source.fragments.find((item) => [item.text ?? '', ...(item.values ?? [])].some((value) => value.includes(token)))!;

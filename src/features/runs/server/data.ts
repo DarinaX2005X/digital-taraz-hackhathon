@@ -136,10 +136,16 @@ export async function snapshots(transaction: PoolClient, runs: readonly RunRow[]
     const unsafeUsage = unsafeRuns.has(run.id);
     const replayableInvalidSteps = replayableByRun.get(run.id) ?? new Set<string>();
     const withinLifetime = !run.deadline_at || run.deadline_at > now;
+    const failedSteps = steps.filter((step) => step.state === 'failed');
+    const continuableExpiredBusinessStep = !withinLifetime && run.capability_id === 'business.goal' && !continuationRunId
+      && run.state === 'waiting_input' && run.failure_code === 'invalid_result'
+      && publicProgress.questions.length === 0 && publicProgress.answeredQuestions.length > 0
+      && failedSteps.length === 1 && failedSteps[0]?.toolName === 'business.decide' && failedSteps[0].failure === 'invalid_result'
+      ? failedSteps[0] : null;
     const canRevise = run.capability_id === 'business.goal' && !continuationRunId && run.state !== 'cancelled' && run.failure_code !== 'access_changed' && !unsafeUsage;
     const canAnswerBusinessQuestion = run.capability_id === 'business.goal' && !continuationRunId && run.state === 'waiting_input'
       && run.failure_code === null && publicProgress.questions.length > 0;
-    const canResume = !unsafeUsage && (canAnswerBusinessQuestion || (withinLifetime && ['waiting_input', 'failed'].includes(run.state)
+    const canResume = !unsafeUsage && (canAnswerBusinessQuestion || continuableExpiredBusinessStep !== null || (withinLifetime && ['waiting_input', 'failed'].includes(run.state)
       && (steps.some((step) => step.retryable || replayableInvalidSteps.has(step.id))
         || (run.state === 'waiting_input' && run.failure_code === null && steps.some((step) => step.state === 'planned')))));
     return RunSchema.parse({
@@ -148,7 +154,7 @@ export async function snapshots(transaction: PoolClient, runs: readonly RunRow[]
       state: run.state, epoch: run.execution_epoch, cursor: Number(run.event_sequence), failure: run.failure_code,
       createdAt: iso(run.created_at), updatedAt: iso(run.updated_at), startedAt: iso(run.started_at), deadlineAt: iso(run.deadline_at),
       budget: { limitUsd: run.budget_limit_usd, reservedUsd: run.reserved_usd, spentUsd: run.spent_usd, requestCount: run.request_count, requestLimit: 12 },
-      steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable || replayableInvalidSteps.has(step.id)).map((step) => step.id) : [] },
+      steps, progress, actions: { cancel: !terminal(run.state), resume: canResume, revise: canRevise, retryStepIds: canResume ? steps.filter((step) => step.retryable || replayableInvalidSteps.has(step.id) || step.id === continuableExpiredBusinessStep?.id).map((step) => step.id) : [] },
     });
   });
 }

@@ -1,4 +1,4 @@
-import type { Run, RunResultRef } from '@/contracts/runs';
+import type { Run, RunFailure, RunResultRef } from '@/contracts/runs';
 
 export type SessionResultHrefResolver = (run: Pick<Run, 'id' | 'workspaceId' | 'projectId'>, result: RunResultRef) => string | null;
 
@@ -59,6 +59,11 @@ export function sessionResults(run: Pick<Run, 'steps' | 'progress'>): RunResultR
     seen.add(key);
     return true;
   });
+}
+
+export function sessionFailureMessage(run: Pick<Run, 'failure' | 'steps' | 'progress'>, failures: Record<RunFailure, string>, withoutResults: string): string | undefined {
+  if (!run.failure) return undefined;
+  return run.failure === 'invalid_result' && sessionResults(run).length === 0 ? withoutResults : failures[run.failure];
 }
 
 export function assistantSessionState(run: Run | null | undefined, hasEnteredGoal = false): AssistantSessionState {

@@ -153,6 +153,9 @@
 .sessionActions { display: flex; flex-wrap: wrap; gap: 8px; }
 .assistantSession .continuation { margin: 0; gap: 16px; }
 .assistantSession .continuation h3 { font-size: 16px; line-height: 24px; margin-bottom: 10px; }
+.assistantSession .continuation .textLink { padding-inline: 6px; border-radius: var(--radius-control); color: #bde0d3; text-underline-offset: 3px; }
+.assistantSession .continuation .textLink:hover { color: var(--color-on-deep); background: rgb(255 255 255 / 9%); }
+.assistantSession .continuation .textLink:focus-visible { color: var(--color-on-deep); background: rgb(255 255 255 / 9%); outline: 2px solid #d4f4e8; outline-offset: 2px; }
 .assistantSession .questionForm { padding: 16px; color: var(--color-text); }
 .followupComposer { display: grid; gap: 10px; padding: 14px 16px 16px; color: var(--color-text); background: var(--color-paper); border-top: 1px solid var(--color-divider); }
 .followupComposer :global(.tl-field) { gap: 5px; }
