@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Run, RunResultRef } from '@/contracts/runs';
-import { assistantSessionState, sessionArtifactResultHrefs, sessionResultHref, sessionResults } from '@/features/runs/ui/session-state';
+import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionResultHref, sessionResults, showGenericResume } from '@/features/runs/ui/session-state';
 
 const id = (tail: string) => `00000000-0000-4000-8000-${tail.padStart(12, '0')}`;
 function run(state: Run['state'], refs: Run['progress']['results'] = []): Run {
@@ -9,7 +9,7 @@ function run(state: Run['state'], refs: Run['progress']['results'] = []): Run {
     goal: 'Prepare an answer', locale: 'en', state, epoch: 0, cursor: 1, failure: state === 'failed' ? 'invalid_result' : state === 'cancelled' ? 'cancelled' : null,
     createdAt: '2026-10-15T00:00:00.000Z', updatedAt: '2026-10-15T00:00:00.000Z', startedAt: null, deadlineAt: null,
     budget: { limitUsd: '0.5', reservedUsd: '0', spentUsd: '0', requestCount: 0, requestLimit: 12 }, steps: [],
-    progress: { plan: [], questions: [], summary: '', results: refs, decision: null, parentRunId: null, continuationRunId: null },
+    progress: { plan: [], questions: [], answeredQuestions: [], summary: '', results: refs, decision: null, parentRunId: null, continuationRunId: null },
     actions: { cancel: false, resume: false, revise: false, retryStepIds: [] },
   };
 }
@@ -33,6 +33,67 @@ describe('assistant-first session state', () => {
     expect(assistantSessionState(value)).toBe('failed');
     value.progress.results = [{ kind: 'artifact', id: id('5'), revision: 1, title: 'Draft' }];
     expect(assistantSessionState(value)).toBe('partial');
+  });
+
+  it('requires a visible canonical input or continuation action before announcing a decision', () => {
+    const value = run('waiting_input');
+    expect(assistantSessionState(value)).toBe('failed');
+    value.progress.questions = [{ id: 'delivery_date', text: 'When is delivery required?', required: true }];
+    expect(assistantSessionState(value)).toBe('waiting_input');
+    value.progress.questions = [];
+    value.actions.resume = true;
+    expect(assistantSessionState(value)).toBe('waiting_input');
+    value.actions.resume = false;
+    value.progress.results = [{ kind: 'artifact', id: id('5'), revision: 1, title: 'Draft' }];
+    expect(assistantSessionState(value)).toBe('partial');
+  });
+
+  it('reconstructs accepted question answers in their canonical conversation order', () => {
+    const value = run('running');
+    value.progress.answeredQuestions = [
+      { questionId: 'delivery_date', question: 'When is delivery required?', answer: '30 October' },
+      { questionId: 'delivery_date', question: 'Which year?', answer: '2026' },
+    ];
+    expect(sessionConversationTurns(value).map(({ role, kind, content }) => ({ role, kind, content }))).toEqual([
+      { role: 'user', kind: 'goal', content: 'Prepare an answer' },
+      { role: 'assistant', kind: 'question', content: 'When is delivery required?' },
+      { role: 'user', kind: 'answer', content: '30 October' },
+      { role: 'assistant', kind: 'question', content: 'Which year?' },
+      { role: 'user', kind: 'answer', content: '2026' },
+    ]);
+    expect(new Set(sessionConversationTurns(value).map((turn) => turn.key)).size).toBe(5);
+  });
+
+  it('keeps a legacy accepted answer without inventing a missing question turn', () => {
+    const value = run('running');
+    value.progress.answeredQuestions = [{ questionId: 'delivery_date', answer: '30 October' }];
+    expect(sessionConversationTurns(value).map(({ role, kind, content }) => ({ role, kind, content }))).toEqual([
+      { role: 'user', kind: 'goal', content: 'Prepare an answer' },
+      { role: 'user', kind: 'answer', content: '30 October' },
+    ]);
+  });
+
+  it('keeps the composer enabled for a server-authorized follow-up after a paused failure', () => {
+    const value = run('waiting_input');
+    value.capabilityId = 'business.goal';
+    value.failure = 'run_deadline';
+    value.actions.revise = true;
+    expect(followupComposerState(value)).toBe('enabled');
+    value.actions.revise = false;
+    expect(followupComposerState(value)).toBe('disabled');
+    value.state = 'cancelled';
+    expect(followupComposerState(value)).toBe('hidden');
+  });
+
+  it('never offers a generic resume while a canonical work choice is unanswered', () => {
+    const value = run('waiting_input');
+    value.actions.resume = true;
+    value.progress.workDecision = { id: 'direction', requiresConsent: true, selectedOptionId: null, options: [{ id: 'precise', label: 'Precise', artifactIds: [] }] };
+    expect(showGenericResume(value)).toBe(false);
+    value.progress.workDecision.selectedOptionId = 'precise';
+    expect(showGenericResume(value)).toBe(true);
+    value.progress.questions = [{ id: 'delivery_date', text: 'When is delivery required?', required: true }];
+    expect(showGenericResume(value)).toBe(false);
   });
 
   it('deduplicates result receipts and keeps the session id in an artifact link', () => {

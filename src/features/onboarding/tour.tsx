@@ -76,14 +76,15 @@ function useReadyAnchors(anchors: Partial<Record<TourStep, string>>) {
 export function TourGuide({ ownerId, anchors }: { ownerId: string; anchors: Partial<Record<TourStep, string>> }) {
   const tour = useTour(ownerId); const { locale } = useLocale(); const t = tourCopy[locale];
   const dismissal = useTourDismissal(ownerId); const readyAnchors = useReadyAnchors(anchors);
+  const guideRef = useRef<HTMLElement>(null);
   const view = tour.progress ? resolveTourView(tour.progress, readyAnchors, '/') : { kind: 'hidden' as const };
   const focusAnchorId = focusableTourAnchor(view, tour.visible, dismissal.ready, dismissal.dismissed);
   useEffect(() => {
-    if (!focusAnchorId) return; const target = document.getElementById(focusAnchorId); if (!target) return;
+    if (!focusAnchorId) return; const target = document.getElementById(focusAnchorId); const guide = guideRef.current; if (!target || !guide) return;
     const temporaryTabIndex = !target.hasAttribute('tabindex'); if (temporaryTabIndex) target.setAttribute('tabindex', '-1');
     const highlightClass = styles.highlight;
     target.setAttribute('data-tour-highlight', 'true'); if (highlightClass) target.classList.add(highlightClass);
-    target.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' }); target.focus({ preventScroll: true });
+    guide.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'nearest' }); target.focus({ preventScroll: true });
     return () => { target.removeAttribute('data-tour-highlight'); if (highlightClass) target.classList.remove(highlightClass); if (temporaryTabIndex) target.removeAttribute('tabindex'); };
   }, [focusAnchorId]);
   if (!tour.visible || !tour.progress || !dismissal.ready || dismissal.dismissed) return null;
@@ -97,7 +98,7 @@ export function TourGuide({ ownerId, anchors }: { ownerId: string; anchors: Part
     if (!tour.progress) return; const completed = completeTourStep(tour.progress, step);
     await tour.update(completed.length === Object.keys(t.steps).length ? 'completed' : 'active', completed);
   }
-  return <aside className={styles.guide} aria-label={t.title} aria-live="polite">
+  return <aside ref={guideRef} className={styles.guide} aria-label={t.title} aria-live="polite">
     <div className={styles.content}><p className={styles.progress}>{view.kind === 'welcome' ? t.optional : t.stepLabel(view.step)}</p><h2>{title}</h2><p>{body}</p>{tour.error && <p className={styles.error} role="alert">{t.error}</p>}</div>
     <div className={styles.actions}>
       {view.kind === 'welcome' && <Button variant="primary" pending={tour.pending} onClick={() => { void tour.update('active', tour.progress?.completedSteps); }}>{t.start}</Button>}

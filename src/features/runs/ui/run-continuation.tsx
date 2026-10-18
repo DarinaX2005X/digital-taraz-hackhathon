@@ -2,16 +2,16 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { ArrowRight, Send, Play } from 'lucide-react';
+import { ArrowRight, RefreshCw, Send, Play } from 'lucide-react';
 import type { Run, ResumeRun } from '../../../contracts/runs';
 import type { Locale } from '../../../i18n/locales';
 import { Button, TextareaField } from '../../../ui';
 import styles from './runs.module.css';
 
 const copy = {
-  ru: { plan: 'План работы', questions: 'Нужно уточнить', send: 'Ответить и продолжить', followup: 'Что изменить или дополнить в этом материале?', followupHint: 'Например: сократи введение, добавь условия оплаты и сохрани остальную структуру.', apply: 'Отправить ассистенту', parent: 'Предыдущая часть задачи', child: 'Открыть продолжение' },
-  kk: { plan: 'Жұмыс жоспары', questions: 'Нақтылау қажет', send: 'Жауап беріп, жалғастыру', followup: 'Осы материалда нені өзгерту немесе толықтыру керек?', followupHint: 'Мысалы: кіріспені қысқартып, төлем шарттарын қосыңыз, қалған құрылымды сақтаңыз.', apply: 'Ассистентке жіберу', parent: 'Тапсырманың алдыңғы бөлігі', child: 'Жалғасын ашу' },
-  en: { plan: 'Work plan', questions: 'A few details are needed', send: 'Answer and continue', followup: 'What should change or be added to this material?', followupHint: 'For example: shorten the introduction, add payment terms, and keep the rest of the structure.', apply: 'Send to the assistant', parent: 'Previous part of this task', child: 'Open continuation' },
+  ru: { plan: 'План работы', questions: 'Нужно уточнить', send: 'Ответить и продолжить', refresh: 'Обновить задачу', answerUnavailable: 'Вопрос сохранён, но отправка ответа сейчас недоступна. Обновите состояние задачи.', followup: 'Что изменить или дополнить в этом материале?', followupHint: 'Например: сократи введение, добавь условия оплаты и сохрани остальную структуру.', apply: 'Отправить ассистенту', parent: 'Предыдущая часть задачи', child: 'Открыть продолжение' },
+  kk: { plan: 'Жұмыс жоспары', questions: 'Нақтылау қажет', send: 'Жауап беріп, жалғастыру', refresh: 'Тапсырманы жаңарту', answerUnavailable: 'Сұрақ сақталды, бірақ жауапты қазір жіберу мүмкін емес. Тапсырманың күйін жаңартыңыз.', followup: 'Осы материалда нені өзгерту немесе толықтыру керек?', followupHint: 'Мысалы: кіріспені қысқартып, төлем шарттарын қосыңыз, қалған құрылымды сақтаңыз.', apply: 'Ассистентке жіберу', parent: 'Тапсырманың алдыңғы бөлігі', child: 'Жалғасын ашу' },
+  en: { plan: 'Work plan', questions: 'A few details are needed', send: 'Answer and continue', refresh: 'Refresh task', answerUnavailable: 'The question is saved, but an answer cannot be sent right now. Refresh the task state.', followup: 'What should change or be added to this material?', followupHint: 'For example: shorten the introduction, add payment terms, and keep the rest of the structure.', apply: 'Send to the assistant', parent: 'Previous part of this task', child: 'Open continuation' },
 };
 
 export type RunChange = Pick<ResumeRun, 'answers' | 'goal' | 'plan' | 'selectedOptionId' | 'acceptedConditionIds'>;
@@ -19,7 +19,7 @@ export const runAnswerDraftKey = (ownerId: string, runId: string) => `tirlik.run
 export const runFollowupDraftKey = (ownerId: string, runId: string, artifactId?: string) => `tirlik.run-followup-draft.v1:${ownerId}:${runId}:${artifactId ?? 'none'}`;
 const legacyDraftKey = (ownerId: string, runId: string) => `tirlik.run-session-draft.v1:${ownerId}:${runId}`;
 
-export function RunContinuation({ run, locale, pending, onContinue, draftOwnerId, runHref, structuredDecision = false, compact = false }: { run: Run; locale: Locale; pending: boolean; onContinue: (change: RunChange) => void; draftOwnerId?: string; runHref?: (runId: string) => string; structuredDecision?: boolean; compact?: boolean }) {
+export function RunContinuation({ run, locale, pending, onContinue, onRefresh, draftOwnerId, runHref, structuredDecision = false, compact = false }: { run: Run; locale: Locale; pending: boolean; onContinue: (change: RunChange) => void; onRefresh?: () => void; draftOwnerId?: string; runHref?: (runId: string) => string; structuredDecision?: boolean; compact?: boolean }) {
   const text = copy[locale], [answers, setAnswers] = useState<Record<string, string>>({});
   const draftKey = draftOwnerId ? runAnswerDraftKey(draftOwnerId, run.id) : undefined;
   const visibleQuestions = run.state === 'waiting_input' && run.failure === null
@@ -51,10 +51,12 @@ export function RunContinuation({ run, locale, pending, onContinue, draftOwnerId
     {run.progress.continuationRunId && <Link className={styles.textLink} href={runHref?.(run.progress.continuationRunId) ?? `/app/runs/${run.progress.continuationRunId}`}>{text.child}<ArrowRight size={16} aria-hidden="true" /></Link>}
     {!compact && run.progress.summary && <p className={styles.resultSummary}>{run.progress.summary}</p>}
     {!compact && !!run.progress.plan.length && <section aria-label={text.plan}><h3>{text.plan}</h3><ol className={styles.workPlan}>{run.progress.plan.map((step, index) => <li key={`${index}:${step}`}>{step}</li>)}</ol></section>}
-    {!!visibleQuestions.length && run.actions.resume && <form onSubmit={submitAnswers} className={styles.questionForm}>
+    {!!visibleQuestions.length && <form onSubmit={submitAnswers} className={styles.questionForm}>
       <h3>{text.questions}</h3>
-      {visibleQuestions.map((question) => <TextareaField key={question.id} label={question.text} required={question.required} maxLength={4000} rows={3} disabled={pending} value={answers[question.id] ?? ''} onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))} />)}
-      <div><Button type="submit" variant="primary" icon={Play} pending={pending}>{text.send}</Button></div>
+      {visibleQuestions.map((question) => <TextareaField key={question.id} label={question.text} required={question.required} maxLength={4000} rows={3} disabled={pending || !run.actions.resume} value={answers[question.id] ?? ''} onChange={(event) => setAnswers((current) => ({ ...current, [question.id]: event.target.value }))} />)}
+      {run.actions.resume
+        ? <div><Button type="submit" variant="primary" icon={Play} pending={pending}>{text.send}</Button></div>
+        : <div className={styles.questionUnavailable} role="status"><p>{text.answerUnavailable}</p>{onRefresh && <Button type="button" icon={RefreshCw} onClick={onRefresh}>{text.refresh}</Button>}</div>}
     </form>}
   </div>;
 }

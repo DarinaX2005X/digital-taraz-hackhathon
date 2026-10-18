@@ -61,18 +61,25 @@ function assistantRegistry() {
     id: 'business.goal', version: 1, publicStart: true, policy,
     initialize: (input, privateInput) => {
       const continuation = privateInput.continuation as Record<string, unknown> | undefined;
-      return { context: continuation ?? { goal: input.goal, plan: ['Check the material unknown'], questions: [], summary: '', results: [], decision, branches: [branch], privateEvidence: 'must-never-leave-the-server', answers: [{ questionId: 'private', answer: 'private answer' }], messages: [{ role: 'assistant', content: 'private model text' }] }, steps: [ask] };
+      return { context: continuation ?? { goal: input.goal, plan: ['Check the material unknown'], questions: [], summary: '', results: [], decision, branches: [branch], privateEvidence: 'must-never-leave-the-server', answers: [{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }], messages: [{ role: 'assistant', content: 'private model text' }] }, steps: [ask] };
     },
     continue: (input, context, change) => {
       if (change.answers?.length) {
         if (!change.answers.some((answer) => answer.questionId === 'delivery_date')) throw new Error('missing answer');
-        return { context: { ...context, goal: input.goal, questions: [], answers: change.answers, branches: [{ ...branch, state: 'running' as const }] }, steps: [finish] };
+        const questions = context.questions as { id: string; text: string }[];
+        const answers = change.answers.map((answer) => {
+          const question = questions.find((item) => item.id === answer.questionId);
+          if (!question) throw new Error('missing question');
+          return { ...answer, question: question.text };
+        });
+        return { context: { ...context, goal: input.goal, questions: [], answers: [...(context.answers as typeof answers), ...answers], branches: [{ ...branch, state: 'running' as const }] }, steps: [finish] };
       }
       return { context: { ...context, goal: input.goal, plan: change.plan ?? [], questions: [], summary: '', results: [] }, steps: [ask] };
     },
     projectProgress: (raw) => {
-      const context = raw as { plan?: unknown; questions?: unknown; summary?: unknown; results?: unknown; decision?: unknown; branches?: unknown };
-      return { plan: context.plan as string[], questions: context.questions as never[], summary: context.summary as string, results: context.results as never[], decision: context.decision as typeof decision, branches: context.branches as never[] };
+      const context = raw as { plan?: unknown; questions?: unknown; answers?: { questionId: string; question?: string; answer: string }[]; summary?: unknown; results?: unknown; decision?: unknown; branches?: unknown };
+      const answeredQuestions = (context.answers ?? []).map((answer) => ({ questionId: answer.questionId, ...(answer.question ? { question: answer.question } : {}), answer: answer.answer }));
+      return { plan: context.plan as string[], questions: context.questions as never[], answeredQuestions, summary: context.summary as string, results: context.results as never[], decision: context.decision as typeof decision, branches: context.branches as never[] };
     },
   };
   const tools: RunTool[] = [{
@@ -360,10 +367,10 @@ describe('transactional runtime service', () => {
     const firstClaim = await service.claim(); if (!firstClaim) throw new Error('claim missing');
     await service.executeStep(firstClaim);
     const waiting = await service.read(owner.principal, created.id);
-    expect(waiting).toMatchObject({ state: 'waiting_input', progress: { questions: [{ id: 'delivery_date', required: true }], decision: { outcome: 'conditional', options: [{ id: 'standard' }, { id: 'later' }] }, branches: [{ id: 'delivery_check', state: 'waiting_input' }] }, actions: { resume: true, revise: true } });
+    expect(waiting).toMatchObject({ state: 'waiting_input', progress: { questions: [{ id: 'delivery_date', required: true }], answeredQuestions: [{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }], decision: { outcome: 'conditional', options: [{ id: 'standard' }, { id: 'later' }] }, branches: [{ id: 'delivery_check', state: 'waiting_input' }] }, actions: { resume: true, revise: true } });
     expect(JSON.stringify(waiting)).not.toContain('must-never-leave-the-server');
-    expect(JSON.stringify(waiting)).not.toContain('private answer');
     expect(JSON.stringify(waiting)).not.toContain('private model text');
+    expect((await service.read(owner.principal, created.id)).progress.answeredQuestions).toEqual([{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }]);
     const waitingEvents = await service.events(owner.principal, created.id);
     expect(waitingEvents.events.filter((event) => event.kind === 'branch_state').map((event) => event.branchState)).toEqual(['planned', 'waiting_input']);
     expect(waitingEvents.events.filter((event) => event.kind === 'projection_changed').map((event) => event.projectionRevision)).toEqual([0, 1]);
@@ -374,7 +381,8 @@ describe('transactional runtime service', () => {
     const secondClaim = await service.claim(); if (!secondClaim) throw new Error('claim missing');
     await service.executeStep(secondClaim);
     const completed = await service.read(owner.principal, created.id);
-    expect(completed).toMatchObject({ state: 'completed', progress: { questions: [], summary: 'Saved a reviewed result.' }, actions: { resume: false, revise: true } });
+    expect(completed).toMatchObject({ state: 'completed', progress: { questions: [], answeredQuestions: [{ questionId: 'legacy_scope', answer: 'Keep the existing delivery scope.' }, { questionId: 'delivery_date', question: 'What delivery date is required?', answer: '2026-10-30' }], summary: 'Saved a reviewed result.' }, actions: { resume: false, revise: true } });
+    expect((await service.read(owner.principal, created.id)).progress.answeredQuestions).toEqual(completed.progress.answeredQuestions);
     const continuedEvents = await service.events(owner.principal, created.id, waitingEvents.cursor);
     expect(continuedEvents.events.map((event) => event.sequence)).toEqual(continuedEvents.events.map((_event, index) => waitingEvents.cursor + index + 1));
     expect(continuedEvents.events.filter((event) => event.kind === 'branch_state').map((event) => event.branchState)).toEqual(['running', 'completed']);

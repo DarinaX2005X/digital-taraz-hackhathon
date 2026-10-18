@@ -19,6 +19,8 @@ import { businessWorkToolExtension } from '../../src/features/agent-tools/server
 import { materialContextBusinessToolExtension } from '../../src/features/agent-tools/server/material-context';
 import { BusinessWorkResultSchema, type BusinessWorkToolDescriptor } from '../../src/contracts/business-work';
 import { ProposeWorkPlanInputSchema } from '../../src/features/operations/domain/propose-work-plan';
+import { operationsBusinessTools } from '../../src/features/operations/server/ai-business-tool';
+import { excerptArtifact } from '../../src/features/agent-tools/server/artifact-context';
 
 let pool: Pool;
 beforeAll(() => { pool = artifactTestPool(); });
@@ -77,6 +79,7 @@ const fixtureOperationsExtension: BusinessToolExtension = () => [{
     return { output: result, context: { ...state, operations: [...state.operations.filter((item) => item.assessmentId !== result.assessmentId), result], decision: null, bundle: null } };
   },
 }];
+const nativePlanExtension: BusinessToolExtension = (services) => operationsBusinessTools(services).filter((tool) => tool.name === 'create_plan');
 
 type SetupOptions = { failLinks?: boolean; availability?: string; catalog?: string; gateway?: (request: ModelRequest) => Promise<ModelOutput>; extensions?: BusinessToolExtension[] };
 async function setup(options: SetupOptions = {}) {
@@ -113,10 +116,10 @@ async function setup(options: SetupOptions = {}) {
 
 function contextOf(request: ModelRequest) {
   return JSON.parse(request.messages[1]!.content!) as {
-    goal: string; answers: { questionId: string; answer: string }[]; plan: string[];
+    goal: string; requiredArtifactKinds: string[]; answers: { questionId: string; question?: string; answer: string }[]; plan: string[];
     currentArtifact: { id: string; revision: number } | null;
     sources: { sourceRef: { sourceId: string; sourceVersionId: string; revision: number }; title: string; fragments: { id: string; text?: string; values?: string[] }[] }[];
-    artifacts: { artifactId: string; revision: number; kind: string; targets: { targetId: string; text: string; locked: boolean }[] }[];
+    artifacts: { artifactId: string; revision: number; kind: string; targets: { targetId: string; targetProperty: 'value' | 'text' | 'fill'; text: string; locked: boolean }[] }[];
     operations: { assessmentId: string }[]; decision: { blockers: { id: string; userResolvable: boolean }[] } | null; selectedOptionId: string | null; bundle: unknown;
     savedResults: { id: string; title: string }[];
   };
@@ -372,7 +375,7 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
       tools: request.tools?.map((tool) => tool.name) ?? [],
     }));
     expect(decisionRequestMetrics.every((metric) => metric.messages === 2)).toBe(true);
-    expect(Math.max(...decisionRequestMetrics.map((metric) => metric.bytes))).toBeLessThan(30_000);
+    expect(Math.max(...decisionRequestMetrics.map((metric) => metric.bytes))).toBeLessThan(32_000);
     expect(decisionRequestMetrics.slice(2).every((metric) => metric.tools.length === 1)).toBe(true);
     for (const request of decisionRequests) {
       const modelContext = contextOf(request), names = request.tools?.map((tool) => tool.name) ?? [];
@@ -444,6 +447,162 @@ describe('J1 assistant decision procedure through durable runtime and canonical 
     expect(revised.progress.results.find((result) => result.id === document.artifact.id)?.revision).toBe(afterFollowUp.artifact.currentRevision);
     expect((await pool.query('SELECT id FROM artifacts WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(3);
   }, 90_000);
+
+  it('routes normal-language goals to four native editable kinds, persists a clarification answer, and revises each selected kind in place', async () => {
+    const humanHeadText = 'A human updated this sentence after the assistant saved revision zero.';
+    let expectExactDocumentRevision = false, sawExactDocumentRevision = false;
+    const formatGateway = async (request: ModelRequest): Promise<ModelOutput> => {
+      if (request.jsonSchema) {
+        if (expectExactDocumentRevision) {
+          const evidence = request.messages[1]!.content!;
+          expect(evidence).toContain('Launch readiness is reviewed against the current internal checklist.');
+          expect(evidence).not.toContain(humanHeadText);
+          sawExactDocumentRevision = true;
+          expectExactDocumentRevision = false;
+        }
+        return verified();
+      }
+      const context = contextOf(request), goal = context.goal.toLocaleLowerCase('und');
+      const toolNames = request.tools?.map((tool) => tool.name) ?? [];
+      if (context.currentArtifact) {
+        const active = context.artifacts.find((artifact) => artifact.artifactId === context.currentArtifact!.id);
+        if (!active) throw new Error('CURRENT_NATIVE_ARTIFACT_MISSING');
+        const editable = active.targets.find((target) => !target.locked && (
+          active.kind === 'design' ? target.targetProperty === 'text' && target.text === 'Открываемся в субботу — приходите!'
+            : active.kind === 'table' ? target.text === 'Новая'
+              : active.kind === 'plan' ? target.text.includes('Draft launch checklist')
+                : target.text.includes('Launch readiness is reviewed') || target.text === humanHeadText
+        ));
+        if (editable) {
+          expect(context.savedResults).toEqual([]);
+          expect(toolNames).toContain(`revise_${active.kind}`);
+          if (active.kind === 'design') return call('revise_design', { reason: 'Use the requested follow-up headline', updates: [{ targetId: editable.targetId, text: 'Открываемся в эту субботу' }] });
+          if (active.kind === 'table') return call('revise_table', { reason: 'Advance the selected application', updates: [{ targetId: editable.targetId, value: 'В работе' }] });
+          if (active.kind === 'plan') return call('revise_plan', { reason: 'Use the requested task wording', updates: [{ targetId: editable.targetId, title: 'Publish launch checklist' }] });
+          return call('revise_document', { reason: 'Apply the requested report correction', updates: [{ targetId: editable.targetId, text: 'Launch readiness is confirmed for internal review.' }] });
+        }
+        return call('finish_work', { summary: `The selected ${active.kind} was revised in place.` });
+      }
+      if (context.savedResults.length) return call('finish_work', { summary: `The requested ${context.requiredArtifactKinds[0]} is ready.` });
+      if (goal.includes('баннер')) {
+        expect(context.requiredArtifactKinds).toEqual(['design']);
+        if (!context.answers.some((answer) => answer.questionId === 'clarify_headline')) {
+          expect(toolNames).toContain('ask_clarification');
+          return call('ask_clarification', { id: 'clarify_headline', question: 'Какой заголовок и призыв должны быть на баннере?', purpose: 'Без пользовательского заголовка и призыва баннер не передаст нужное сообщение.' });
+        }
+        expect(toolNames).toContain('create_design');
+        const copy = context.answers.find((answer) => answer.questionId === 'clarify_headline')!.answer;
+        return call('create_design', { title: 'Баннер открытия', width: 1200, height: 628, unit: 'px', background: '#14362b', layers: [
+          { type: 'shape', name: 'Accent', shape: 'rect', transform: { x: 64, y: 64, width: 16, height: 500, rotation: 0 }, fill: '#dff6b8', stroke: 'transparent', strokeWidth: 0, radius: 8, opacity: 1 },
+          { type: 'text', name: 'Headline', text: copy, transform: { x: 128, y: 120, width: 900, height: 150, rotation: 0 }, color: '#ffffff', fontSize: 64, fontWeight: '700', align: 'left', lineHeight: 1.05, letterSpacing: -1 },
+          { type: 'text', name: 'Details', text: 'Суббота · с 10:00', transform: { x: 132, y: 330, width: 600, height: 70, rotation: 0 }, color: '#dff6b8', fontSize: 30, fontWeight: '600', align: 'left', lineHeight: 1.2, letterSpacing: 0 },
+        ] });
+      }
+      if (goal.includes('таблиц')) {
+        expect(context.requiredArtifactKinds).toEqual(['table']);
+        expect(toolNames).toContain('create_table');
+        return call('create_table', { title: 'Контроль заявок', sheetName: 'Заявки', columns: [{ name: 'Клиент', kind: 'text' }, { name: 'Статус', kind: 'text' }, { name: 'Сумма', kind: 'money', currency: 'KZT' }], rows: [
+          { cells: [{ value: 'Алия' }, { value: 'Новая' }, { value: 25000 }] },
+          { cells: [{ value: 'Данияр' }, { value: 'Согласована' }, { value: 42000 }] },
+        ] });
+      }
+      if (goal.includes('task schedule')) {
+        expect(context.requiredArtifactKinds).toEqual(['plan']);
+        expect(toolNames).toContain('create_plan');
+        return call('create_plan', { title: 'Launch task schedule', timezone: 'Asia/Qyzylorda', tasks: [
+          { key: 'draft', title: 'Draft launch checklist', schedule: { kind: 'unscheduled' }, dependencies: [], checklist: ['List launch owners'], linkedArtifactIds: [], evidence: [] },
+          { key: 'review', title: 'Review launch checklist', schedule: { kind: 'unscheduled' }, dependencies: ['draft'], checklist: ['Record approval'], linkedArtifactIds: [], evidence: [] },
+        ] });
+      }
+      expect(context.requiredArtifactKinds).toEqual(['document']);
+      expect(toolNames).toContain('create_document');
+      return call('create_document', { title: 'Launch report', paragraphs: [
+        { kind: 'heading', text: 'Readiness' },
+        { kind: 'paragraph', text: 'Launch readiness is reviewed against the current internal checklist.' },
+        { kind: 'heading', text: 'Next step' },
+        { kind: 'paragraph', text: 'Resolve the remaining checklist items before publication.' },
+      ] });
+    };
+    const f = await setup({ gateway: formatGateway, extensions: [nativePlanExtension] });
+    const goals = [
+      'Сделай баннер для субботнего открытия.',
+      'Создай таблицу контроля заявок с колонками клиент, статус и сумма и двумя примерами.',
+      'Prepare a task schedule for launch with a draft and review dependency.',
+      'Write a short launch report with readiness and next steps.',
+    ];
+    const artifactService = (await import('../../src/features/artifacts/server/service')).createArtifactService(pool);
+    const created: { kind: 'design' | 'table' | 'plan' | 'document'; run: Awaited<ReturnType<typeof f.service.read>>; artifactId: string }[] = [];
+    for (const [index, goal] of goals.entries()) {
+      const input = { ...f.input, goal, inputRefs: [] };
+      const started = await f.service.create(f.owner, input, randomUUID());
+      let completed;
+      if (index === 3) {
+        const claim = await f.service.claim();
+        expect(claim?.runId).toBe(started.id);
+        for (let step = 0; step < 20; step++) {
+          expect(await f.service.executeStep(claim!)).toBe('continue');
+          completed = await f.service.read(f.owner, started.id);
+          if (completed.steps.some((item) => item.toolName === 'business.create_document' && item.state === 'succeeded')) break;
+        }
+        if (!completed) throw new Error('DOCUMENT_CREATE_DID_NOT_RUN');
+        const documentRef = completed.progress.results[0]!;
+        const document = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: documentRef.id });
+        const documentExcerpt = excerptArtifact({ artifactId: documentRef.id, revision: document.artifact.currentRevision, title: document.artifact.title, content: document.content, bindings: document.artifact.bindings, sourceRefs: document.artifact.sourceRefs, lockedIds: Object.keys(document.locks ?? {}) });
+        const target = documentExcerpt.targets.find((item) => item.text === 'Launch readiness is reviewed against the current internal checklist.')!;
+        const resolver = createArtifactTargetResolver(document.content, document.artifact.bindings, document.locks), resolved = resolver(target.targetId)!;
+        const expectedSourceRevisions = Object.fromEntries(document.sourceFreshness.filter((source) => source.currentRevision !== undefined).map((source) => [source.sourceRef.sourceId, source.currentRevision!]));
+        await artifactService.apply(f.owner, { workspaceId: f.workspaceId, expectedAuthzVersion: document.viewer.authzVersion, group: { commandGroupId: randomUUID(), expectedArtifactRevisions: { [documentRef.id]: document.artifact.currentRevision }, expectedSourceRevisions, commands: [{ commandId: randomUUID(), artifactId: documentRef.id, baseRevision: document.artifact.currentRevision, kind: 'document', reason: 'Concurrent human edit', expectedSourceRevisions, operations: [{ targetId: target.targetId, op: 'set', beforeHash: resolved.hash, value: { type: 'paragraph', attrs: { id: target.targetId }, content: [{ type: 'text', text: humanHeadText }] } }] }] } });
+        expectExactDocumentRevision = true;
+        for (let step = 0; step < 20; step++) if (await f.service.executeStep(claim!) === 'stopped') break;
+        completed = await f.service.read(f.owner, started.id);
+        expect(sawExactDocumentRevision).toBe(true);
+        expect(completed.progress.results[0]?.revision).toBe(0);
+        expect((await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: documentRef.id })).artifact.currentRevision).toBe(1);
+      } else completed = await f.drain(started.id);
+      if (index === 0) {
+        expect(completed).toMatchObject({ state: 'waiting_input', progress: { questions: [{ id: 'clarify_headline', required: true }], answeredQuestions: [] } });
+        completed = await f.service.resume(f.owner, completed.id, { expectedEpoch: completed.epoch, answers: [{ questionId: 'clarify_headline', answer: 'Открываемся в субботу — приходите!' }] }, randomUUID());
+        completed = await f.drain(completed.id);
+        expect(completed.progress.answeredQuestions).toEqual([{ questionId: 'clarify_headline', question: 'Какой заголовок и призыв должны быть на баннере?', answer: 'Открываемся в субботу — приходите!' }]);
+      }
+      expect(completed).toMatchObject({ state: 'completed', failure: null, progress: { results: [expect.objectContaining({ kind: 'artifact', revision: 0 })] } });
+      const ref = completed.progress.results[0]!, loaded = await f.read(ref.id);
+      const expectedKind = ['design', 'table', 'plan', 'document'][index] as 'design' | 'table' | 'plan' | 'document';
+      expect(loaded.content.kind).toBe(expectedKind);
+      created.push({ kind: expectedKind, run: completed, artifactId: ref.id });
+    }
+
+    for (const item of created) {
+      const before = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: item.artifactId });
+      const excerpt = excerptArtifact({ artifactId: item.artifactId, revision: before.artifact.currentRevision, title: before.artifact.title, content: before.content, bindings: before.artifact.bindings, sourceRefs: before.artifact.sourceRefs, lockedIds: Object.keys(before.locks ?? {}) });
+      const lockTarget = item.kind === 'design'
+        ? excerpt.targets.find((target) => target.targetProperty === 'value')!
+        : item.kind === 'table'
+          ? excerpt.targets.at(-1)!
+          : item.kind === 'plan'
+            ? excerpt.targets.find((target) => target.text.includes('Review launch checklist'))!
+            : excerpt.targets.find((target) => target.text === 'Launch report')!;
+      const resolver = createArtifactTargetResolver(before.content, before.artifact.bindings, before.locks), originalHash = resolver(lockTarget.targetId)!.hash;
+      const expectedSourceRevisions = Object.fromEntries(before.sourceFreshness.filter((source) => source.currentRevision !== undefined).map((source) => [source.sourceRef.sourceId, source.currentRevision!]));
+      await artifactService.apply(f.owner, { workspaceId: f.workspaceId, expectedAuthzVersion: before.viewer.authzVersion, group: { commandGroupId: randomUUID(), expectedArtifactRevisions: { [item.artifactId]: before.artifact.currentRevision }, expectedSourceRevisions, commands: [{ commandId: randomUUID(), artifactId: item.artifactId, baseRevision: before.artifact.currentRevision, kind: item.kind, reason: 'Protect approved unrelated content', expectedSourceRevisions, operations: [{ targetId: lockTarget.targetId, op: 'lock', beforeHash: originalHash, value: { locked: true, reason: 'Approved unchanged content' } }] }] } });
+      const locked = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: item.artifactId });
+      const lockedHash = createArtifactTargetResolver(locked.content, locked.artifact.bindings, locked.locks)(lockTarget.targetId)!.hash;
+      const followUpGoal = item.kind === 'design' ? 'Change the selected banner headline.' : item.kind === 'table' ? 'Change the selected application status.' : item.kind === 'plan' ? 'Rename the selected first task.' : 'Correct the selected report readiness sentence.';
+      const continuation = await f.service.resume(f.owner, item.run.id, { expectedEpoch: item.run.epoch, goal: followUpGoal, plan: ['Apply the requested change'], currentArtifact: { id: item.artifactId, revision: locked.artifact.currentRevision } }, randomUUID());
+      const revisedRun = await f.drain(continuation.id);
+      if (revisedRun.state !== 'completed' || revisedRun.failure !== null) throw new Error(`NATIVE_REVISION_FAILED:${item.kind}:${revisedRun.failure ?? revisedRun.state}:${JSON.stringify(revisedRun.steps.map((step) => ({ tool: step.toolName, state: step.state, failure: step.failure })))}`);
+      expect(revisedRun.steps.some((step) => step.toolName === `business.revise_${item.kind}`)).toBe(true);
+      expect(revisedRun.steps.some((step) => step.toolName.startsWith('business.create_'))).toBe(false);
+      const after = await artifactService.readRoute(f.owner, { projectId: f.projectId, artifactId: item.artifactId });
+      expect(after.content.kind).toBe(item.kind);
+      expect(after.artifact.id).toBe(item.artifactId);
+      expect(after.artifact.currentRevision).toBe(locked.artifact.currentRevision + 1);
+      expect(after.locks?.[lockTarget.targetId]?.reason).toBe('Approved unchanged content');
+      expect(createArtifactTargetResolver(after.content, after.artifact.bindings, after.locks)(lockTarget.targetId)!.hash).toBe(lockedHash);
+      expect(revisedRun.progress.results).toEqual([expect.objectContaining({ id: item.artifactId, revision: after.artifact.currentRevision })]);
+    }
+    expect((await pool.query('SELECT id FROM artifacts WHERE workspace_id=$1', [f.workspaceId])).rowCount).toBe(4);
+  }, 120_000);
 
   it('completes verified work when the verifier returns only non-blocking observations', async () => {
     const normal = createDecisionGateway();

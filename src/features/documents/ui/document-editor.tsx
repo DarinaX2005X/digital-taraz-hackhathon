@@ -215,7 +215,7 @@ export function DocumentEditor({ session, onFlushReady, resources = true }: Docu
       <span role="status">{selection?.matches.length ? `${t.matches}: ${selection.matches.length}` : t.noMatches}</span>
       <IconButton icon={X} label={t.close} onClick={() => setFindOpen(false)} />
     </div>}
-    <div className={styles.status} role="status">{!snapshot.permissions.edit ? t.readOnly : state.phase === 'ready' ? t.saved : state.phase === 'saving' || state.phase === 'applying' ? t.saving : state.localSaved ? t.localSaved : t.unsaved}</div>
+    {(!snapshot.permissions.edit || state.phase !== 'ready') && <div className={styles.status} role="status">{!snapshot.permissions.edit ? t.readOnly : state.phase === 'saving' || state.phase === 'applying' ? t.saving : state.localSaved ? t.localSaved : t.unsaved}</div>}
     {problem && <div className={styles.notice}><p>{problem}</p>{state.phase === 'failed' && <Button onClick={() => { void controller.retry().catch(setError); }}>{t.retry}</Button>}<Link href={historyHref}>{t.recovery}</Link></div>}
     <ArtifactError error={error} />{editError && <p className={styles.error} role="alert">{t.editError}</p>}
     {pasteLosses.length > 0 && <div className={styles.notice}><ul>{pasteLosses.map((loss) => <li key={loss.code}>{t[lossCopyKeys[loss.code]]}</li>)}</ul><Button onClick={() => setPasteLosses([])}>{t.close}</Button></div>}

@@ -268,7 +268,7 @@
 .footer nav button[aria-current='page'] { color: var(--color-on-action); background: var(--color-action); border-color: var(--color-action); font-weight: var(--weight-semibold); }
 .selectionStats { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2) var(--space-3); font-variant-numeric: tabular-nums; }
 .selectionStats strong { color: var(--color-text); }
-.saveState { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-success); font-weight: var(--weight-semibold); white-space: nowrap; }
+.saveState { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-muted); font-weight: var(--weight-semibold); white-space: nowrap; }
 .saveState::before { width: 8px; height: 8px; background: currentColor; border-radius: 50%; content: ''; }
 .saveState[data-state='saving'],
 .saveState[data-state='local'],

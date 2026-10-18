@@ -46,6 +46,7 @@ export const ResumeRunSchema = z.strictObject({
 });
 export const CancelRunSchema = z.strictObject({ expectedEpoch: z.number().int().nonnegative() });
 export const RunQuestionSchema = z.strictObject({ id: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/), text: z.string().min(1).max(1000), required: z.boolean() });
+export const RunAnsweredQuestionSchema = z.strictObject({ questionId: z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/), question: z.string().min(1).max(1000).optional(), answer: z.string().min(1).max(4000) });
 const DecisionIdSchema = z.string().regex(/^[a-z][a-z0-9_-]{0,49}$/);
 const DecisionDecimalSchema = z.string().max(80).regex(/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/);
 export const RunDecisionFactorSchema = z.strictObject({
@@ -123,7 +124,7 @@ export const RunBranchProjectionSchema = z.strictObject({
   resultRefs: z.array(RunResultRefSchema).max(40),
 });
 export const RunProgressProjectionSchema = z.strictObject({
-  plan: z.array(z.string().min(1).max(500)).max(10), questions: z.array(RunQuestionSchema).max(10), summary: z.string().max(3000),
+  plan: z.array(z.string().min(1).max(500)).max(10), questions: z.array(RunQuestionSchema).max(10), answeredQuestions: z.array(RunAnsweredQuestionSchema).max(40).default([]), summary: z.string().max(3000),
   results: z.array(RunResultRefSchema.extend({ title: z.string().max(240) })).max(40),
   decision: RunDecisionSchema.nullable().optional(),
   workDecision: RunWorkDecisionSchema.nullable().optional(),
@@ -158,7 +159,7 @@ export const RunSchema = z.strictObject({
   failure: RunFailureSchema.nullable(), createdAt: InstantSchema, updatedAt: InstantSchema,
   startedAt: InstantSchema.nullable(), deadlineAt: InstantSchema.nullable(),
   budget: RunBudgetSchema, steps: z.array(RunStepSchema).max(40),
-  progress: RunProgressSchema.default({ plan: [], questions: [], summary: '', results: [], parentRunId: null, continuationRunId: null }),
+  progress: RunProgressSchema.default({ plan: [], questions: [], answeredQuestions: [], summary: '', results: [], parentRunId: null, continuationRunId: null }),
   actions: z.strictObject({ cancel: z.boolean(), resume: z.boolean(), revise: z.boolean().default(false), retryStepIds: z.array(IdSchema).max(40) }),
 });
 export const RunListCursorSchema = z.string().min(1).max(200).regex(/^[A-Za-z0-9_-]+$/);

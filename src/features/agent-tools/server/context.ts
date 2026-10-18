@@ -1,6 +1,6 @@
 import type { PoolClient } from 'pg';
 import { z } from 'zod';
-import { SourceRefSchema } from '../../../contracts/artifacts';
+import { ArtifactKindSchema, SourceRefSchema, type ArtifactKind } from '../../../contracts/artifacts';
 import { SourceFragmentSchema } from '../../../contracts/sources';
 import { RunCurrentArtifactSchema, RunInputRefSchema, RunQuestionSchema, RunResultRefSchema, type CreateRun } from '../../../contracts/runs';
 import { IdSchema, LocaleSchema } from '../../../contracts/primitives';
@@ -22,6 +22,7 @@ import {
 import { BUSINESS_PROCEDURE_VERSION, businessProcedurePrompt } from './procedure';
 
 const MessageSchema = z.strictObject({ role: z.enum(['assistant', 'tool']), content: z.string().nullable(), toolCallId: z.string().optional(), toolCalls: z.array(z.strictObject({ id: z.string(), name: z.string(), arguments: z.string() })).optional() });
+const AcceptedAnswerSchema = z.strictObject({ questionId: z.string().max(50), question: z.string().min(1).max(1000).optional(), answer: z.string().min(1).max(4000) });
 export const QuestionSchema = RunQuestionSchema;
 export const DecisionBundleSchema = z.strictObject({
   optionId: z.string().min(1).max(50),
@@ -30,6 +31,41 @@ export const DecisionBundleSchema = z.strictObject({
   plan: RunResultRefSchema.extend({ title: z.string().max(240) }),
 });
 export const MaterialEvidenceContextSchema = MaterialDecisionContextSchema.omit({ viewer: true, sample: true });
+
+const artifactIntentTokens: Record<ArtifactKind, RegExp> = {
+  design: /(?:баннер|постер|афиш\w*|макет|креатив(?![\p{L}\p{N}_])|визуал(?![\p{L}\p{N}_])|логотип\w*|открытк\w*|обложк\w*|сторис|banner|poster|flyer|logo|logotype|canvas|social\s+graphic|cover\s+design|postcard|жарнама|дизайн|плакат)/giu,
+  table: /(?:таблиц\w*|электронн\w*\s+таблиц\w*|смет\w*|table|spreadsheet|worksheet|xlsx|csv|data\s+grid|деректер\s+кестесі|кесте\s+түрінде)/giu,
+  plan: /(?:список\s+задач|задач\w*|план\s+работ|расписан\w*|график\s+работ|календар\w*|таймлайн|task\s+list|tasks?|schedule|work\s+plan|roadmap|timeline|calendar|тапсырм\w*|жоспар|күнтізбе)/giu,
+  document: /(?:документ\w*|отч[её]т\w*|письм\w*|меморандум|протокол|стать[яю]|текстов\w*\s+документ\w*|document|report|letter|memo|article|written\s+brief|text\s+document|құжат|баяндама|хат|мәтіндік\s+құжат)/giu,
+};
+const requestVerb = /(?:сделай|создай|подготовь|составь|оформи|разработай|нарисуй|напиши|построй|сформируй|хочу|нуж(?:ен|на|но)|create|make|prepare|write|design|draw|build|want|need|жаса|құр|дайында|әзірле)/giu;
+const requestTailBoundary = /(?:[;:]|["«“]|\s+(?:from|using|based\s+on|titled|called|containing|about|for|with|without|but\s+not|and\s+no|на\s+основе|по\s+данным|под\s+названием|из|для|о|с|без|но\s+не)\s+)/iu;
+
+/** Extract only the direct object of affirmative authoring verbs; later source/copy nouns are evidence, not deliverables. */
+function requestedClauses(goal: string) {
+  const matches = [...goal.matchAll(requestVerb)], clauses: string[] = [];
+  for (const [index, match] of matches.entries()) {
+    const before = goal.slice(Math.max(0, match.index! - 20), match.index!).toLocaleLowerCase('und');
+    if (/(?:не|dont|don't|do\s+not|not|емес)\s*$/.test(before)) continue;
+    const end = match.index! + match[0].length, next = matches[index + 1]?.index ?? goal.length;
+    let candidate = goal.slice(end, next).trim();
+    if (!candidate) candidate = goal.slice(matches[index - 1]?.index === undefined ? 0 : matches[index - 1]!.index! + matches[index - 1]![0].length, match.index).trim();
+    const boundary = candidate.search(requestTailBoundary);
+    if (boundary >= 0) candidate = candidate.slice(0, boundary);
+    if (candidate.trim()) clauses.push(candidate.trim());
+  }
+  return clauses;
+}
+
+/** Deterministic safety floor for explicit deliverables; the detailed procedure and typed tools remain the semantic router. */
+export function requiredArtifactKindsForGoal(goal: string, hasCurrentArtifact = false): ArtifactKind[] {
+  if (hasCurrentArtifact) return [];
+  const clauses = requestedClauses(goal.normalize('NFKC').replace(/\s+/g, ' ').trim());
+  return (['design', 'table', 'plan', 'document'] as const).filter((kind) => {
+    const pattern = artifactIntentTokens[kind];
+    return clauses.some((clause) => new RegExp(pattern.source, pattern.flags.replace('g', '')).test(clause));
+  });
+}
 export const BusinessPlanProposalSchema = z.strictObject({
   id: z.string().min(1).max(50).regex(/^[a-z][a-z0-9_-]*$/),
   title: z.string().trim().min(1).max(240),
@@ -61,13 +97,14 @@ const BusinessSourceSchema = z.preprocess((raw) => {
 export const BusinessContextSchema = z.strictObject({
   schema: z.literal(1), procedureVersion: z.literal(BUSINESS_PROCEDURE_VERSION).default(BUSINESS_PROCEDURE_VERSION), goal: z.string().max(12000), locale: LocaleSchema, inputRefs: z.array(RunInputRefSchema).max(100),
   currentArtifact: RunCurrentArtifactSchema.nullable().default(null),
+  requiredArtifactKinds: z.array(ArtifactKindSchema).max(4).default([]),
   executionAuthority: WorkExecutionAuthoritySchema.nullable().default(null),
   businessContextRefs: z.array(BusinessContextSelectionSchema).max(20).default([]),
   sources: z.array(BusinessSourceSchema).max(100),
   sourceRoles: z.array(BusinessSourceRoleAssignmentSchema).max(100).default([]),
   artifacts: z.array(ArtifactExcerptSchema).max(40),
   messages: z.array(MessageSchema).max(60), plan: z.array(z.string().min(1).max(500)).max(10),
-  questions: z.array(QuestionSchema).max(10), answers: z.array(z.strictObject({ questionId: z.string().max(50), answer: z.string().min(1).max(4000) })).max(40),
+  questions: z.array(QuestionSchema).max(10), answers: z.array(AcceptedAnswerSchema).max(40),
   operations: z.array(OperationsDecisionSchema).max(20).default([]),
   planProposals: z.array(BusinessPlanProposalSchema).max(5).default([]),
   datasets: z.array(MaterialEvidenceContextSchema).max(3).default([]),
@@ -81,7 +118,7 @@ export const BusinessContextSchema = z.strictObject({
 });
 export type BusinessContext = z.infer<typeof BusinessContextSchema>;
 export function initialBusinessContext(input: CreateRun): BusinessContext {
-  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, currentArtifact: null, executionAuthority: null, businessContextRefs: [], sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, workPreview: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
+  return { schema: 1, procedureVersion: BUSINESS_PROCEDURE_VERSION, goal: input.goal, locale: input.locale, inputRefs: input.inputRefs, currentArtifact: null, requiredArtifactKinds: requiredArtifactKindsForGoal(input.goal), executionAuthority: null, businessContextRefs: [], sources: [], sourceRoles: [], artifacts: [], messages: [], plan: [], questions: [], answers: [], operations: [], planProposals: [], datasets: [], decision: null, workDecision: null, workPreview: null, selectedOptionId: null, acceptedConditionIds: [], bundle: null, results: [], summary: '', round: 0 };
 }
 export function businessContext(context: ToolContext) { return BusinessContextSchema.parse(context.context); }
 export const principalFor = (context: ToolContext) => ({ kind: 'job' as const, userId: context.userId, authzVersion: context.authzVersion });
@@ -133,6 +170,6 @@ export function modelMessages(state: BusinessContext): ModelMessage[] {
   const recentActions = state.messages.flatMap((message) => message.role === 'assistant' ? (message.toolCalls ?? []).map((call) => call.name) : []).slice(-20);
   return [
     { role: 'system', content: businessProcedurePrompt(state) },
-    { role: 'user', content: JSON.stringify({ goal: state.goal, answers: state.answers, plan: state.plan, currentArtifact: state.currentArtifact, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, workPreview: state.workPreview, bundle: state.bundle, savedResults: state.results, recentActions }) },
+    { role: 'user', content: JSON.stringify({ goal: state.goal, requiredArtifactKinds: state.requiredArtifactKinds, answers: state.answers, plan: state.plan, currentArtifact: state.currentArtifact, selectedOptionId: state.selectedOptionId, acceptedConditionIds: state.acceptedConditionIds, selectedInputs: state.inputRefs, sources: evidence, datasets: state.datasets, artifacts: state.artifacts, planProposals: state.planProposals, operations: state.operations, decision: state.decision, workDecision: state.workDecision, workPreview: state.workPreview, bundle: state.bundle, savedResults: state.results, recentActions }) },
   ];
 }

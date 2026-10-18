@@ -13,7 +13,7 @@ import { runErrorText } from '../client/state';
 import { openRunEvents } from '../client/events';
 import { runCatalog, assistantSessionCatalog } from '../locales';
 import { RunContinuation, RunFollowupComposer, runAnswerDraftKey, runFollowupDraftKey, type RunChange } from './run-continuation';
-import { assistantSessionState, sessionArtifactResultHrefs, sessionResultHref, sessionResults, type SessionResultHrefResolver } from './session-state';
+import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionResultHref, sessionResults, showGenericResume, type SessionResultHrefResolver } from './session-state';
 import { DecisionPanel } from './decision-panel';
 import { WorkDecisionPanel } from '@/features/campaigns/ui/work-decision-panel';
 import { WorkPreviewPanel } from './work-preview-panel';
@@ -24,9 +24,9 @@ const actionIcons = { planned: Circle, claimed: LoaderCircle, succeeded: Check, 
 const HISTORY_PAGE_SIZE = 3;
 const HISTORY_LIMIT = 12;
 const historyCatalog = {
-  ru: { heading: 'Предыдущие сообщения', you: 'Вы', assistant: 'Тірлік', results: 'Материалы', loadEarlier: 'Показать более ранние', loading: 'Загружаем…', unavailable: 'Не удалось загрузить более ранние сообщения.', retry: 'Повторить' },
-  kk: { heading: 'Алдыңғы хабарламалар', you: 'Сіз', assistant: 'Тірлік', results: 'Материалдар', loadEarlier: 'Ертерек хабарламаларды көрсету', loading: 'Жүктелуде…', unavailable: 'Ертерек хабарламалар жүктелмеді.', retry: 'Қайталау' },
-  en: { heading: 'Earlier messages', you: 'You', assistant: 'Tirlik', results: 'Materials', loadEarlier: 'Show earlier messages', loading: 'Loading…', unavailable: 'Earlier messages could not be loaded.', retry: 'Try again' },
+  ru: { heading: 'Предыдущие сообщения', you: 'Вы', assistant: 'Тірлік', results: 'Материалы', loadEarlier: 'Показать более ранние', loading: 'Загружаем…', unavailable: 'Не удалось загрузить более ранние сообщения.', missingPrompt: 'Ассистент остановился, но не сохранил вопрос или доступное действие. Обновите задачу.', retry: 'Повторить' },
+  kk: { heading: 'Алдыңғы хабарламалар', you: 'Сіз', assistant: 'Тірлік', results: 'Материалдар', loadEarlier: 'Ертерек хабарламаларды көрсету', loading: 'Жүктелуде…', unavailable: 'Ертерек хабарламалар жүктелмеді.', missingPrompt: 'Ассистент тоқтады, бірақ сұрақты немесе қолжетімді әрекетті сақтамады. Тапсырманы жаңартыңыз.', retry: 'Қайталау' },
+  en: { heading: 'Earlier messages', you: 'You', assistant: 'Tirlik', results: 'Materials', loadEarlier: 'Show earlier messages', loading: 'Loading…', unavailable: 'Earlier messages could not be loaded.', missingPrompt: 'The assistant stopped without saving a question or an available action. Refresh the task.', retry: 'Try again' },
 } as const;
 
 interface AssistantHistoryState {
@@ -280,7 +280,8 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
   const retryStepId = data?.actions.retryStepIds[0];
   const canStop = Boolean(data?.actions.cancel && transport.cancel && (data.state === 'queued' || data.state === 'running'));
   const hasActivity = Boolean(data && (data.progress.plan.length || data.progress.branches?.length || receipts.length));
-  const keepComposer = Boolean(data?.capabilityId === 'business.goal' && data.failure !== 'access_changed' && data.state !== 'cancelled');
+  const composerState = followupComposerState(data);
+  const missingDecisionPrompt = Boolean(data?.state === 'waiting_input' && !data.failure && !data.actions.resume && data.progress.questions.length === 0 && data.progress.decision?.selectedOptionId !== null && data.progress.workDecision?.selectedOptionId !== null);
   return <>{collapsedRail}<aside className={styles.assistantSession} aria-labelledby="assistant-session-title" hidden={collapsed}>
     <header className={styles.assistantHeading}>
       <div><span className={styles.assistantIdentity}><Bot size={19} aria-hidden="true" />{text.assistant}</span><strong id="assistant-session-title">{data ? text.states[state] : text.states.empty}</strong></div>
@@ -293,7 +294,7 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
         {history.runs.map((pastRun) => {
           const pastState = assistantSessionState(pastRun), pastResults = sessionResults(pastRun);
           return <article className={styles.historyTurn} key={pastRun.id}>
-            <div className={styles.historyUser}><span>{historyText.you}</span><p>{pastRun.goal}</p></div>
+            {sessionConversationTurns(pastRun).map((turn) => <div className={turn.role === 'user' ? styles.historyUser : styles.historyAssistant} key={turn.key}><span>{turn.role === 'user' ? historyText.you : historyText.assistant}</span><p>{turn.content}</p></div>)}
             <div className={styles.historyAssistant}><span>{historyText.assistant}</span><strong>{text.states[pastState]}</strong>{pastRun.progress.summary && <p>{pastRun.progress.summary}</p>}{pastRun.failure && <p>{runText.failures[pastRun.failure]}</p>}
               {pastResults.length > 0 && <div className={styles.historyResults}><small>{historyText.results}</small>{pastResults.map((result) => { const href = sessionResultHref(pastRun, result, resultHref); const title = pastRun.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? runText[result.kind]; return href ? <Link key={`${result.kind}:${result.id}:${result.revision ?? ''}`} href={href}>{title}<ArrowUpRight size={13} aria-hidden="true" /></Link> : <span key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{title}</span>; })}</div>}
             </div>
@@ -303,20 +304,21 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
         {history.nextParentRunId && history.runs.length < HISTORY_LIMIT && !history.unavailable && <Button className={styles.historyLoad} variant="quiet" pending={history.loading} onClick={() => { void loadEarlierHistory(); }}>{history.loading ? historyText.loading : historyText.loadEarlier}</Button>}
       </section>}
       <article className={styles.currentTurn}>
-        <div className={styles.historyUser}><span>{historyText.you}</span><p>{data.goal}</p></div>
+        {sessionConversationTurns(data).map((turn) => <div className={turn.role === 'user' ? styles.historyUser : styles.historyAssistant} key={turn.key}><span>{turn.role === 'user' ? historyText.you : historyText.assistant}</span><p>{turn.content}</p></div>)}
         <div className={`${styles.historyAssistant} ${styles.currentAssistant}`}><span>{historyText.assistant}</span><strong><span className={styles.assistantState} data-state={state}>{text.states[state]}</span></strong>
           {data.progress.summary && <p className={styles.resultSummary}>{data.progress.summary}</p>}
           {error !== undefined && <div className={styles.sessionError} role="alert"><p>{runText.errors.unavailable}</p><Button icon={RefreshCw} onClick={() => setReload((value) => value + 1)}>{text.checkAgain}</Button></div>}
           {data.failure && <p className={styles.sessionNotice}>{runText.failures[data.failure]}</p>}
+          {missingDecisionPrompt && <div className={styles.sessionError} role="alert"><p>{historyText.missingPrompt}</p><Button icon={RefreshCw} onClick={() => setReload((value) => value + 1)}>{historyText.retry}</Button></div>}
           {visibleLiveEvent && liveAction && liveState && <div className={styles.liveActivity} role="status" aria-live="polite">{visibleLiveEvent.stepState === 'claimed' || visibleLiveEvent.state === 'queued' || visibleLiveEvent.state === 'running' ? <LoaderCircle className="tl-spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}<span><strong>{liveAction}</strong><small>{liveState}</small></span></div>}
           {resultlessCompletion && <div className={styles.resultRequired} role="status"><strong>{text.resultRequired}</strong><p>{text.resultRequiredText}</p></div>}
           {data.progress.decision && <DecisionPanel decision={data.progress.decision} locale={locale} workspaceId={workspaceId} copy={text} context={{ projectId, runId: data.id }} canChoose={data.actions.resume && data.progress.decision.selectedOptionId === null} pending={pending} pendingConditions={decisionConditions} onChoose={(selectedOptionId) => { void mutate('resume', { selectedOptionId }); }} onAcceptConditions={(acceptedConditionIds) => { void mutate('resume', { acceptedConditionIds }); }} />}
           {data.progress.workDecision && <WorkDecisionPanel decision={data.progress.workDecision} locale={locale} resultHrefs={workDecisionResultHrefs} canChoose={data.actions.resume && data.progress.workDecision.selectedOptionId === null} pending={pending} onChoose={(selectedOptionId) => { void mutate('resume', { selectedOptionId }); }} />}
           {data.progress.workPreview && <WorkPreviewPanel key={`${data.id}:${data.progress.workPreview.editable.artifactId}:${data.progress.workPreview.editable.revision}`} run={data} preview={data.progress.workPreview} locale={locale} context={{ userId, workspaceId, projectId }} resultHref={resultHref} onFinanceRecalculate={transport.recalculateFinance} />}
-          <RunContinuation key={`${data.id}:${data.epoch}`} run={data} locale={locale} pending={pending} draftOwnerId={draftScopeKey ?? userId} structuredDecision compact runHref={runHref ?? ((targetRunId) => `${sessionPath ?? `/app/projects/${projectId}`}?run=${targetRunId}`)} onContinue={(change) => { void mutate('resume', change); }} />
+          <RunContinuation key={`${data.id}:${data.epoch}`} run={data} locale={locale} pending={pending} draftOwnerId={draftScopeKey ?? userId} structuredDecision compact runHref={runHref ?? ((targetRunId) => `${sessionPath ?? `/app/projects/${projectId}`}?run=${targetRunId}`)} onRefresh={() => setReload((value) => value + 1)} onContinue={(change) => { void mutate('resume', change); }} />
           {results.length > 0 && <div className={styles.turnResults}><small>{text.results}</small>{results.map((result) => { const href = sessionResultHref(data, result, resultHref); const title = data.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? runText[result.kind]; return href ? <Link key={`${result.kind}:${result.id}:${result.revision ?? ''}`} href={href}>{result.kind === 'artifact' ? <FileText size={16} aria-hidden="true" /> : null}{title}<ArrowUpRight size={14} aria-hidden="true" /></Link> : <span key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{title}</span>; })}</div>}
           {data.failure && retryStepId && <div className={styles.sessionActions}><Button variant="primary" icon={RefreshCw} pending={pending} onClick={() => { void mutate('resume', {}, retryStepId); }}>{runText.retryStep}</Button></div>}
-          {data.actions.resume && !data.failure && !data.progress.questions.length && !(data.progress.decision && data.progress.decision.selectedOptionId === null) && <div className={styles.sessionActions}><Button variant="primary" icon={Play} pending={pending} onClick={() => { void mutate('resume'); }}>{runText.resume}</Button></div>}
+          {showGenericResume(data) && <div className={styles.sessionActions}><Button variant="primary" icon={Play} pending={pending} onClick={() => { void mutate('resume'); }}>{runText.resume}</Button></div>}
           {hasActivity && <details className={styles.activityDisclosure}><summary>{text.activity}</summary><div>
             {!!data.progress.plan.length && <section className={styles.assistantPlan}><h3>{text.plan}</h3><ol>{data.progress.plan.map((step, index) => <li key={`${index}:${step}`}>{step}</li>)}</ol></section>}
             {!!data.progress.branches?.length && <section className={styles.assistantBranches}><h3>{text.branches}</h3><ul>{data.progress.branches.map((branch) => <li key={branch.id}><div><strong>{branch.title}</strong><span data-state={branch.state}>{text.branchStates[branch.state]}</span></div>{branch.resultRefs.length > 0 && <div className={styles.branchResults}>{branch.resultRefs.map((result) => { const href = sessionResultHref(data, result, resultHref); const title = data.progress.results.find((item) => item.kind === result.kind && item.id === result.id)?.title ?? runText[result.kind]; return href ? <Link key={`${result.kind}:${result.id}:${result.revision ?? ''}`} href={href}>{title}<ArrowUpRight size={14} aria-hidden="true" /></Link> : <span key={`${result.kind}:${result.id}:${result.revision ?? ''}`}>{title}</span>; })}</div>}</li>)}</ul></section>}
@@ -327,6 +329,6 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
       </article>
       <Dialog open={cancelOpen} onOpenChange={(open) => { if (!pending) setCancelOpen(open); }} title={text.stopTitle} description={text.stopText} footer={<><DialogClose disabled={pending}>{text.keepWorking}</DialogClose><Button variant="danger" icon={Square} pending={pending} onClick={() => { void mutate('cancel'); }}>{text.stop}</Button></>}><p>{data.goal}</p></Dialog>
     </div>}
-    {data && keepComposer && <RunFollowupComposer key={`${data.id}:${currentArtifactId ?? 'none'}`} run={data} locale={locale} pending={pending} disabled={!data.actions.revise} draftOwnerId={draftScopeKey ?? userId} artifactId={currentArtifactId} error={commandError === undefined ? undefined : runErrorText(commandError, runText)} onContinue={(change) => { void mutate('resume', change, undefined, true); }} />}
+    {data && composerState !== 'hidden' && <RunFollowupComposer key={`${data.id}:${currentArtifactId ?? 'none'}`} run={data} locale={locale} pending={pending} disabled={composerState === 'disabled'} draftOwnerId={draftScopeKey ?? userId} artifactId={currentArtifactId} error={commandError === undefined ? undefined : runErrorText(commandError, runText)} onContinue={(change) => { void mutate('resume', change, undefined, true); }} />}
   </aside></>;
 }

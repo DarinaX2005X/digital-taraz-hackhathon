@@ -86,8 +86,9 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
   function transform(key:keyof DesignLayer['transform'],value:number){if(!layer)return;const next={...layer.transform,[key]:value};if(layer.type==='group'&&(key==='width'||key==='height')){const scale=value/layer.transform[key];next.width=layer.transform.width*scale;next.height=layer.transform.height*scale;}update({transform:next});}
   function add(type:'text'|'shape',shape?:DesignLayer['shape']){void dispatch({type:'insert-layer',pageId:page.id,layer:newLayer(type,crypto.randomUUID(),{text:t.newText,shape})});}
   function pick(asset:PickedDesignAsset){if(picker==='font'&&layer)update({fontAssetId:asset.id,style:{...layer.style,fontWeight:400,fontStyle:'normal'}});else if(picker==='replace-image'&&layer)update({assetId:asset.id,crop:undefined});else{const ratio=asset.width&&asset.height?asset.width/asset.height:1;const width=Math.min(page.width*.7,480);void dispatch({type:'insert-layer',pageId:page.id,layer:newLayer('image',crypto.randomUUID(),{assetId:asset.id,width,height:width/ratio})});}setPicker(undefined);}
-  const status=current.phase==='ready'?t.saved:current.phase==='saving'?t.saving:current.phase==='dirty'?t.dirty:current.phase==='failed'?t.failed:current.phase==='conflict'?t.conflict:current.phase==='recovery'?t.recovery:'';
+  const status=current.phase==='ready'?'':current.phase==='saving'?t.saving:current.phase==='dirty'?t.dirty:current.phase==='failed'?t.failed:current.phase==='conflict'?t.conflict:current.phase==='recovery'?t.recovery:'';
   if(!snapshot||sessionState.phase!=='ready'||current.phase==='hidden')return null;
+  const statusText=!snapshot.permissions.edit?t.readOnly:current.phase!=='ready'&&current.localSaved?`${status} · ${t.local}`:status;
   const lockedLayer=!!layer&&locked.has(layer.id),canChange=editable&&!selectionLocked&&selectedIds.length>0;
   const historyAvailable=(kind:'undo'|'redo')=>snapshot.history.some((entry)=>entry.artifacts.length===1&&(kind==='undo'?entry.canUndo:entry.canRedo));
   return <section className={styles.editor} aria-label={t.editor}>
@@ -103,7 +104,7 @@ export function DesignEditor({session,state:sessionState,onFlushReady}:{session:
       <ToolbarItem render={<IconButton icon={ZoomOut} label={t.zoomOut} onClick={()=>{setFitMode(false);setZoom((value)=>Math.max(.01,value/1.25));}}/>}/>
       <output className={styles.zoomValue}>{Math.round(canvasZoom*100)}%</output>
       <ToolbarItem render={<IconButton icon={ZoomIn} label={t.zoomIn} onClick={()=>{setFitMode(false);setZoom((value)=>Math.min(4,value*1.25));}}/>}/>
-      <ToolbarItem render={<Button variant="quiet" onClick={fit}>{t.fit}</Button>}/><span className={styles.spacer}/><span className={styles.status} role="status">{!snapshot.permissions.edit?t.readOnly:status}{current.phase!=='ready'&&current.localSaved?` · ${t.local}`:''}</span>
+      <ToolbarItem render={<Button variant="quiet" onClick={fit}>{t.fit}</Button>}/><span className={styles.spacer}/>{statusText&&<span className={styles.status} role="status">{statusText}</span>}
       <ToolbarItem render={<IconButton icon={Save} label={t.save} disabled={!editable} onClick={()=>void flush()}/>}/>
     </Toolbar>
     {['failed','conflict','recovery'].includes(current.phase)&&<div className={styles.notice} role="alert">{status}{current.phase==='failed'&&<Button onClick={()=>void controller.retry()}>{t.retry}</Button>}</div>}

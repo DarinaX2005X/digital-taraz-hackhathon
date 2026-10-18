@@ -202,7 +202,7 @@ export function ProjectPage({ ownerId, initial, selectedSource, initialRunId, in
     <TextareaField id="project-task-goal" label={t.goal} placeholder={t.goalHint} value={goal} maxLength={12000} rows={5} disabled={!canEdit || saving || taskBusy} onChange={(event) => setGoal(event.target.value)} />
     {externalChange && <div className={styles.error}><div><p>{t.conflict}</p><strong>{project.title}</strong><p>{project.goal}</p></div><Button onClick={() => { setBaseRevision(project.revision); setError(undefined); }}>{t.resume}</Button></div>}
     <WorkspaceError error={error} saving retry={() => { void refreshProject().catch(setError); }} />
-    {canEdit && <div className={styles.actions}><Button type="submit" icon={Save} pending={saving} disabled={!dirty || externalChange || !title.trim() || taskBusy}>{t.save}</Button><SaveStatus state={saving ? 'saving' : dirty ? 'unsaved' : 'saved'} /></div>}
+    {canEdit && <div className={styles.actions}><Button type="submit" icon={Save} pending={saving} disabled={!dirty || externalChange || !title.trim() || taskBusy}>{t.save}</Button>{(saving || dirty) && <SaveStatus state={saving ? 'saving' : 'unsaved'} />}</div>}
     {canEdit && <ProjectTask ownerId={ownerId} workspaceId={workspaceId} projectId={projectId} goal={goal} sources={sources} active={active} canEdit={canEdit && !externalChange && Boolean(title.trim())} selectedSource={selectedSource} beforeStart={async () => !dirty || await mutate('update')} onBusyChange={setTaskBusy} onStarted={selectRun} run={run} />}
   </form>;
   return <WorkspaceShell workspaceId={workspaceId} beforeSignOut={leave.beforeSignOut} onClickCapture={leave.onClickCapture}><main className={styles.main}>

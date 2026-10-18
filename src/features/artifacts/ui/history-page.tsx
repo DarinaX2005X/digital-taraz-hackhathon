@@ -70,12 +70,12 @@ export function ArtifactHistoryPage({ initial, projectTitle }: { initial: Artifa
     <AuthDialog open={authOpen} onOpenChange={setAuthOpen} returnTo={location.href} onAuthenticated={() => { void continueSession(); }} />
   </div>;
 }
-function saveState(state: ArtifactSessionState): SaveState {
+function saveState(state: ArtifactSessionState): SaveState | null {
   if (state.operation.phase === "pending" || state.autosave?.status === "saving") return "saving";
   if (state.autosave?.status === "conflict" || state.operation.phase === "rejected") return "conflict";
   if (state.operation.operation || state.autosave?.status === "uncertain" || state.autosave?.status === "failed") return "unsaved";
   if (state.drafts.length || state.pending.length) return state.autosave?.locallyPersisted ? "local" : "unsaved";
-  return state.storageError ? "unsaved" : "saved";
+  return state.storageError ? "unsaved" : null;
 }
 
 function HistoryWorkspace({ state, session, projectTitle, form, setForm, followMove }: { state: ArtifactSessionState; session: ArtifactSession; projectTitle: string; form: HistoryForm; setForm: React.Dispatch<React.SetStateAction<HistoryForm>>; followMove: (operation: ArtifactOperation | undefined, result: ArtifactOperationResult | undefined) => boolean }) {
@@ -105,6 +105,7 @@ function HistoryWorkspace({ state, session, projectTitle, form, setForm, followM
   const selected = state.selectedVersion;
   const preview = selected ?? snapshot;
   const group = snapshot.history.find((entry) => entry.commandGroupId === selectedGroup) ?? snapshot.history[0];
+  const currentSaveState = saveState(state);
 
   useEffect(() => {
     mounted.current = true;
@@ -177,7 +178,7 @@ function HistoryWorkspace({ state, session, projectTitle, form, setForm, followM
     <ProductHeader homeLabel={t("artifacts.navigation.home")}><LocaleSelect compact /><AccountMenu beforeSignOut={beforeSignOut} onSignedOut={() => { void signedOut(); }} /></ProductHeader>
     <main className={styles.workspace}>
       <nav className={styles.breadcrumb} aria-label={t("artifacts.navigation.history")}><Link href={`/app/projects/${snapshot.artifact.projectId}/artifacts/${snapshot.artifact.id}`}><ArrowLeft size={17} aria-hidden="true" />{t("artifacts.navigation.material")}</Link><Link href={`/app/projects/${snapshot.artifact.projectId}`}>{projectTitle}</Link><span>{t("artifacts.navigation.history")}</span></nav>
-      <header className={styles.heading}><div><h1>{snapshot.artifact.title}</h1><p className={styles.meta}>{t(`artifacts.kinds.${snapshot.artifact.kind}`)}<span className={styles.tag}>{t(`artifacts.statuses.${snapshot.artifact.status}`)}</span></p></div><div className={styles.actions}><SaveStatus state={saveState(state)} /><IconButton icon={RefreshCw} label={t("artifacts.actions.refresh")} disabled={busy} onClick={() => handle(async () => { await session.refresh(); await session.loadVersions(); })} /><ArtifactLifecycleMenu snapshot={snapshot} disabled={!canAct} onAction={openAction} /></div></header>
+      <header className={styles.heading}><div><h1>{snapshot.artifact.title}</h1><p className={styles.meta}>{t(`artifacts.kinds.${snapshot.artifact.kind}`)}<span className={styles.tag}>{t(`artifacts.statuses.${snapshot.artifact.status}`)}</span></p></div><div className={styles.actions}>{currentSaveState && <SaveStatus state={currentSaveState} />}<IconButton icon={RefreshCw} label={t("artifacts.actions.refresh")} disabled={busy} onClick={() => handle(async () => { await session.refresh(); await session.loadVersions(); })} /><ArtifactLifecycleMenu snapshot={snapshot} disabled={!canAct} onAction={openAction} /></div></header>
       <ArtifactError error={error ?? state.error ?? state.storageError} />
       {state.createdArtifact && <p role="status" className={styles.success}><span>{t("artifacts.page.createdVariant")}</span><Link href={artifactHistoryHref(state.createdArtifact.projectId, state.createdArtifact.id)}>{state.createdArtifact.title}<ArrowRight size={17} aria-hidden="true" /></Link></p>}
       {state.operation.operation && !action && <div className={styles.recoveryBar}><div><strong>{t(state.operation.phase === "rejected" ? "artifacts.errors.conflict" : "artifacts.recovery.uncertain")}</strong><ArtifactError error={state.operation.error} /></div>{state.operation.phase === "rejected" ? <Button icon={RefreshCw} disabled={busy} onClick={() => handle(async () => { await session.dismissRejected(); })}>{t("artifacts.actions.refresh")}</Button> : <Button icon={RotateCw} pending={state.operation.phase === "pending"} onClick={() => handle(retryOperation)}>{t("artifacts.actions.retry")}</Button>}</div>}

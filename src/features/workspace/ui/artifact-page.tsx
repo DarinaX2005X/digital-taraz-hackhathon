@@ -33,6 +33,7 @@ import type { ArtifactOperationResult } from '@/features/artifacts/client/execut
 import type { ArtifactCacheOptions } from '@/features/artifacts/client/indexed-db';
 import type { OperationsClient } from '@/features/operations/client/transport';
 import { ArtifactThread } from '@/features/collaboration/ui/artifact-thread';
+import { MobileArtifactActions } from './mobile-artifact-actions';
 
 export type ArtifactWorkspaceCapabilities = {
   shell: boolean;
@@ -72,9 +73,9 @@ const DesignEditor = dynamic(() => import('@/features/designs/ui/design-editor')
 const PlanEditor = dynamic(() => import('@/features/operations').then((module) => module.PlanEditor), { ssr: false, loading: EditorLoading });
 
 const editorViewCopy = {
-  ru: { expand: 'Развернуть редактор', collapse: 'Вернуться в рабочую область' },
-  kk: { expand: 'Редакторды толық ашу', collapse: 'Жұмыс аймағына оралу' },
-  en: { expand: 'Expand editor', collapse: 'Return to workspace' },
+  ru: { expand: 'Развернуть редактор', compact: 'Редактор', collapse: 'Вернуться в рабочую область', more: 'Ещё', moreActions: 'Ещё действия с результатом' },
+  kk: { expand: 'Редакторды толық ашу', compact: 'Редактор', collapse: 'Жұмыс аймағына оралу', more: 'Тағы', moreActions: 'Нәтижеге арналған қосымша әрекеттер' },
+  en: { expand: 'Expand editor', compact: 'Editor', collapse: 'Return to workspace', more: 'More', moreActions: 'More result actions' },
 } as const;
 
 class EditorBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
@@ -363,16 +364,20 @@ export function ArtifactWorkspacePage({ initial, projectTitle, initialRunId, mod
   const content = <main className={styles.main} onClickCapture={capabilities.shell ? undefined : beforeNavigate}>
     {capabilities.tour && <TourGuide ownerId={snapshot.viewer.userId} anchors={{ ...(snapshot.permissions.edit ? { edit: 'artifact-editor' } : {}), history: 'artifact-history', export: 'artifact-export' }} />}
     {capabilities.navigation && <Link href={`/app/projects/${projectId}${activeRunId ? `?run=${activeRunId}` : ''}`} className={styles.back}><ArrowLeft size={18} />{projectTitle}</Link>}
-    <header className={styles.pageHeading}><h1>{snapshot.artifact.title}</h1><div className={styles.actions}>
-      {capabilities.rail && <Button className={styles.mobileOnly} icon={FileText} onClick={() => setRailOpen(true)}>{t.results}</Button>}
-      <SaveStatus state={state.autosave?.status === 'saving' ? 'saving' : hasRecovery ? state.autosave?.locallyPersisted ? 'local' : 'unsaved' : 'saved'} />
-      <Button ref={editorExpandButton} icon={Maximize2} onClick={() => setEditorExpanded(true)}>{editorViewCopy[locale].expand}</Button>
-      {capabilities.navigation && <Link className="tl-button tl-button--secondary" href={`/app/materials?workspaceId=${snapshot.viewer.workspaceId}&projectId=${snapshot.artifact.projectId}`}><FolderOpen size={18} />{t.source}</Link>}
-      {capabilities.navigation && <Link id="artifact-history" className="tl-button tl-button--secondary" href={historyHref}><FileClock size={18} />{t.history}</Link>}
-      {capabilities.review && <ChangeReviewPanel key={`${viewerUserId}:${viewerWorkspaceId}:${projectId}:${viewerAuthzVersion}`} viewer={snapshot.viewer} projectId={snapshot.artifact.projectId} locale={locale} disabled={state.loading || Boolean(state.operation.operation)} beforeReview={beforeReview} onCommitted={afterLinkedChange} onUndo={async (groupId) => { const prepared = await session.prepareHistory('undo', groupId); if (prepared.operation) { await session.run(prepared.operation); await afterLinkedChange(); } }} />}
-      {capabilities.export && <div id="artifact-export" tabIndex={-1}><ExportPanel workspaceId={snapshot.viewer.workspaceId} artifactId={snapshot.artifact.id} userId={snapshot.viewer.userId} expectedAuthzVersion={snapshot.viewer.authzVersion} kind={snapshot.content.kind} revision={snapshot.artifact.currentRevision} locale={locale} sheets={exportSheets} pages={exportPages} bundleItems={fixedExportBundle} transport={transport?.exports} disabled={state.loading || Boolean(state.operation.operation)} beforeExport={beforeExport} /></div>}
-      {capabilities.lifecycle && <ArtifactLifecycleMenu snapshot={snapshot} disabled={state.loading || lifecyclePreparing || hasRecovery || state.autosave?.status === 'saving' || Boolean(state.operation.operation)} onAction={(kind) => { void prepareLifecycle(kind); }} />}
-    </div></header>
+    <header className={styles.pageHeading}><h1>{snapshot.artifact.title}</h1><MobileArtifactActions
+      moreLabel={editorViewCopy[locale].more}
+      moreAccessibleLabel={editorViewCopy[locale].moreActions}
+      leading={capabilities.rail ? <Button className={styles.mobileOnly} icon={FileText} onClick={() => setRailOpen(true)}>{t.results}</Button> : undefined}
+      status={(state.autosave?.status === 'saving' || hasRecovery) ? <SaveStatus state={state.autosave?.status === 'saving' ? 'saving' : state.autosave?.locallyPersisted ? 'local' : 'unsaved'} /> : undefined}
+      primary={<Button ref={editorExpandButton} icon={Maximize2} aria-label={editorViewCopy[locale].expand} onClick={() => setEditorExpanded(true)}><span className={styles.artifactExpandLong}>{editorViewCopy[locale].expand}</span><span className={styles.artifactExpandShort} aria-hidden="true">{editorViewCopy[locale].compact}</span></Button>}
+      secondary={[
+        capabilities.navigation ? <Link key="source" className="tl-button tl-button--secondary" href={`/app/materials?workspaceId=${snapshot.viewer.workspaceId}&projectId=${snapshot.artifact.projectId}`}><FolderOpen size={18} />{t.source}</Link> : null,
+        capabilities.navigation ? <Link key="history" id="artifact-history" className="tl-button tl-button--secondary" href={historyHref}><FileClock size={18} />{t.history}</Link> : null,
+        capabilities.review ? <ChangeReviewPanel key={`${viewerUserId}:${viewerWorkspaceId}:${projectId}:${viewerAuthzVersion}`} viewer={snapshot.viewer} projectId={snapshot.artifact.projectId} locale={locale} disabled={state.loading || Boolean(state.operation.operation)} beforeReview={beforeReview} onCommitted={afterLinkedChange} onUndo={async (groupId) => { const prepared = await session.prepareHistory('undo', groupId); if (prepared.operation) { await session.run(prepared.operation); await afterLinkedChange(); } }} /> : null,
+        capabilities.export ? <div key="export" id="artifact-export" tabIndex={-1}><ExportPanel workspaceId={snapshot.viewer.workspaceId} artifactId={snapshot.artifact.id} userId={snapshot.viewer.userId} expectedAuthzVersion={snapshot.viewer.authzVersion} kind={snapshot.content.kind} revision={snapshot.artifact.currentRevision} locale={locale} sheets={exportSheets} pages={exportPages} bundleItems={fixedExportBundle} transport={transport?.exports} disabled={state.loading || Boolean(state.operation.operation)} beforeExport={beforeExport} /></div> : null,
+        capabilities.lifecycle ? <ArtifactLifecycleMenu key="lifecycle" snapshot={snapshot} disabled={state.loading || lifecyclePreparing || hasRecovery || state.autosave?.status === 'saving' || Boolean(state.operation.operation)} onAction={(kind) => { void prepareLifecycle(kind); }} /> : null,
+      ]}
+    /></header>
     <ArtifactError error={error ?? state.error ?? state.storageError} />
     {hasRecovery && <div className={styles.error}><p>{t.recover}</p>{capabilities.navigation && <Link className="tl-button tl-button--secondary" href={historyHref}>{t.history}</Link>}</div>}
     {capabilities.assistant && <div className={styles.sessionSwitch} role="group" aria-label={t.sessionView}><Button variant={mobileView === 'assistant' ? 'primary' : 'quiet'} onClick={() => setMobileView('assistant')}>{t.assistant}</Button><Button variant={mobileView === 'result' ? 'primary' : 'quiet'} onClick={() => setMobileView('result')}>{t.results}</Button></div>}

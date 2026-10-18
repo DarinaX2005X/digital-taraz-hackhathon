@@ -90,7 +90,13 @@ export function createPlanController(session: ArtifactSession, reason: () => str
       const own = flight && next.snapshot.artifact.currentRevision === flight.revision + 1 && next.snapshot.history.some((item) => item.commandGroupId === flight!.id);
       if (own && flight) {
         acknowledged = flight.generation; snapshot = next.snapshot; flight = undefined;
-        if (generation > acknowledged) { publish({ phase: 'dirty' }); void persist(state.content, snapshot.artifact.currentRevision, generation); schedule(0); }
+        if (generation > acknowledged) {
+          // A draft generation is immutable in IndexedDB. Rebasing the newer
+          // content onto the acknowledged revision is therefore a new durable
+          // generation, even though the user's content itself is unchanged.
+          const rebasedGeneration = ++generation;
+          publish({ phase: 'dirty' }); void persist(state.content, snapshot.artifact.currentRevision, rebasedGeneration); schedule(0);
+        }
         else publish({ content: requirePlan(snapshot.content), phase: 'ready', localSaved: true });
       } else if (generation !== acknowledged || flight) { cancelTimer(); publish({ phase: 'conflict' }); }
       else { snapshot = next.snapshot; publish({ content: requirePlan(snapshot.content), phase: 'ready', localSaved: true }); }
