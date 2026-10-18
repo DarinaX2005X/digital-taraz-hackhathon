@@ -229,7 +229,7 @@ export function normalizeBusinessToolArguments(name: string, raw: unknown): unkn
     return Number.isSafeInteger(numeric) ? numeric : value;
   };
   const input = raw as Record<string, unknown>;
-  return { ...input, revision: integer(input.revision), offset: integer(input.offset) };
+  return { ...input, revision: input.revision === 'null' ? null : integer(input.revision), offset: integer(input.offset) };
 }
 
 export function isBusinessToolAvailable(name: string, state: BusinessContext): boolean {

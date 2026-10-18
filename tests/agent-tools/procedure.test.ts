@@ -22,10 +22,15 @@ describe('versioned business assistant procedure', () => {
     expect(J1_PROCEDURE_EVAL_CASES[2].forbiddenProperties).toContain('fixed-role-chain');
   });
 
-  it('canonicalizes integer strings at the provider read-artifact boundary only', () => {
+  it('canonicalizes exact null and integer strings at the provider read-artifact boundary only', () => {
     expect(normalizeBusinessToolArguments('read_artifact', { artifactId: 'a', revision: '1', offset: '0' })).toEqual({ artifactId: 'a', revision: 1, offset: 0 });
+    expect(normalizeBusinessToolArguments('read_artifact', { artifactId: 'a', revision: null, offset: 0 })).toEqual({ artifactId: 'a', revision: null, offset: 0 });
+    expect(normalizeBusinessToolArguments('read_artifact', { artifactId: 'a', revision: 'null', offset: 0 })).toEqual({ artifactId: 'a', revision: null, offset: 0 });
     expect(normalizeBusinessToolArguments('read_artifact', { artifactId: 'a', revision: '01', offset: '-1' })).toEqual({ artifactId: 'a', revision: '01', offset: '-1' });
+    expect(normalizeBusinessToolArguments('read_artifact', { artifactId: 'a', revision: ' null ', offset: 0 })).toEqual({ artifactId: 'a', revision: ' null ', offset: 0 });
     expect(normalizeBusinessToolArguments('compare_decision_options', { revision: '1', offset: '0' })).toEqual({ revision: '1', offset: '0' });
+    const createPlan = { title: 'Launch', tasks: [{ key: 'approve', title: 'Approve' }] };
+    expect(normalizeBusinessToolArguments('create_plan', createPlan)).toBe(createPlan);
   });
 
   it('uses an affirmative multilingual format floor without treating sources, negation or unknown visuals as document requests', () => {

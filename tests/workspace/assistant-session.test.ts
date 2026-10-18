@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Run, RunResultRef } from '@/contracts/runs';
+import type { Run, RunEvent, RunResultRef } from '@/contracts/runs';
 import { assistantSessionCatalog, runCatalog } from '@/features/runs/locales';
-import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionFailureMessage, sessionResultHref, sessionResults, showGenericResume } from '@/features/runs/ui/session-state';
+import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionFailureMessage, sessionLiveActivityEvent, sessionResultHref, sessionResults, showGenericResume } from '@/features/runs/ui/session-state';
 
 const id = (tail: string) => `00000000-0000-4000-8000-${tail.padStart(12, '0')}`;
 function run(state: Run['state'], refs: Run['progress']['results'] = []): Run {
@@ -63,6 +63,20 @@ describe('assistant-first session state', () => {
     value.actions.resume = false;
     value.progress.results = [{ kind: 'artifact', id: id('5'), revision: 1, title: 'Draft' }];
     expect(assistantSessionState(value)).toBe('partial');
+  });
+
+  it('does not echo a waiting-input event after a partial failure becomes canonical', () => {
+    const value = run('waiting_input', [{ kind: 'artifact', id: id('5'), revision: 1, title: 'Table' }]);
+    value.failure = 'step_deadline';
+    value.cursor = 7;
+    const event: RunEvent = { id: id('6'), runId: value.id, sequence: 8, at: value.updatedAt, kind: 'run_state', state: 'waiting_input', failure: 'step_deadline', resultRefs: value.progress.results };
+    expect(sessionLiveActivityEvent(value, event)).toBeUndefined();
+
+    value.state = 'running';
+    const progressEvent = { ...event, state: 'running' as const, failure: undefined };
+    expect(sessionLiveActivityEvent(value, progressEvent)).toBe(progressEvent);
+    value.cursor = progressEvent.sequence;
+    expect(sessionLiveActivityEvent(value, progressEvent)).toBeUndefined();
   });
 
   it('reconstructs accepted question answers in their canonical conversation order', () => {

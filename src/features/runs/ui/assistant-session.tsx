@@ -13,7 +13,7 @@ import { runErrorText } from '../client/state';
 import { openRunEvents } from '../client/events';
 import { runCatalog, assistantSessionCatalog } from '../locales';
 import { RunContinuation, RunFollowupComposer, runAnswerDraftKey, runFollowupDraftKey, type RunChange } from './run-continuation';
-import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionFailureMessage, sessionResultHref, sessionResults, showGenericResume, type SessionResultHrefResolver } from './session-state';
+import { assistantSessionState, followupComposerState, sessionArtifactResultHrefs, sessionConversationTurns, sessionFailureMessage, sessionLiveActivityEvent, sessionResultHref, sessionResults, showGenericResume, type SessionResultHrefResolver } from './session-state';
 import { DecisionPanel } from './decision-panel';
 import { WorkDecisionPanel } from '@/features/campaigns/ui/work-decision-panel';
 import { WorkPreviewPanel } from './work-preview-panel';
@@ -274,7 +274,7 @@ export function AssistantSession({ userId, workspaceId, projectId, initialRunId,
   const receipts = data?.steps.filter((step) => step.state !== 'planned') ?? [];
   const decisionConditions = data?.progress.questions.filter((question) => question.id.startsWith('accept_conditions_')) ?? [];
   const resultlessCompletion = Boolean(data && ['completed', 'review_ready'].includes(data.state) && results.length === 0);
-  const visibleLiveEvent = data && liveEvent?.runId === data.id ? liveEvent : undefined;
+  const visibleLiveEvent = sessionLiveActivityEvent(data, liveEvent);
   const liveAction = visibleLiveEvent?.action ? runText.actions[visibleLiveEvent.action] : visibleLiveEvent ? runText.states[visibleLiveEvent.state] : undefined;
   const liveState = visibleLiveEvent?.stepState ? runText.stepStates[visibleLiveEvent.stepState] : visibleLiveEvent ? runText.states[visibleLiveEvent.state] : undefined;
   const retryStepId = data?.actions.retryStepIds[0];

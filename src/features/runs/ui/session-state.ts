@@ -1,4 +1,4 @@
-import type { Run, RunFailure, RunResultRef } from '@/contracts/runs';
+import type { Run, RunEvent, RunFailure, RunResultRef } from '@/contracts/runs';
 
 export type SessionResultHrefResolver = (run: Pick<Run, 'id' | 'workspaceId' | 'projectId'>, result: RunResultRef) => string | null;
 
@@ -64,6 +64,12 @@ export function sessionResults(run: Pick<Run, 'steps' | 'progress'>): RunResultR
 export function sessionFailureMessage(run: Pick<Run, 'failure' | 'steps' | 'progress'>, failures: Record<RunFailure, string>, withoutResults: string): string | undefined {
   if (!run.failure) return undefined;
   return run.failure === 'invalid_result' && sessionResults(run).length === 0 ? withoutResults : failures[run.failure];
+}
+
+/** Shows only progress that is newer than the canonical run projection. */
+export function sessionLiveActivityEvent(run: Pick<Run, 'id' | 'state' | 'cursor'> | null | undefined, event: RunEvent | undefined): RunEvent | undefined {
+  if (!run || !event || event.runId !== run.id || event.sequence <= run.cursor) return undefined;
+  return event.state === 'queued' || event.state === 'running' ? event : undefined;
 }
 
 export function assistantSessionState(run: Run | null | undefined, hasEnteredGoal = false): AssistantSessionState {
